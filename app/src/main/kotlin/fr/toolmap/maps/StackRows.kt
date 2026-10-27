@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
@@ -94,35 +95,34 @@ internal fun StackRows(
     layers.forEachIndexed { index, layer ->
         key(layer.id) {
             val open = expanded == layer.id
-            val drag =
-                Modifier.pointerInput(layer.id) {
-                    detectVerticalDragGestures(
-                        onDragStart = {
-                            dragging = layer.id
-                            dragOffset = 0f
-                        },
-                        onDragEnd = {
-                            dragging = null
-                            dragOffset = 0f
-                        },
-                        onDragCancel = {
-                            dragging = null
-                            dragOffset = 0f
-                        },
-                    ) { change, dy ->
-                        change.consume()
-                        dragOffset += dy
-                        // The layer changes place each time the finger has gone half a line further.
-                        val at = latestLayers.indexOfFirst { it.id == layer.id }
-                        if (dragOffset < -step / 2 && at > 0) {
-                            vm.moveLayerUp(layer.id)
-                            dragOffset += step
-                        } else if (dragOffset > step / 2 && at in 0 until latestLayers.lastIndex) {
-                            vm.moveLayerDown(layer.id)
-                            dragOffset -= step
-                        }
+            val drag: suspend PointerInputScope.() -> Unit = {
+                detectVerticalDragGestures(
+                    onDragStart = {
+                        dragging = layer.id
+                        dragOffset = 0f
+                    },
+                    onDragEnd = {
+                        dragging = null
+                        dragOffset = 0f
+                    },
+                    onDragCancel = {
+                        dragging = null
+                        dragOffset = 0f
+                    },
+                ) { change, dy ->
+                    change.consume()
+                    dragOffset += dy
+                    // The layer changes place each time the finger has gone half a line further.
+                    val at = latestLayers.indexOfFirst { it.id == layer.id }
+                    if (dragOffset < -step / 2 && at > 0) {
+                        vm.moveLayerUp(layer.id)
+                        dragOffset += step
+                    } else if (dragOffset > step / 2 && at in 0 until latestLayers.lastIndex) {
+                        vm.moveLayerDown(layer.id)
+                        dragOffset -= step
                     }
                 }
+            }
             val lifted = dragging == layer.id
             Column(
                 Modifier
@@ -149,7 +149,7 @@ internal fun StackRows(
                     open = open,
                     canUp = index > 0,
                     canDown = index < layers.lastIndex,
-                    dragModifier = drag,
+                    dragGesture = drag,
                     onToggle = { onExpand(if (open) null else layer.id) },
                     vm = vm,
                 )
@@ -194,7 +194,7 @@ private fun LayerLine(
     open: Boolean,
     canUp: Boolean,
     canDown: Boolean,
-    dragModifier: Modifier,
+    dragGesture: suspend PointerInputScope.() -> Unit,
     onToggle: () -> Unit,
     vm: MapViewModel,
 ) {
@@ -219,7 +219,7 @@ private fun LayerLine(
         Box(
             Modifier
                 .size(48.dp)
-                .then(dragModifier)
+                .pointerInput(layer.id, block = dragGesture)
                 .semantics {
                     contentDescription = dragLabel
                     customActions =

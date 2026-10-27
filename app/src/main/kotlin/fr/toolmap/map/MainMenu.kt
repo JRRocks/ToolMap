@@ -118,8 +118,8 @@ fun MainMenuPanel(
     onAction: (MenuAction) -> Unit,
     onCoordinates: (Boolean) -> Unit,
     maxHeight: Dp,
-    onNightMode: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
+    onNightMode: (Boolean) -> Unit = {},
     displayPreview: @Composable () -> Unit = {},
 ) {
     var moreOpen by rememberSaveable { mutableStateOf(false) }
