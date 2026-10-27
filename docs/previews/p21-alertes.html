@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alertes du partage</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+/* P21 preview: warnings for phone settings that stop position sharing (o, c, h). Awaiting the user's validation. */
+:root{--page:#f4f5f8;--text-primary:#1c1d22;--text-secondary:#5d6170;--border:#d7d9e0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#15161b;--text-primary:#e6e7ee;--text-secondary:#a3a7b6;--border:#30333e;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#15161b;--text-primary:#e6e7ee;--text-secondary:#a3a7b6;--border:#30333e;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text-primary);font-family:"Segoe UI",Roboto,system-ui,sans-serif;font-size:15px;line-height:1.45}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:20px;margin:0 0 6px}
+.lead{color:var(--text-secondary);margin:0 0 16px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;align-items:start;margin-bottom:22px}
+.lab{font-size:14px;font-weight:600;margin:0 0 6px}
+.sub{font-size:13px;color:var(--text-secondary);margin:6px 0 0}
+.ph{background:#f6f7f2;border:6px solid #1d1e22;border-radius:22px;padding:8px;color:#1b1c18;font-family:Roboto,system-ui,sans-serif;font-size:12px;line-height:1.35}
+.bar{font-size:14px;font-weight:500;padding:2px 2px 8px}
+.cd{background:#fff;border-radius:12px;padding:8px;margin-bottom:6px;border:1px solid #e0e1d8}
+.row{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.b{font-weight:500}
+.mu{color:#5b5d55;margin-top:2px}
+.sw{width:30px;height:16px;border-radius:8px;background:#2e6b3a;position:relative;flex:none}
+.sw::after{content:"";position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff}
+.btn{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:14px;background:#2e6b3a;color:#fff;font-weight:500}
+.tb{display:inline-block;margin-top:6px;padding:4px 6px;color:#2e6b3a;font-weight:500}
+.err{color:#b3261e;margin:0 2px 6px}
+.al{border-radius:12px;padding:8px;margin-bottom:6px;display:flex;gap:8px}
+.al i{font-size:18px;line-height:1;flex:none;margin-top:1px}
+.al.red{background:#fbe4e1;color:#7d1a14}
+.al.red .btn{background:#b3261e}
+.al.amb{background:#fdf0d5;color:#5c4100}
+.al.amb .btn{background:#7a5600}
+.al .mu{color:inherit}
+.map{height:86px;border-radius:12px;background:#dfe7d3;position:relative;margin-bottom:6px}
+.chip{position:absolute;left:8px;top:8px;background:#fff;border-radius:14px;padding:3px 9px;font-weight:500;display:flex;gap:4px;align-items:center}
+.chip.amb{background:#fdf0d5;color:#5c4100}
+.nt{background:#24262c;color:#e8e9ee;border-radius:14px;padding:8px 10px;margin-bottom:6px}
+.nt .mu{color:#c3c5ce}
+.nt .w{color:#f5c56b}
+.dim{background:#9a9b95;border-radius:12px;padding:30px 8px}
+.dlg{background:#fff;border-radius:18px;padding:12px}
+.dlg ul{margin:6px 0 0;padding-left:16px}
+.end{display:flex;justify-content:flex-end;gap:6px}
+.tag{font-size:12px;color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Alertes du partage de position</h1>
+<p class="lead">Avertir quand un réglage du téléphone coupe ou va couper le partage, et dire quoi régler (défauts o, c, h ; demande du 2026-10-24). À valider avant de coder.</p>
+
+<div class="g">
+  <div>
+    <p class="lab">Actuel · écran Partage</p>
+    <div class="ph">
+      <div class="bar">Partage de position</div>
+      <div class="cd"><div class="row"><span class="b">Partager ma position</span><span class="sw"></span></div><div class="mu">Avec l'écran éteint aussi (notification permanente).</div><div class="mu">Toutes les 10 s · déplacement minimal : Toujours</div></div>
+      <div class="err">Le GPS n'a pas pu démarrer : le partage est arrêté.</div>
+      <div class="cd"><div class="b">Partage téléphone verrouillé</div><div class="mu">Pour que la position continue de partir écran éteint et que la connexion revienne seule, autorisez ToolMap à fonctionner sans restriction de batterie. Sur Samsung…</div><span class="btn">Autoriser sans restriction de batterie</span></div>
+      <div class="cd"><div class="b">Membres</div><div class="mu">Camille · En ligne</div></div>
+    </div>
+    <p class="sub">Le texte rouge ne vient que si le GPS refuse de démarrer. Rien ne prévient de l'économiseur de batterie, de la localisation coupée ni d'une perte du GPS.</p>
+  </div>
+
+  <div>
+    <p class="lab">Variante A · écran Partage</p>
+    <div class="ph">
+      <div class="bar">Partage de position</div>
+      <div class="cd"><div class="row"><span class="b">Partager ma position</span><span class="sw"></span></div><div class="mu">Avec l'écran éteint aussi (notification permanente).</div><div class="mu">Toutes les 10 s · déplacement minimal : Toujours</div></div>
+      <div class="al red"><i class="ti ti-map-pin-off" aria-hidden="true"></i><div><div class="b">Localisation coupée</div><div class="mu">Aucune position ne part tant qu'elle est coupée.</div><span class="btn">Activer la localisation</span></div></div>
+      <div class="al amb"><i class="ti ti-battery-eco" aria-hidden="true"></i><div><div class="b">Économiseur de batterie activé</div><div class="mu">Écran éteint, il coupe le GPS : votre position ne part plus.</div><span class="btn">Ouvrir l'économiseur</span></div></div>
+      <div class="al amb"><i class="ti ti-battery-2" aria-hidden="true"></i><div><div class="b">Batterie de ToolMap optimisée</div><div class="mu">Android peut arrêter le partage en arrière-plan. Choisissez « Sans restriction ».</div><span class="btn">Mettre sans restriction</span></div></div>
+      <div class="cd"><div class="b">Membres</div><div class="mu">Camille · En ligne</div></div>
+    </div>
+    <p class="sub">Une carte par réglage en cause, sous l'interrupteur ; elle disparaît dès que c'est réglé. La carte « Partage téléphone verrouillé » devient la 3ᵉ.</p>
+  </div>
+
+  <div>
+    <p class="lab">Variante A · carte et notification</p>
+    <div class="ph">
+      <p class="tag" style="margin:0 0 4px">Actuel</p>
+      <div class="map"><span class="chip">Partage actif · 1 connecté(s)</span></div>
+      <div class="nt"><div class="b">ToolMap est actif en arrière-plan</div><div class="mu">Position partagée · 1 membre connecté</div></div>
+      <p class="tag" style="margin:8px 0 4px">Proposé</p>
+      <div class="map"><span class="chip amb"><i class="ti ti-alert-triangle" aria-hidden="true"></i>Partage actif · 1 connecté(s)</span></div>
+      <div class="nt"><div class="b">ToolMap est actif en arrière-plan</div><div class="mu">Position partagée · 1 membre connecté</div><div class="w">Économiseur de batterie : GPS coupé écran éteint</div></div>
+    </div>
+    <p class="sub">La pastille de la carte passe en orange avec ⚠ (un appui ouvre l'écran Partage). La notification ajoute une ligne : l'alerte la plus grave.</p>
+  </div>
+</div>
+
+<div class="g">
+  <div>
+    <p class="lab">Variante B · en plus de A, au démarrage</p>
+    <div class="ph">
+      <div class="dim">
+        <div class="dlg">
+          <div class="b" style="font-size:14px">Le partage risque de s'arrêter</div>
+          <div class="mu">Deux réglages du téléphone peuvent couper votre position :</div>
+          <ul><li>économiseur de batterie : GPS coupé écran éteint ;</li><li>batterie de ToolMap optimisée : Android peut arrêter le partage.</li></ul>
+          <div class="end"><span class="tb">Partager quand même</span><span class="btn">Régler</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="sub">Montré en activant « Partager ma position » si un réglage pose problème. « Régler » revient à l'écran Partage, sur les cartes ; le partage démarre dans les deux cas.</p>
+  </div>
+
+  <div>
+    <p class="lab">En option · message « est connecté(e) » (défaut t)</p>
+    <div class="ph">
+      <p class="tag" style="margin:0 0 4px">Actuel</p>
+      <div class="cd"><div class="mu">À chaque réouverture du lien, même après une coupure de 30 s, et montré plus tard à l'ouverture de l'écran Partage (vu 8 min après, alors que le membre était « Synchronisation perdue »).</div></div>
+      <div class="nt" style="background:#323232">Camille est connecté(e).</div>
+      <p class="tag" style="margin:8px 0 4px">Proposé</p>
+      <div class="cd"><div class="mu">Seulement à la première arrivée d'un membre, ou à son retour après plus de 10 min d'absence, et seulement si l'écran Partage est ouvert à ce moment-là. Texte inchangé.</div></div>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

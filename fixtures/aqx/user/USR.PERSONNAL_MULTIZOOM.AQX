@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<aqx version="11">
+
+  <name>Rando Multi-Zoom</name>
+  <description>OSM (1-8) / OpenTopoMap (9-11) / IGN SCAN25 (12-17) / OSM (18) / IGN Ortho (19-20)</description>
+
+  <source id="RANDO_ZOOM_GROUP" type="topo">
+
+    <name>Rando Multi-Zoom</name>
+    <preview-location>5.90,44.80,12</preview-location>
+
+    <!-- Zoom 1 à 8 : OpenStreetMap standard -->
+    <zoom-levels z="1,2,3,4,5,6,7,8">
+      <referer><![CDATA[https://www.openstreetmap.org/]]></referer>
+      <user-agent>AlpinQuest-RandoMultiZoom</user-agent>
+      <server><![CDATA[https://tile.openstreetmap.org/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+
+    <!-- Zoom 9 à 11 : OpenTopoMap -->
+    <zoom-levels z="9,10,11">
+      <referer><![CDATA[https://opentopomap.org/]]></referer>
+      <server><![CDATA[https://a.tile.opentopomap.org/{$z}/{$x}/{$y}.png]]></server>
+      <server><![CDATA[https://b.tile.opentopomap.org/{$z}/{$x}/{$y}.png]]></server>
+      <server><![CDATA[https://c.tile.opentopomap.org/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+
+    <!-- Zoom 12 à 17 : IGN SCAN 25 Touristique -->
+    <zoom-levels z="12,13,14,15,16">
+      <referer><![CDATA[https://data.geopf.fr/]]></referer>
+      <server><![CDATA[https://data.geopf.fr/private/wmts?apikey=ign_scan_ws&layer=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&style=normal&tilematrixset=PM&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={$z}&TileCol={$x}&TileRow={$y}]]></server>
+    </zoom-levels>
+
+    <!-- Zoom 18 : retour à OpenStreetMap -->
+    <zoom-levels z="18">
+      <referer><![CDATA[https://www.openstreetmap.org/]]></referer>
+      <user-agent>AlpinQuest-RandoMultiZoom</user-agent>
+      <server><![CDATA[https://tile.openstreetmap.org/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+
+    <!-- Zoom 19 à 20 : IGN Photographies aériennes (satellite/ortho) -->
+    <zoom-levels z="19">
+      <referer><![CDATA[https://data.geopf.fr/]]></referer>
+      <server><![CDATA[https://data.geopf.fr/wmts?layer=ORTHOIMAGERY.ORTHOPHOTOS&style=normal&tilematrixset=PM&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={$z}&TileCol={$x}&TileRow={$y}]]></server>
+    </zoom-levels>
+
+  </source>
+
+</aqx>

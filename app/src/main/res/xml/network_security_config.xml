@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network security (ADR-017, ADR-066).
+    - Clear text stays allowed: many map servers in AQX files only speak http:// (the wizard warns about them).
+    - Certificates: the system authorities, plus those the user installed in Android (Settings > Security >
+      Encryption and credentials). A WMS server signed by a company or administration authority then works,
+      without the "accept any certificate" switch that Google Play refuses.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

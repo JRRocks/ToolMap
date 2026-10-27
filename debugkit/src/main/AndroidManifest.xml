@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Commands of the live-test scripts on the PC (adb shell am broadcast, tools/livetest). Only the shell, which
+             holds DUMP, can send them: no other app on the phone can switch the test tools on. -->
+        <receiver
+            android:name="fr.toolmap.debugkit.DebugCommands"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
+
+</manifest>

@@ -1,0 +1,380 @@
+# Catalogue des icônes de repères ToolMap (P16.6) — équivalents des catégories d'AlpineQuest, voir docs/aq-icons-inventaire.md
+# Format :  @cat|id|Libellé FR|#couleur       (une catégorie)
+#           id|Clé GPX (sym)|Libellé FR|source[|#couleur propre]
+# Sources : maki:<nom> (CC0), temaki:<nom> (CC0), mdi:<nom> (Apache-2.0). Générer : node tools/icons/generate.mjs
+@cat|placemark|Repères|#000000
+waypoint|Waypoint|Repère|mdi:flag-variant|#E53935
+waypoint_blue|Blue waypoint|Repère bleu|mdi:flag-variant|#1565C0
+waypoint_green|Green waypoint|Repère vert|mdi:flag-variant|#2E7D32
+waypoint_red|Red waypoint|Repère rouge|mdi:flag-variant|#D50000
+waypoint_yellow|Yellow waypoint|Repère jaune|mdi:flag-variant|#F9A825
+waypoint_orange|Orange waypoint|Repère orange|mdi:flag-variant|#FB8C00
+waypoint_purple|Purple waypoint|Repère violet|mdi:flag-variant|#6A1B9A
+picture|Picture|Photo|mdi:camera
+audio|Audio|Audio|mdi:volume-high
+music_placemark|Music (placemark)|Musique|mdi:music-note
+@cat|tourism|Tourisme|#B019A8
+tourism|Tourism|Tourisme|maki:circle
+archeological|Archeological|Archéologie|mdi:shovel
+art|Art|Art|mdi:palette
+art_gallery|Art gallery|Galerie d'art|maki:art-gallery
+attraction|Attraction|Attraction|maki:star-stroked
+battlefield|Battlefield|Champ de bataille|mdi:sword-cross
+beach|Beach|Plage|maki:beach
+boundary_stone|Boundary stone|Borne|temaki:milestone
+casino|Casino|Casino|temaki:dice
+castle|Castle|Château|maki:castle
+cinema|Cinema|Cinéma|maki:cinema
+clock|Clock|Horloge|mdi:clock-outline
+fort|Fort|Fort|mdi:castle
+fountain|Fountain|Fontaine|temaki:fountain
+guidepost|Guidepost|Poteau indicateur|mdi:sign-direction
+historical|Historical|Site historique|maki:historic
+historical_city_gate|Historical city gate|Porte de ville|mdi:arch
+historical_ruins|Historical ruins|Ruines historiques|temaki:ruins
+information|Information|Information|maki:information
+map|Map|Carte|mdi:map
+maya|Maya|Pyramide maya|mdi:pyramid
+memorial|Memorial|Mémorial|temaki:plaque
+monument|Monument|Monument|maki:monument
+museum|Museum|Musée|maki:museum
+picnic|Picnic|Pique-nique|maki:picnic-site
+rune_stone|Rune stone|Pierre runique|temaki:obelisk
+steam_train|Steam train|Train à vapeur|temaki:train_steam
+theatre|Theatre|Théâtre|maki:theatre
+theme_park|Theme park|Parc d'attractions|temaki:roller_coaster
+trail_head|Trail head|Départ de sentier|mdi:map-marker-path
+view_point|View point|Point de vue|maki:viewpoint
+waterwheel|Waterwheel|Roue à aubes|maki:watermill
+wayside_cross|Wayside cross|Croix de chemin|mdi:cross
+wayside_shrine|Wayside shrine|Oratoire|mdi:candle
+windmill|Windmill|Moulin à vent|maki:windmill
+wreck|Wreck|Épave|mdi:sail-boat-sink
+zoo|Zoo|Zoo|maki:zoo
+@cat|transport|Transport|#1AB1E6
+transportation|Transportation|Transport|maki:circle
+aerodrome|Aerodrome|Aérodrome|maki:airfield
+airport|Airport|Aéroport|maki:airport
+airplane|Airplane|Avion|mdi:airplane
+atv|Atv|Quad|mdi:atv
+bicycle|Bicycle|Vélo|maki:bicycle
+bicycle_rental|Bicycle rental|Location de vélos|temaki:bicycle_rental
+boat|Boat|Bateau|temaki:boat
+bus|Bus|Bus|maki:bus
+bus_station|Bus station|Gare routière|temaki:board_bus
+bus_stop|Bus stop|Arrêt de bus|mdi:bus-stop
+cable_car|Cable car|Téléphérique|maki:aerialway
+car|Car|Voiture|maki:car
+car_rental|Car rental|Location de voitures|maki:car-rental
+car_share|Car share|Covoiturage|temaki:car_pool
+emergency_phone|Emergency phone|Téléphone d'urgence|maki:emergency-phone
+ferry|Ferry|Bac|maki:ferry
+fuel|Fuel|Carburant|maki:fuel
+fuel_lpg|Fuel lpg|GPL|temaki:propane_tank
+helicopter|Helicopter|Hélicoptère|mdi:helicopter
+helicopter_pad|Helicopter pad|Héliport|maki:heliport
+lighthouse|Lighthouse|Phare|maki:lighthouse
+marina|Marina|Marina|maki:harbor
+motorcycle|Motorcycle|Moto|temaki:motorcycle
+offroad|Offroad|Tout-terrain|mdi:car-pickup
+parking|Parking|Parking|maki:parking
+parking_bicycle|Parking bicycle|Parking vélos|temaki:bicycle_parked
+parking_car_paid|Parking car paid|Parking payant|maki:parking-paid
+parking_disabled|Parking disabled|Parking PMR|mdi:wheelchair
+port|Port|Port|mdi:anchor
+rickshaw|Rickshaw|Pousse-pousse|mdi:rickshaw
+slipway|Slipway|Cale de mise à l'eau|maki:slipway
+scooter|Scooter|Trottinette|maki:scooter
+snowmobile|Snowmobile|Motoneige|maki:snowmobile
+sled|Sled|Luge|temaki:sledding
+subway|Subway|Métro|maki:rail-metro
+taxi|Taxi|Taxi|maki:taxi
+train|Train|Train|maki:rail
+train_station|Train station|Gare|mdi:train
+tram|Tram|Tramway|temaki:tram
+tram_stop|Tram stop|Arrêt de tramway|temaki:tram_side
+walk|Walk|Marche|mdi:walk
+zebra|Zebra|Passage piéton|temaki:pedestrian_crosswalk
+@cat|accommodation|Hébergement|#3388CC
+accommodation|Accomodation|Hébergement|maki:circle
+alpinehut|Alpinehut|Refuge de montagne|temaki:cabin
+bed_and_breakfast|Bed and breakfast|Chambre d'hôtes|mdi:home-account
+camping|Camping|Camping|maki:campsite
+caravan_park|Caravan park|Parc à caravanes|temaki:camper_trailer
+hostel|Hostel|Auberge de jeunesse|temaki:bunk_beds
+hotel|Hotel|Hôtel|maki:lodging
+motel|Motel|Motel|mdi:bed-double
+shelter|Shelter|Abri|maki:shelter
+@cat|food|Restauration|#7A4A0A
+food|Food|Restauration|maki:circle
+bar|Bar|Bar|maki:bar
+bbq|Bbq|Barbecue|maki:bbq
+biergarten|Biergarten|Biergarten|maki:beer
+cafe|Cafe|Café|maki:cafe
+drinking_water|Drinking water|Eau potable|maki:drinking-water
+fast_food|Fast food|Restauration rapide|maki:fast-food
+food_court|Food court|Aire de restauration|mdi:silverware-fork-knife
+ice_cream|Ice cream|Glacier (crème glacée)|maki:ice-cream
+pizza|Pizza|Pizzeria|maki:restaurant-pizza
+pub|Pub|Pub|mdi:glass-mug-variant
+restaurant|Restaurant|Restaurant|maki:restaurant
+@cat|natural|Nature|#5A7A00
+natural|Natural|Nature|maki:circle
+air|Air|Air, vent|mdi:weather-windy
+animal|Animal|Animal|mdi:paw
+cave|Cave|Grotte|temaki:natural_arch
+cliff|Cliff|Falaise|temaki:cliff_falling_rocks
+danger_area|Danger area|Zone dangereuse|maki:danger
+fish|Fish|Poisson|mdi:fish
+glacier|Glacier|Glacier|mdi:snowflake
+indication|Indication|Indication|mdi:sign-pole
+mountain_pass|Mountain pass|Col|temaki:valley
+mushroom|Mushroom|Champignon|mdi:mushroom
+peak|Peak|Sommet|maki:mountain
+poi|Poi|Point d'intérêt|mdi:map-marker-star
+sinkhole|Sinkhole|Doline|mdi:radiobox-marked
+source|Source|Source|mdi:water-outline
+stone|Stone|Pierre|temaki:boulder1
+tree|Tree|Arbre|temaki:tree_broadleaved
+volcano|Volcano|Volcan|maki:volcano
+wood|Wood|Bois|mdi:forest
+@cat|water|Eau|#1060DD
+water|Water|Eau|mdi:waves
+dam|Dam|Barrage|maki:dam
+spring|Spring|Fontaine naturelle|mdi:water
+hot_spring|Hot spring|Source chaude|maki:hot-spring
+tower_water|Tower water|Château d'eau|temaki:water_tower
+waterfall|Waterfall|Cascade|maki:waterfall
+weir|Weir|Déversoir|mdi:waves-arrow-right
+@cat|manmade|Construction|#5A6B7B
+man_made|Man made|Construction|maki:circle
+bunker|Bunker|Bunker|temaki:bunker
+checkpoint|Checkpoint|Poste de contrôle|temaki:checkpoint
+chimney|Chimney|Cheminée|temaki:chimney
+crane|Crane|Grue|temaki:crane
+military|Military|Militaire|temaki:military
+mine|Mine|Mine|mdi:pickaxe
+mine_abandoned|Mine abandoned|Mine abandonnée|mdi:hammer-wrench
+monitoring_station|Monitoring station|Station de mesure|mdi:radar
+petroleum_well|Petroleum well|Puits de pétrole|temaki:oil_well
+reservoir|Reservoir|Réservoir|mdi:water-circle
+reservoir_covered|Reservoir covered|Réservoir couvert|mdi:cup-water
+ruins|Ruins|Ruines|temaki:ruins
+storage_tank|Storage tank|Cuve de stockage|temaki:storage_tank
+surveillance|Surveillance|Surveillance|temaki:security_camera
+survey_point|Survey point|Point géodésique|temaki:benchmark_disk
+tower|Tower|Tour|temaki:tower
+tower_communication|Tower communication|Antenne relais|temaki:tower_communication
+tower_lookout|Tower lookout|Tour d'observation|maki:observation-tower
+water_well|Water well|Puits|temaki:well_pump_manual
+@cat|amenity|Services|#B05A00
+amenity|Amenity|Services|maki:circle
+atm|Atm|Distributeur de billets|temaki:atm
+bank|Bank|Banque|maki:bank
+bench|Bench|Banc|temaki:bench
+college|College|Collège|maki:college
+court|Court|Tribunal|temaki:courthouse
+currency_exchange|Currency exchange|Bureau de change|mdi:cash-multiple
+embassy|Embassy|Ambassade|maki:embassy
+fire_hydrant|Fire hydrant|Bouche d'incendie|temaki:fire_hydrant
+fire_station|Fire station|Caserne de pompiers|maki:fire-station
+nursery|Nursery|Crèche|mdi:baby-carriage
+library|Library|Bibliothèque|maki:library
+park|Park|Parc|maki:park
+playground|Playground|Aire de jeux|maki:playground
+police|Police|Police|maki:police
+postbox|Postbox|Boîte aux lettres|temaki:post_box
+postoffice|Postoffice|Bureau de poste|maki:post
+prison|Prison|Prison|maki:prison
+recycling|Recycling|Recyclage|maki:recycling
+school|School|École|maki:school
+telephone|Telephone|Téléphone|maki:telephone
+toilets|Toilets|Toilettes|maki:toilet
+toilets_disabled|Toilets disabled|Toilettes PMR|temaki:wheelchair
+toilets_men|Toilets men|Toilettes hommes|mdi:human-male
+toilets_women|Toilets women|Toilettes femmes|mdi:human-female
+town_hall|Town hall|Mairie|maki:town-hall
+university|University|Université|mdi:account-school
+waste_bin|Waste bin|Poubelle|maki:waste-basket
+waste_disposal|Waste disposal|Benne à déchets|temaki:waste
+@cat|sport|Sport|#33A533
+sport|Sport|Sport|maki:circle
+archery|Archery|Tir à l'arc|temaki:archery
+baseball|Baseball|Baseball|maki:baseball
+canoe|Canoe|Canoë|temaki:canoe
+cricket|Cricket|Cricket|maki:cricket
+cycling|Cycling|Cyclisme|mdi:bike
+diving|Diving|Plongeon|temaki:diving
+fishing|Fishing|Pêche|temaki:fishing_pier
+golf|Golf|Golf|maki:golf
+golf_miniature|Golf miniature|Minigolf|mdi:golf-tee
+gym|Gym|Salle de sport|temaki:gym
+gymnasium|Gymnasium|Gymnase|mdi:gymnastics
+hiking|Hiking|Randonnée|mdi:hiking
+horse_racing|Horse racing|Courses de chevaux|maki:racetrack-horse
+iceskating|Iceskating|Patinage sur glace|temaki:ice_skating
+jetski|Jetski|Jet-ski|temaki:jet_skiing
+leisure_centre|Leisure centre|Centre de loisirs|maki:pitch
+motorracing|Motorracing|Sport automobile|mdi:flag-checkered
+paragliding|Paragliding|Parapente|temaki:hang_gliding
+roller|Roller|Roller|temaki:inline_skating
+running|Running|Course à pied|mdi:run
+sailing|Sailing|Voile|temaki:sailing
+scuba_diving|Scuba diving|Plongée sous-marine|temaki:scuba_diving
+shooting|Shooting|Tir|mdi:target
+skateboarding|Skateboarding|Skateboard|maki:skateboard
+skiing_crosscountry|Skiing crosscountry|Ski de fond|temaki:cross_country_skiing
+skiing_downhill|Skiing downhill|Ski alpin|maki:skiing
+skimo|Skimo|Ski de randonnée|mdi:ski
+snooker|Snooker|Billard|mdi:billiards-rack
+snowshoeing|Snowshoeing|Raquettes|temaki:snow_shoeing
+soccer|Soccer|Football|maki:soccer
+stadium|Stadium|Stade|maki:stadium
+swimming_indoor|Swimming indoor|Piscine couverte|mdi:pool
+swimming|Swimming|Baignade|maki:swimming
+tennis|Tennis|Tennis|maki:tennis
+walking|Walking|Promenade|mdi:walk
+windsurfing|Windsurfing|Planche à voile|temaki:wind_surfing
+@cat|health|Santé|#D6008C
+health|Health|Santé|maki:circle
+dentist|Dentist|Dentiste|maki:dentist
+doctors|Doctors|Médecin|maki:doctor
+hospital|Hospital|Hôpital|maki:hospital
+hospital_emergency|Hospital emergency|Urgences|mdi:hospital-marker
+ambulance|Ambulance|Ambulance|mdi:ambulance
+optician|Optician|Opticien|maki:optician
+pharmacy|Pharmacy|Pharmacie|maki:pharmacy
+veterinary|Veterinary|Vétérinaire|maki:veterinary
+@cat|worship|Culte|#212121
+worship|Worship|Lieu de culte|maki:place-of-worship
+bahai|Bahai|Baha'i|mdi:star-outline
+buddhist|Buddhist|Bouddhiste|maki:religious-buddhist
+christian|Christian|Chrétien|maki:religious-christian
+hindu|Hindu|Hindou|temaki:hinduism
+islamic|Islamic|Musulman|maki:religious-muslim
+jain|Jain|Jaïn|mdi:hand-back-right
+jewish|Jewish|Juif|maki:religious-jewish
+shinto|Shinto|Shintoïste|maki:religious-shinto
+sikh|Sikh|Sikh|temaki:sikhism
+@cat|shopping|Commerces|#AA33AA
+shopping|Shopping|Commerces|maki:shop
+alcohol|Alcohol|Alcool|maki:alcohol-shop
+bakery|Bakery|Boulangerie|maki:bakery
+bicycle_shop|Shopping Bicycle|Magasin de vélos|maki:bicycle
+book|Book|Librairie|temaki:book_store
+butcher|Butcher|Boucherie|temaki:cleaver
+car_shop|Shopping Car|Concessionnaire auto|maki:car
+car_repair|Car repair|Garage|maki:car-repair
+clothes|Clothes|Vêtements|maki:clothing-store
+computer|Computer|Informatique|mdi:laptop
+confectionery|Confectionery|Confiserie|maki:confectionery
+convenience|Convenience|Supérette|maki:convenience
+copyshop|Copyshop|Reprographie|mdi:printer
+department_store|Department store|Grand magasin|temaki:shopping_mall
+diy|Diy|Bricolage|maki:hardware
+estate_agent|Estate agent|Agence immobilière|temaki:real_estate_agency
+fishes|Fishes|Poissonnerie|mdi:fish
+florist|Florist|Fleuriste|maki:florist
+garden_centre|Garden centre|Jardinerie|maki:garden-centre
+gift|Gift|Cadeaux|maki:gift
+greengrocer|Greengrocer|Primeur|maki:grocery
+hairdresser|Hairdresser|Coiffeur|maki:hairdresser
+hearing_aid|Hearing aid|Audioprothésiste|temaki:hearing_aid
+hifi|Hifi|Hi-fi|mdi:speaker
+jewelry|Jewelry|Bijouterie|maki:jewelry-store
+kiosk|Kiosk|Kiosque|mdi:store
+laundrette|Laundrette|Laverie|maki:laundry
+marketplace|Marketplace|Marché|mdi:storefront-outline
+mobile_phone|Mobile phone|Téléphonie mobile|maki:mobile-phone
+motorcycle_shop|Shopping Motorcycle|Magasin de motos|temaki:motorcycle
+music_shop|Music|Magasin de musique|maki:music
+newspaper|Newspaper|Presse|mdi:newspaper
+pet|Pet|Animalerie|temaki:pet_store
+photo|Photo shop|Photographe|mdi:camera-outline
+supermarket|Supermarket|Supermarché|mdi:cart
+tackle|Tackle|Articles de pêche|mdi:hook
+tobacco|Tobacco|Tabac|mdi:smoking
+toys|Toys|Jouets|mdi:toy-brick
+vending_machine|Vending machine|Distributeur automatique|temaki:vending_machine
+video_rental|Video rental|Location de vidéos|temaki:movie_rental
+@cat|power|Énergie|#FF8C1A
+power|Power|Énergie|mdi:flash
+station_coal|Station coal|Centrale à charbon|mdi:factory
+station_gas|Station gas|Centrale à gaz|mdi:fire
+station_solar|Station solar|Centrale solaire|mdi:solar-power
+station_water|Station water|Centrale hydraulique|mdi:hydro-power
+station_wind|Station wind|Parc éolien|temaki:wind_turbine
+transformer|Transformer|Transformateur|temaki:power_transformer
+high_power_tower|High power tower|Pylône haute tension|temaki:power_tower
+low_power_tower|Low power tower|Poteau basse tension|temaki:power_pole
+@cat|geocaching|Géocaching|#00875A
+geocaching|Geocaching|Géocaching|mdi:treasure-chest
+cache_traditional|Traditional cache|Cache traditionnelle|mdi:package-variant
+cache_multi|Multi-cache|Multi-cache|mdi:package-variant-closed|#E8821C
+cache_earth|Earthcache|Earthcache|mdi:earth|#2E7D9A
+cache_virtual|Virtual cache|Cache virtuelle|mdi:ghost|#0097A7
+cache_webcam|Webcam cache|Cache webcam|mdi:webcam|#0097A7
+cache_mystery|Mystery cache|Cache mystère|mdi:help|#0D47A1
+cache_letterbox|Letterbox cache|Cache boîte aux lettres|mdi:email|#0D47A1
+cache_wherigo|Wherigo cache|Cache Wherigo|mdi:compass-outline|#0D47A1
+cache_event|Event cache|Cache événement|mdi:forum|#8E1B1B
+cache_owned|Owned cache|Cache personnelle|mdi:package-variant|#7CB900
+cache_disabled|Disabled cache|Cache désactivée|mdi:package-variant-remove|#D50000
+found_it|Found it|Trouvée|mdi:emoticon-happy|#F9C300
+reference_point|Reference point|Point de référence|mdi:target|#D32F2F
+virtual_stage|Virtual stage|Étape virtuelle|mdi:puzzle|#5E9E2E
+physical_stage|Physical stage|Étape physique|mdi:shoe-print|#6D4C41
+final_location|Final location|Position finale|mdi:flag-variant|#D32F2F
+@cat|other|Autres|#212121
+other|Other|Autre|maki:circle
+avalanche_1|Avalanche 1|Avalanche 1 (faible)|maki:mountain|#7CB342
+avalanche_2|Avalanche 2|Avalanche 2 (limité)|maki:mountain|#FDD835
+avalanche_3|Avalanche 3|Avalanche 3 (marqué)|maki:mountain|#FB8C00
+avalanche_4|Avalanche 4|Avalanche 4 (fort)|maki:mountain|#E53935
+# Anciens noms Garmin (GPX) : ils restent valables et pointent vers l'icône équivalente
+~Summit|peak
+~Scenic Area|view_point
+~Trail Head|trail_head
+~Campground|camping
+~Lodging|hotel
+~Drinking Water|drinking_water
+~Restaurant|restaurant
+~Parking Area|parking
+~Information|information
+~Danger Area|danger_area
+~Flag, Blue|waypoint_blue
+# Activités du sélecteur d'activité d'AlpineQuest (32 + Autre), dans l'ordre de sa grille 4 colonnes :  act_id|Libellé FR|source|#couleur
+@activities
+walk|Marche|mdi:walk|#43C14A
+hike|Randonnée|mdi:hiking|#2E9E5B
+run|Course à pied|mdi:run|#E8730C
+trail_run|Trail|mdi:run-fast|#E39A0B
+bicycle|Vélo|mdi:bike|#14B8C4
+scooter|Trottinette|maki:scooter|#2E9AA3
+skate|Skateboard|maki:skateboard|#4F7F7A
+roller|Roller|temaki:inline_skating|#5A6B6B
+drive|Voiture|maki:car|#C21DC2
+motorcycle|Moto|temaki:motorcycle|#9C27B0
+offroad|Tout-terrain|mdi:car-pickup|#8B2D1B
+rickshaw|Pousse-pousse|mdi:rickshaw|#4A2C5A
+autobus|Autobus|maki:bus|#8A3B3B
+train|Train|mdi:train|#D81B3C
+tram|Tramway|temaki:tram|#C94F5F
+cable_car|Téléphérique|maki:aerialway|#E57373
+ski|Ski alpin|maki:skiing|#1A237E
+nordic|Ski nordique|temaki:cross_country_skiing|#1E88E5
+skimo|Ski de randonnée|mdi:ski|#29B6F6
+snowshoe|Raquettes|temaki:snow_shoeing|#4DB6AC
+atv|Quad|mdi:atv|#B5651D
+snowmobile|Motoneige|maki:snowmobile|#5F7F8F
+sleigh|Luge|temaki:sledding|#5B7F2A
+horse|Cheval|maki:racetrack-horse|#7B7B00
+boat|Bateau|temaki:boat|#0D1F8C
+sail|Voilier|temaki:sailing|#1E88E5
+canoe|Canoë|temaki:canoe|#64B5F6
+water|Sur l'eau|mdi:waves|#90CAF9
+plane|Avion|mdi:airplane|#FBC02D
+helicopter|Hélicoptère|mdi:helicopter|#F9D54B
+paragliding|Parapente|temaki:hang_gliding|#C8A84B
+air|Dans les airs|mdi:weather-windy|#9E9E7A
+other|Autre|mdi:account-circle-outline|#F5A623

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Same intent as data_extraction_rules.xml for Android 11 and older (lint wants both while minSdk < 31): nothing goes to
+  the cloud (android:allowBackup is false anyway) and the position-sharing identity never travels.
+-->
+<full-backup-content>
+    <exclude domain="file" path="p2p" />
+    <exclude domain="file" path="recording" />
+</full-backup-content>

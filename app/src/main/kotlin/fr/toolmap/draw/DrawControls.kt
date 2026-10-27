@@ -1,0 +1,610 @@
+package fr.toolmap.draw
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import fr.toolmap.R
+import fr.toolmap.core.track.ElevationProfile
+import fr.toolmap.core.track.NameDates
+import fr.toolmap.core.track.TrackFormat
+import fr.toolmap.core.track.TrackPath
+import fr.toolmap.core.track.TrackPoint
+import fr.toolmap.settings.SettingsIcons
+import fr.toolmap.tracks.ConfirmDialog
+import fr.toolmap.tracks.ElevationProfileView
+import fr.toolmap.tracks.RenameDialog
+import fr.toolmap.ui.LocalFormats
+import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.FilledTonalButton
+import fr.toolmap.ui.theme.OutlinedButton
+import fr.toolmap.ui.theme.TextButton
+
+/** Tolerance choices of "simplify", in meters. */
+private val SIMPLIFY_TOLERANCES = listOf(1.0, 2.0, 5.0, 10.0, 25.0)
+
+/**
+ * The controls shown while drawing or editing a line: status, undo / redo, add / move / delete at the crosshair, free
+ * hand, tools menu and save / quit. Taps on the map are handled by the map screen, which hands them to the view model.
+ *
+ * A route also has « Suivre les chemins (BRouter) » (P19): on, the panel of the computed routes replaces the drawing
+ * by hand (screens 2 to 5 of `docs/previews/p19-routing.html`); [hooks] gives it what it needs from the map.
+ */
+@Composable
+fun DrawBar(
+    ui: DrawUi,
+    vm: DrawViewModel,
+    center: () -> Pair<Double, Double>,
+    modifier: Modifier = Modifier,
+    backEnabled: Boolean = true,
+    hooks: RouteHooks? = null,
+) {
+    val fmt = LocalFormats.current
+    var askQuit by remember { mutableStateOf(false) }
+    var askName by remember { mutableStateOf(false) }
+    var askTolerance by remember { mutableStateOf(false) }
+    var toolsOpen by remember { mutableStateOf(false) }
+    var stopsOpen by remember { mutableStateOf(false) }
+    var profileOpen by remember { mutableStateOf(false) }
+    var chartOpen by remember { mutableStateOf(false) }
+    var askMany by remember { mutableStateOf(false) }
+    // « Simplifier… » of the question before following the ways: the route is computed once simplified.
+    var routeAfterSimplify by remember { mutableStateOf(false) }
+    val route = ui.route
+    // Back leaves the drawing as « Quitter » does: unsaved changes are not lost without asking.
+    BackHandler(enabled = backEnabled) {
+        when {
+            stopsOpen -> stopsOpen = false
+            ui.dirty -> askQuit = true
+            else -> vm.cancel()
+        }
+    }
+    if (route != null) {
+        // BRouter may have been installed (« Installer ») while the user was away.
+        LifecycleResumeEffect(vm) {
+            vm.refreshBRouter()
+            onPauseOrDispose {}
+        }
+    }
+    val reach = { hooks?.reachMeters?.invoke() ?: 0.0 }
+    val onToggle: (Boolean) -> Unit = { on ->
+        if (on && route != null && route.plan.isManual && route.plan.stops.size > MANY_STOPS) {
+            askMany = true
+        } else {
+            vm.setRouting(on)
+        }
+    }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        tonalElevation = 6.dp,
+        shadowElevation = 8.dp,
+    ) {
+        Column(
+            modifier = Modifier.navigationBarsPadding().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (route != null && hooks != null && stopsOpen && route.plan.stops.isNotEmpty()) {
+                StopsSheet(ui = ui, vm = vm, hooks = hooks, onClose = { stopsOpen = false })
+            } else if (route != null && hooks != null && ui.routed) {
+                RoutedPanel(
+                    ui = ui,
+                    route = route,
+                    vm = vm,
+                    hooks = hooks,
+                    center = center,
+                    onToggle = onToggle,
+                    onProfile = { profileOpen = true },
+                    onStops = { stopsOpen = true },
+                    onChart = { chartOpen = true },
+                    onQuit = { if (ui.dirty) askQuit = true else vm.cancel() },
+                    onSave = { if (ui.target is DrawTarget.NewRoute) askName = true else vm.save(null) },
+                )
+            } else {
+                if (route != null) {
+                    RoutingSwitchRow(
+                        route = route,
+                        onToggle = onToggle,
+                        onProfile = { profileOpen = true },
+                        onInstall = { hooks?.onInstall?.invoke() },
+                    )
+                }
+                val length = fmt.distance(ui.lengthMeters)
+                Text(
+                    ui.selected?.let { stringResource(R.string.draw_status_selected, it + 1, length) }
+                        ?: stringResource(R.string.draw_status, ui.pointCount, length),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                if (ui.pointCount == 0) {
+                    Text(stringResource(R.string.draw_hint), style = MaterialTheme.typography.bodySmall)
+                }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    OutlinedButton(onClick = vm::undo, enabled = ui.canUndo) {
+                        Text(stringResource(R.string.draw_undo))
+                    }
+                    OutlinedButton(onClick = vm::redo, enabled = ui.canRedo) {
+                        Text(stringResource(R.string.draw_redo))
+                    }
+                    Button(onClick = {
+                        val (lat, lon) = center()
+                        vm.addAt(lat, lon, reach())
+                    }) { Text(stringResource(R.string.draw_add_here)) }
+                    OutlinedButton(
+                        onClick = {
+                            val (lat, lon) = center()
+                            vm.moveSelectedTo(lat, lon)
+                        },
+                        enabled = ui.selected != null,
+                    ) { Text(stringResource(R.string.draw_move_here)) }
+                    OutlinedButton(onClick = vm::deleteSelected, enabled = ui.selected != null) {
+                        Text(stringResource(R.string.draw_delete_point))
+                    }
+                    FilterChip(
+                        selected = ui.freehand,
+                        onClick = { vm.setFreehand(!ui.freehand) },
+                        label = { Text(stringResource(R.string.draw_freehand)) },
+                    )
+                    Box {
+                        OutlinedButton(onClick = { toolsOpen = true }) { Text(stringResource(R.string.draw_tools)) }
+                        DropdownMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
+                            ToolItem(R.string.draw_tool_reverse, ui.pointCount >= 2) {
+                                toolsOpen = false
+                                vm.reverse()
+                            }
+                            ToolItem(R.string.draw_tool_simplify, ui.pointCount >= 3) {
+                                toolsOpen = false
+                                askTolerance = true
+                            }
+                            ToolItem(R.string.draw_tool_trim_before, ui.selected != null) {
+                                toolsOpen = false
+                                vm.trimBeforeSelected()
+                            }
+                            ToolItem(R.string.draw_tool_trim_after, ui.selected != null) {
+                                toolsOpen = false
+                                vm.trimAfterSelected()
+                            }
+                            if (ui.target is DrawTarget.Track) {
+                                ToolItem(R.string.draw_tool_split, ui.selected != null) {
+                                    toolsOpen = false
+                                    vm.splitAtSelected()
+                                }
+                            }
+                            ToolItem(R.string.draw_tool_clear, ui.pointCount > 0) {
+                                toolsOpen = false
+                                vm.clear()
+                            }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { if (ui.dirty) askQuit = true else vm.cancel() }) {
+                        Text(stringResource(R.string.draw_quit))
+                    }
+                    Button(
+                        onClick = {
+                            if (ui.target is DrawTarget.NewTrack || ui.target is DrawTarget.NewRoute) {
+                                askName = true
+                            } else {
+                                vm.save(null)
+                            }
+                        },
+                        enabled = ui.pointCount >= 2,
+                    ) { Text(stringResource(R.string.draw_save)) }
+                }
+            }
+        }
+    }
+
+    if (askQuit) {
+        ConfirmDialog(
+            title = stringResource(R.string.draw_quit_title),
+            message = stringResource(R.string.draw_quit_message),
+            confirmLabel = stringResource(R.string.draw_quit_confirm),
+            onConfirm = {
+                askQuit = false
+                vm.cancel()
+            },
+            onDismiss = { askQuit = false },
+        )
+    }
+    if (askName) {
+        val date = NameDates.format(System.currentTimeMillis())
+        RenameDialog(
+            title = stringResource(if (ui.isRoute) R.string.draw_name_route else R.string.draw_name_track),
+            initial =
+                stringResource(if (ui.isRoute) R.string.draw_default_route_name else R.string.draw_default_name, date),
+            onConfirm = { name ->
+                askName = false
+                vm.save(name)
+            },
+            onDismiss = { askName = false },
+        )
+    }
+    if (askTolerance) {
+        AlertDialog(
+            onDismissRequest = {
+                askTolerance = false
+                routeAfterSimplify = false
+            },
+            title = { Text(stringResource(R.string.draw_simplify_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.draw_simplify_ask))
+                    SIMPLIFY_TOLERANCES.forEach { meters ->
+                        TextButton(onClick = {
+                            askTolerance = false
+                            vm.simplify(meters)
+                            if (routeAfterSimplify) {
+                                routeAfterSimplify = false
+                                vm.routeAllNow()
+                            }
+                        }) { Text(fmt.distance(meters)) }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = {
+                    askTolerance = false
+                    routeAfterSimplify = false
+                }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+    if (askMany && route != null) {
+        AlertDialog(
+            onDismissRequest = { askMany = false },
+            title = { Text(stringResource(R.string.route_many_title)) },
+            text = { Text(stringResource(R.string.route_many_message, route.plan.stops.size)) },
+            confirmButton = {
+                Row {
+                    TextButton(onClick = {
+                        askMany = false
+                        vm.routeAllNow()
+                    }) { Text(stringResource(R.string.route_many_anyway)) }
+                    TextButton(onClick = {
+                        askMany = false
+                        routeAfterSimplify = true
+                        askTolerance = true
+                    }) { Text(stringResource(R.string.route_many_simplify)) }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { askMany = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+    if (profileOpen && route != null) {
+        ProfileDialog(
+            route = route,
+            onPick = { p, all ->
+                profileOpen = false
+                vm.setProfile(p, all)
+            },
+            onDismiss = { profileOpen = false },
+        )
+    }
+    if (chartOpen && route != null) {
+        RouteProfileSheet(
+            route = route,
+            onCursor = vm::setCursor,
+            onDismiss = {
+                chartOpen = false
+                vm.setCursor(null)
+            },
+        )
+    }
+}
+
+/** A route drawn by hand with more stops than this asks before following the ways (screen 5). */
+private const val MANY_STOPS = 30
+
+/**
+ * The panel of a route that follows the ways (screen 2, variant A): the switch and the profile chip; undo, redo and
+ * « Ajouter ici » (« Insérer ici » when the crosshair is on the route); move and delete the selected stop; the list of
+ * stops and the tools; quit and save. Empty, it says where to start and offers « Depuis ma position ».
+ */
+@Composable
+private fun RoutedPanel(
+    ui: DrawUi,
+    route: RouteUi,
+    vm: DrawViewModel,
+    hooks: RouteHooks,
+    center: () -> Pair<Double, Double>,
+    onToggle: (Boolean) -> Unit,
+    onProfile: () -> Unit,
+    onStops: () -> Unit,
+    onChart: () -> Unit,
+    onQuit: () -> Unit,
+    onSave: () -> Unit,
+) {
+    var toolsOpen by remember { mutableStateOf(false) }
+    val empty = route.plan.stops.isEmpty()
+    // Follows the camera, but the panel is only composed again when the answer changes.
+    val insertLeg by remember(route.plan) { derivedStateOf { hooks.insertLegAt() } }
+    if (empty) {
+        Column {
+            Text(
+                stringResource(R.string.route_empty_title),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            )
+            Text(stringResource(R.string.route_empty_hint), style = MaterialTheme.typography.bodySmall)
+        }
+    }
+    RoutingSwitchRow(route = route, onToggle = onToggle, onProfile = onProfile, onInstall = hooks.onInstall)
+    if (empty) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val position = hooks.position()
+            if (position != null) {
+                FilledTonalButton(onClick = { vm.addAt(position.first, position.second, hooks.reachMeters()) }) {
+                    Icon(SettingsIcons.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.route_from_position))
+                }
+            }
+            Button(onClick = {
+                val (lat, lon) = center()
+                vm.addAt(lat, lon, hooks.reachMeters())
+            }) { Text(stringResource(R.string.draw_add_here)) }
+        }
+    } else {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            OutlinedButton(onClick = vm::undo, enabled = ui.canUndo) { Text(stringResource(R.string.draw_undo)) }
+            OutlinedButton(onClick = vm::redo, enabled = ui.canRedo) { Text(stringResource(R.string.draw_redo)) }
+            val leg = insertLeg
+            Button(onClick = {
+                val (lat, lon) = center()
+                if (leg !=
+                    null
+                ) {
+                    vm.insertAt(leg, lat, lon, hooks.reachMeters())
+                } else {
+                    vm.addAt(lat, lon, hooks.reachMeters())
+                }
+            }) {
+                if (leg != null) {
+                    Icon(SettingsIcons.AltRoute, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.route_insert_here))
+                } else {
+                    Text(stringResource(R.string.draw_add_here))
+                }
+            }
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            OutlinedButton(
+                onClick = {
+                    val (lat, lon) = center()
+                    vm.moveSelectedTo(lat, lon)
+                },
+                enabled = ui.selected != null,
+            ) { Text(stringResource(R.string.draw_move_here)) }
+            OutlinedButton(onClick = vm::deleteSelected, enabled = ui.selected != null) {
+                Text(stringResource(R.string.route_delete_stop))
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilledTonalButton(onClick = onStops) {
+                Icon(RouteIcons.FormatListNumbered, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.route_stops, route.plan.stops.size))
+                Icon(RouteIcons.ExpandLess, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
+            Box {
+                OutlinedButton(onClick = { toolsOpen = true }) { Text(stringResource(R.string.draw_tools)) }
+                DropdownMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.route_tool_at_start)) },
+                        leadingIcon = { Checkbox(checked = route.atStart, onCheckedChange = null) },
+                        onClick = {
+                            toolsOpen = false
+                            vm.setAtStart(!route.atStart)
+                        },
+                    )
+                    HorizontalDivider()
+                    RouteTool(R.string.route_tool_reverse, RouteIcons.SwapVert, ui.pointCount >= 2) {
+                        toolsOpen = false
+                        vm.reverse()
+                    }
+                    RouteTool(R.string.route_tool_loop, RouteIcons.Loop, ui.pointCount >= 2) {
+                        toolsOpen = false
+                        vm.loopToStart()
+                    }
+                    RouteTool(R.string.route_tool_out_back, RouteIcons.SyncAlt, ui.pointCount >= 2) {
+                        toolsOpen = false
+                        vm.outAndBack()
+                    }
+                    HorizontalDivider()
+                    RouteTool(R.string.route_tool_profile, RouteIcons.ShowChart, ui.pointCount >= 2) {
+                        toolsOpen = false
+                        onChart()
+                    }
+                    RouteTool(R.string.draw_tool_clear, RouteIcons.DeleteSweep, ui.pointCount > 0) {
+                        toolsOpen = false
+                        vm.clear()
+                    }
+                }
+            }
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = onQuit) { Text(stringResource(R.string.draw_quit)) }
+        Button(onClick = onSave, enabled = ui.pointCount >= 2) { Text(stringResource(R.string.draw_save)) }
+    }
+}
+
+@Composable
+private fun RouteTool(
+    label: Int,
+    icon: ImageVector,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = { Text(stringResource(label)) },
+        leadingIcon = { Icon(icon, contentDescription = null) },
+        onClick = onClick,
+        enabled = enabled,
+    )
+}
+
+/** « Profil altimétrique » of the tools: the profile of the tracks (P5.5) on the route being edited, tied to the map. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RouteProfileSheet(
+    route: RouteUi,
+    onCursor: (Double?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val profile = remember(route.plan) { ElevationProfile.build(TrackPath(listOf(route.plan.geometry))) }
+    var cursor by remember { mutableStateOf<Double?>(null) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
+            Text(stringResource(R.string.tracks_profile_title), style = MaterialTheme.typography.titleMedium)
+            if (profile == null) {
+                Text(stringResource(R.string.route_profile_none))
+            } else {
+                ElevationProfileView(
+                    profile = profile,
+                    cursorMeters = cursor,
+                    onCursor = { at ->
+                        cursor = at
+                        onCursor(at)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolItem(
+    label: Int,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = onClick, enabled = enabled)
+}
+
+/** Asks which segment of a multi-segment track to edit. */
+@Composable
+fun SegmentChooser(
+    sizes: List<Int>,
+    onPick: (Int) -> Unit,
+    onCancel: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(R.string.draw_segment_title)) },
+        text = {
+            Column {
+                sizes.forEachIndexed { i, count ->
+                    TextButton(onClick = { onPick(i) }) {
+                        Text(stringResource(R.string.draw_segment_item, i + 1, count))
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+/**
+ * A transparent layer over the map that turns a finger stroke into a line: the stroke is drawn as it goes, and its
+ * screen positions are converted to map positions by [toPoint] when the finger lifts. While it is shown the map does
+ * not pan: that is what makes free-hand drawing possible.
+ */
+@Composable
+fun FreehandLayer(
+    toPoint: (Float, Float) -> TrackPoint?,
+    onStroke: (List<TrackPoint>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val stroke = remember { mutableStateListOf<Offset>() }
+    Box(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = { start ->
+                            stroke.clear()
+                            stroke.add(start)
+                        },
+                        onDrag = { change, _ ->
+                            change.consume()
+                            stroke.add(change.position)
+                        },
+                        onDragEnd = {
+                            onStroke(stroke.mapNotNull { toPoint(it.x, it.y) })
+                            stroke.clear()
+                        },
+                        onDragCancel = { stroke.clear() },
+                    )
+                },
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            for (i in 1 until stroke.size) {
+                drawLine(
+                    color = Color(0xFFFF6F00),
+                    start = stroke[i - 1],
+                    end = stroke[i],
+                    strokeWidth = 4.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+            }
+        }
+    }
+}

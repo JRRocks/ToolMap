@@ -1,0 +1,18 @@
+// Gradle init script for the Claude Code cloud sandbox ONLY (installed by .claude/hooks/session-start.sh).
+// repo.maven.apache.org answers "429 Too Many Requests" on bursts from the shared egress IP, which makes
+// Gradle disable the repository and fail the build. Google's Maven Central mirror does not throttle.
+// The project's own build files are untouched, so CI and local builds keep using the real Maven Central.
+def mirror = 'https://maven-central.storage-download.googleapis.com/maven2'
+
+def redirect = { RepositoryHandler repos ->
+    repos.configureEach { repo ->
+        if (repo instanceof MavenArtifactRepository && repo.url.toString().startsWith('https://repo.maven.apache.org/maven2')) {
+            repo.url = mirror
+        }
+    }
+}
+
+beforeSettings { settings ->
+    redirect(settings.pluginManagement.repositories)
+    redirect(settings.dependencyResolutionManagement.repositories)
+}

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notification ToolMap</title>
+<style>
+/* P21 preview: ToolMap's notification while it works in the background. Awaiting the user's validation. */
+:root{--page:#f4f5f8;--text:#1c1d22;--muted:#5d6170;--accent:#2e6b3a;--accent-bg:#e2efe4;--line:#d7d9e0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#15161b;--text:#e6e7ee;--muted:#a3a7b6;--accent:#8fd19e;--accent-bg:#1f3324;--line:#30333e;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#15161b;--text:#e6e7ee;--muted:#a3a7b6;--accent:#8fd19e;--accent-bg:#1f3324;--line:#30333e;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text);font-family:"Segoe UI",Roboto,system-ui,sans-serif;font-size:15px;line-height:1.45}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:20px;margin:0 0 6px}
+h2{font-size:16px;margin:0 0 4px}
+.lead{color:var(--muted);margin:0 0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:start}
+.panel{display:flex;flex-direction:column;gap:10px}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--accent-bg);color:var(--accent)}
+.note{font-size:13px;color:var(--muted);margin:0}
+.note b{color:var(--text)}
+/* The phone: an Android notification shade, dark like on the user's phone. */
+.phone{background:#101114;border-radius:26px;padding:10px 10px 14px;color:#e8e9ee;font-family:Roboto,"Segoe UI",sans-serif;box-shadow:0 1px 0 #0002}
+.sb{display:flex;align-items:center;gap:6px;font-size:13px;padding:2px 8px 8px;height:20px}
+.sb .t{font-weight:500;margin-right:4px}
+.sb .r{margin-left:auto;display:flex;gap:6px;align-items:center;color:#c9cbd3}
+.sb svg{display:block}
+.mk{width:15px;height:15px}
+.qs{display:flex;gap:8px;padding:0 4px 10px}
+.qs span{flex:1;height:34px;border-radius:17px;background:#26282e}
+.sec{font-size:12px;color:#9a9ca6;padding:6px 8px 4px}
+.card{background:#24262c;border-radius:18px;padding:10px 12px 8px;margin:0 2px 6px}
+.hd{display:flex;align-items:center;gap:6px;font-size:12px;color:#a8aab4}
+.ic{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none}
+.ic.sys{background:#4a4d57}
+.ic.tm{background:#2e6b3a}
+.ti{font-size:14px;font-weight:600;margin:4px 0 0 26px;color:#f1f2f6}
+.tx{font-size:13px;color:#c3c5ce;margin:1px 0 0 26px}
+.ln{display:flex;gap:6px;align-items:center}
+.act{display:flex;gap:16px;margin:6px 0 0 26px;font-size:13px;font-weight:600;color:#9fd3ab}
+.act.sys{color:#b9c3ff}
+.empty{font-size:13px;color:#8d909b;text-align:center;padding:18px 8px;border:1px dashed #3a3d46;border-radius:16px;margin:0 2px 6px}
+.foot{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#c3c5ce;background:#1c1e23;border-radius:14px;padding:8px 12px;margin:4px 2px 0}
+.dlg{background:#2a2c33;border-radius:22px;padding:16px 18px 12px;margin:8px 6px 0;color:#eceef3}
+.dlg .dt{font-size:16px;font-weight:600;margin:0 0 6px}
+.dlg p{font-size:13px;color:#c8cad3;margin:0 0 10px}
+.dlg .btn{display:flex;justify-content:flex-end;gap:18px;font-size:14px;font-weight:600;color:#9fd3ab}
+.cap{font-size:12px;color:#9a9ca6;margin:10px 4px 2px}
+.solo .panel{display:none}
+.solo .panel.on{display:flex}
+.solo .wrap{max-width:420px;margin:0}
+.solo .grid{grid-template-columns:1fr}
+.solo .intro{display:none}
+.solo .notes{display:none}
+.notes{margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+.notes li{margin:0 0 6px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- ToolMap's launcher peaks (res/drawable/ic_launcher_foreground.xml), as a status bar icon. -->
+  <symbol id="peaks" viewBox="20 30 68 46"><path fill="currentColor" d="M24,72 L44,38 L56,56 L64,44 L84,72 Z"/></symbol>
+  <symbol id="share" viewBox="0 0 24 24"><path fill="currentColor" d="M18 16a3 3 0 0 0-2.4 1.2L8.9 13.7a3 3 0 0 0 0-1.4l6.7-3.5A3 3 0 1 0 15 7l-6.7 3.5a3 3 0 1 0 0 3l6.7 3.5A3 3 0 1 0 18 16z"/></symbol>
+  <symbol id="loc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="currentColor"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="wifi" viewBox="0 0 24 24"><path fill="currentColor" d="M12 20l3.5-4.2a5 5 0 0 0-7 0zM4 9.5l2 2.3a9 9 0 0 1 12 0l2-2.3a12 12 0 0 0-16 0z"/></symbol>
+  <symbol id="bat" viewBox="0 0 26 14"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="3" width="11" height="8" rx="1.5" fill="currentColor"/><rect x="23" y="5" width="2" height="4" rx="1" fill="currentColor"/></symbol>
+  <symbol id="gps" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></symbol>
+</svg>
+<div class="wrap">
+  <div class="intro">
+    <h1>P21 — Notification de ToolMap quand il travaille en arrière-plan</h1>
+    <p class="lead">Aperçu à valider avant le code (CLAUDE.md). Volet du téléphone tiré vers le bas, ToolMap en arrière-plan, écran de démonstration : partage de position et enregistrement de trace en cours.</p>
+  </div>
+  <div class="grid">
+
+    <section class="panel" id="actuel">
+      <div><span class="tag">Aujourd'hui (0.4.61)</span></div>
+      <h2>Rien ne se voit dans la barre d'état</h2>
+      <div class="phone" aria-label="Volet actuel">
+        <div class="sb"><span class="t">10:42</span><svg class="mk" style="color:#c9cbd3"><use href="#gps"/></svg><span class="r"><svg width="15" height="15"><use href="#wifi"/></svg><svg width="22" height="13"><use href="#bat"/></svg></span></div>
+        <div class="qs"><span></span><span></span><span></span><span></span></div>
+        <div class="cap">Votre téléphone : notifications de ToolMap refusées</div>
+        <div class="empty">Aucune notification de ToolMap :<br>Android les cache toutes, même celle du partage.</div>
+        <div class="foot"><span>1 appli active</span><span>›</span></div>
+        <div class="cap">Si les notifications sont autorisées</div>
+        <div class="sec">Silencieuses</div>
+        <div class="card">
+          <div class="hd"><span class="ic sys"><svg width="12" height="12"><use href="#share"/></svg></span>ToolMap · maintenant</div>
+          <div class="ti">Position partagée</div>
+          <div class="tx">1 membre connecté</div>
+          <div class="act sys"><span>Arrêter</span></div>
+        </div>
+        <div class="card">
+          <div class="hd"><span class="ic sys"><svg width="12" height="12"><use href="#loc"/></svg></span>ToolMap · 1 h</div>
+          <div class="ti">Enregistrement en cours</div>
+          <div class="tx">3,2 km · 1 h 05</div>
+          <div class="act sys"><span>Pause</span><span>Arrêter</span></div>
+        </div>
+      </div>
+      <p class="note">Notifications « silencieuses » : Android n'en montre pas l'icône dans la barre d'état. Icônes génériques d'Android, pas celle de ToolMap.</p>
+    </section>
+
+    <section class="panel" id="a">
+      <div><span class="tag">Variante A — conseillée</span></div>
+      <h2>Une notification par fonction, bien visible</h2>
+      <div class="phone" aria-label="Variante A">
+        <div class="sb"><span class="t">10:42</span><svg class="mk" style="color:#fff"><use href="#peaks"/></svg><svg class="mk" style="color:#c9cbd3"><use href="#gps"/></svg><span class="r"><svg width="15" height="15"><use href="#wifi"/></svg><svg width="22" height="13"><use href="#bat"/></svg></span></div>
+        <div class="qs"><span></span><span></span><span></span><span></span></div>
+        <div class="sec">Notifications</div>
+        <div class="card">
+          <div class="hd"><span class="ic tm"><svg width="13" height="10" style="color:#fff"><use href="#peaks"/></svg></span>ToolMap · Partage de position</div>
+          <div class="ti">Position partagée</div>
+          <div class="tx">1 membre connecté</div>
+          <div class="act"><span>Arrêter</span></div>
+        </div>
+        <div class="card">
+          <div class="hd"><span class="ic tm"><svg width="13" height="10" style="color:#fff"><use href="#peaks"/></svg></span>ToolMap · Enregistrement de trace</div>
+          <div class="ti">Enregistrement en cours</div>
+          <div class="tx">3,2 km · 1 h 05</div>
+          <div class="act"><span>Pause</span><span>Arrêter</span></div>
+        </div>
+        <div class="cap">Au lancement du partage (ou de l'enregistrement), si les notifications sont refusées</div>
+        <div class="dlg">
+          <div class="dt">Montrer ToolMap dans la barre d'état ?</div>
+          <p>Sans les notifications, Android cache ToolMap : rien n'indique que le partage de position continue en arrière-plan.</p>
+          <div class="btn"><span>Plus tard</span><span>Autoriser</span></div>
+        </div>
+      </div>
+      <p class="note">Icône des sommets de ToolMap dans la barre d'état, une seule même si plusieurs fonctions tournent. Chaque notification garde ses boutons. <b>Sans son ni vibration</b>.</p>
+    </section>
+
+    <section class="panel" id="b">
+      <div><span class="tag">Variante B</span></div>
+      <h2>Une seule notification « ToolMap est actif »</h2>
+      <div class="phone" aria-label="Variante B">
+        <div class="sb"><span class="t">10:42</span><svg class="mk" style="color:#fff"><use href="#peaks"/></svg><svg class="mk" style="color:#c9cbd3"><use href="#gps"/></svg><span class="r"><svg width="15" height="15"><use href="#wifi"/></svg><svg width="22" height="13"><use href="#bat"/></svg></span></div>
+        <div class="qs"><span></span><span></span><span></span><span></span></div>
+        <div class="sec">Notifications</div>
+        <div class="card">
+          <div class="hd"><span class="ic tm"><svg width="13" height="10" style="color:#fff"><use href="#peaks"/></svg></span>ToolMap · maintenant</div>
+          <div class="ti">ToolMap est actif en arrière-plan</div>
+          <div class="tx ln">Position partagée · 1 membre connecté</div>
+          <div class="tx ln">Enregistrement · 3,2 km · 1 h 05</div>
+          <div class="act"><span>Arrêter le partage</span><span>Arrêter l'enregistrement</span></div>
+        </div>
+        <div class="cap">Même question si les notifications sont refusées (voir A)</div>
+      </div>
+      <p class="note">Une ligne par fonction en cours ; trois boutons au plus (limite d'Android), donc pas de « Pause » de l'enregistrement ici. Plus de travail : plusieurs services doivent partager une notification.</p>
+    </section>
+
+  </div>
+  <div class="notes">
+    <h2>Dans les deux variantes</h2>
+    <ul>
+      <li>La notification est là <b>tant que ToolMap travaille</b> en arrière-plan : partage de position, enregistrement, alertes et suivi de trace, téléchargement de cartes (celui-ci garde sa barre de progression). Elle part quand tout est arrêté.</li>
+      <li>ToolMap ouvert puis mis en arrière-plan <b>sans rien en cours</b> : pas de notification. Android ne garde pas l'appli active dans ce cas ; l'afficher quand même ferait tourner un service pour rien (batterie).</li>
+      <li>Pour l'icône dans la barre d'état, Android demande une notification non « silencieuse » : nouveau canal « Activité en arrière-plan », sans son ni vibration.</li>
+      <li>Toucher la notification ouvre ToolMap ; les boutons agissent sans l'ouvrir.</li>
+    </ul>
+  </div>
+</div>
+<script>
+// "#a" alone, for a phone-sized capture of one panel.
+const one = location.hash.slice(1);
+if (one && document.getElementById(one)) {
+  document.documentElement.classList.add("solo");
+  document.getElementById(one).classList.add("on");
+}
+</script>
+</body>
+</html>

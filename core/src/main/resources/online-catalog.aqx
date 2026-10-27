@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="utf-8"?>
+<aqx version="11">
+  <name>ToolMap - catalogue de cartes en ligne</name>
+  <description>Cartes que l'on peut ajouter en un geste (Cartes, Ajouter une carte, Catalogue en ligne). Seules figurent des sources dont les conditions d'usage permettent l'acces direct aux tuiles ; les identifiants commencent par cat-. Un parametre vide est une cle d'API que l'utilisateur renseigne a l'ajout.</description>
+
+  <source id="cat-osm-france" type="topo">
+    <name>OpenStreetMap France</name>
+    <copyright>(c) OpenStreetMap contributors | Style : OpenStreetMap France</copyright>
+    <data-source>https://www.openstreetmap.fr</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,14</preview-location>
+    <zoom-levels z="0-19">
+      <user-agent>ToolMap/0.4 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://a.tile.openstreetmap.fr/osmfr/{$z}/{$x}/{$y}.png]]></server>
+      <server><![CDATA[https://b.tile.openstreetmap.fr/osmfr/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-osm-hot" type="roads">
+    <name>OpenStreetMap Humanitaire</name>
+    <copyright>(c) OpenStreetMap contributors | Style : Humanitarian OpenStreetMap Team</copyright>
+    <data-source>https://www.hotosm.org</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,14</preview-location>
+    <zoom-levels z="0-19">
+      <user-agent>ToolMap/0.4 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://a.tile.openstreetmap.fr/hot/{$z}/{$x}/{$y}.png]]></server>
+      <server><![CDATA[https://b.tile.openstreetmap.fr/hot/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-osm-cyclosm" type="topo">
+    <name>CyclOSM (vélo)</name>
+    <copyright>(c) OpenStreetMap contributors | Style : CyclOSM</copyright>
+    <data-source>https://www.cyclosm.org</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,14</preview-location>
+    <zoom-levels z="0-19">
+      <user-agent>ToolMap/0.4 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://a.tile-cyclosm.openstreetmap.fr/cyclosm/{$z}/{$x}/{$y}.png]]></server>
+      <server><![CDATA[https://b.tile-cyclosm.openstreetmap.fr/cyclosm/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-osm-carto" type="roads">
+    <name>Carto Voyager</name>
+    <copyright>(c) OpenStreetMap contributors | Fond : CARTO</copyright>
+    <data-source>https://carto.com/attributions</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,14</preview-location>
+    <zoom-levels z="0-19">
+      <user-agent>ToolMap/0.4 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://a.basemaps.cartocdn.com/rastertiles/voyager/{$z}/{$x}/{$y}.png]]></server>
+      <server><![CDATA[https://b.basemaps.cartocdn.com/rastertiles/voyager/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-osm-transport" type="roads">
+    <name>Transports publics (ÖPNVKarte)</name>
+    <copyright>(c) OpenStreetMap contributors | Style : memomaps.de</copyright>
+    <data-source>https://memomaps.de</data-source>
+    <region>WRLD</region>
+    <preview-location>2.35,48.85,13</preview-location>
+    <zoom-levels z="0-18">
+      <user-agent>ToolMap/0.4 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://tileserver.memomaps.de/tilegen/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-osm-hiking" type="topo" layer="true" opacity="100">
+    <name>Sentiers de randonnée (Waymarked Trails)</name>
+    <copyright>(c) OpenStreetMap contributors | Waymarked Trails</copyright>
+    <data-source>https://hiking.waymarkedtrails.org</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,13</preview-location>
+    <zoom-levels z="0-18">
+      <user-agent>ToolMap/0.4 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://tile.waymarkedtrails.org/hiking/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-osm-cycling" type="topo" layer="true" opacity="100">
+    <name>Pistes cyclables (Waymarked Trails)</name>
+    <copyright>(c) OpenStreetMap contributors | Waymarked Trails</copyright>
+    <data-source>https://cycling.waymarkedtrails.org</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,13</preview-location>
+    <zoom-levels z="0-18">
+      <user-agent>ToolMap/0.4 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://tile.waymarkedtrails.org/cycling/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-osm-mtb" type="topo" layer="true" opacity="100">
+    <name>VTT (Waymarked Trails)</name>
+    <copyright>(c) OpenStreetMap contributors | Waymarked Trails</copyright>
+    <data-source>https://mtb.waymarkedtrails.org</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,13</preview-location>
+    <zoom-levels z="0-18">
+      <user-agent>ToolMap/0.4 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://tile.waymarkedtrails.org/mtb/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-osm-slopes" type="topo" layer="true" opacity="100">
+    <name>Pistes de ski (Waymarked Trails)</name>
+    <copyright>(c) OpenStreetMap contributors | Waymarked Trails</copyright>
+    <data-source>https://slopes.waymarkedtrails.org</data-source>
+    <region>WRLD</region>
+    <preview-location>6.87,45.92,13</preview-location>
+    <zoom-levels z="0-18">
+      <user-agent>ToolMap/0.4 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://tile.waymarkedtrails.org/slopes/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-ign-etatmajor" type="historical">
+    <name>IGN État-major 1:40 000 (1820-1866)</name>
+    <copyright>IGN</copyright>
+    <data-source>https://data.geopf.fr</data-source>
+    <region>WRLD</region>
+    <preview-location>2.35,48.85,12</preview-location>
+    <zoom-levels z="6-15">
+      <referer><![CDATA[https://data.geopf.fr/]]></referer>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={$z}&TILEROW={$y}&TILECOL={$x}&LAYER=GEOGRAPHICALGRIDSYSTEMS.ETATMAJOR40&FORMAT=image/jpeg]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-ign-ortho1950" type="historical">
+    <name>IGN Photographies aériennes 1950-1965</name>
+    <copyright>IGN</copyright>
+    <data-source>https://data.geopf.fr</data-source>
+    <region>WRLD</region>
+    <preview-location>2.35,48.85,13</preview-location>
+    <zoom-levels z="0-18">
+      <referer><![CDATA[https://data.geopf.fr/]]></referer>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={$z}&TILEROW={$y}&TILECOL={$x}&LAYER=ORTHOIMAGERY.ORTHOPHOTOS.1950-1965&FORMAT=image/png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-ign-cadastre" type="roads" layer="true" opacity="100">
+    <name>IGN Parcelles cadastrales</name>
+    <copyright>IGN, DGFiP</copyright>
+    <data-source>https://data.geopf.fr</data-source>
+    <region>WRLD</region>
+    <preview-location>2.35,48.85,17</preview-location>
+    <zoom-levels z="0-19">
+      <referer><![CDATA[https://data.geopf.fr/]]></referer>
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={$z}&TILEROW={$y}&TILECOL={$x}&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&FORMAT=image/png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-swisstopo-color" type="topo">
+    <name>Swisstopo Carte nationale (couleur)</name>
+    <copyright>© swisstopo</copyright>
+    <data-source>https://www.swisstopo.admin.ch</data-source>
+    <region>WRLD</region>
+    <preview-location>7.45,46.95,13</preview-location>
+    <zoom-levels z="0-18">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{$z}/{$x}/{$y}.jpeg]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-swisstopo-grey" type="topo">
+    <name>Swisstopo Carte nationale (gris)</name>
+    <copyright>© swisstopo</copyright>
+    <data-source>https://www.swisstopo.admin.ch</data-source>
+    <region>WRLD</region>
+    <preview-location>7.45,46.95,13</preview-location>
+    <zoom-levels z="0-18">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-grau/default/current/3857/{$z}/{$x}/{$y}.jpeg]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-swisstopo-image" type="satellite">
+    <name>Swisstopo SWISSIMAGE</name>
+    <copyright>© swisstopo</copyright>
+    <data-source>https://www.swisstopo.admin.ch</data-source>
+    <region>WRLD</region>
+    <preview-location>7.45,46.95,14</preview-location>
+    <zoom-levels z="0-19">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{$z}/{$x}/{$y}.jpeg]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-bkg-topplus" type="roads">
+    <name>BKG TopPlusOpen</name>
+    <copyright>© GeoBasis-DE / BKG</copyright>
+    <data-source>https://gdz.bkg.bund.de</data-source>
+    <region>WRLD</region>
+    <preview-location>13.40,52.50,13</preview-location>
+    <zoom-levels z="0-18">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web/default/WEBMERCATOR/{$z}/{$y}/{$x}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-bkg-topplus-grey" type="roads">
+    <name>BKG TopPlusOpen (gris)</name>
+    <copyright>© GeoBasis-DE / BKG</copyright>
+    <data-source>https://gdz.bkg.bund.de</data-source>
+    <region>WRLD</region>
+    <preview-location>13.40,52.50,13</preview-location>
+    <zoom-levels z="0-18">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web_grau/default/WEBMERCATOR/{$z}/{$y}/{$x}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-bkg-topplus-light" type="roads">
+    <name>BKG TopPlusOpen (clair)</name>
+    <copyright>© GeoBasis-DE / BKG</copyright>
+    <data-source>https://gdz.bkg.bund.de</data-source>
+    <region>WRLD</region>
+    <preview-location>13.40,52.50,13</preview-location>
+    <zoom-levels z="0-18">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web_light/default/WEBMERCATOR/{$z}/{$y}/{$x}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-usgs-topo" type="topo">
+    <name>USGS Topo</name>
+    <copyright>USGS The National Map</copyright>
+    <data-source>https://www.usgs.gov/programs/national-geospatial-program/national-map</data-source>
+    <region>WRLD</region>
+    <preview-location>-105.30,40.00,13</preview-location>
+    <zoom-levels z="0-16">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{$z}/{$y}/{$x}]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-usgs-imagery" type="satellite">
+    <name>USGS Imagery</name>
+    <copyright>USGS The National Map</copyright>
+    <data-source>https://www.usgs.gov/programs/national-geospatial-program/national-map</data-source>
+    <region>WRLD</region>
+    <preview-location>-105.30,40.00,13</preview-location>
+    <zoom-levels z="0-16">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{$z}/{$y}/{$x}]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-usgs-imagerytopo" type="hybrid">
+    <name>USGS Imagery Topo</name>
+    <copyright>USGS The National Map</copyright>
+    <data-source>https://www.usgs.gov/programs/national-geospatial-program/national-map</data-source>
+    <region>WRLD</region>
+    <preview-location>-105.30,40.00,13</preview-location>
+    <zoom-levels z="0-16">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{$z}/{$y}/{$x}]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-usgs-relief" type="hillshade" layer="true" opacity="60">
+    <name>USGS Relief ombré</name>
+    <copyright>USGS The National Map</copyright>
+    <data-source>https://www.usgs.gov/programs/national-geospatial-program/national-map</data-source>
+    <region>WRLD</region>
+    <preview-location>-105.30,40.00,11</preview-location>
+    <zoom-levels z="0-13">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://basemap.nationalmap.gov/arcgis/rest/services/USGSShadedReliefOnly/MapServer/tile/{$z}/{$y}/{$x}]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-usgs-hydro" type="roads" layer="true" opacity="100">
+    <name>USGS Hydrographie</name>
+    <copyright>USGS The National Map</copyright>
+    <data-source>https://www.usgs.gov/programs/national-geospatial-program/national-map</data-source>
+    <region>WRLD</region>
+    <preview-location>-105.30,40.00,12</preview-location>
+    <zoom-levels z="0-15">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://basemap.nationalmap.gov/arcgis/rest/services/USGSHydroCached/MapServer/tile/{$z}/{$y}/{$x}]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-os-outdoor" type="topo">
+    <name>Ordnance Survey Outdoor (clé requise)</name>
+    <copyright>© Crown copyright and database rights Ordnance Survey</copyright>
+    <data-source>https://osdatahub.os.uk</data-source>
+    <region>WRLD</region>
+    <param name="os-key"></param>
+    <preview-location>-3.00,54.45,11</preview-location>
+    <zoom-levels z="7-16">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://api.os.uk/maps/raster/v1/zxy/Outdoor_3857/{$z}/{$x}/{$y}.png?key={$param:os-key}]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="cat-os-road" type="roads">
+    <name>Ordnance Survey Road (clé requise)</name>
+    <copyright>© Crown copyright and database rights Ordnance Survey</copyright>
+    <data-source>https://osdatahub.os.uk</data-source>
+    <region>WRLD</region>
+    <param name="os-key"></param>
+    <preview-location>-3.00,54.45,11</preview-location>
+    <zoom-levels z="7-16">
+      <max-threads>2</max-threads>
+      <server><![CDATA[https://api.os.uk/maps/raster/v1/zxy/Road_3857/{$z}/{$x}/{$y}.png?key={$param:os-key}]]></server>
+    </zoom-levels>
+  </source>
+</aqx>

@@ -1,0 +1,33 @@
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+captures/
+.cxx/
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Firebase emulator logs, written at the root by scripts/firebase-emulator-test.sh
+/*-debug.log
+
+# Fixed debug signing key (not a secret: debug builds only)
+!app/debug.keystore
+
+# Firebase emulator log
+firebase/*-debug.log
+
+# JVM crash reports: they hold the user name, paths and environment of the machine
+hs_err_pid*.log
+replay_pid*.log
+*.hprof

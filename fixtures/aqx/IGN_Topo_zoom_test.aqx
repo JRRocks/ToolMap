@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<aqx version="11">
+
+
+        <name>IGN Cartes Privées (ign_scan_ws)</name>
+        <description>Fonds de cartes IGN via data.geopf.fr</description>
+
+
+        <!-- Couche 1 : Cartes IGN Classiques -->
+        <source id="IGN_MAPS">
+                <name>IGN Cartes Topographiques</name>
+                <data-source>https://data.geopf.fr</data-source>
+                <copyright>IGN</copyright>
+                <region>WRLD</region>
+                <type>TOPO</type>
+                <preview-location>5.90,44.80,12</preview-location>
+                <level>
+                        <zoom-values>1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18</zoom-values>
+                        <referer><![CDATA[https://data.geopf.fr/]]></referer>
+                        <server><![CDATA[https://data.geopf.fr/private/wmts?apikey=ign_scan_ws&layer=GEOGRAPHICALGRIDSYSTEMS.MAPS&style=normal&tilematrixset=PM&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={$z}&TileCol={$x}&TileRow={$y}]]></server>
+                </level>
+        </source>
+
+
+        <!-- Couche 2 : IGN SCAN 25 Touristique (Randonnée) -->
+        <source id="IGN_SCAN25TOUR">
+                <name>IGN SCAN 25 Touristique</name>
+                <data-source>https://data.geopf.fr</data-source>
+                <copyright>IGN</copyright>
+                <region>WRLD</region>
+                <type>TOPO</type>
+                <preview-location>5.90,44.80,14</preview-location>
+                <level>
+                        <zoom-values>6,7,8,9,10,11,12,13,14</zoom-values>
+                        <referer><![CDATA[https://data.geopf.fr/]]></referer>
+                        <server><![CDATA[https://data.geopf.fr/private/wmts?apikey=ign_scan_ws&layer=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&style=normal&tilematrixset=PM&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={$z}&TileCol={$x}&TileRow={$y}]]></server>
+                </level>
+        </source>
+
+
+        
+</aqx>

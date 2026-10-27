@@ -1,0 +1,388 @@
+# ToolMap — Plan & feuille de route
+
+> Source de vérité de l'avancement. Mettre à jour les statuts à chaque session (voir protocole dans `CLAUDE.md`).
+>
+> Légende : ⬜ à faire · 🔄 en cours · ✅ terminé (critères vérifiés) · ⛔ bloqué (raison indiquée)
+>
+> Les idées pour plus tard ne vont pas dans ce plan : `docs/idees-futur.md`, lu seulement sur demande de l'utilisateur (2026-10-24 ; les lignes 💤, les « Reporté » et la section « Bonus » y sont passés).
+>
+> Les lignes de tâches résument ce qui est fait et ce qui reste ; le détail (fichiers, nombre de tests, commandes lancées) est dans `docs/JOURNAL.md`. Réécriture du 2026-10-16 (session 32) : lignes raccourcies, statuts et critères inchangés ; l'ancienne version est dans l'historique git de `JRRocks/ToolMap`.
+
+## 1. Vision
+
+Recréer **AlpineQuest** (https://alpinequest.net) sous Android en Kotlin natif, puis aller plus loin.
+
+### Parité AlpineQuest (priorités de l'utilisateur)
+1. **N'importe quelle carte** dès qu'on dispose de la source (URL, clé API, Referer, en-têtes…), import du format AQX (cf. `fixtures/aqx/IGN_Topo_zoom_test.aqx`).
+2. **Superposition de cartes** (calques, opacité, ordre, réglages de couleur).
+3. **Cartes stockées en local** : utilisation hors ligne en randonnée (cache automatique et téléchargement de zones).
+4. **Traces GPX** : création, édition, visualisation, enregistrement GPS, import/export.
+5. **Interface fidèle** : menus, panneaux, icônes et comportement des boutons proches d'AlpineQuest (P11, P14, P16).
+
+### Nouveautés absentes d'AlpineQuest
+- **N1 — Partage de position en temps réel** toutes les *x* secondes (*x* réglable). D'abord **pair-à-pair strict** par QR code (P8, ADR-004) ; depuis P13, les nouveaux groupes passent par un **serveur de coordination Firebase** appartenant à l'utilisateur, parce que la liaison directe échoue souvent en 4G (ADR-033). Le mode direct reste pour les groupes existants.
+- **N2 — Assistant guidé d'ajout de carte** (source, type, URL, clé API, en-têtes, zooms, test) : l'équivalent d'un fichier AQX, sans écrire de XML.
+- **N3 — Plages de zoom par calque** : ex. *IGN Topo de 16 à 8*, *IGN Plan de 7 à 1*, *IGN Pentes de 16 à 1* en permanence.
+- **N4 — Export PDF à l'échelle** d'une zone sélectionnée (1:25 000, 1:50 000…) pour une impression comme une vraie carte papier, inspiré de la mise en page de QGIS.
+- **N5 — Tuiles partagées et cartes multi-zoom** (P12) : une même carte décrite par plusieurs fichiers `.aqx` n'est téléchargée qu'une fois ; une carte peut en afficher d'autres selon le zoom, ou garder les tuiles d'un seul zoom (« zoom forcé »), sans écrire d'`.aqx` ; aucune zone vide hors des zooms d'une carte.
+- **N6 — Menu du point central et ouverture dans une autre application** (P14.5, P14.8) : cible, waypoint, mesure, coordonnées, partage, Waze.
+
+## 2. Architecture
+
+### 2.1 Choix structurants (détails et justification dans `DECISIONS.md`)
+- Android natif **Kotlin + Jetpack Compose** (ADR-001).
+- Affichage par **MapLibre Native Android**, build OpenGL ES (ADR-002, ADR-028), et **intercepteur OkHttp**.
+- Tuiles stockées en **MBTiles, un fichier par jeu de tuiles** (ADR-003, ADR-031).
+- Partage de position : **WebRTC DataChannel** avec signalisation par QR code, sans TURN (ADR-004), puis **serveur de coordination Firebase** (REST + SSE, trames chiffrées de bout en bout, ADR-033).
+- **Web Mercator** (EPSG:3857) uniquement en v1 (ADR-005) ; projections d'affichage et d'impression (UTM, Lambert 93, MGRS) écrites à la main, sans proj4j (ADR-020).
+
+### 2.2 Modules Gradle
+| Module | Type | Contenu |
+|---|---|---|
+| `:core` | Kotlin JVM pur | Modèles ; maths tuiles, Mercator et échelle ; formats de coordonnées (DD, DDM, DMS, UTM, MGRS, Lambert 93) ; parseurs/écrivains AQX, GPX, KML, GeoJSON (API XmlPullParser, kxml2 en test JVM) ; statistiques de trace ; Douglas-Peucker ; écrivain PDF ; codec P2P et relais. **100 % testé en JVM.** |
+| `:data` | Android library | Room (traces, waypoints, dossiers), `MbTilesStore`, client OkHttp + `TileInterceptor` + `TileResolver`, téléchargement WorkManager, sources, stockage, sauvegarde. |
+| `:p2p` | Android library | WebRTC (`stream-webrtc-android`), appairage QR (CameraX + ZXing, sans Google Play Services), maillage, transport `FirebaseRelay`, service de premier plan. |
+| `:app` | Android application | UI Compose par paquets de fonctionnalités : `map`, `maps`, `layers`, `sources`, `wizard`, `multizoom`, `download`, `storage`, `tracks`, `waypoints`, `draw`, `measure`, `record`, `navigate`, `alert`, `altitude`, `search`, `print`, `share`, `backup`, `settings`, `about`, `crash`, `debug`. |
+
+### 2.3 Chemin d'une tuile
+```
+MapLibre (source raster "https://tiles.toolmap.local/{sourceId}/{z}/{x}/{y}")
+   └─> OkHttp TileInterceptor
+         0. TileResolver : recette (tuile telle quelle, partie agrandie d'une tuile plus grossière, tuiles plus fines réduites, rien)
+         pour chaque tuile réelle de la recette :
+         1. MbTilesStore.get(jeu de tuiles, z, x, y) → trouvée et non expirée : lue en local
+         2. mode hors ligne → absente
+         3. TileUrlBuilder(LevelDef, z, x, y) → URL réelle ({$x} {$y} {$z} {$!y} {$q} {$bbox} {$param:k}, serveurs en rotation)
+            + Referer / User-Agent / en-têtes / cookies de la LevelDef
+         4. téléchargement → (clear-color éventuel) → MbTilesStore.put
+         5. BitmapTileComposer dessine la tuile demandée (jamais stockée) → réponse
+```
+`MbTilesStore` range une tuile dans le fichier de **son jeu de tuiles** (identité de l'URL normalisée), pas de la carte demandée : deux cartes qui servent les mêmes tuiles partagent un fichier (ADR-031). Une carte multi-zoom (`toolmap-map:<id>[?z=n]`) lit les tuiles des cartes qu'elle affiche.
+Le cache ambiant de MapLibre est désactivé (`setMaximumAmbientCacheSize(0)`) pour éviter un double stockage. Le zoom affiché dépend de la densité de l'écran (ADR-032).
+
+### 2.4 Modèle de données principal (indicatif)
+- `TileSource(id, name, description, copyright, type, isOverlay, defaultOpacity, previewLocation, outline, params, levels: List<LevelDef>, origin = AQX|WIZARD|BUILTIN|MBTILES)`
+- `LevelDef(zooms: SortedSet<Int>, servers: List<String>, referer, userAgent, headers, cookies, tileSize, format, updateDelay, maxThreads, insecure, clearColor, projectionCode)`
+- `LayerConfig(sourceId, order, visible, opacity, displayMinZoom, displayMaxZoom, contrast, brightness, saturation)`
+- `Workspace(name, layers: List<LayerConfig>, visiblePlacemarkFolders)`
+- `Waypoint`, `Route`, `Track(segments: List<List<TrackPoint>>)`, `Folder`, `Style`
+- `ShareGroup(id, key, members)`, `PeerPosition(memberId, seq, time, lat, lon, alt, acc, speed, bearing, battery)`
+
+### 2.5 Élévation
+Tuiles **Terrarium** (AWS open data `elevation-tiles-prod`) traitées comme une source raster-dem ordinaire, donc stockées en MBTiles : profils et altitudes des tracés **hors ligne**, calage du baromètre. En option, l'API altimétrie IGN (RGE ALTI, plus précise en France), en ligne uniquement.
+
+## 3. Feuille de route
+
+> **Ordre conseillé (2026-10-16)** :
+> 1. **Remettre la CI en marche** (limite de dépense GitHub Actions, action de l'utilisateur) pour retrouver l'APK en lien de téléchargement.
+> 2. **P16.6 / P16.7** : icônes (grille des activités à voir, icônes de menus à comparer et reconstruire).
+> 3. **P14.2** (`[S2]` certificats non vérifiés, `[G1]` libellé), **P14.3** (`[R2]`, `[R4]`, `[R5]`), **P14.4** (`[F3]` cartes masquées).
+> 4. **P14.6, P14.7** : fonctions proposées (`ui-reorganization.md` §5), dont tri, filtre et sélection multiple des traces.
+> 5. **P15** (plan revu avec l'utilisateur le 2026-10-16) : build « benchmark » et mesures sur l'émulateur (P15.1), puis les tuiles de la carte (P15.2), le téléchargement de zone (P15.3) et l'interface (P15.4 et suivants).
+>
+> **Point du 2026-10-21 (session 49)** : les points 2 à 4 sont faits. Les 13 décisions de `docs/previews/p14-fonctions.html` ont été validées par l'utilisateur le 2026-10-20, codées, puis comparées à l'émulateur (`docs/previews/p14-fonctions-emulateur.html`) : P14.3, P14.4, P14.6, P14.7 et P16.7 sont ✅ ; P14.2 n'attend plus que le déplacement vers une carte SD, sur téléphone ; G1, F12 et F15 restent tels quels par décision de l'utilisateur. Restent P15 (point 5) et P19.8 à P19.12 (V2 des itinéraires), à commencer par leurs aperçus. Le 2026-10-22 : aperçu des petits défauts visibles (P14.11, `docs/previews/p14-defauts.html`) validé, codé et comparé sur l'émulateur : P14.11 ✅.
+>
+> En parallèle, toutes les lignes 🔄 « à voir sur téléphone » de P1 à P16 attendent l'utilisateur. Depuis le 2026-10-15, l'interface se vérifie aussi sur l'émulateur du poste local (`CLAUDE.md`) ; le GPS réel, les capteurs, la caméra, le partage entre deux téléphones et les services écran éteint restent à voir sur téléphone.
+
+### P0 — Fondations & outillage
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P0.1 | ✅ | Squelette Gradle multi-modules (`:core`, `:data`, `:p2p`, `:app`), Compose + Hilt, catalogue de versions, applicationId `fr.toolmap` (AGP 9.4.1, Gradle 9.6.0, Kotlin 2.4.20 : ADR-007) | `./gradlew assembleDebug` produit un APK `fr.toolmap` signé (vérifié : `aapt2 dump badging`, `apksigner verify`) ; l'application s'ouvre sur l'émulateur (2026-10-15) |
+| P0.2 | ✅ | Hook SessionStart `.claude/hooks/session-start.sh` (environnement cloud) : SDK Android, `local.properties`, miroir Maven Central (ADR-009), réchauffe Gradle, affiche la dernière entrée du journal | Vérifié : idempotent (28 s puis 0,9 s), sans effet hors session cloud |
+| P0.3 | ✅ | CI GitHub Actions `.github/workflows/ci.yml` : `./gradlew check assembleDebug`, APK debug en artefact `toolmap-debug-apk` (seul le dernier gardé) et en pré-release `debug-<sha7>` ; keystore debug fixe ; Dependabot mensuel | Vérifié : run n°1 vert en 5 min 45 s (https://github.com/JRRocks/ToolMap/actions/runs/36888191083). **2026-10-16** : la CI ne démarre plus (limite de dépense du compte GitHub), voir §5 |
+| P0.4 | ✅ | Qualité : **Spotless + ktlint 1.8.0** (`.editorconfig`), `check` inclut `spotlessCheck` + lint + tests (ADR-008) | Vérifié : `./gradlew check assembleDebug` vert en local |
+
+### P1 — Carte & sources (parité 1 et 2)
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P1.1 | 🔄 | **Spike** MapLibre + `TileInterceptor`. Plantages du 2026-10-03 corrigés : ordre `setOkHttpClient` / `MapLibre.getInstance` (`AppStartupTest`), carte en OpenGL ES (ADR-028), rapport de plantage sur le téléphone (ADR-029), expressions régulières refusées par ICU (`RegexPortabilityTest`). Carte affichée sur l'émulateur ; **à voir sur téléphone** | Tuiles IGN SCAN 25 affichées via l'intercepteur ; si l'approche échoue, ADR de repli (moteur raster maison) avant de continuer |
+| P1.2 | ✅ | Modèle `TileSource`/`LevelDef` + **parseur AQX** (`<level><zoom-values>` et `<zoom-levels z="">`, v8 à 13, `<param>`, plusieurs `<server>`, `<variable>`/`<expression>` signalés si non supportés) | Test JVM : la fixture donne 2 sources (`IGN_MAPS` zooms 1–18, `IGN_SCAN25TOUR` zooms 6–14), Referer `https://data.geopf.fr/`, gabarits d'URL corrects |
+| P1.3 | ✅ | `TileUrlBuilder` : `{$x} {$y} {$z} {$!y} {$q} {$bbox}` (EPSG:4326 par défaut, `bbox-crs-code`), `{$ibbox}`, `{$param:k}`, rotation des serveurs | Tests JVM avec valeurs connues (quadkey, TMS, bbox) |
+| P1.4 | 🔄 | Sources intégrées : OSM, OpenTopoMap, IGN Plan v2, IGN Photographies aériennes, IGN Pentes montagne, IGN SCAN 25, Terrarium… (`builtin-sources.aqx`, tuile de `preview-location` en HTTP 200). **À voir sur téléphone** | Chaque source affiche une tuile à `preview-location` |
+| P1.5 | 🔄 | Écran carte : gestes, position GPS (cercle de précision, cap), rotation par boussole, barre d'échelle, coordonnées du centre. **À voir sur téléphone** | Vérifié sur téléphone (consigné au journal) |
+| P1.6 | 🔄 | Pile de calques : ajout, suppression, ordre, visibilité, opacité, contraste, luminosité, saturation, bascule rapide entre 2 cartes (repris par le panneau P11). **À voir sur téléphone** | Superposer IGN Pentes à 50 % sur IGN SCAN 25 |
+| P1.7 | 🔄 | Import de fichiers `.aqx` (sélecteur de fichiers + intent « Ouvrir avec ») ; sources en projection non Mercator signalées comme non supportées. **À voir sur téléphone** | La fixture s'importe et ses 2 sources sont utilisables |
+| P1.8 | 🔄 | **Netteté comme AlpineQuest** (demande du 2026-10-03) : taille des tuiles selon la densité de l'écran, zoom affiché = zoom des tuiles à l'écran, réglage « Netteté des cartes » (ADR-032). Tests `ZoomMappingTest`, `LayerZoomTest`, `StyleApplierTest`. **À voir sur téléphone** | À la vue de la capture (Chambéry, « 14/18 » dans AlpineQuest), ToolMap affiche les tuiles du zoom 14, aussi nettes, et la pastille indique « z 14 » |
+
+### P2 — Hors ligne (parité 3)
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P2.1 | 🔄 | `MbTilesStore` : un fichier SQLite par jeu de tuiles (schéma MBTiles standard, y en TMS), métadonnées, date de téléchargement pour `update-delay`. Tests Robolectric verts ; reste l'ouverture dans QGIS | Tests Robolectric : put/get/expiration ; le fichier s'ouvre dans QGIS |
+| P2.2 | 🔄 | Mise en cache automatique de toute tuile affichée. `OfflineFlowTest` rejoue le scénario sur MockWebServer ; **à voir sur téléphone** | Zone affichée en ligne puis mode avion : même zone visible |
+| P2.3 | 🔄 | Mode « stockage local uniquement » + superposition de la couverture stockée. Critère vérifié (`requestCount == 0`) ; superposition de couverture **à voir sur téléphone** | Aucune requête réseau en mode hors ligne (vérifié au MockWebServer) |
+| P2.4 | 🔄 | **Téléchargement de zone** : rectangle, polygone ou tampon autour d'une trace ; calques et zooms ; estimation ; WorkManager avec notification, pause et reprise ; `max-threads` ≤ 3 ; limitation de débit. Moteur et écran testés en JVM ; « Télécharger autour de cette trace » existe. **À voir sur téléphone** | Télécharger ±1 km autour d'une trace, zooms 10–16, puis consulter toute la trace en mode avion |
+| P2.5 | 🔄 | Gestionnaire de stockage (taille par jeu de tuiles, purge par zone ou totale) ; import et export de `.mbtiles`. Aller-retour vérifié en JVM (`StorageManagerTest`) ; reste l'échange réel entre deux appareils | Un `.mbtiles` exporté puis réimporté sur un autre appareil fonctionne |
+
+### P3 — Superposition par plage de zoom (N3)
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P3.1 | 🔄 | `LayerConfig.displayMinZoom/displayMaxZoom` (bornes incluses, en zoom des tuiles), traduits en `minzoom` / `maxzoom` MapLibre avec le décalage de zoom de l'écran (ADR-011, ADR-016, ADR-032). 7 tests JVM (`LayerZoomTest`). **À voir sur téléphone** | Tests JVM de la traduction ; vérifier à l'écran qu'un calque 8–16 apparaît à l'affichage « zoom 8 » |
+| P3.2 | 🔄 | UI « barres de zoom » : une barre de 0 à 20 par calque, deux poignées, curseur du zoom courant, calques inactifs grisés. `ZoomBar` (5 tests), persistance testée ; fluidité **à voir sur téléphone** | Réglage au doigt fluide ; valeurs persistées |
+| P3.3 | 🔄 | Espaces de travail / préréglages (pile de calques + plages, nommés). Préréglage fourni « IGN Topo 8–16, Plan 1–7, Pentes » ; critère vérifié en JVM tous les quarts de zoom ; affichage **à voir sur téléphone** | z ≥ 8 → Topo + Pentes ; z ≤ 7 → Plan + Pentes ; aucun trou visuel à z = 7,5 |
+| P3.4 | ✅ | Le compositeur PDF (P7) et le téléchargement de zone (P2.4) respectent les plages de zoom des calques (`ZoomLimit`, `PrintLayers`) | Ne télécharger que les calques visibles au zoom concerné (option) |
+
+### P4 — Assistant d'ajout de carte (N2)
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P4.1 | 🔄 | Étape « type » : XYZ/TMS, **WMTS** et WMS (GetCapabilities → couches, styles, TileMatrixSet, pré-remplissage), fichier AQX, fichier MBTiles. Vérifié en JVM et sur le vrai `data.geopf.fr/wmts` ; écran **à voir sur téléphone** | GetCapabilities IGN `data.geopf.fr/wmts` liste les couches et pré-remplit l'URL |
+| P4.2 | 🔄 | Étape « URL » : boutons d'insertion des placeholders, aide ; détection de `apikey=` et extraction vers un champ clé masqué (`ApiKeyExtractor`). Vérifié en JVM ; écran **à voir sur téléphone** | Coller l'URL de la fixture extrait `ign_scan_ws` |
+| P4.3 | 🔄 | Étape « accès » : Referer, User-Agent, en-têtes, cookie, certificats : ceux du système et les autorités installées par l'utilisateur (ADR-066 ; l'option `insecure` et son interrupteur sont retirés le 2026-10-21, P14.2 `[S2]` ; celle d'un `.aqx` importé est gardée pour l'export, jamais appliquée) ; trafic en clair permis (ADR-017, `network_security_config.xml`) | — |
+| P4.4 | 🔄 | Étape « zooms et apparence » : plage ou liste de zooms, taille de tuile, format, fond ou calque, opacité, copyright, validation | — |
+| P4.5 | 🔄 | Étape « test » : `TileProbe` (même intercepteur que la carte), 12 verdicts, aperçu, latence, taille, secrets masqués. Vérifié sur serveur simulé et réel (clé erronée → 401 → `KEY_OR_REFERER`) ; message **à voir sur téléphone** | Erreur volontaire de clé → message 403 explicite |
+| P4.6 | 🔄 | Enregistrer, modifier une source (y compris importée), **exporter en AQX** compatible AlpineQuest (clés masquées par défaut), purge des tuiles si l'adresse change. Aller-retour vérifié en JVM ; export SAF **à voir sur téléphone** | Aller-retour AQX → modèle → AQX → modèle identique (test JVM) |
+
+### P5 — Traces GPX : modèle, import/export, visualisation (parité 4)
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P5.1 | ✅ | Room : waypoints, routes, traces multi-segments, dossiers imbriqués ; styles (couleur, épaisseur, tirets, flèches) ; points en blocs de 2 000. `TrackRepositoryTest` (Robolectric, SQLite réel) | — |
+| P5.2 | 🔄 | Import et export **GPX 1.0/1.1** (extensions Garmin conservées) ; import KML/KMZ et GeoJSON ; partage Android ; « Ouvrir avec » pour `.gpx`. Aller-retour sans perte vérifié sur les fixtures réelles ; « Ouvrir avec », « Partager » et SAF **à voir sur téléphone** | Aller-retour GPX sans perte (test JVM sur fixtures réelles) |
+| P5.3 | 🔄 | Affichage carte (lignes, points, curseur), bibliothèque en arbre, fiche au toucher. Pas d'étiquettes de texte (ADR-018). GeoJSON de 50 000 points simplifié en ≈ 50 ms ; fluidité **à voir sur téléphone** | 50 000 points affichés sans saccade |
+| P5.4 | ✅ | Statistiques : distance 2D/3D, D+/D− lissés (hystérésis), altitudes, durées, vitesses, temps de marche (DIN 33466). `TrackStatsTest`, `TrackFormatTest` | Tests JVM sur traces de référence |
+| P5.5 | 🔄 | Profil altimétrique interactif synchronisé avec la carte, coloration par pente, complétion des altitudes depuis Terrarium. Tests JVM verts ; dessin et curseur **à voir sur téléphone** | — |
+
+### P6 — Création, édition, enregistrement
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P6.1 | 🔄 | Mode dessin : ajout, déplacement au réticule (ADR-019), poignées de milieu, suppression, annuler/rétablir, main levée (Douglas-Peucker). Vérifié en JVM ; gestes **à voir sur téléphone** | — |
+| P6.2 | 🔄 | Outils : couper, fusionner, inverser, simplifier, rogner, renommer, décrire (`TrackOps`, `TrackRepository`). Vérifié en JVM ; dialogues **à voir sur téléphone** | — |
+| P6.3 | 🔄 | **Enregistreur GPS** en service de premier plan (`LocationManager`, sans Google Play Services) : profils, pause, sauvegarde par lots, reprise après plantage, statistiques en direct. Vérifié en JVM avec GPS simulé. **Critère NON vérifié** : à mesurer sur téléphone | 2 h d'enregistrement écran éteint sans trou |
+| P6.4 | 🔄 | Waypoints : icônes (catalogue de 313 depuis P16.6), saisie de coordonnées multi-formats, définir comme cible (bandeau distance et cap). Vérifié en JVM ; **à voir sur téléphone** | — |
+| P6.5 | ✅ | **Remplacé par P19** (2026-10-18, ADR-064) : calcul d'itinéraire par BRouter hors ligne (AIDL), sans repli en ligne en V1 | — |
+
+### P7 — Export PDF à l'échelle (N4) — spec : `docs/specs/print-pdf.md`
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P7.1 | ✅ | Maths dans `:core` : résolution au sol, zoom de tuiles, emprise du cadre, avertissement de sur-échantillonnage (`PrintMath`, `FrameProjection`, `PrintLayers` ; `PrintMathTest` 15) | Tests JVM : 1:25 000 / 300 dpi / 45° N → z16 ; 1:50 000 → z15 |
+| P7.2 | 🔄 | Cadre d'impression sur la carte : format, orientation, marges, échelle, DPI ; on déplace la carte sous le cadre ; « Ajuster le zoom ». Vérifié en JVM ; **à voir sur téléphone** | Le cadre change de taille à l'écran quand l'échelle change |
+| P7.3 | 🔄 | Compositeur par bandes (mémoire bornée), tuiles lues depuis le MBTiles (option : télécharger les manquantes), **`PdfWriter` maison en JPEG** (ADR-020). PDF relus avec poppler. **Critère NON vérifié** (mémoire à mesurer sur téléphone) | A3 à 300 dpi sans OutOfMemory |
+| P7.4 | ✅ | Habillage **vectoriel** façon QGIS : titre, échelle, nord avec déclinaison, grille UTM / Lambert 93 / WGS84 / MGRS, traces et waypoints, légende, cartouche avec attribution © (projections maison vérifiées contre PROJ) | — |
+| P7.5 | ✅ | **Mode atlas** : découpage d'une zone ou le long d'une trace, recouvrement réglable, page d'assemblage (`AtlasPlanner`). Limites : pas de renvoi de page sur les bords, orientation fixe | Une trace de 30 km donne N pages numérotées et un tableau d'assemblage |
+| P7.6 | 🔄 | Aperçu, modèles de mise en page enregistrables, enregistrement et partage via SAF. Vérifié en JVM ; **à voir sur téléphone** | — |
+| — | — | **Critère global** | Un segment de 10 km mesure **200 mm ± 0,5 %** sur le PDF imprimé à 1:50 000 sans mise à l'échelle |
+
+### P8 — Partage de position P2P strict (N1) — spec : `docs/specs/p2p-sharing.md`
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P8.1 | 🔄 | WebRTC DataChannel : canaux `ctrl` (fiable) et `pos` (sans retransmission), ICE non progressif (5 s), STUN désactivable (ADR-021). Compile ; **tout est à voir sur téléphone** | Deux téléphones sur le même Wi-Fi échangent un message |
+| P8.2 | ✅ | Codec d'appairage dans `:core` : SDP minimal → binaire → deflate → Base45 → QR alphanumérique ; lien `toolmap://pair?d=…` | Tests JVM d'aller-retour ; QR ≤ version 15 |
+| P8.3 | 🔄 | Écrans d'appairage : invitation et réponse en QR et en lien, scan CameraX + ZXing, lien ouvert depuis une messagerie. Logique vérifiée (`ShareControllerTest`) ; caméra et durée **à voir sur téléphone** | Appairage en moins de 30 s |
+| P8.4 | 🔄 | **Maillage** : un seul appairage par arrivant, signalisation relayée, positions relayées (TTL, déduplication). Vérifié en JVM sur réseau simulé (`MeshNodeTest`) ; 3 appareils réels **à voir** | 3 téléphones, un seul appairage par nouvel arrivant |
+| P8.5 | ✅ | Protocole : `HELLO`, `PEERS`, `SIGNAL`, `POS`, `TRAIL`, `PING`, `MSG`, `SOS`, `REKEY`, `BYE`, `KICK` (puis `AVATAR`, P13.7) ; AES-256-GCM avec clé de groupe (en plus du DTLS) | Tests JVM du codec |
+| P8.6 | 🔄 | Partage toutes les **x s** (5 s → 30 min), déplacement minimal, SOS immédiat ; service de premier plan ; batterie. Vérifié en JVM ; écran éteint **à voir sur téléphone** | Intervalle respecté à ±1 s, écran éteint |
+| P8.7 | 🔄 | UI : marqueurs colorés (jetons, P13.7), âge, traînée, fiche, voir sur la carte, aller vers, traînée enregistrée comme trace, SOS. **Écarts** : pas d'étiquette de texte ni de cercle de précision, pas de distance et de cap dans la liste. **À voir sur téléphone** | — |
+| P8.8 | 🔄 | Reconnexion : pings de 15 s, membre perdu après 45 s, liaisons renégociées par nouvelle offre relayée (ADR-021), traînée rejouée. Vérifié en JVM ; coupure réelle **à voir** | Couper puis rétablir les données d'un téléphone : reconnexion sans QR si un autre membre est resté joignable |
+### P9 — Parité AlpineQuest complémentaire
+| ID | Statut | Tâche |
+|---|---|---|
+| P9.1 | 🔄 | Recherche : géocodage (IGN Géoplateforme, Nominatim), recherche dans ses éléments, saut vers des coordonnées tapées. Vérifié en JVM et sur émulateur (« Chamonix ») ; comportement réseau réel **à voir sur téléphone** |
+| P9.2 | 🔄 | Outil de mesure (distance, surface exacte sur l'ellipsoïde, cap), garder comme itinéraire ou trace. Vérifié en JVM ; gestes **à voir sur téléphone** |
+| P9.3 | 🔄 | Formats de coordonnées (DD, DDM, DMS, UTM, MGRS, Lambert 93) et grille à l'écran (`ScreenGrid`). Vérifié contre PROJ ; rendu **à voir sur téléphone** ; pas d'étiquettes (ADR-018) |
+| P9.4 | 🔄 | Alertes de proximité ; suivi de trace avec alerte d'écart (`AlertEngine`, `TrackFollower`, `AlertService` écran éteint). Vérifié en JVM avec GPS simulé ; notification, vibration, son et consommation **à voir sur téléphone** |
+| P9.5 | 🔄 | Altimètre barométrique auto-calibré (filtre de Kalman, références GPS et Terrarium, calage manuel). Vérifié en JVM (6 h de météo simulée) ; capteur réel et qualité du calage **à voir sur téléphone** |
+| P9.6 | 🔄 | Sauvegarde et restauration (zip à manifeste, `docs/specs/backup-format.md`) : vérification complète, application au démarrage suivant avec retour arrière. Vérifié en JVM ; sélecteur, redémarrage et gros volumes **à voir sur téléphone** |
+| P9.7 | 🔄 | Paramètres : thème, gants, écran allumé, unités, coordonnées, grille, altitude, alertes. **À voir sur téléphone** |
+
+### P10 — Finitions & publication
+| ID | Statut | Tâche |
+|---|---|---|
+| P10.1 | 🔄 | Profilage performances et batterie : audit statique fait, deux défauts corrigés ; repris et remplacé par P15 (`docs/specs/performance.md`). Les mesures se font désormais sur l'émulateur (P15.1) ; la batterie reste à mesurer sur téléphone, plus tard (`performance.md` §7) |
+| P10.2 | 🔄 | Accessibilité, thème sombre, mode « gants » : cibles tactiles 48 / 64 dp, descriptions, annonces TalkBack des alertes et SOS. **À voir sur téléphone** : TalkBack, grande police, contraste |
+| P10.3 | 🔄 | Signature, APK et AAB de release, page d'aide (`docs/specs/release.md`, ADR-027, ADR-045 à 047) : noms `ToolMap-<type>-<version>.apk`, workflow `release.yml`, garde de livraison, APK de la CI signés par la clé de publication quand ses secrets existent. **À faire par l'utilisateur** : créer la clé et les secrets (`release.md` §2), **choisir la licence**, décider du nom de paquet définitif, lancer le workflow `Release`. Données privées vérifiées (2026-10-27, journal sessions 65 et 66) : dépôt public `JRRocks/ToolMap` reparti d'un seul commit, historique dans le dépôt privé `JRRocks/ToolMap-Archive` |
+| P10.4 | 🔄 | **Numéro de version qui évolue** : `0.MINEUR.CORRECTIF` (ADR-040, `release.md` §1) ; depuis le 2026-10-17, le CORRECTIF augmente tout seul à chaque build d'APK dont les sources ont changé (`version.properties`, ADR-059). Version actuelle **0.4.45** (2026-10-20). **À vérifier** : titre de la pré-version d'un push vert, version affichée sur téléphone |
+
+### P11 — Interface « Cartes et calques » à la AlpineQuest — référence : `docs/specs/ui-index.md` (ADR-041)
+> Demande de l'utilisateur (2026-10-03 et 2026-10-10, captures d'AlpineQuest) : même arborescence et visuel proche. L'ancienne spec `maps-layers-ui.md` est retirée ; son contenu est dans `ui-index.md`.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P11.1 | ✅ | Cœur pur (`:core`) : catalogue groupé, favoris, rectangle de zone à poignées, barre de zooms par carte, couleurs inversées | Tests JVM (`MapCatalogTest`, `SaveAreaTest`, `LayerStackTest`, `RasterAdjustTest`, `WorkspaceTest`) : verts |
+| P11.2 | 🔄 | Panneau « Cartes et calques » (Cartes disponibles / affichées / Sélectionner et enregistrer une zone / Favoris / Options) et menu ⋮ d'un calque. **À voir sur téléphone** : apparence, fluidité, vignettes | — |
+| P11.3 | 🔄 | Écran « Cartes disponibles » : jauge de stockage, groupes repliables, menu ⋮ d'une carte, « Ajouter une carte » (assistant, `.aqx`, catalogue en ligne depuis P16.4). **À voir sur téléphone** | — |
+| P11.4 | 🔄 | « Sélectionner et enregistrer une zone » : rectangle à 4 poignées, une ligne par carte, estimation, téléchargement. Vérifié sur émulateur (poignées) ; **à voir sur téléphone** | — || P11.6 | 🔄 | **Menus comme AlpineQuest** : barre du bas, boutons + / −, menu principal (ADR-034, ADR-053 pour « Quitter »). **À voir sur téléphone** : disposition face aux captures | Compilé et tests JVM verts (`AppSettingsTest`) |
+| P11.7 | 🔄 | **Boîtes d'information en haut à gauche** : position, échelle, GPS, baromètre (ADR-035) ; placement sans chevauchement depuis le 2026-10-15 (`MapChromeLayout`). **À voir sur téléphone** : lisibilité, satellites, baromètre | Verts : `ScaleRatioTest`, `ScaleBarTest`, `AltitudeServiceTest`, `MapChromeLayoutTest` |
+| P11.8 | 🔄 | **Réglages et moteurs à la AlpineQuest** (ADR-036) : unités, nord, carte, placemarks, positionnement, enregistreur, technique. Écarts : couleur des waypoints par catégorie d'icône. **À voir sur téléphone** : barres masquées, verrou, confirmation de sortie | Tests JVM et `SettingsRenderTest` verts |
+| P11.9 | 🔄 | **Panneau « Positionnement »** (ADR-037) : explorateur, position en temps réel, enregistreur, baromètre (rétabli, ADR-053), options ; appui long = cycle de suivi. **À voir sur téléphone** | Tests JVM verts |
+| P11.10 | 🔄 | **Menus et réglages rangés par catégories** (ADR-038) : neuf catégories de Réglages repliables, « Plus… » en catégories ; inventaire dans `ui-index.md` §3 et §8. **À voir sur téléphone** | `SettingsCategoriesTest`, `MainMenuPanelTest` verts |
+| P11.11 | 🔄 | **Retrait des doublons** (ADR-039) : un réglage n'a plus qu'une commande (`ui-index.md` §3, §4, §8). « Télécharger la zone affichée » retiré depuis (P14.3 `[R3]`). **À voir sur téléphone** | `MainMenuPanelTest`, `SettingsCategoriesTest` verts |
+
+### P12 — Tuiles partagées, cartes multi-zoom, zooms complétés — spec : `docs/specs/multi-zoom.md`
+> Demande de l'utilisateur (2026-10-03, sept fichiers `.aqx`) : même carte téléchargée une fois, cartes qui interagissent selon le zoom (modèle `USR.PERSONNAL_MULTIZOOM.AQX`), « ne jamais afficher du vide », zoom forcé au 1:25 000.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P12.1 | ✅ | Identité d'un jeu de tuiles (URL normalisée), stockage par jeu de tuiles, migration, doublons signalés à l'import | `TileSetIdentityTest`, `SourceDuplicatesTest`, `MbTilesStoreTest`, `StorageManagerTest` : verts |
+| P12.2 | ✅ | Zooms complétés : `TileResolver`, `BitmapTileComposer`, impression et téléchargement traduits en tuiles réelles, réglage « Zooms manquants » (0–4, défaut 3). **À voir sur téléphone** : rendu, durée du premier affichage | `TileResolverTest`, `TileInterceptorTest`, `BitmapTileComposerTest`, `ZoneDownloaderTest` : verts |
+| P12.3 | 🔄 | Cartes multi-zoom (`toolmap-map:`), éditeur, création depuis une carte ou un `.aqx`, carte fournie « IGN Topo 25k (zoom forcé) », carte « Rando Multi-Zoom » de l’utilisateur (ADR-052 ; devenue un favori de cinq cartes empilées, ADR-063). **À voir sur téléphone** | L'utilisateur refait son `USR.PERSONNAL_MULTIZOOM.AQX` dans l'éditeur sans écrire de XML, l'affiche et télécharge une zone sans retélécharger les tuiles déjà stockées |
+| P12.4 | ✅ | Lecteur AQX : `<servers>`, CRS des bbox WMS déduit de l'URL, `ign-scan25` jusqu'au zoom 16 | `AqxParserTest`, `BuiltinSourcesTest` : verts |
+
+### P13 — Serveur de coordination Firebase et états des pairs — spec : `docs/specs/firebase-relay.md` (ADR-033)
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P13.1 | ✅ | Codec `:core` : `RelayConfig`, `RoomInvite` (`toolmap://join`), `PeerState`, `ServerState` | `RelayTest`, `MeshNodeTest` : verts |
+| P13.2 | 🔄 | Transport `FirebaseRelay` (REST + SSE, auth anonyme, présence, trames scellées, bannissement) et règles de sécurité. Vérifié sur l'émulateur Firebase et sur le vrai projet (2026-10-12). **Reste** : deux téléphones | Deux téléphones sur réseaux mobiles différents échangent position et texte |
+| P13.3 | ✅ | `ShareController` : groupes sur serveur, invitation, `joinRoom`, bannissement, état du serveur ; secrets CI | `ShareControllerRelayTest` (6) : vert |
+| P13.4 | 🔄 | Icônes d'état par pair, ligne d'état du serveur, carte « Serveur de coordination ». **À voir sur téléphone** | L'utilisateur reconnaît chaque état sur sa liste de membres |
+| P13.5 | 🔄 | Projet Firebase de l'utilisateur : créé (europe-west1), règles publiées, connexion anonyme, clé en secrets CI (`TOOLMAP_FIREBASE_DB_URL`, `TOOLMAP_FIREBASE_API_KEY`, jamais dans le dépôt). **Reste** : vérifier que l'APK de la CI porte l'adresse et la clé, puis le test sur téléphone ; App Check non appliqué | Un groupe créé avec le serveur apparaît « Serveur joignable » || P13.7 | 🔄 | **Apparence des membres** (ADR-048 à 050) : icône et couleur libre, emoji, image de profil (`AVATAR`), jetons en silhouettes teintées ; réglage « Tracé des membres ». **À voir sur téléphone** : deux téléphones à jour | `MemberLookTest`, `WireTest`, `ShareModelsTest`, `MeshNodeTest`, `MemberPictureTest`, `MemberIconsTest` verts ; planche des jetons vérifiée à l'œil |
+| P13.8 | 🔄 | **Partage téléphone verrouillé** (test terrain du 2026-10-14, ADR-051) : service relancé par le système, reconnexion en 8 s au plus et à chaque changement de réseau, exemption de batterie. **À voir sur téléphone** | `FirebaseRelayReconnectTest` (2) vert ; deux téléphones verrouillés pendant une sortie restent « En ligne », et reviennent seuls après une coupure du réseau |
+
+### P14 — Cohérence entre l'interface et la logique — specs : `docs/specs/ui-index.md`, `docs/specs/ui-reorganization.md`
+> Demande de l'utilisateur (2026-10-12) : « Nous avons copié/collé l'UI/UX d'AlpineQuest sans toujours assurer la logique métier derrière chaque bouton. » Quatre lots : réparer, retirer le factice, réorganiser légèrement, ajouter. **Pas de refonte.** Les IDs entre crochets renvoient à l'index.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P14.0 | ✅ | Index des boutons, écrans, réglages et de leur logique ; proposition de réorganisation et de fonctions | `ui-index.md` et `ui-reorganization.md` écrits par lecture du code (`0461bb7`) ; consigné au journal |
+| P14.1 | ✅ | **Lot 1, navigation** : pile de retour (`[N1]` `[N2]` `[N3]` `[N9]`), Retour en dessin et mesure (`[N5]`), écran verrouillé (`[N6]` `[N8]`), commandes masquées réaffichables (`[N7]`). Vérifié sur émulateur | Retour depuis chacun des 13 écrans pleins revient à l'écran d'origine ; À propos ouvert depuis la carte revient à la carte ; Retour en dessin avec des points demande confirmation |
+| P14.2 | 🔄 | **Lot 2, factices** : « Emplacement de stockage » codé (`[S1]`, ADR-042, **fait**) ; diagnostic réservé à l'APK debug (`[N4]`, **fait**) ; `[S2]` **fait** le 2026-10-21 (session 49, variante C validée le 2026-10-20 : interrupteur retiré, autorités installées par l'utilisateur acceptées, « Certificat du serveur refusé » à l'étape de test ; ADR-066 ; `TileProbeTest`) ; `[G1]` gardé tel quel (décision de l'utilisateur du 2026-10-20). **Reste** : le déplacement réel vers une carte SD, à voir sur téléphone | Plus aucun ❌ dans `ui-index.md` §8 ; test de l'intercepteur pour `insecure` s'il est appliqué ; déplacement réel vers une carte SD **à voir sur téléphone** |
+| P14.3 | ✅ | **Lot 3, réorganisation légère** : panneau du drapeau (`[R1]`) et retrait de « Télécharger la zone affichée » (`[R3]`) **faits** ; « Espace de travail » retiré du menu (`[R2]`) et mode de suivi visible (`[R4]`) **faits** en P14.10 ; aide des « ? » (`[R5]`, avec F11) **faite** le 2026-10-21 (session 49, variante B validée le 2026-10-20 : la page d'aide s'ouvre à la section du panneau, surlignée ; nouvelle section « Positionnement »). Vérifié sur l'émulateur | `MainMenuPanelTest`, `TracksMenuPanelTest`, `TracksMenuRenderTest` verts ; `ui-index.md` à jour ; à voir sur téléphone |
+| P14.4 | ✅ | **Favoris et cartes fournies** : favoris fournis supprimables et rétablis (`[F2]`, ADR-052, **fait**) ; la liste des favoris fournis supprimés suit la sauvegarde depuis le 2026-10-20 (`BackupPaths.HIDDEN_BUILTINS_FILE`, `backup-format.md` §6) ; carte fournie masquée du catalogue (`[F3]`, avec F4 et F5) **faite** le 2026-10-21 (session 49 ; liste dans les réglages, `AppSettings.hiddenMaps`, donc dans la sauvegarde ; ADR-067 ; `MapCatalogTest`, `MapsViewModelTest`). Vérifié sur l'émulateur | Un favori fourni supprimé ne revient pas au redémarrage, « Rétablir » le rend (test) ; carte fournie masquée absente de `MapCatalog.groups`, visible avec « Afficher les cartes masquées » (test) |
+| P14.5 | ✅ | **Menu du point central** (`[F1]`, `[G12]`, ADR-043) : cible, waypoint, mesure, coordonnées, partage | `CenterPointTest` (3) vert ; grisé dans les modes d'outil |
+| P14.6 | ✅ | Fonctions S restantes, par ordre de `ui-reorganization.md` §5 : F4, F8, F6, F9, F10, F14, F5, F11 **faites** le 2026-10-21 (session 49 ; aperçus validés le 2026-10-20 : F8 variante A, F14 variante B, F11 avec R5 variante B ; ADR-067). F15 abandonnée (décision de l'utilisateur : Positionnement inchangé). Vérifiées sur l'émulateur (`docs/previews/p14-fonctions-emulateur.html`) | Une ligne de l'index par fonction ; un test par moteur nouveau |
+| P14.7 | ✅ | Fonctions M : explorateur des traces (`[F7]` : tri, filtre, recherche, sélection multiple ; les dossiers sont faits en P16.5) **fait** le 2026-10-21 (session 49, `LibraryOrder` dans `:core`). Annulation des suppressions (`[F12]`) abandonnée (décision de l'utilisateur : la confirmation reste). Vérifié sur l'émulateur | Tests du dépôt des traces |
+| P14.8 | ✅ | **Ouvrir un point avec une autre application** (`[F16]`, `[G13]`, ADR-044) : « Ouvrir avec », application par défaut, lien Waze | `PointLinksTest`, `AppSettingsTest`, `CenterPointTest` verts |
+| P14.9 | ✅ | **Dialogue « Nouveau waypoint » allégé** (demande du 2026-10-17, proposition A des maquettes) : pastille du symbole à côté du nom, nom prérempli « Waypoint N », coordonnées sur une ligne avec un menu de format (au lieu de 7 boutons), altitude lue sur le relief, saisie des coordonnées et description repliées, actions sur une ligne | Tient sans défilement sur l'émulateur ; `WaypointNamesTest` vert ; `./gradlew check assembleDebug` vert ; **à voir sur téléphone**. **Fait le 2026-10-17 (session 37)**, vérifié sur l'émulateur (création, formats, saisie, description, modification) |
+| P14.10 | ✅ | **Menus de base dans le style du dialogue waypoint** (demande du 2026-10-17) : maquettes faites (session 38) pour le menu principal, Positionnement, Traces et waypoints, Cartes et calques, point central, Réglages ; lots 0 (socle commun : en-tête, bloc d'état teinté, tuiles tonales, ligne avec sous-titre, icônes distinctes) puis A à F, qui couvrent `[R2]` et `[R4]`. **Lots 0, A, B, C, D, E faits (session 38, suite) ; lot F (Réglages) non retenu pour l'instant** | Par lot : maquette retenue reproduite sur l'émulateur ; `ui-index.md` à jour ; `./gradlew check assembleDebug` vert |
+| P14.11 | ✅ | **Petits défauts visibles** relevés sur l'émulateur (sessions 48 et 49) : date des noms par défaut selon la langue du téléphone, dossiers repliés au retour d'un détail, bande vide sous la barre du haut (3 écrans), cases dont le nom ne réagit pas (6 endroits ; Réglages déjà bon), libellés coupés de « Quelle activité ? », « Points » en double dans le détail. Aperçu `docs/previews/p14-defauts.html` (Artifact https://claude.ai/artifact/MgtXTzYKwqXr8hWsepSenQ) **validé le 2026-10-22** (« 1 A, 2 oui, 3 oui, 4 oui, 5 A, 6 oui »), codé (ToolMap 0.4.50) et comparé sur l'émulateur : `docs/previews/p14-defauts-emulateur.html` (Artifact https://claude.ai/artifact/TcpUAW3f9y4VZCrVXrV5BN) | Aperçu validé par l'utilisateur ; chaque point codé fidèlement et comparé sur l'émulateur ; test du format de date indépendant de la langue du téléphone |
+
+### P15 — Performance et restructuration légère — spec : `docs/specs/performance.md`
+> Plan revu avec l'utilisateur le 2026-10-16 (session 33) : symptôme ressenti = tuiles lentes à apparaître quand on déplace la carte ; mesures **sur l'émulateur seulement**, avant et après chaque changement, sur l'APK benchmark (`performance.md` §7). Les anciennes tâches P15.1 à P15.6 (aucune commencée) sont renumérotées.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P15.1 | ✅ | Build **benchmark** (non debuggable, R8, clé de debug ; ADR-057), relevé de temps (debug et benchmark), scripts `adb` ; **mesures de référence** sur l'émulateur : scénarios 0, R, A, T1, T2, Z du §7 (PF9). Fait le 2026-10-16 (session 34) : `MapPerfLog`, `PerfIntent`, `tools/perf/` ; aucune règle R8 à ajouter ; chiffres de référence au journal | L'APK benchmark ouvre la carte et passe tous les scénarios (règles R8 corrigées si besoin) ; chiffres consignés au journal |
+| P15.2 | ✅ | **Tuiles de la carte** (M2 à M4, ADR-058) : `<max-threads>6` sur les 5 sources IGN fournies ; `maxRequestsPerHost` à 64 ; file réseau servie de la plus récente à la plus ancienne ; appel annulé retiré sans requête | `TileInterceptorTest` : tuile stockée non bloquée par le réseau, ordre de service, aucune requête pour un appel annulé, au plus N téléchargements simultanés par source (OSM 2, IGN 6) ; T1 et T2 mesurés plus rapides. **Fait le 2026-10-16 (session 35)** : T2 9 606 → 7 408 ms (−23 %), T1 inchangé (rien à télécharger) ; chiffres dans `performance.md` §9 |
+| P15.3 | ✅ | **Téléchargement de zone** (D1 à D4, ADR-058) : `<max-threads>` de la source au lieu du plafond de 3 (OSM, OSM France, OpenTopoMap : 2 fils et 300 ms) ; écritures groupées (64 tuiles ou 1 s) ; une seule lecture par tuile ; état et notification toutes les secondes | `ZoneDownloaderTest` : fils simultanés (OSM 2, IGN 6), écritures groupées, reprise sans tuile manquante ; scénario Z mesuré plus rapide. **Fait le 2026-10-16 (session 35)** : Z 12,2 s → 7,1 s (16,5 → 28,6 tuiles/s) |
+| P15.4 | ✅ | La carte n'est plus recréée à chaque écran plein (PF1, RS2) | `AppStartupTest` : une seule instance de `MapView` après carte → Traces → carte ; scénario R mesuré plus rapide. **Fait le 2026-10-16 (session 35)** : la carte reste composée sous les écrans pleins (`MapView` arrêté, non détruit, pendant qu'elle est couverte) ; `NavigationBackTest` vérifie qu'elle n'est pas recréée ; retour à la carte dessinée 514 → 178 à 240 ms (trois passages) |
+| P15.5 | ✅ | **Baseline Profile** : module `:baselineprofile`, `profileinstaller` (ADR-057) | Profil généré sur l'émulateur et versionné ; scénario 0 mesuré plus rapide sur l'APK benchmark ; `check` vert. **Fait le 2026-10-16 (session 35)** : profil de 2,6 Mo généré sur l'émulateur (`app/src/main/baseline-prof.txt`), reproductible par `./gradlew :app:generateBaselineProfile`. **Critère de vitesse non atteint, constaté honnêtement** : le démarrage à froid ne change pas sur l'émulateur (médianes 646 ms sans profil et 682 ms avec, juste après un redémarrage de l'émulateur ; la compilation AOT complète ne l'améliore pas non plus ; l'émulateur dérive d'une série à l'autre). Le profil est gardé (sans coût, gain attendu sur un vrai téléphone ARM) : **à vérifier par l'utilisateur** |
+| P15.6 | ✅ | Modèles de vue à la demande, flux `WhileSubscribed` (PF2, RS4) | Scénario 0 mesuré ; tests existants verts. **Fait le 2026-10-16 (session 35)** : `MapsViewModel` construit son catalogue à la première lecture (`by lazy`, valeur initiale immédiate) : création du modèle 25 à 70 ms → moins de 8 ms ; les autres modèles étaient déjà paresseux ; `WhileSubscribed` non appliqué (les flux restants servent l'enregistrement, le partage et les alertes) ; démarrage à froid sans différence mesurable (bruit de l'émulateur) |
+| P15.7 | ✅ | `MapScreen` découpé en sous-composables qui lisent leur état (PF3, RS3) | Tests existants verts sans modification ; scénario A : images lentes en baisse. **Fait le 2026-10-16 (session 35)** : lecture de la caméra repoussée dans des `derivedStateOf` et des sous-composables : recompositions de `MapScreen` pendant le scénario A 692 / 676 → 68 / 68 (−90 %), 90e percentile 42 → 38 ms ; **images lentes inchangées (≈ 89 %, bornées par le rendu OpenGL de l'émulateur)** ; découpage complet RS3 non fait (inutile pour ce gain) |
+| P15.8 | ✅ | Ligne de la trace en cours mise à jour par tronçon (PF4) | Test `TrackDisplay` : un lot ajouté ne resimplifie pas toute la trace ; scénario G mesuré. **Fait le 2026-10-16 (session 35)** : journal des lots ajoutés (`appendedSince`) et ligne prolongée par sa queue ; `TrackDisplayTest` (5 tests) ; un lot sur 20 000 points 13 → 5 ms (JVM). **Scénario G sur l'émulateur non fait** (rejouer des heures de GPS impraticable), remplacé par cette mesure JVM |
+### P16 — Écarts avec AlpineQuest — source : `docs/comparaison-alpinequest-toolmap.md`
+> Demande de l'utilisateur (2026-10-16) : « Corrige les différences entre AlpineQuest et ToolMap dans ce qui est manquant dans ToolMap. Garde les "New" de ToolMap en place. » Laissés tels quels, d'accord avec l'utilisateur : neuf catégories de Réglages, unités métriques par défaut, Retour sur la carte qui quitte sans confirmation (le réglage existe), Retour en mesure sans confirmation, dates dans la langue du téléphone, panneaux fermés par un bouton « Fermer ».
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P16.1 | ✅ | Retour dans une catégorie de Réglages la replie avant de quitter ; le logo rétablit la barre masquée | `NavigationBackTest` (10 tests) ; **à voir sur téléphone** |
+| P16.2 | ✅ | « Quitter » dans le menu principal, avec confirmation si un service tourne ; interrupteur Baromètre rétabli (ADR-053) | `MainMenuPanelTest`, `PositionMenuPanelTest` |
+| P16.3 | ✅ | « Plus… » ▸ Aide : Nouveautés (5 dernières entrées du journal, `WhatsNewTask`) et Signaler une erreur (rien n'est envoyé automatiquement) | `MainMenuPanelTest`, `ErrorReportTest` |
+| P16.4 | ✅ | Catalogue en ligne dans « Ajouter une carte » (ADR-054) : 25 cartes à accès direct permis ; pas de doublon | `OnlineCatalogTest`, `SourceRepositoryTest`, `NavigationBackTest` ; **à voir sur téléphone** |
+| P16.5 | ✅ | Dossiers pour traces, itinéraires et waypoints : créer, sous-dossier, « Déplacer vers… » (ADR-055) | `TrackFoldersTest` (6), `TracksFoldersScreenTest` |
+| P16.6 | ✅ | Icônes d'AlpineQuest : 313 icônes de waypoint en 16 catégories (glyphe blanc sur disque de couleur), sélecteur avec recherche, 33 activités en grille (ADR-056). Vérifié sur émulateur : sélecteur, recherche, glyphe sur la carte. Session 48 : grille des 33 activités vue sur émulateur (4 colonnes, 33 icônes nettes ; trois libellés coupés par « … » sur une ligne : « Course à pied », « Pousse-pousse », « Ski de randonnée ») ; planche des 313 + 33 icônes tirée des drawables : aucun fichier manquant ni vide | `WaypointSymbolsTest` (6), `EditorGeoJsonTest` ; `./gradlew spotlessApply check assembleDebug` vert |
+| P16.7 | ✅ | Icônes de menus : comparer celles du menu principal, du panneau Position et de la barre du bas avec le relevé (`docs/aq-icons-inventaire.md`) et reconstruire celles qui diffèrent. Comparaison faite le 2026-10-20 : 2 icônes diffèrent (Enregistreur, Cartes de la barre du bas), 11 correspondent ; reconstruites le 2026-10-21 (session 49, validées le 2026-10-20) : l'enregistreur (une trace et une épingle, rouge pendant l'enregistrement) et le bouton Cartes (une carte pliée), vérifiées sur l'émulateur | Relevé fait ; reconstruction vérifiée sur émulateur |
+
+### P17 — Impression façon carte papier — spec : `docs/specs/print-pdf.md` (ADR-061)
+> Demande de l'utilisateur (2026-10-17, questions Q1 à Q23 validées) : « Imprimer » pose deux questions (format avec orientation, échelle), puis on place un cadre de taille fixe sur la carte comme « Sélectionner et enregistrer une zone », avec des puces pour changer format, orientation et échelle ; la confirmation demande la grille et les waypoints ; la page respecte les normes d'une carte papier (styles IGN TOP 25 et OTAN). PDF uniquement, une page.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P17.1 | ✅ | Parcours : fenêtre des deux questions, cadre déplaçable sans poignées (nord en haut, zoom auto), puces Format · Orientation · Échelle, fenêtre de confirmation (grille, waypoints, traces, noms, titre, « Plus d'options »), PDF seul ; atlas et modèles retirés de l'écran. Fait et vérifié sur émulateur (session 39) | Tests JVM du modèle de vue ; parcours vérifié sur émulateur |
+| P17.2 | ✅ | Mise en page TOP 25 : marge, cadre noir double avec graduations de l'autre système, étiquettes à chiffres principaux, coins, bandeau du bas (titre, échelle, nords, quadrillage, légende, ©). PDF A4 TOP 25 / UTM / IGN SCAN 25 relu et **validé par l'utilisateur** (session 39) | PDF A4 relu ; validé par l'utilisateur |
+| P17.3 | ✅ | Style OTAN : millièmes, encadré « référence de grille », carrés MGRS de 100 km de part et d'autre d'une limite. PDF A4 OTAN / MGRS / OpenTopoMap relu et **validé par l'utilisateur** (session 39) | PDF A4 OTAN / MGRS validé par l'utilisateur |
+| P17.4 | ✅ | Compléments : graticule en degrés décimaux, espacement de grille par échelle (Q12), variation annuelle de la déclinaison, icônes des waypoints. Fait, tests JVM verts (session 39) | Tests JVM (`GridSpacing`, graticule décimal) |
+| P17.5 | ✅ | Placement du cadre allégé (demande du 2026-10-26) : seulement la barre Format · Orientation · Échelle · ⟲ et Annuler / Suivant ; taille au sol et alertes sur l'écran de confirmation ; un SOS du groupe reste affiché. Aperçu `docs/previews/cadre-impression.html` variante A, validé le 2026-10-26. Fait (session 62), vérifié sur l'émulateur (`docs/previews/cadre-impression-emulateur.html`) | Capture de l'émulateur conforme à l'aperçu validé |
+
+### P18 — Revue UX : waypoints sur la carte, partage de position, stockage hors ligne (ADR-062)
+> Demande (2026-10-18) : « revois les UI/UX des waypoints sur la carte, du partage de positions et du stockage hors ligne ». Revue faite sur l'émulateur, puis corrections ciblées, fidèles à AlpineQuest.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P18.1 | ✅ | Noms des waypoints et des membres écrits à côté de leur repère, glyphes dessinés sur le téléphone (ADR-062) ; réglage Repères ▸ « Noms sur la carte ». Fait (session 41) | Tests JVM `GlyphRangeTest` ; nom lisible et centré sur l'émulateur |
+| P18.2 | ✅ | Fiche d'un waypoint touché : icône, altitude et coordonnées, distance et cap depuis la position, commandes en tuiles, **Partager** (GPX) et **Supprimer** (avec confirmation) ; même style pour les traces et itinéraires. Fait (session 41) | Vérifié sur l'émulateur (suppression demandée, partage du GPX, distance avec la position) |
+| P18.3 | ✅ | Écran Partage de position : actions d'abord (créer, rejoindre ; en groupe : envoi, membres, inviter, SOS, messages), réglages repliés (profil, réglages d'envoi, serveur). Fait (session 41) | Vérifié sur l'émulateur hors groupe ; en groupe : compilé, à voir sur téléphone |
+| P18.4 | ✅ | Stockage hors ligne : total en tête, cartes de la plus lourde à la plus légère en lignes compactes (taille, tuiles, zooms, part du total), commandes dans le menu ⋮ ; « Cartes hors ligne » vide : explication et bouton « Sélectionner et enregistrer une zone ». Fait (session 41) | Vérifié sur l'émulateur |
+| P18.5 | ✅ | Panneau du drapeau : « aucune trace · aucun itinéraire » au lieu de « 0 traces » (le français met 0 au singulier, un téléphone en anglais au pluriel). Fait (session 42) | Vérifié sur l'émulateur |
+| P18.6 | ✅ | « Sélectionner et enregistrer une zone » et formulaire de téléchargement : les tuiles déjà stockées sont comptées à part ; total « À télécharger : N tuiles · taille (M déjà stockées) », détail par carte, « Déjà enregistrée » et bouton grisé quand il ne manque rien. Fait (session 42) | Tests JVM `TilePlannerStoredTest`, Robolectric `MapsViewModelTest` ; vérifié sur l'émulateur |
+| P18.7 | ✅ | Téléchargements et Stockage ouverts depuis le panneau Cartes : le retour rouvre le panneau. Fait (session 42) | Vérifié sur l'émulateur (les deux écrans) |
+| P18.8 | ✅ | Point central : un appui sur un waypoint, une trace ou un membre dessiné sous le doigt l'ouvre comme ailleurs sur la carte ; sinon menu rapide ; appui long : toujours le menu rapide. Fait (session 42) | Test Robolectric `CenterPointTest` ; vérifié sur l'émulateur |
+| P18.9 | ✅ | Favori « Rando Multi-Zoom » : cinq cartes empilées avec leurs plages de zoom (OSM 1–8, OpenTopoMap 9–11, SCAN 25 12–17, OSM 18, photos aériennes 19) au lieu de la carte multi-zoom intégrée, retirée ; un état enregistré avec l’ancienne carte reçoit les cinq calques (ADR-063). Fait (session 43) | Preview validée ; tests JVM `WorkspaceTest`, `BuiltinSourcesTest` ; vérifié sur l’émulateur |
+
+### P19 — Itinéraires calculés avec BRouter — spec : `docs/specs/routing.md` (ADR-064)
+> Demande (2026-10-18) : « dans le même menu que pour les waypoints, créer des tracés à plusieurs étapes (A à B, A vers B à C, avec des points d'intérêt) par autorouting BRouter, avec des paramètres d'édition : à partir d'un point au milieu, depuis le début ou la fin, une déviation… ». Décisions prises avec l'utilisateur (Q1 à Q21, session 44). Aucun code d'interface avant la validation des maquettes (P19.0).
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P19.0 | ✅ | **Validé le 2026-10-18 : variante A (chiffres en haut de la carte), écrans 3 à 7 tels quels.** Maquettes actuel / proposé (`docs/previews/p19-routing.html`) : panneau du drapeau, mode Itinéraire (2 variantes), volet Étapes et ⋮, menu Outils, trois messages BRouter, fiche après enregistrement, réglage « Sans données BRouter » | Validation explicite de l'utilisateur, date consignée au journal |
+| P19.1 | ✅ | Fait (session 45) ; appel réel vérifié sur l'émulateur en session 46 avec BRouter 1.7.9 (réponse « pas de données », profil inconnu ; profil Voiture corrigé en `car-fast`). Client AIDL `BRouterEngine` (`:data`) : `.aidl` recopié, `<queries>`, liaison, `isInstalled`, appel par tronçon en `json` ; `BRouterJson` et `BRouterErrors` (`:core`) | Tests JVM sur des réponses et erreurs réelles de BRouter ; appel réel sur l'émulateur avec BRouter installé |
+| P19.2 | ✅ | Modèle `RoutePlan` / `RoutePlanEditor` (`:core`) : les 10 opérations, tronçons à recalculer, Annuler / Rétablir ; ~~migration Room `routes.plan_json`~~ plan dans les extensions de l'itinéraire (ADR-065, pas de migration) ; plan dans le GPX (`tm:plan`) | `RoutePlanEditorTest`, aller-retour GPX du plan, migration (Robolectric) |
+| P19.3 | ✅ | `RoutingQueue` : calcul par tronçon, un appel à la fois, annulation, cache LRU ; deux comportements sans données (réglage `placemarks.routingNoData`). Fait (session 45) : file `RoutingQueue`, cache `LegCache` testé dans `:core` ; tests de la file avec un faux moteur faits en session 46 (`RoutingQueueTest`, 7 tests) | Tests JVM avec un faux moteur (annulation, résultat périmé ignoré, cache) |
+| P19.4 | ✅ | Codé (session 45) ; vérifié en mode routé sur l'émulateur en session 46 (BRouter 1.7.9, case E5_N45), captures à côté des maquettes dans `docs/previews/p19-routing-emulateur.html` ; « Depuis ma position » reste à voir sur le téléphone (GPS). Interface du mode Itinéraire : interrupteur « Suivre les chemins », puce Profil, bandeau des chiffres, « Insérer ici », volet Étapes et ⋮, Outils, messages, « Depuis ma position », profil altimétrique à la demande, réglage | Conforme aux maquettes validées (captures de l'émulateur à côté) |
+| P19.5 | ✅ | Codé (session 45) ; vérifié sur l'émulateur en session 46, avec deux corrections : une boucle ne montre que « A » au départ, en édition comme après l'enregistrement. Repères sur la carte : A vert, arrivée rouge, passages, étapes nommées, pointillés à la main et en calcul ; après l'enregistrement, départ, arrivée et étapes nommées seulement | Captures de l'émulateur |
+| P19.6 | ✅ | Codé (session 45) ; tests Robolectric faits en session 46 (`RouteSheetTest`, `RouteNoticesTest`) ; altitudes Terrarium des tronçons à la main faites en session 47 (`HandLegElevations`, spec §5.6), vues sur l'émulateur. Après l'enregistrement : « Modifier le tracé » avec le plan, « Convertir en trace », itinéraire sans plan (passages, seuil de 30 points) | Tests Robolectric ; vérifié sur l'émulateur |
+| P19.7 | ✅ | Fait (session 46) : BRouter 1.7.9 et la case `E5_N45.rd5` sur l'émulateur ; parcours de la spec §10 consigné au journal (tronçons routés, Insérer ici, déplacer, supprimer, boucle, aller-retour, inverser, ligne droite, profil altimétrique, enregistrement, Modifier le tracé, les deux réglages sans données). Vérification complète sur l'émulateur avec BRouter et une case `.rd5` (spec §10) | Parcours consigné au journal |
+| P19.8 | ⬜ | V2 : zones à éviter (`nogos`, cercle au réticule) | — |
+| P19.9 | ⬜ | V2 : itinéraires alternatifs (`alternativeidx`) | — |
+| P19.10 | ⬜ | V2 : instructions de guidage (virages) | — |
+| P19.11 | ⬜ | V2 : déviation en faisant glisser le tracé au doigt ; réordonner les étapes par glisser dans la liste | — |
+| P19.12 | ⬜ | V2 : repli en ligne sur `brouter.de` quand l'application manque | — |
+
+### P20 — Cartes selon l'altitude — spec : `docs/specs/elevation-maps.md` (ADR-068)
+> Demande (2026-10-23) : « changement de carte selon la courbe de niveau, ex. OpenTopoMap de 0 à 1500 m, OpenSnowMap au-dessus ; tester la faisabilité et le coût ; sauvegarder les tuiles pour le hors ligne ; si le calcul est léger, régler la hauteur en direct, même hors ligne ». Puis : les options d'altitude vont avec la plage de zoom du calque, combinées en ET / OU.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P20.0 | ✅ | **Validé le 2026-10-23 : variante A** (panneau en bas de la carte, réglage au relâcher, ET / OU), avec la ligne du calque et la ligne « Altitudes » du téléchargement. Aperçu actuel / proposé : `docs/previews/p20-elevation.html` | Validation explicite de l'utilisateur, date consignée au journal |
+| P20.1 | ✅ | Faisabilité et coût : masque par calque dans l'intercepteur (`ElevationMask`, `DemWindow`, `MaskRaster`, `BitmapElevationMasker`), bande dans l'URL des tuiles (`StyleSources`) ; mesures sur l'émulateur (APK benchmark), en ligne et en mode avion ; `MapLibre.setConnected(true)` | Tests JVM et Robolectric du masque ; mesures consignées au journal et dans la spec §5 |
+| P20.2 | ✅ | Bande d'altitude et ET / OU dans `LayerConfig`, `LayerStack.setElevationRange`, `StackToStyle`, favoris (`WorkspaceLayer`) | `LayerElevationTest`, `WorkspaceTest` |
+| P20.3 | ✅ | Panneau « Conditions d'affichage » (menu ⋮ d'un calque, remplace « Plage de zoom ») : barres zoom et altitude, ET / OU, phrase d'explication, repère du centre ; ligne du calque dans Cartes affichées | Conforme à l'aperçu validé (captures de l'émulateur à côté) |
+| P20.4 | ✅ | Sans écran blanc au changement de bande : ancien calque gardé dessous jusqu'au nouveau dessin (`BandSwap`, fantômes de `MapController`) | `BandSwapTest` ; vérifié sur l'émulateur |
+| P20.5 | ✅ | Hors ligne : ligne « Altitudes (pour …) » dans « Sélectionner et enregistrer une zone », zooms jusqu'à 13 (`ZoneRequest.zoomLimits`) | `MapsViewModelTest` ; zone enregistrée puis seuil changé en mode avion sur l'émulateur |
+| P20.6 | ✅ | Mesures sur le téléphone de l'utilisateur (temps de redessin, batterie) ; si trop lent : WebP sans perte ou cache des tuiles découpées. **Fait le 2026-10-23** : test de l'utilisateur sur son téléphone jugé satisfaisant, rien à changer pour le moment (pas de chiffres relevés) ; WebP et cache non retenus | Mesures consignées au journal (ici : avis de l'utilisateur consigné) |
+| P20.7 | ✅ | Favori fourni « Sortie Ski » (configuration de ski de l'utilisateur, capture du 2026-10-23) avec ses cartes OpenSnowMap et Yeti intégrées sous les ids de ses fichiers AQX ; favoris fournis réduits à « Rando Multi-Zoom » et « Sortie Ski » ; tuiles déjà téléchargées versées dans le stockage des cartes intégrées (ADR-069) | `BuiltinSourcesTest`, `WorkspaceTest`, `StorageManagerTest` ; favori appliqué sur l'émulateur conforme à la capture de l'utilisateur |
+
+### P21 — Journal d'événements et tests en direct du partage de position — specs : `docs/specs/event-log.md`, `docs/specs/live-test.md` (ADR-070, ADR-072)
+> **Phase close le 2026-10-24** (session 56, demande de l'utilisateur : « Tu peux clore tout le P21 » et « Retire :debugkit de l'application »). `:debugkit` est sorti du build (ADR-072) : aucun APK ne l'a plus ; ses sources et les scripts `tools/livetest/` restent dans le projet, débranchés. Le journal d'événements (P21.1) reste dans tous les builds. Ce qui n'a pas été vérifié est dit sur chaque ligne ; les travaux restants sont dans `docs/idees-futur.md`.
+> Demande (2026-10-23) : « APK de debug avec un module de travail unique à l'environnement TEST, qui n'apparaît pas sur le release ; revoir les données envoyées lors du partage de position et transférer tout ce qui est nécessaire à l'analyse de bug / performance, même lourd et énergivore ; un module de log qui enregistre tous les évènements effectués et subis ; test en live : Claude sur l'émulateur, l'utilisateur sur son téléphone en se baladant, notifications de l'app Claude pour les manipulations (fermer et relancer l'app, vider le cache, couper le GPS…) ».
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P21.1 | ✅ | Journal d'événements dans tous les builds : `EventLog`, `EventStore`, `EventLine` (`:core`), `AppEventLog`, `SystemEvents` ; événements du partage, du maillage, du serveur, du GPS, de WebRTC, des plantages ; jauges | `EventLogTest` ; fichiers `files/eventlog` et lignes `TMEvent` vus sur l'émulateur |
+| P21.2 | ✅ | **Sorti du build le 2026-10-24 (ADR-072)** : plus dans aucun APK, sources gardées dans `debugkit/`. Module `:debugkit` (debug seulement) : collecteur, mode test, instantanés, GNSS, commandes `adb` ; message `DIAG` dans le maillage, envoi du journal avec accusés ; les positions passent d'abord | `DiagTest`, `WireTest`, `MeshNodeTest` ; APK release sans `fr.toolmap.debugkit` ; collecteur et commandes vus sur l'émulateur |
+| P21.3 | ✅ | Gardés, inutilisables sans `:debugkit` (ADR-072). Scripts PC `tools/livetest/` (préparation, commandes, suivi en direct, copie, rapport) et protocole de test (`live-test.md`, scénarios T0 à T17) | Scripts lancés sur l'émulateur |
+| P21.4 | ✅ | **Clos le 2026-10-24 par décision de l'utilisateur** ; non fait : le test qui devait revoir les corrections l à r et les alertes de 0.4.69 sur le téléphone. Test en direct avec l'utilisateur (téléphone en marchant, émulateur collecteur), scénarios de `live-test.md` §4. 1re séance le 2026-10-24 (session 53) : T1, T3, T9, T12, T14, T15, T18, T19 faits ; 2e séance le 2026-10-24 (session 54, 0.4.66) : T2, T4 à T13, T15, T17, T18 faits ; T0 en marchant, l'heure de partage (g) et T16 retirés à la demande de l'utilisateur ; bilan : `docs/specs/p21-corrections.md` § Second test ; au prochain test : revoir les corrections l à r et les alertes (0.4.69) ; ordre du second test et problèmes notés pendant le test : `docs/plan-partage.md` | Rapport `analyze.mjs` et défauts trouvés consignés au journal |
+| P21.5 | ✅ | **Clos le 2026-10-24 par décision de l'utilisateur** ; non revérifiés sur le téléphone : l à r (tests unitaires seulement) ; non faits, passés dans `docs/idees-futur.md` : compléments de (c), (o) dit aux autres membres, (t), (j), (k). Corrections issues du test (journal, session 53) : ~~(d) changer l'intervalle d'envoi arrête le service de premier plan~~ corrigé en 0.4.62 (seule la demande GPS change, `share.gps.restart`) ; ~~(a) après un arrêt forcé, le partage ne reprend pas à la relance~~ corrigé en 0.4.62 (reprise à l'ouverture de l'appli, aussi après une mise à jour, `share.resume`) ; vérifiés sur l'émulateur, à revérifier sur le téléphone ; ~~(b) un `PING` écrase la dernière position dans `p`~~, ~~(e) trame `p` retenue écrite au battement suivant~~, ~~(f) nouveau réseau par défaut : le flux reste sur l'ancien~~, ~~(g) jeton renouvelé sans rouvrir le flux : coupure toutes les heures~~, ~~(h) tentatives toutes les 8 s pendant que le réseau est bloqué par Android~~ corrigés en 0.4.64, (f) complété en 0.4.65 par un pool de connexions propre au relais (tests `FirebaseRelayFixesTest`, suivi du réseau par le contrôleur tant qu'un groupe existe), à revérifier au second test en direct ; défauts du second test (session 54) : ~~(l) position de départ seulement en traînée~~, ~~(m) numéros de message en collision après un redémarrage~~, ~~(n) recul de l'horloge~~, ~~(p) tentatives sans réseau~~, ~~(q) battement espacé écran éteint~~, ~~(r) vieilles trames jamais effacées~~ corrigés en 0.4.69 (tests `MeshNodeTest`, `WireTest`, `FirebaseRelayFixesTest`) ; (o) économiseur de batterie et (c) localisation coupée : alertes en 0.4.69 (cartes sous l'interrupteur, dialogue au lancement, pastille orange, ligne de la notification ; variante B de `docs/previews/p21-alertes.html` validée le 2026-10-24, ADR-071), vérifiées sur l'émulateur ; restent : (c) plus de fix GPS, économiseur de données, batterie « restreinte » (aperçu complémentaire à valider), (o) le dire aux autres membres, toast « connecté(e) » (t, aperçu d'abord) ; à vérifier : 7 Mio téléchargés en 2 s au retour au premier plan (j) ; à décider : (k). Preuves, causes (fichier et ligne), corrections proposées et vérifications : `docs/specs/p21-corrections.md` | Défauts corrigés, couverts par des tests unitaires quand c'est possible, revérifiés par un nouveau test en direct |
+| P21.6 | ✅ | **Clos le 2026-10-24 par décision de l'utilisateur** : commande vue sur le téléphone, écran tenu au premier plan, pas en arrière-plan ; sans objet depuis que `:debugkit` est sorti du build (ADR-072). Demande de l'utilisateur (2026-10-24) : garder l'écran du téléphone allumé pendant un test, commandé depuis le PC par le collecteur (debug seulement), même appli en arrière-plan ; `cmd.sh awake <minutes>` fait en 0.4.66 (`ScreenAwake`, champ `w` des annonces du collecteur ; vérifié sur l'émulateur avec son propre écran, `here`) ; sans notification (décision de l'utilisateur, 2026-10-24 : l'écran allumé se voit, pas d'aperçu pour le debug) ; reste l'essai sur le téléphone (annonces du collecteur, `docs/plan-partage.md` § 3) ; détails dans `docs/specs/p21-corrections.md` § P21.6 | Commande vue sur le téléphone (`debug.awake on=true by=collector`) |
+| P21.7 | ✅ | **Clos le 2026-10-24** : icône, ligne et bouton vus sur le téléphone au second test (`docs/plan-partage.md` § 3 n° 1). Demande de l'utilisateur (2026-10-24) : notification permanente qui montre que ToolMap travaille en arrière-plan. Variante B de `docs/previews/p21-notification.html`, validée le 2026-10-24 : **une seule** notification « ToolMap est actif en arrière-plan » (`BackgroundNotification`), une ligne et un bouton d'arrêt par fonction en cours (partage, enregistrement, alertes et suivi), icône des sommets dans la barre d'état, canal « Activité en arrière-plan » d'importance par défaut, sans son ni vibration (remplace les canaux `sharing`, `recording`, `alerts-service`) ; question « Montrer ToolMap dans la barre d'état ? » au lancement du partage ou de l'enregistrement si les notifications sont refusées. Le téléchargement de cartes garde sa notification de progression | `BackgroundNotificationTest` ✅ ; capture de l'émulateur à côté de l'aperçu ✅ (`docs/previews/p21-notification-emulateur.html`, 0.4.63) ; icône vue dans la barre d'état du téléphone (One UI) ✅ (2026-10-24, 14:56) |
+
+### P22 à P28 — Fonctions demandées le 2026-10-24 — plan détaillé : `docs/plan-fonctions-2026-10.md`
+> Décisions prises avec l'utilisateur (session 55, Q1 à Q63). Petits incréments : un build par tâche. Chaque phase commence par son aperçu validé ; tâches, décisions et critères d'acceptation dans le plan détaillé.
+
+| ID | Statut | Phase | Dépend de |
+|---|---|---|---|
+| P22 | ⬜ | Alerte (ex-SOS, levée de l'alerte) et écoute permanente du groupe sans émettre | — (P21 clos le 2026-10-24) |
+| P23 | ⬜ | Saisie précise des valeurs (zoom, altitude, intervalle, distance, opacité, couleurs) | — |
+| P24 | 🔄 | Grilles MGRS et UTM : grille par zone, limites, noms, convergence, impression à cheval, exceptions. Aperçu (`docs/previews/p24-mgrs.html`) validé le 2026-10-26, variante A au dézoom ; P24.1 ✅ (session 58) ; grille effacée par les fantômes de P20 corrigée ; P24.2 ✅ (session 59) : grille par zone et limites à l'écran ; P24.3 ✅ (session 60) : noms des zones et des carrés, convergence dans la boîte (ADR-073) ; P24.4 🔄 (session 61) : feuille à cheval codée, PDF réel à valider par l’utilisateur | images de l'utilisateur reçues le 2026-10-25 |
+| P25 | ⬜ | Partage des favoris (fichier `.toolmap`, puis envoi au groupe) | P27 pour l'envoi au groupe |
+| P26 | ⬜ | Couleurs et modes de fusion (16 modes, teinte, panneau ; mesure du coût d'abord) | — |
+| P27 | ⬜ | Waypoints du groupe (durée, Silencieux / Alerte) | P22, P23 |
+| P28 | ⬜ | Dessin (stylo lissé, formes, épaisseur liée au terrain, espace « Dessin ») | P23, P26 ; P27 pour l'envoi au groupe |
+
+### P29 — Refonte de l'interface : style uniforme, onglet par onglet — plan détaillé : `docs/plan-design-2026-10.md`
+> Demande de l'utilisateur du 2026-10-26 : revoir toute l'interface avec les guides d'impeccable (pbakaus/impeccable), un style uniforme, **5 variantes à chaque changement** et une **notification** pour demander le choix. Aucun code avant le choix (`CLAUDE.md`).
+
+| ID | Statut | Étape | Critère |
+|---|---|---|---|
+| P29.0 | ✅ | Style uniforme (palette, typographie, formes, barre du haut, boutons, listes, panneaux). Audit et 5 variantes (A Forêt, B TOP 25, C Balise, D Altimètre, E Crête) montrés le 2026-10-26 (session 63) : `docs/previews/design-00-style.html` ; **E · Crête choisie le 2026-10-26** et codée (thème fixe clair et nuit, 3 arrondis, barre du haut commune, barre du bas pleine largeur nommée, panneaux à bandeau, Cartes disponibles et Partage), ADR-074 ; comparaison sur l'émulateur : `docs/previews/design-00-style-emulateur.html` | Variante choisie codée dans le thème ; captures de l'émulateur à côté de l'aperçu |
+| P29.1 à P29.10 | 🔄 | Un onglet par étape (carte, menu, Cartes, Traces, Positionnement, Cartes disponibles, téléchargements et stockage, partage, réglages, autres écrans) : liste dans le plan détaillé. P29.1 (carte) ✅ : variante E · Pastilles choisie le 2026-10-27, codée en 0.4.79 (`docs/previews/design-01-carte.html`, comparaison `docs/previews/design-01-carte-emulateur.html`) ; prochaine : P29.2 | Chaque étape : variante choisie codée et comparée sur l'émulateur |
+
+## 4. Stratégie de test
+- **JVM (`:core`)** : parseurs, URL de tuiles, maths d'échelle, statistiques, codec P2P. Rapides, exécutables partout.
+- **Robolectric + MockWebServer (`:data`, `:p2p`)** : Room, MbTilesStore, intercepteur (en-têtes, mode hors ligne, zooms complétés), relais Firebase (émulateur Firebase via `scripts/firebase-emulator-test.sh`).
+- **Démarrage et écrans (`:app`, Robolectric)** : `AppStartupTest` lance la vraie application jusqu'à l'écran carte, sur l'API 26 (minSdk) et l'API 35 ; les méthodes natives de MapLibre y sont neutralisées, donc le rendu lui-même n'est pas testé. Robolectric 4.17 échoue (`FileSystemAlreadyExistsException`) quand plus de deux SDK s'enchaînent dans une JVM. Tests de rendu Compose (`*RenderTest`, `*PanelTest`, `NavigationBackTest`, `MapChromeLayoutTest`).
+- **Rapport de plantage** : `CrashReportTest`, `CrashReporterTest`, `CrashActivityTest`.
+- **Expressions régulières** : `RegexPortabilityTest` refuse toute accolade non échappée hors quantificateur et tout `--` dans une classe (le moteur ICU d'Android est plus strict que la JVM).
+- **CI** : lint, tests unitaires, APK debug en artefact et en pré-release.
+- **Émulateur (poste local, depuis le 2026-10-15)** : parcours de l'interface par `adb` (navigation, menus, mise en page, icônes), consigné dans `ui-index.md` §10 et au journal.
+- **Sur appareil (utilisateur)** : GPS, capteurs, caméra, partage entre téléphones, services écran éteint, consommation ; chaque critère vérifié est consigné au journal avec la date et le modèle de téléphone.
+
+## 5. Risques identifiés
+| Risque | Parade |
+|---|---|
+| L'interception OkHttp de MapLibre ne couvre pas tous les cas | Spike P1.1 ; carte affichée sur l'émulateur ; repli : moteur raster Compose Canvas maison |
+| CGNAT symétrique en 4G : connexion P2P directe impossible sans TURN | **Réglé par P13** : serveur de coordination Firebase (ADR-033) ; mode direct gardé ; transports alternatifs P8.9 |
+| Quotas et conditions d'utilisation IGN pour le téléchargement massif | `max-threads` ≤ 3, limitation de débit, avertissement utilisateur |
+| Mémoire lors du rendu PDF : A3 à 300 dpi ≈ 3 500 × 4 960 px, A2 ≈ 4 960 × 7 020 px | Rendu par bandes |
+| Ce que l'émulateur ne montre pas (GPS réel, capteurs, caméra, deux téléphones, écran éteint, batterie) | Logique en `:core` testée en JVM ; APK testé par l'utilisateur sur téléphone |
+| **CI GitHub Actions arrêtée** (limite de dépense du compte, 2026-10-16) : plus de lien d'APK | APK compilé en local (`CLAUDE.md`, point 7) ; l'utilisateur relève la limite dans GitHub ▸ Billing & plans |
+| **Dossier `ToolMap/` non suivi par git sur le poste local** : aucune modification ne s'y annule par git | Pousser régulièrement vers `JRRocks/ToolMap` ; copie des fichiers avant une réécriture importante |
+| `org.maplibre.gl:android-sdk` 13.x est la version Vulkan seulement | **Réglé le 2026-10-03** : `android-sdk-opengl`, même API Java (ADR-028) |
+| Un plantage sur le téléphone de l'utilisateur ne laisse aucune trace lisible (pas de `logcat`) | Rapport de plantage affiché sur le téléphone, à copier ou partager (ADR-029) ; « Signaler une erreur » (P16.3) |
+| Les tests JVM et Robolectric utilisent le moteur d'expressions régulières du JDK, plus permissif que celui d'Android (ICU) | `RegexPortabilityTest` ; cas réel du 2026-10-03 : plantage aux premières tuiles |

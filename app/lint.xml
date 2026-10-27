@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- The interface is in French: the English spell checker flags "exemple", which is a correct French word. -->
+    <issue id="Typos" severity="ignore" />
+    <!-- "0-17" is what the user types in the zoom field: a plain hyphen, not an en dash. -->
+    <issue id="TypographyDashes" severity="ignore" />
+</lint>

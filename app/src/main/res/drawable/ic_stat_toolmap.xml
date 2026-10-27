@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="68"
+    android:viewportHeight="68">
+    <!-- The launcher's two peaks (ic_launcher_foreground.xml), centred: the status bar icon of the notification. -->
+    <group
+        android:translateX="-20"
+        android:translateY="-21">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M24,72 L44,38 L56,56 L64,44 L84,72 Z" />
+    </group>
+</vector>

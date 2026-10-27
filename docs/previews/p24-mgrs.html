@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grilles MGRS ToolMap</title>
+<style>
+/* P24 preview (2026-10-25), saved as rendered in the conversation; the widget theme tokens are defined here. */
+:root{--surface-1:#f1f2f6;--surface-2:#ffffff;--border:#dcdee6;--border-strong:#b9bdca;--text-primary:#1c1d22;--text-secondary:#5d6170;--text-muted:#80838f;--text-accent:#3f5191;--bg-accent:#e3e7f8;--page:#f7f7fa;--border-accent:#3f5191;--radius:8px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--surface-1:#1e2027;--surface-2:#262832;--border:#30333e;--border-strong:#4a4e5c;--text-primary:#e6e7ee;--text-secondary:#a3a7b6;--text-muted:#848897;--text-accent:#aebcf2;--bg-accent:#283050;--page:#15161b;--border-accent:#aebcf2;color-scheme:dark}}
+:root[data-theme="dark"]{--surface-1:#1e2027;--surface-2:#262832;--border:#30333e;--border-strong:#4a4e5c;--text-primary:#e6e7ee;--text-secondary:#a3a7b6;--text-muted:#848897;--text-accent:#aebcf2;--bg-accent:#283050;--page:#15161b;--border-accent:#aebcf2;color-scheme:dark}
+body{margin:0;background:var(--page);color:var(--text-primary);font-family:"Segoe UI",Roboto,system-ui,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 16px 48px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.validated{background:var(--bg-accent);border-radius:12px;padding:12px 16px;margin:0 0 16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>P24 — Grilles MGRS et UTM</h1>
+<p class="validated"><b>Validé le 2026-10-26</b> : variante A au dézoom (« Je valide l'aperçu P24, variante A au dézoom »). Montré le 2026-10-25. Images de l'utilisateur du 2026-10-24 : jonction 31T / 32T à Pontcharra et ligne qui disparaît au dézoom.</p>
+<h2 class="sr-only">Aperçu P24 : grille MGRS actuelle et proposée à la jonction des zones 31T et 32T à Pontcharra, au dézoom, en vue large et sur une feuille A4 imprimée à cheval sur les deux zones.</h2>
+<style>
+.sec{font-size:14px;font-weight:500;color:var(--text-primary);margin:1.5rem 0 8px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+.cap{font-size:12px;line-height:1.5;color:var(--text-secondary);margin:6px 0 0}
+.cap b{font-weight:500;color:var(--text-primary)}
+.var{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;background:var(--surface-1);border-radius:12px;padding:12px;margin:0 0 10px}
+.vt{width:190px;font-size:12px;line-height:1.5;color:var(--text-secondary)}
+.vt b{display:block;font-size:13px;font-weight:500;color:var(--text-primary);margin:0 0 4px}
+.badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:var(--radius);background:var(--bg-accent);color:var(--text-accent);margin:0 0 4px}
+</style>
+<p class="cap" style="margin:0">Géométrie calculée (UTM WGS84, mêmes formules que ToolMap) ; fond de carte schématique (Isère, Pontcharra). Trait fin : pas de la grille · moyen : 10 km · épais : 100 km · très épais : limite de zone.</p>
+
+<div class="sec">1 · Écran à la jonction 31T / 32T — Pontcharra, 1:120 000, pas 5 km</div>
+<div class="row">
+<div><div id="p1"></div><p class="cap"><b>Actuel</b>, centre à 5,999° E : toute la grille est celle de 31T</p></div>
+<div><div id="p2"></div><p class="cap"><b>Actuel</b>, centre à 6,006° E : toute la grille saute en 32T</p></div>
+<div><div id="p3"></div><p class="cap"><b>Proposé</b> : chaque zone de son côté, limite épaisse, noms « 31T GL » et « 32T KR », convergence dans la boîte</p></div>
+</div>
+
+<div class="sec">2 · Dézoom 1:120 000 → 1:332 000 (vos images 2 et 3)</div>
+<div class="var"><div class="vt"><b>Actuel</b>Au passage de 5 à 10 km, la ligne de 265 km (près du centre) disparaît ; restent 260 et 270 km, sur les côtés.</div><div id="d1a"></div><div id="d1b"></div></div>
+<div class="var" style="border:2px solid var(--border-accent)"><div class="vt"><span class="badge">Recommandée</span><b>Variante A : lignes hiérarchisées</b>Même nombre de lignes qu'aujourd'hui. Les lignes de 10 km sont déjà plus marquées : au dézoom, seules les lignes fines partent, les marquées restent où elles étaient.</div><div id="d2a"></div><div id="d2b"></div></div>
+<div class="var"><div class="vt"><b>Variante B : pas MGRS seulement (1, 10, 100 km)</b>La grille de 1 km reste jusqu'au 1:500 000 environ, puis 10 km. Moins de changements, mais grille très serrée en dézoomant.</div><div id="d3a"></div><div id="d3b"></div></div>
+
+<div class="sec">3 · Vue large, 1:5 000 000</div>
+<div class="row">
+<div><div id="w1"></div><p class="cap"><b>Actuel</b> : pas de 200 km de la zone 32 prolongée, une ligne de 100 km sur deux manque</p></div>
+<div><div id="w2"></div><p class="cap"><b>Proposé</b> : lignes de 100 km, limites des zones et des bandes (48° N), noms des zones ; plus large encore : limites et noms seuls</p></div>
+</div>
+
+<div class="sec">4 · Feuille A4 OTAN / MGRS à cheval sur 31T et 32T, 1:25 000</div>
+<div class="row">
+<div><div id="s1"></div><p class="cap"><b>Actuel</b> : quadrillage de 32 prolongé sur toute la feuille, chiffres et lettres de 32 seulement</p></div>
+<div><div id="s2"></div><p class="cap"><b>Proposé</b> : chaque zone de son côté, chiffres de chaque zone de son côté, en bleu dans la marge les graduations de la zone voisine, cartouche qui cite les deux zones</p></div>
+</div>
+
+<script>
+const D=Math.PI/180,RE=6378137,A=6378137,F=1/298.257223563,K0=0.9996,n=F/(2-F),ex=Math.sqrt(F*(2-F));
+const AA=A/(1+n)*(1+n*n/4+n**4/64);
+const al=[n/2-2*n*n/3+5*n**3/16+41*n**4/180,13*n*n/48-3*n**3/5+557*n**4/1440,61*n**3/240-103*n**4/140,49561*n**4/161280];
+const be=[n/2-2*n*n/3+37*n**3/96-n**4/360,n*n/48+n**3/15-437*n**4/1440,17*n**3/480-37*n**4/840,4397*n**4/161280];
+const de=[2*n-2*n*n/3-2*n**3+116*n**4/45,7*n*n/3-8*n**3/5-227*n**4/45,56*n**3/15-136*n**4/35,4279*n**4/630];
+const cm=z=>(z-1)*6-177;
+function fwd(lat,lon,z){const p=lat*D,dl=(lon-cm(z))*D,s=Math.sin(p),t=Math.sinh(Math.atanh(s)-ex*Math.atanh(ex*s));const xp=Math.atan2(t,Math.cos(dl)),ep=Math.atanh(Math.sin(dl)/Math.sqrt(1+t*t));let x=xp,y=ep;for(let j=1;j<=4;j++){x+=al[j-1]*Math.sin(2*j*xp)*Math.cosh(2*j*ep);y+=al[j-1]*Math.cos(2*j*xp)*Math.sinh(2*j*ep)}return[500000+K0*AA*y,K0*AA*x]}
+function inv(E,N,z){const x=N/(K0*AA),y=(E-500000)/(K0*AA);let xp=x,yp=y;for(let j=1;j<=4;j++){xp-=be[j-1]*Math.sin(2*j*x)*Math.cosh(2*j*y);yp-=be[j-1]*Math.cos(2*j*x)*Math.sinh(2*j*y)}const c=Math.asin(Math.sin(xp)/Math.cosh(yp));let p=c;for(let j=1;j<=4;j++)p+=de[j-1]*Math.sin(2*j*c);return[p/D,cm(z)+Math.atan(Math.sinh(yp)/Math.cos(xp))/D]}
+const COLS="ABCDEFGHJKLMNPQRSTUVWXYZ",ROWS="ABCDEFGHJKLMNPQRSTUV",BANDS="CDEFGHJKLMNPQRSTUVWX";
+const zoneOf=lon=>Math.floor((lon+180)/6)+1,band=lat=>BANDS[Math.min(19,Math.floor((lat+80)/8))];
+const sq=(E,N,z)=>COLS[((z-1)%3)*8+Math.floor(E/1e5)-1]+ROWS[(Math.floor(N/1e5)+(z%2?0:5))%20];
+const mY=lat=>RE*Math.log(Math.tan(Math.PI/4+lat*D/2));
+function view(lat0,lon0,mpp,W,H){const X0=RE*lon0*D,Y0=mY(lat0);return{W,H,to:(la,lo)=>[W/2+(RE*lo*D-X0)/mpp,H/2-(mY(la)-Y0)/mpp],from:(x,y)=>{const X=X0+(x-W/2)*mpp,Y=Y0-(y-H/2)*mpp;return[(2*Math.atan(Math.exp(Y/RE))-Math.PI/2)/D,X/RE/D]}}}
+const devMpp=(lat,den,W)=>den/120032*6.71/Math.cos(lat*D)*1080/W;
+const P=a=>a.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+function ext(v,z){let e1=1e9,e2=-1e9,n1=1e9,n2=-1e9;for(let i=0;i<=12;i++){const t=i/12;for(const q of [[t*v.W,0],[t*v.W,v.H],[0,t*v.H],[v.W,t*v.H]]){const g=v.from(q[0],q[1]),u=fwd(g[0],g[1],z);e1=Math.min(e1,u[0]);e2=Math.max(e2,u[0]);n1=Math.min(n1,u[1]);n2=Math.max(n2,u[1])}}return[e1,e2,n1,n2]}
+function lines(v,z,st){const [e1,e2,n1,n2]=ext(v,z),o=[];for(let E=Math.ceil(e1/st)*st;E<=e2;E+=st){const a=[];for(let i=0;i<=16;i++){const g=inv(E,n1+(n2-n1)*i/16,z);a.push(v.to(g[0],g[1]))}o.push({v:E,a,ax:'E'})}for(let N=Math.ceil(n1/st)*st;N<=n2;N+=st){const a=[];for(let i=0;i<=16;i++){const g=inv(e1+(e2-e1)*i/16,N,z);a.push(v.to(g[0],g[1]))}o.push({v:N,a,ax:'N'})}return o}
+const lvl=x=>x%1e5===0?3:x%1e4===0?2:1;
+const pl=(a,w,c)=>`<polyline points="${P(a)}" fill="none" stroke="${c||'#455a64'}" stroke-opacity="0.85" stroke-width="${w}"/>`;
+const tx=(x,y,s,o)=>`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="${(o&&o.size)||11}" font-weight="${(o&&o.bold)?500:400}" text-anchor="${(o&&o.anchor)||'middle'}" fill="${(o&&o.fill)||'#263238'}" ${(o&&o.halo===false)?'':'stroke="#fff" stroke-width="3" paint-order="stroke"'} ${(o&&o.italic)?'font-style="italic"':''}>${s}</text>`;
+function conv(lat,lon){const z=zoneOf(lon),d=Math.atan(Math.tan((lon-cm(z))*D)*Math.sin(lat*D))/D,m=Math.round(Math.abs(d)*60);return `${Math.floor(m/60)}°${String(m%60).padStart(2,'0')}′ ${d>=0?'E':'O'}`}
+const ISERE=[[45.62,6.20],[45.55,6.11],[45.50,6.06],[45.455,6.03],[45.43,6.008],[45.38,5.97],[45.30,5.88],[45.25,5.80],[45.19,5.73]];
+const TOWNS=[["Genève",46.204,6.143],["Lyon",45.764,4.836],["Grenoble",45.188,5.724],["Turin",45.07,7.686],["Annecy",45.899,6.129],["Berne",46.948,7.447],["Besançon",47.238,6.024],["Dijon",47.322,5.041]];
+function ctx(v,wide){let s=`<polyline points="${P(ISERE.map(p=>v.to(p[0],p[1])))}" fill="none" stroke="#7fb3d5" stroke-width="${wide?1.2:4}"/>`;if(wide){for(const t of TOWNS){const q=v.to(t[1],t[2]);s+=`<circle cx="${q[0]}" cy="${q[1]}" r="2.5" fill="#8d6e63"/>`+tx(q[0]+4,q[1]+4,t[0],{anchor:'start',fill:'#6d4c41'})}}else{const q=v.to(45.4347,6.0186);s+=`<rect x="${q[0]-14}" y="${q[1]-10}" width="28" height="20" rx="3" fill="#e8c9b8"/>`+tx(q[0]+16,q[1]-12,'Pontcharra',{anchor:'start',fill:'#6d4c41'})}return s}
+function labels(v,zs){const g={},s={};for(let i=0;i<=12;i++)for(let j=0;j<=24;j++){const x=v.W*(i+.5)/13,y=v.H*(j+.5)/25,q=v.from(x,y),z=zoneOf(q[1]),u=fwd(q[0],q[1],z),gz=z+band(q[0]),k=gz+' '+sq(u[0],u[1],z);(g[gz]=g[gz]||{x:0,y:0,c:0,k:{}});g[gz].x+=x;g[gz].y+=y;g[gz].c++;g[gz].k[k]=1;(s[k]=s[k]||{x:0,y:0,c:0});s[k].x+=x;s[k].y+=y;s[k].c++}let o='';for(const gz in g){const G=g[gz],ks=Object.keys(G.k);if(ks.length===1){const S=s[ks[0]];o+=tx(S.x/S.c,S.y/S.c-14,ks[0],{bold:true})}else{o+=tx(G.x/G.c,G.y/G.c,gz,{bold:true,size:13});for(const k of ks){const S=s[k];if(S.c>6)o+=tx(S.x/S.c,S.y/S.c+16,k.split(' ')[1])}}}return o}
+function box(W,l1,l2,l3){const w=Math.min(W-12,Math.max(l1.length,l2.length,(l3||'').length)*6.4+16),h=l3?54:38;return `<rect x="6" y="6" width="${w}" height="${h}" rx="7" fill="#2b2b2b" fill-opacity="0.85"/>`+tx(14,22,l1,{anchor:'start',fill:'#fff',halo:false,size:12})+tx(14,37,l2,{anchor:'start',fill:'#e0e0e0',halo:false})+(l3?tx(14,51,l3,{anchor:'start',fill:'#ffe082',halo:false}):'')}
+function phone(id,o){const W=o.W,H=Math.round(W*2340/1080),v=view(o.lat,o.lon,devMpp(o.lat,o.den,W),W,H);let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block;border-radius:14px;border:0.5px solid var(--border-strong)" role="img" aria-label="${o.aria}"><rect width="${W}" height="${H}" fill="#eef0e4"/>`+ctx(v,o.wide);const lo0=v.from(0,0)[1],lo1=v.from(W,0)[1],la0=v.from(0,0)[0],la1=v.from(0,H)[0];const zc=zoneOf(o.lon);
+if(o.mode==='cur'){for(const l of lines(v,zc,o.step))s+=pl(l.a,lvl(l.v)===3?2.2:1)}else{const zs=[];for(let z=zoneOf(lo0);z<=zoneOf(lo1);z++)zs.push(z);for(const z of zs){const xa=Math.max(0,v.to(o.lat,(z-1)*6-180)[0]),xb=Math.min(W,v.to(o.lat,z*6-180)[0]),cid=id+'c'+z;s+=`<clipPath id="${cid}"><rect x="${xa}" y="0" width="${xb-xa}" height="${H}"/></clipPath><g clip-path="url(#${cid})">`;for(const l of lines(v,z,o.step))s+=pl(l.a,[0,.8,1.5,2.3][lvl(l.v)]);s+='</g>'}for(let z=zs[0]+1;z<=zs[zs.length-1];z++){const x=v.to(o.lat,(z-1)*6-180)[0];s+=`<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="#1c2429" stroke-width="3.2"/>`}for(let b=-80;b<=84;b+=8){if(b<la0&&b>la1){const y=v.to(b,o.lon)[1];s+=`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#1c2429" stroke-width="3.2"/>`}}s+=labels(v,zs)}
+s+=`<circle cx="${W/2}" cy="${H/2}" r="7" fill="none" stroke="#fff" stroke-width="3"/><circle cx="${W/2}" cy="${H/2}" r="7" fill="none" stroke="#555" stroke-width="1.2"/>`;const st=o.step>=1000?(o.step/1000)+' km':o.step+' m';s+=box(W,o.lat.toFixed(5)+', '+o.lon.toFixed(5),'Grille MGRS '+zc+band(o.lat)+' · '+st,o.mode==='cur'?null:'Convergence '+conv(o.lat,o.lon));document.getElementById(id).innerHTML=s+'</svg>'}
+function cross(a,axis,c){for(let i=0;i<a.length-1;i++){const p=a[i],q=a[i+1],u=p[axis]-c,w=q[axis]-c;if(u===0)return p[1-axis];if(u*w<0){const t=u/(u-w);return p[1-axis]+t*(q[1-axis]-p[1-axis])}}return null}
+const two=x=>String(Math.floor((x%1e5)/1e3)).padStart(2,'0');
+function sheet(id,o){const S=1.5,PW=315,PH=446,L=33,T=30,FW=249,FH=300,lat=45.4274,lon=6.004;const v=view(lat,lon,25/S/Math.cos(lat*D),FW,FH);let s=`<svg width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}" style="display:block;border:0.5px solid var(--border-strong)" role="img" aria-label="${o.aria}"><rect width="${PW}" height="${PH}" fill="#fff"/><g transform="translate(${L},${T})"><clipPath id="${id}f"><rect width="${FW}" height="${FH}"/></clipPath><g clip-path="url(#${id}f)"><rect width="${FW}" height="${FH}" fill="#f4f1e8"/>`+ctx(v,false);let marg='';const xb=v.to(lat,6)[0];
+const own=(l,z,inRange,blue)=>{const col=blue?'#185FA5':'#222',dy=blue?12:0;if(l.ax==='E'){for(const [ey,yy,ty] of [[0,-4-dy,-1],[FH,FH+12+dy,1]]){const x=cross(l.a,1,ey);if(x!==null&&x>=0&&x<=FW&&inRange(x)){marg+=tx(x,yy,two(l.v),{fill:col,halo:false,italic:blue});if(blue)marg+=`<line x1="${x}" y1="${ey}" x2="${x}" y2="${ey+ty*4}" stroke="${col}" stroke-width="1"/>`}}}else{for(const [ex2,xx,an,tx2] of [[0,-3-(blue?15:0),'end',-1],[FW,FW+3+(blue?15:0),'start',1]]){const y=cross(l.a,0,ex2);if(y!==null&&y>=0&&y<=FH&&inRange(ex2)){marg+=tx(xx,y+4,two(l.v),{fill:col,halo:false,anchor:an,italic:blue});if(blue)marg+=`<line x1="${ex2}" y1="${y}" x2="${ex2+tx2*4}" y2="${y}" stroke="${col}" stroke-width="1"/>`}}}};
+if(o.mode==='cur'){for(const l of lines(v,32,1000)){s+=pl(l.a,lvl(l.v)===3?1.6:.7,'#3b4a52');own(l,32,()=>true,false)}}else{for(const z of [31,32]){const xa=z===31?0:xb,xe=z===31?xb:FW;s+=`<clipPath id="${id}z${z}"><rect x="${xa}" width="${xe-xa}" height="${FH}"/></clipPath><g clip-path="url(#${id}z${z})">`;for(const l of lines(v,z,1000)){s+=pl(l.a,lvl(l.v)===3?1.6:.7,'#3b4a52');own(l,z,x=>x>=xa&&x<=xe,false);own(l,z,x=>!(x>=xa&&x<=xe),true)}s+='</g>'}s+=`<line x1="${xb}" y1="0" x2="${xb}" y2="${FH}" stroke="#1c2429" stroke-width="2.6"/>`+tx(xb-38,150,'31T GL',{bold:true})+tx(xb+38,150,'32T KR',{bold:true})+tx(xb,12,'6° E',{size:11})}
+const u=fwd(lat,lon,32),ref='32T '+sq(u[0],u[1],32)+' '+String(Math.floor((u[0]%1e5)/100)).padStart(3,'0')+' '+String(Math.floor((u[1]%1e5)/100)).padStart(3,'0');
+s+=`</g><rect width="${FW}" height="${FH}" fill="none" stroke="#222" stroke-width="1"/>`+marg+'</g>';const ls=o.mode==='cur'?['MGRS 32T · WGS84 — carreaux de 1 km','Quadrillage de la zone 32 prolongé au-delà','Carré de 100 km : KR','Centre de la feuille : '+ref]:['MGRS 31T et 32T · WGS84 — carreaux de 1 km','Limite des zones 31 / 32 : méridien 6° E (trait épais)','Carrés de 100 km : 31T GL (ouest) · 32T KR (est)','En bleu dans la marge : quadrillage de la zone voisine','Centre de la feuille : '+ref];ls.forEach((t,i)=>{s+=tx(L,T+FH+44+i*15,t,{anchor:'start',fill:i===0?'#111':'#333',bold:i===0,halo:false})});document.getElementById(id).innerHTML=s+'</svg>'}
+const J={lat:45.42742,lon:6.00573,den:120032,W:210,step:5000};
+phone('p1',{...J,lat:45.42711,lon:5.99937,mode:'cur',aria:'Actuel, centre en 31T'});
+phone('p2',{...J,mode:'cur',aria:'Actuel, centre en 32T'});
+phone('p3',{...J,mode:'A',aria:'Proposé, deux zones'});
+const Z={lat:45.43098,lon:6.00589,W:150};
+phone('d1a',{...Z,den:120032,step:5000,mode:'cur',aria:'Actuel 5 km'});phone('d1b',{...Z,den:331995,step:10000,mode:'cur',aria:'Actuel 10 km'});
+phone('d2a',{...Z,den:120032,step:5000,mode:'A',aria:'Variante A 5 km'});phone('d2b',{...Z,den:331995,step:10000,mode:'A',aria:'Variante A 10 km'});
+phone('d3a',{...Z,den:120032,step:1000,mode:'B',aria:'Variante B 1 km'});phone('d3b',{...Z,den:331995,step:1000,mode:'B',aria:'Variante B 1 km dézoomé'});
+const Wd={lat:46.5,lon:6.3,den:5e6,W:210,wide:true};
+phone('w1',{...Wd,step:200000,mode:'cur',aria:'Actuel vue large'});phone('w2',{...Wd,step:100000,mode:'A',aria:'Proposé vue large'});
+sheet('s1',{mode:'cur',aria:'Feuille actuelle'});sheet('s2',{mode:'new',aria:'Feuille proposée'});
+</script>
+</div>
+</body>
+</html>

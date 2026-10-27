@@ -1,0 +1,81 @@
+name: Release
+
+# Manual run, or a tag "v*": builds the release APKs and the Play bundle. Without the signing secrets the artifacts are
+# unsigned (Play can sign an uploaded bundle; an unsigned APK cannot be installed). See docs/specs/release.md.
+on:
+  workflow_dispatch:
+    inputs:
+      minify:
+        description: "Enable R8 (never tried on a phone yet)"
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      KEYSTORE_BASE64: ${{ secrets.TOOLMAP_KEYSTORE_BASE64 }}
+      TOOLMAP_KEYSTORE_PASSWORD: ${{ secrets.TOOLMAP_KEYSTORE_PASSWORD }}
+      TOOLMAP_KEY_ALIAS: ${{ secrets.TOOLMAP_KEY_ALIAS }}
+      TOOLMAP_KEY_PASSWORD: ${{ secrets.TOOLMAP_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK
+        run: |
+          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
+          ANDROID_HOME="$HOME/android-sdk" ./scripts/install-android-sdk.sh
+          echo "sdk.dir=$HOME/android-sdk" > local.properties
+
+      - name: Release keystore (only when the secrets exist)
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "TOOLMAP_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "Signing with the release key."
+          else
+            echo "No release key: the artifacts will be unsigned."
+          fi
+
+      - name: Build
+        run: >
+          ./gradlew assembleRelease bundleRelease
+          -Ptoolmap.versionCode=${{ github.run_number }}
+          -Ptoolmap.minify=${{ inputs.minify || 'false' }}
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolmap-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolmap-release-aab
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+
+      - name: Upload the R8 mapping (needed to read crash traces)
+        if: ${{ inputs.minify }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolmap-r8-mapping
+          path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: warn

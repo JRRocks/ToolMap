@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  # Creating the debug pre-release (step "Publish the debug APK"); deleting old artifacts (step "Delete old artifacts").
+  contents: write
+  actions: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK
+        run: |
+          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
+          ANDROID_HOME="$HOME/android-sdk" ./scripts/install-android-sdk.sh
+          echo "sdk.dir=$HOME/android-sdk" > local.properties
+
+      # The publication key (ADR-047) signs the debug APK too, so that no APK handed out is signed by the public debug key.
+      # Without the secret, the build falls back to the public key, and the run says so.
+      - name: Publication key (only when the secret exists)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.TOOLMAP_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/publication.jks"
+            echo "TOOLMAP_KEYSTORE_FILE=$RUNNER_TEMP/publication.jks" >> "$GITHUB_ENV"
+            echo "APK_SIGNER=publication" >> "$GITHUB_ENV"
+            echo "The debug APK is signed with the publication key."
+          else
+            echo "APK_SIGNER=debug" >> "$GITHUB_ENV"
+            echo "::warning::No publication key in the secrets: the debug APK is signed with the public debug key."
+          fi
+
+      - name: Style, lint, unit tests, debug APK
+        env:
+          # Optional: the coordination server built into the APK (repository secrets; empty = none built in).
+          TOOLMAP_FIREBASE_DB_URL: ${{ secrets.TOOLMAP_FIREBASE_DB_URL }}
+          TOOLMAP_FIREBASE_API_KEY: ${{ secrets.TOOLMAP_FIREBASE_API_KEY }}
+          # Read by app/build.gradle.kts only when the publication key was decoded by the step above.
+          TOOLMAP_KEYSTORE_PASSWORD: ${{ secrets.TOOLMAP_KEYSTORE_PASSWORD }}
+          TOOLMAP_KEY_ALIAS: ${{ secrets.TOOLMAP_KEY_ALIAS }}
+          TOOLMAP_KEY_PASSWORD: ${{ secrets.TOOLMAP_KEY_PASSWORD }}
+        run: ./gradlew check assembleDebug
+
+      # The signer of the APK, as the SHA-256 of its certificate (public, not a secret). It changes when the publication
+      # key starts signing (ADR-047): docs/specs/release.md §2 gives the fingerprint of the public debug key to compare with.
+      - name: Show the signer of the debug APK
+        run: |
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
+          "$apksigner" verify --print-certs app/build/outputs/apk/debug/ToolMap-debug-*.apk
+
+      # The account has 0.5 GB of artifact storage for all its repositories (docs/specs/release.md §1). This run deletes the
+      # older debug APK artifacts and the old failure reports before it uploads its own, so one APK is kept, not two.
+      # Release artifacts are left alone. Push events only: Dependabot and pull requests from forks get a read-only token.
+      - name: Delete old artifacts
+        if: github.event_name == 'push'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const all = await github.paginate(github.rest.actions.listArtifactsForRepo, { owner, repo, per_page: 100 });
+            const old = all.filter((a) => (a.name === "toolmap-debug-apk" || a.name === "reports") && !a.expired);
+            let freed = 0;
+            for (const a of old) {
+              await github.rest.actions.deleteArtifact({ owner, repo, artifact_id: a.id });
+              freed += a.size_in_bytes;
+              core.info(`Deleted ${a.name} ${a.id} (${(a.size_in_bytes / 1e6).toFixed(1)} MB, run ${a.workflow_run?.id})`);
+            }
+            core.info(`Deleted ${old.length} artifacts, ${(freed / 1e6).toFixed(1)} MB; this run's upload is the only APK kept.`);
+
+      # Release assets are not counted in the Actions storage quota, so the APK also goes to a pre-release tagged with the
+      # commit (debug-<sha7>), titled with its version. Only the newest debug pre-release is kept, as for the artifacts.
+      # Push events only.
+      - name: Publish the debug APK
+        id: publish-apk
+        if: github.event_name == 'push'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="debug-${GITHUB_SHA::7}"
+          apk="$(ls app/build/outputs/apk/debug/ToolMap-debug-*.apk)"
+          # The version is the one in the APK name (ToolMap-debug-<version>.apk, from appVersionName).
+          version="$(basename "$apk" .apk)"
+          version="${version#ToolMap-debug-}"
+          if [ "$APK_SIGNER" = "publication" ]; then
+            signed="signé avec la clé de publication de ToolMap (secret du dépôt)"
+          else
+            signed="signé avec la clé de debug publique : aucune clé de publication dans les secrets"
+          fi
+          gh release create "$tag" "$apk" --target "$GITHUB_SHA" --prerelease \
+            --title "ToolMap debug $version (${GITHUB_SHA::7})" \
+            --notes "APK de debug $version compilé depuis le commit ${GITHUB_SHA}, $signed. Une installation signée par une autre clé doit être désinstallée une fois."
+          for old in $(gh release list --limit 100 --json tagName -q '.[] | select(.tagName | startswith("debug-")) | .tagName'); do
+            [ "$old" = "$tag" ] || gh release delete "$old" --cleanup-tag --yes
+          done
+
+      # Not blocking: the account's storage quota can refuse the upload. The APK still reaches the pre-release published
+      # above, which does not count in the quota (docs/specs/release.md §1, ADR-045).
+      - name: Upload debug APK
+        id: upload-apk
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolmap-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload reports
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            **/build/reports/
+            **/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # Last check (ADR-046): a push must leave the APK somewhere. It passes when the artifact was uploaded, or when the
+      # commit's pre-release already carries the APK (also on a re-run, where the release exists and the publish step fails).
+      # It fails only when both are missing. Push events only: pull requests have no pre-release. Runs only while the
+      # blocking steps before it succeeded.
+      - name: Check that the APK was delivered
+        if: success() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPLOAD: ${{ steps.upload-apk.outcome }}
+          PUBLISH: ${{ steps.publish-apk.outcome }}
+        run: |
+          tag="debug-${GITHUB_SHA::7}"
+          if [ "$UPLOAD" = "success" ]; then
+            echo "APK delivered as the artifact toolmap-debug-apk."
+            exit 0
+          fi
+          if gh release view "$tag" --json assets --jq '.assets[].name' 2>/dev/null | grep -q '^ToolMap-debug-.*\.apk$'; then
+            echo "APK delivered by the pre-release $tag (artifact upload: $UPLOAD, publish: $PUBLISH)."
+            exit 0
+          fi
+          echo "::error::No APK delivered: artifact upload $UPLOAD, no APK in the pre-release $tag (publish $PUBLISH)."
+          exit 1

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Écran gardé allumé</title>
+<style>
+/* P21.6 preview: the debug build tells the phone's user that a live test keeps the screen on. Awaiting the user's validation. */
+:root{--page:#f4f5f8;--text:#1c1d22;--muted:#5d6170;--accent:#2e6b3a;--accent-bg:#e2efe4;--line:#d7d9e0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#15161b;--text:#e6e7ee;--muted:#a3a7b6;--accent:#8fd19e;--accent-bg:#1f3324;--line:#30333e;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#15161b;--text:#e6e7ee;--muted:#a3a7b6;--accent:#8fd19e;--accent-bg:#1f3324;--line:#30333e;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text);font-family:"Segoe UI",Roboto,system-ui,sans-serif;font-size:15px;line-height:1.45}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:20px;margin:0 0 6px}
+h2{font-size:16px;margin:0 0 4px}
+.lead{color:var(--muted);margin:0 0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:start}
+.panel{display:flex;flex-direction:column;gap:10px}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--accent-bg);color:var(--accent)}
+.note{font-size:13px;color:var(--muted);margin:0}
+.note b{color:var(--text)}
+/* The phone: an Android notification shade, dark like on the user's phone. */
+.phone{background:#101114;border-radius:26px;padding:10px 10px 14px;color:#e8e9ee;font-family:Roboto,"Segoe UI",sans-serif;box-shadow:0 1px 0 #0002}
+.sb{display:flex;align-items:center;gap:6px;font-size:13px;padding:2px 8px 8px;height:20px}
+.sb .t{font-weight:500;margin-right:4px}
+.sb .r{margin-left:auto;display:flex;gap:6px;align-items:center;color:#c9cbd3}
+.sb svg{display:block}
+.mk{width:15px;height:15px}
+.qs{display:flex;gap:8px;padding:0 4px 10px}
+.qs span{flex:1;height:34px;border-radius:17px;background:#26282e}
+.sec{font-size:12px;color:#9a9ca6;padding:6px 8px 4px}
+.card{background:#24262c;border-radius:18px;padding:10px 12px 8px;margin:0 2px 6px}
+.hd{display:flex;align-items:center;gap:6px;font-size:12px;color:#a8aab4}
+.ic{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none}
+.ic.tm{background:#2e6b3a}
+.ic.dbg{background:#6b5a2e}
+.ti{font-size:14px;font-weight:600;margin:4px 0 0 26px;color:#f1f2f6}
+.tx{font-size:13px;color:#c3c5ce;margin:1px 0 0 26px}
+.tx.new{color:#ffd88a}
+.act{display:flex;flex-wrap:wrap;gap:6px 16px;margin:6px 0 0 26px;font-size:13px;font-weight:600;color:#9fd3ab}
+.act .new{color:#ffd88a}
+.cap{font-size:12px;color:#9a9ca6;margin:10px 4px 2px}
+.solo .panel{display:none}
+.solo .panel.on{display:flex}
+.solo .wrap{max-width:420px;margin:0}
+.solo .grid{grid-template-columns:1fr}
+.solo .intro{display:none}
+.solo .notes{display:none}
+.notes{margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+.notes li{margin:0 0 6px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- ToolMap's launcher peaks (res/drawable/ic_launcher_foreground.xml), as a status bar icon. -->
+  <symbol id="peaks" viewBox="20 30 68 46"><path fill="currentColor" d="M24,72 L44,38 L56,56 L64,44 L84,72 Z"/></symbol>
+  <!-- Material "light_mode" (sun): the screen kept bright. -->
+  <symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="wifi" viewBox="0 0 24 24"><path fill="currentColor" d="M12 20l3.5-4.2a5 5 0 0 0-7 0zM4 9.5l2 2.3a9 9 0 0 1 12 0l2-2.3a12 12 0 0 0-16 0z"/></symbol>
+  <symbol id="bat" viewBox="0 0 26 14"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="3" width="11" height="8" rx="1.5" fill="currentColor"/><rect x="23" y="5" width="2" height="4" rx="1" fill="currentColor"/></symbol>
+  <symbol id="gps" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></symbol>
+</svg>
+<div class="wrap">
+  <div class="intro">
+    <h1>P21.6 — Dire sur le téléphone que l'écran est gardé allumé</h1>
+    <p class="lead">Aperçu à valider avant le code (CLAUDE.md). APK de debug seulement. Volet du téléphone tiré vers le bas pendant un test en direct : partage de position en cours, et le PC a lancé <code>cmd.sh awake 30</code> à 10:42.</p>
+  </div>
+  <div class="grid">
+
+    <section class="panel" id="a">
+      <div><span class="tag">Aujourd'hui (0.4.66) = variante A</span></div>
+      <h2>L'écran reste allumé, le téléphone ne dit pas pourquoi</h2>
+      <div class="phone" aria-label="Volet actuel">
+        <div class="sb"><span class="t">10:42</span><svg class="mk" style="color:#fff"><use href="#peaks"/></svg><svg class="mk" style="color:#c9cbd3"><use href="#gps"/></svg><span class="r"><svg width="15" height="15"><use href="#wifi"/></svg><svg width="22" height="13"><use href="#bat"/></svg></span></div>
+        <div class="qs"><span></span><span></span><span></span><span></span></div>
+        <div class="sec">Notifications</div>
+        <div class="card">
+          <div class="hd"><span class="ic tm"><svg width="13" height="10" style="color:#fff"><use href="#peaks"/></svg></span>ToolMap · maintenant</div>
+          <div class="ti">ToolMap est actif en arrière-plan</div>
+          <div class="tx">Position partagée · 1 membre connecté</div>
+          <div class="act"><span>Arrêter le partage</span></div>
+        </div>
+      </div>
+      <p class="note">Seul le PC le sait (événements <code>debug.awake</code>). Pour éteindre : bouton marche (l'écran reste alors éteint) ou <code>cmd.sh awake 0</code> depuis le PC. <b>Rien à coder.</b></p>
+    </section>
+
+    <section class="panel" id="b">
+      <div><span class="tag">Variante B</span></div>
+      <h2>Une ligne de plus dans la notification de ToolMap</h2>
+      <div class="phone" aria-label="Variante B">
+        <div class="sb"><span class="t">10:42</span><svg class="mk" style="color:#fff"><use href="#peaks"/></svg><svg class="mk" style="color:#c9cbd3"><use href="#gps"/></svg><span class="r"><svg width="15" height="15"><use href="#wifi"/></svg><svg width="22" height="13"><use href="#bat"/></svg></span></div>
+        <div class="qs"><span></span><span></span><span></span><span></span></div>
+        <div class="sec">Notifications</div>
+        <div class="card">
+          <div class="hd"><span class="ic tm"><svg width="13" height="10" style="color:#fff"><use href="#peaks"/></svg></span>ToolMap · maintenant</div>
+          <div class="ti">ToolMap est actif en arrière-plan</div>
+          <div class="tx">Position partagée · 1 membre connecté</div>
+          <div class="tx new">Test : écran gardé allumé jusqu'à 11:12</div>
+          <div class="act"><span>Arrêter le partage</span><span class="new">Laisser l'écran s'éteindre</span></div>
+        </div>
+      </div>
+      <p class="note">Tout dans la notification déjà validée (P21.7, variante B). Mais elle appartient à l'appli, pas au module de debug : il faut un crochet dans <code>:app</code>, et le bouton prend une des trois places d'Android (partage + enregistrement + écran : plus de place pour le suivi ou les alertes).</p>
+    </section>
+
+    <section class="panel" id="c">
+      <div><span class="tag">Variante C — conseillée</span></div>
+      <h2>Une notification de test à part</h2>
+      <div class="phone" aria-label="Variante C">
+        <div class="sb"><span class="t">10:42</span><svg class="mk" style="color:#fff"><use href="#peaks"/></svg><svg class="mk" style="color:#c9cbd3"><use href="#gps"/></svg><span class="r"><svg width="15" height="15"><use href="#wifi"/></svg><svg width="22" height="13"><use href="#bat"/></svg></span></div>
+        <div class="qs"><span></span><span></span><span></span><span></span></div>
+        <div class="sec">Notifications</div>
+        <div class="card">
+          <div class="hd"><span class="ic tm"><svg width="13" height="10" style="color:#fff"><use href="#peaks"/></svg></span>ToolMap · maintenant</div>
+          <div class="ti">ToolMap est actif en arrière-plan</div>
+          <div class="tx">Position partagée · 1 membre connecté</div>
+          <div class="act"><span>Arrêter le partage</span></div>
+        </div>
+        <div class="sec">Silencieuses</div>
+        <div class="card">
+          <div class="hd"><span class="ic dbg"><svg width="13" height="13" style="color:#ffd88a"><use href="#sun"/></svg></span>ToolMap · Test (debug) · maintenant</div>
+          <div class="ti">Écran gardé allumé jusqu'à 11:12</div>
+          <div class="tx">Demandé depuis le PC pour le test en direct</div>
+          <div class="act"><span class="new">Laisser s'éteindre</span></div>
+        </div>
+        <div class="cap">Commande lancée sur le téléphone lui-même (USB, <code>cmd.sh awake 30 here</code>) : « Demandé par adb sur ce téléphone ».</div>
+      </div>
+      <p class="note">Tout reste dans le module de debug : rien dans l'appli, rien dans l'APK de release, la notification de ToolMap ne change pas. Notification « silencieuse » : pas d'icône de plus dans la barre d'état (l'écran allumé suffit à le voir).</p>
+    </section>
+
+  </div>
+  <div class="notes">
+    <h2>Dans les variantes B et C</h2>
+    <ul>
+      <li>Elle apparaît au début de la demande, l'heure suit si le PC change la durée, elle part à la fin (heure passée, <code>cmd.sh awake 0</code> ou le bouton).</li>
+      <li>L'heure est celle du téléphone.</li>
+      <li><b>« Laisser s'éteindre »</b> rend l'écran à sa mise en veille normale, sans ouvrir ToolMap. Le téléphone ignore ensuite la demande en cours du PC, jusqu'à une nouvelle commande <code>cmd.sh awake</code>. Événement <code>debug.awake on=false why=button</code>, donc le PC le voit.</li>
+      <li>Sans son ni vibration. Toucher la notification ouvre ToolMap.</li>
+      <li>Si les notifications de ToolMap sont refusées, rien ne s'affiche, mais l'écran reste quand même gardé allumé.</li>
+    </ul>
+  </div>
+</div>
+<script>
+// "#c" alone, for a phone-sized capture of one panel.
+const one = location.hash.slice(1);
+if (one && document.getElementById(one)) {
+  document.documentElement.classList.add("solo");
+  document.getElementById(one).classList.add("on");
+}
+</script>
+</body>
+</html>

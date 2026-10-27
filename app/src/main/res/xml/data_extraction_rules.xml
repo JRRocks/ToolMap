@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ToolMap does not use Android's automatic cloud backup (android:allowBackup="false": data would leave the phone
+  without the user asking). These rules say the same for Android 12+, and keep the position-sharing identity (its
+  secret key) out of a device-to-device transfer: two phones must never share one identity. The user's own backup
+  is the zip made in Settings > Sauvegarde et restauration.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="p2p" />
+        <exclude domain="file" path="recording" />
+    </device-transfer>
+</data-extraction-rules>

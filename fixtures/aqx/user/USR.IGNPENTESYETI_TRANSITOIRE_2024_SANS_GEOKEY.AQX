@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<aqx version="11">
+
+	<name>IGN_SkiRando</name>
+	<description>www.ign.fr</description>
+	
+	<composite-source id="SkiMo" type="topo">
+		<name>TOP25+Pentes+TracesYeti</name>
+		<layer id="IGN_TOP25"/>
+		<layer id="PENTES"/>
+		<layer id="TRACESHIVERNALES"/>
+	</composite-source>
+
+	<source id="IGN_TOP25">
+		<name>Ign_25k_geopf</name>
+		<data-source>https://data.geopf.fr</data-source>
+		<copyright>IGN</copyright>
+		<region>WRLD</region>
+		<type>TOPO</type>
+		<preview-location>5.90,44.80,12</preview-location>
+		<level>
+			<zoom-values>3,5,7,8,9,10,11,12,13,14,15,16</zoom-values>
+			<referer><![CDATA[https://data.geopf.fr/]]></referer>
+			<server><![CDATA[https://data.geopf.fr/private/wmts?apikey=ign_scan_ws&layer=GEOGRAPHICALGRIDSYSTEMS.MAPS&style=normal&tilematrixset=PM&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={$z}&TileCol={$x}&TileRow={$y}]]></server>
+		</level>
+	</source>
+
+	<source id="PENTES" layer="true" opacity="50" blending="multiply">
+		<name>Ign_pentes_geopf</name>
+		<data-source>https://data.geopf.fr</data-source>
+		<copyright>IGN</copyright>
+		<region>WRLD</region>
+		<type>TOPO</type>
+		<preview-location>5.90,44.80,12</preview-location>
+		<level>
+			<zoom-values>3,5,7,8,9,10,11,12,13,14,15,16</zoom-values>
+			<referer><![CDATA[https://data.geopf.fr/]]></referer>
+			<server><![CDATA[https://data.geopf.fr/wmts?layer=GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN&style=normal&tilematrixset=PM&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/png&TileMatrix={$z}&TileCol={$x}&TileRow={$y}]]></server>
+		</level>
+	</source>
+
+	<source id="TRACESHIVERNALES" layer="true">
+		<name>Traces_ski_yeti_api</name>
+		<data-source>https://api.ensg.eu</data-source>
+		<copyright>PETZL</copyright>
+		<region>WRLD</region>
+		<type>TOPO</type>
+		<preview-location>5.90,44.80,12</preview-location>
+		<level>
+			<zoom-values>3,5,7,8,9,10,11,12,13,14,15,16</zoom-values>
+			<edit-color t="-70" />
+			<referer><![CDATA[https://api.ensg.eu]]></referer>
+			<server><![CDATA[https://api.ensg.eu/geoserver/yeti/wms?VERSION=1.3.0&REQUEST=GetMap&FORMAT=image/png&TRANSPARENT=TRUE&LAYERS=TRACERANDOHIVERNALE&CRS=EPSG:3857&STYLES=&WIDTH=256&HEIGHT=256&BBOX={$bbox}]]></server>
+		</level>
+	</source>
+
+</aqx>

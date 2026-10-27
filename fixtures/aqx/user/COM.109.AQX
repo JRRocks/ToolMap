@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<aqx version="6">
+
+	<name>OSM OpenSnowMap</name>
+	<description>© OSM · www.opensnowmap.org</description>
+
+	<source id="OSMSNOWM">
+		<name>SnowBase Map</name>
+		<data-source>http://www.opensnowmap.org/</data-source>
+		<copyright>OpenStreetMap contributors (CC-BY-SA)</copyright>
+		<region>WRLD</region>
+		<type>TOPO</type>
+		<preview-location>6.79,45.57,13</preview-location>
+		<level>
+			<zoom-values>3,5,7,8,9,10,11,12,13,14,15,16,17</zoom-values>
+			<update-delay>3M</update-delay>
+			<servers>
+				<referer><![CDATA[http://www.opensnowmap.org/]]></referer>
+				<server><![CDATA[http://tiles.opensnowmap.org/base_snow_map/{$z}/{$x}/{$y}.png]]></server>
+			</servers>
+		</level>
+	</source>
+
+	<source id="OSMSKIM" layer="true">
+		<name>Pistes Layer</name>
+		<data-source>http://www.opensnowmap.org/</data-source>
+		<copyright>OpenStreetMap contributors (CC-BY-SA)</copyright>
+		<region>WRLD</region>
+		<type>OTHE</type>
+		<preview-location>6.79,45.57,13</preview-location>
+		<level>
+			<zoom-values>3,5,7,8,9,10,11,12,13,14,15,16,17</zoom-values>
+			<update-delay>3M</update-delay>
+			<servers>
+				<referer><![CDATA[http://www.opensnowmap.org/]]></referer>
+				<server><![CDATA[http://tiles.opensnowmap.org/pistes/{$z}/{$x}/{$y}.png]]></server>
+			</servers>
+		</level>
+	</source>
+
+</aqx>
+

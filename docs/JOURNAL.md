@@ -1,0 +1,2233 @@
+# Journal de bord — ToolMap
+
+> **Règles** (rappel de `CLAUDE.md`) :
+> - Entrée la plus récente **en haut**, juste sous ce bloc.
+> - Une entrée par session, ajoutée **avant chaque push** (la compléter si la session continue).
+> - Ne jamais modifier ni supprimer une entrée passée : corriger dans une nouvelle entrée.
+> - Toujours remplir « Tests / vérifications » avec les commandes réellement lancées et leur résultat, et « Prochaine étape recommandée ».
+>
+> Gabarit à copier :
+> ```
+> ## AAAA-MM-JJ — Session N — [IDs tâches] Titre court
+> - **Branche / commit** :
+> - **Objectif** :
+> - **Réalisé** :
+> - **Décisions (ADR)** :
+> - **Tests / vérifications** :
+> - **Problèmes / dette technique** :
+> - **Prochaine étape recommandée** :
+> ```
+
+---
+
+## 2026-10-27 — Session 66 — [P10.3] Nouveau dépôt public `JRRocks/ToolMap` en un seul commit, l'ancien gardé en privé comme archive
+- **Branche / commit** : nouveau dépôt `JRRocks/ToolMap`, branche `main`, un seul commit (voir le dernier message de la session). L'ancien dépôt, renommé par l'utilisateur, est `JRRocks/ToolMap-Archive` (privé, historique jusqu'à 0.4.80, commit `aa82c4c`).
+- **Objectif** : à la demande de l'utilisateur (« Prépare un nouveau dépôt public avec seulement l'état actuel (un seul commit, sans mon e-mail) ; le dépôt actuel reste privé comme archive »), publier le code sans l'historique, qui porte son adresse e-mail, et masquer aussi deux mentions d'un tiers.
+- **Réalisé** :
+  - Choix de l'utilisateur (2026-10-27) : le nouveau dépôt garde le nom `ToolMap` (l'ancien renommé `ToolMap-Archive`, ce que l'utilisateur a fait) ; masquer le prénom d'une autre personne du test terrain et le nom d'utilisateur Windows du poste.
+  - Masquage : le prénom devient « un autre membre » (ADR-051 et l'objectif de la session 25 de ce journal : **exception à la règle « ne jamais réécrire une entrée passée »**, demandée par l'utilisateur pour la vie privée ; seul le prénom change) ; le chemin du SDK devient `C:/Users/<utilisateur>/…` (`CLAUDE.md`) et `$LOCALAPPDATA/…` (`docs/plan-partage.md`, qui renvoie aussi à `ToolMap-Archive`).
+  - `CLAUDE.md` : section « Dépôts GitHub » (public `ToolMap`, archive privée, ne jamais pousser l'ancien historique dans `ToolMap`, identité `noreply` des commits) et règle « Dépôt public » dans les conventions. `docs/PLAN.md` (P10.3) et `docs/specs/release.md` §6 à jour.
+  - Commit unique préparé dans un dépôt neuf, auteur `JRRocks <314636139+JRRocks@users.noreply.github.com>` (identifiant public du compte), avec les fichiers suivis du dossier local (les fichiers ignorés restent dehors : `local.properties`, `tools/livetest/out/`, `tools/perf/out/`, journal de l'émulateur Firebase).
+- **Décisions (ADR)** : aucune (organisation des dépôts, notée dans `CLAUDE.md` et `release.md` §6).
+- **Tests / vérifications** :
+  - `./gradlew check assembleDebug` : version 0.4.80 → **0.4.81** (objectifs du journal changés), mais `:app:testDebugUnitTest` arrêté par le manque de mémoire du poste (« insufficient memory for the Java Runtime », pas un échec de test). Les deux rapports de plantage `app/hs_err_pid*.log` (nom d'utilisateur, chemins et variables du poste) supprimés ; `.gitignore` ignore désormais `hs_err_pid*.log`, `replay_pid*.log` et `*.hprof`. Après `./gradlew --stop`, `./gradlew check assembleDebug --max-workers=2` : BUILD SUCCESSFUL en 54 s, `ToolMap-debug-0.4.81.apk` ; tests core 876, data 310, p2p 29 (2 ignorés), app 276 (5 ignorés), 0 échec ; lint 0 erreur (app 66 avertissements, data 1).
+  - Le dépôt `JRRocks/ToolMap` créé par l'utilisateur sur GitHub était déjà public et contenait un commit « Initial commit » (README d'une ligne) portant son adresse e-mail : remplacé par le commit unique (push forcé limité à ce commit). L'adresse figure aussi dans les commits de trois autres dépôts publics du compte, hors ToolMap.
+- **Problèmes / dette technique** : les secrets GitHub ne suivent pas un nouveau dépôt : l'utilisateur doit recréer les 6 secrets (`release.md` §2 et serveur) dans `JRRocks/ToolMap` ; sans eux, l'APK de la CI est signé par la clé de debug publique et n'a pas de serveur intégré.
+- **Prochaine étape recommandée** : l'utilisateur crée les secrets, passe le dépôt en public et active « Keep my email addresses private » sur GitHub ; puis P29.2 (menu principal et page « Plus… »).
+
+## 2026-10-27 — Session 65 — [P10.3] Dépôt GitHub mis à jour et vérifié avant de passer en public : aucun secret, métadonnées des captures du téléphone retirées
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session). Second poste Windows (copie du dossier local faite le 2026-10-27, Android Studio et son SDK).
+- **Objectif** : à la demande de l'utilisateur (« Met à jour le Git https://github.com/JRRocks/ToolMap. Vérifie qu'aucune donnée privée soit diffusée, je passerai ensuite le Git en publique »), pousser le dossier local sur GitHub et vérifier, sur les fichiers poussés et sur tout l'historique du dépôt, qu'aucune donnée privée n'y est.
+- **Réalisé** :
+  - Branche GitHub (0.4.70, commit `eee8c6b`) mise au niveau du dossier local : 146 fichiers (sources et docs de P24 à P29.1, aperçus `docs/previews/`). Fins de ligne remises en LF (certains fichiers de la copie locale étaient en CRLF), droits d'exécution gardés (`gradlew`, `scripts/install-android-sdk.sh`, hook `session-start.sh`) ; `gradlew.bat` et la fixture AQX gardent leurs CRLF.
+  - Vérification faite sur le dossier local (fichiers suivis par git) et sur tout le dépôt GitHub : 23 références (branches, étiquette `debug-3d16680`, `refs/pull/*`), 112 commits, 2 166 versions de fichiers, messages de commit. Recherché : clés et jetons (Google `AIza…`, GitHub, AWS, clés privées, mots de passe, adresse et clé Firebase réelles, liens d'invitation `toolmap://join?d=…`), noms, adresses e-mail, chemins personnels, numéros de téléphone, adresses IP, coordonnées, métadonnées de 274 images (fichiers et images incluses dans les aperçus HTML : EXIF, GPS, blocs texte PNG), images de la taille de l'écran du téléphone de l'utilisateur.
+  - **Aucun secret** : l'adresse et la clé Firebase ne sont que dans les secrets GitHub ; seules des valeurs d'exemple (`AIzaSyExample_…`, `toolmap-1234`, `demo-toolmap`, `sekret1234`) et la clé publique IGN `ign_scan_ws` ; `app/debug.keystore` est la clé de debug publique voulue (ADR-047). Les journaux du test en direct (`tools/livetest/out/`, avec les positions) et de `tools/perf/out/` n'ont jamais été commités. Les captures des aperçus viennent de l'émulateur (« sdk_gphone », Wi-Fi « AndroidWifi »), sauf les 3 ci-dessous.
+  - **Corrigé** : les 3 captures du téléphone de l'utilisateur (`docs/previews/p24-images/1-…`, `2-…`, `3-…` : vues de carte centrées sur la jonction 31T / 32T, sans point GPS ni barre d'état) gardaient l'EXIF du téléphone (modèle et version du système, heure de capture, identifiant d'image) et le bloc Samsung de fin de fichier : retirés, image inchangée. Aucune autre image n'a de position ni de métadonnée personnelle.
+  - **Restent, à la décision de l'utilisateur** (dans l'historique, donc visibles même si les fichiers actuels changeaient) : son adresse e-mail et son nom dans les métadonnées de 38 commits, dont le premier commit (ancêtre de toutes les branches) et les `refs/pull/*`, que GitHub ne laisse pas modifier ; dans les docs : le prénom d'une autre personne du test terrain (ADR-051, journal de la session 25), le nom d'utilisateur Windows et les chemins du poste (`CLAUDE.md`, `docs/plan-partage.md`, journal), le modèle du téléphone, la commune des captures et des points de test publics (Chambéry, Grand Veymont), l'heure de départ de la maison pendant le test en direct (session 53). Aucune coordonnée de domicile trouvée.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `./gradlew check assembleDebug` (JBR d'Android Studio, sans les variables du serveur ; plateforme Android 37 installée par Gradle) : BUILD SUCCESSFUL en 8 min 41 s, version 0.4.79 inchangée (mêmes sources). Tests : core 876, data 310, p2p 29 (2 ignorés), app 276 (5 ignorés), 0 échec ; lint : 0 erreur (app 66 avertissements, data 1).
+  - Après cette entrée (titre et objectif entrent dans l'APK), `./gradlew check assembleDebug` de nouveau : BUILD SUCCESSFUL en 1 min 47 s, version 0.4.79 → **0.4.80**, `ToolMap-debug-0.4.80.apk` (86,5 Mo), mêmes nombres de tests et de lint.
+  - Miroir Google Drive (`scripts/drive-mirror.ps1`) **pas lancé** : Google Drive pour ordinateur n'est pas installé sur ce poste (aucun lecteur « Mon Drive »).
+  - Images retouchées relues : JPEG valides (1080 × 2340), sans EXIF ni bloc de fin ; nouvelle recherche de métadonnées sur `docs/previews/p24-images/` : seules restent les EXIF vides (90 octets, sans GPS) des captures de l'émulateur.
+- **Problèmes / dette technique** :
+  - Une fois public : la pré-version `debug-<sha7>` et son APK sont publics (l'adresse et la clé Firebase s'en extraient, comme de tout APK distribué ; les règles exigent la connexion anonyme et des groupes de 32 caractères hexadécimaux), les journaux des runs aussi. Les PR venant de forks ne reçoivent pas les secrets.
+  - La branche par défaut `main` s'arrête à P10 : un visiteur voit l'ancien code. Pas de fichier `LICENSE` (`release.md` §5).
+  - Les commits poussés par Android Studio portent l'adresse e-mail de l'utilisateur : à remplacer par l'adresse `noreply` de GitHub avant les prochains commits.
+- **Prochaine étape recommandée** : décision de l'utilisateur sur l'historique (garder tel quel, ou nouveau dépôt public sans l'historique) et sur l'adresse des prochains commits, avant de passer le dépôt en public ; puis P29.2 (menu principal et page « Plus… »).
+
+## 2026-10-27 — Session 64 (suite) — [P29.1] Carte « Pastilles » : informations en pastilles, enregistrement en haut à droite, zoom rond
+- **Branche / commit** : dossier local (non suivi par git) ; rien de commité ni de poussé (pas de demande).
+- **Objectif** : coder la variante E · Pastilles de la carte, choisie par l'utilisateur le 2026-10-27 (« Carte (P29.1) : je choisis la variante E · Pastilles. ») : une courte pastille blanche par information, le détail sous un appui, l'enregistrement en pastille turquoise en haut à droite, zoom et boussole ronds, point central turquoise.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/design-01-carte.html`, variante E · Pastilles, validée le 2026-10-27.
+  - `MapInfoBoxes` : les boîtes deviennent des pastilles blanches (arrondi 12 dp, ombre légère, icône de 16 dp bleu pétrole, turquoise pour le GPS, texte 13 sp), une ligne par information. Position : appui ▸ le menu Copier · Partager · Format suivant, avec en tête la puce de la grille et la convergence (avant dans la boîte). Échelle : rapport, barre et longueur ; appui ▸ le zoom (« zoom 16/18 »). GPS : « ± 5 m · ↑ 227 m » ; appui ▸ satellites, distance de la cible et ligne du baromètre (pression, altitude), dont l'appui ouvre le calage de l'altitude. La boîte Baromètre disparaît (l'altitude n'est plus écrite deux fois). Fond « Translucide » (réglage par défaut) à 94 % au lieu de 70 %, pour lire les pastilles sur toute carte.
+  - `RecordingChip` remplace le panneau d'enregistrement sur la carte : pastille turquoise en haut à droite, point rouge (⏸ et « En pause · » en pause), « durée · distance » ; rouge quand le GPS manque ou que l'enregistrement échoue ; appui ▸ menu avec les chiffres (durée, distance, vitesse, dénivelé), les alertes et Pause / Reprendre · Arrêter.
+  - `MapTopChrome` : un emplacement de plus, le coin haut droit. La pastille d'enregistrement reste sur la ligne des informations quand les deux tiennent, sinon elle passe dessous, à droite ; les bandeaux (cible, suivi, partage) se placent sous les deux, ou entre eux sur un écran large (`ChromePlacement.cornerBesideBoxes`).
+  - Zoom + / − et boussole : ronds blancs de 44 dp (60 en mode gants) à ombre légère, signes bleu pétrole (turquoise clair de nuit ; `MapRoundButton`), aiguille sud gris-bleu. Point central : anneau turquoise cerclé de blanc, visible sur une carte blanche. Crédits sur fond blanc à 75 %.
+  - Chaînes : `info_zoom`, `info_chip_details`, `record_chip_open`.
+- **Décisions (ADR)** : aucune (le style d'ADR-074 appliqué à la carte).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply :app:compileDebugKotlin` vert, puis `./gradlew spotlessApply check assembleDebug` (JBR d'Android Studio, sans les variables du serveur, comme en sessions 61 à 63) : BUILD SUCCESSFUL en 1 min 52 s au premier essai, version 0.4.78 → **0.4.79**, `ToolMap-debug-0.4.79.apk` (86,5 Mo). Tests : core 876, data 310, p2p 29 (2 ignorés), app 276 (5 ignorés ; 4 nouveaux dans `MapChromeLayoutTest` : pastille du coin sur la ligne des informations, dessous sur un écran étroit, bandeaux sous les deux sur un téléphone, entre eux sur un écran large, sans chevauchement), 0 échec ; lint : 0 erreur (app 66 avertissements, data 1, comme avant).
+  - Émulateur (Medium_Phone, `adb install -r -g`), position simulée par `adb emu geo fix` (marche de 575 m) et enregistrement « Randonnée » lancé : pastilles position, échelle, GPS et pastille « 2 min · 575 m » en haut à droite conformes à l'aperçu E. Appuis vérifiés : échelle ▸ « zoom 16/18 » ; GPS ▸ « GPS (0 sat.) » et « 1013.25 hPa ↑ 224 m » ; position ▸ « Grille MGRS 31T · 1 km », « Convergence 2°08′ E », Copier · Partager · Format suivant ; enregistrement ▸ durée, distance, vitesse, dénivelé, Pause · Arrêter (Arrêter enregistre la trace, « Enregistrement terminé »). Mode Boussole avec un cap simulé (`adb emu sensor set`, téléphone à plat, 25°) : carte tournée, boussole ronde au-dessus du zoom. Au repos (position coupée) : position et échelle seules, point central turquoise.
+  - Comparaison : `docs/previews/design-01-carte-emulateur.html` (aperçu E à gauche, émulateur 0.4.79 à droite ; détails sous un appui et écarts dessous ; images incluses), ouverte dans le navigateur intégré sans erreur de console.
+- **Problèmes / dette technique** :
+  - L'émulateur ne fait pas le geste à deux doigts (`adb emu event` sans effet, `sendevent` refusé : image de production, sans root) et remet le nord en haut quand la position s'arrête : la carte tournée au repos, sans GPS, n'a pas pu être capturée ; elle l'est en mode Boussole.
+  - Les menus du détail (position, enregistrement) gardent le fond gris-bleu clair des menus Material, pas le blanc des pastilles : l'aperçu ne les dessinait pas ; à revoir avec les dialogues (P29.10) si l'utilisateur le souhaite.
+  - Émulateur remis comme avant (position coupée, capteurs remis) ; une 2e trace d'essai (575 m, « Randonnée ») est restée dans sa bibliothèque.
+- **Prochaine étape recommandée** : P29.2 (menu principal et page « Plus… ») avec ses 5 variantes et la notification.
+
+## 2026-10-27 — Session 64 — [P29.1] Refonte de la carte : 5 variantes dans le style « Crête »
+- **Branche / commit** : dossier local (non suivi par git) ; rien de commité ni de poussé (pas de demande).
+- **Objectif** : proposer 5 variantes de la carte dans le style « Crête » (boîtes d'information, enregistrement et bandeaux, zoom, boussole, point central), à la demande de l'utilisateur (« Oui, propose les 5 variantes de P29.1 (carte). »), et lui demander son choix par notification.
+- **Réalisé** :
+  - Relevé de la carte actuelle (0.4.78, émulateur, position simulée par `adb emu geo fix` et enregistrement lancé) : 4 boîtes empilées en haut à gauche (position, échelle, GPS, baromètre, l'altitude écrite deux fois), l'enregistrement en carte grise au milieu de la carte sous les boîtes, zoom en petits carrés gris, boussole blanche, point central blanc peu visible sur le blanc de la carte.
+  - Aperçu `docs/previews/design-01-carte.html` (fichier autonome, images incluses) : état actuel et variantes A Cartouche (une carte blanche à filets, enregistrement en bande au-dessus de la barre), B Coque pétrole (boîtes, zoom et boussole bleu pétrole, enregistrement ajouté à la barre du bas), C Bandeau (bandeau pétrole en haut, enregistrement en bande turquoise dessous, réticule), D Tableau de bord (pastille de position en haut, chiffres en cases au-dessus de la barre), E Pastilles (une ligne par information, enregistrement en pastille turquoise), chacune en marche et au repos (carte tournée), sur la vraie carte IGN de l'émulateur ; captures de l'état actuel en bas de page. Rendu dans la conversation (fond de carte dessiné), copie autonome envoyée en fichier, notification envoyée pour demander le choix. **Pas de code** sans ce choix.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** : aperçu ouvert dans le navigateur intégré (serveur `previews`), les 6 états affichés et relus, sans erreur de console. Pas de build : aucune source de l'appli modifiée ; APK local inchangé, `app/build/outputs/apk/debug/ToolMap-debug-0.4.78.apk`. Émulateur remis comme avant (informations à l'écran et commandes affichées, position coupée) ; une trace d'essai de 95 m (« Randonnée ») est restée dans la bibliothèque de l'émulateur.
+- **Problèmes / dette technique** : sur l'émulateur (téléphone en anglais), l'échelle et la vitesse s'écrivent à l'anglaise (« 1:39,023 », « 0.0 km/h ») ; l'aperçu les écrit à la française. Rien à corriger dans cette étape.
+- **Prochaine étape recommandée** : coder la variante choisie de P29.1, build, capture de l'émulateur à côté de l'aperçu, puis P29.2 (menu principal et page « Plus… ») avec ses 5 variantes.
+
+## 2026-10-26 — Session 63 (suite) — [P29.0] Style « Crête » : couleurs ToolMap, bandeau bleu pétrole, barre du bas nommée
+- **Branche / commit** : dossier local (non suivi par git) ; rien de commité ni de poussé (pas de demande).
+- **Objectif** : une seule identité dans toute l'appli, la variante E · Crête choisie par l'utilisateur le 2026-10-26 (« Style uniforme : je choisis la variante E · Crête. ») : couleurs ToolMap au lieu de celles du fond d'écran, bandeau bleu pétrole en tête de chaque écran et panneau, barre du bas pleine largeur avec le nom sous chaque icône.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/design-00-style.html`, variante E · Crête, validée le 2026-10-26.
+  - Thème (`ui/theme/Theme.kt`) : palette fixe claire (pétrole #163A4A, turquoise #14918C, fond #F2F5F6, panneaux blancs, tuiles #E2ECEF) et de nuit (pétrole profond, turquoise clair) ; `ToolMapColors` (`MaterialTheme.toolMap`) pour la coque, la pastille de la barre, les tuiles ; trois arrondis 12 / 14 / 18 dp. Réglage `dynamicColor = true` renommé `wallpaperColors = false` pour que tous les téléphones quittent une fois les couleurs du fond d'écran (le réglage reste dans Réglages ▸ Affichage).
+  - `ui/theme/Controls.kt` : `Button`, `OutlinedButton` (contour pétrole 1,5 dp), `FilledTonalButton`, `TextButton` à 12 dp et `Switch` turquoise, de même signature que Material, branchés par les imports dans 43 fichiers.
+  - Barre du haut commune `ui/TopBar.kt` (`ToolMapTopBar`) sur les 13 écrans plein écran : bandeau pétrole jusque sous la barre d'état (icônes claires), flèche Retour au lieu de « Fermer » / ✕, sous-titre, actions en icônes (Traces : Importer devient une icône ; Partage : « ? » devient l'icône d'aide) ; ✕ « Annuler » pour l'assistant d'ajout et l'éditeur multi-zoom, dont « Enregistrer » reste en mots. Les Scaffold ne prennent plus la marge du haut (`screenInsets()`), le bandeau la prend.
+  - Panneaux (`map/PanelParts.kt`) : cadre blanc à 18 dp, bandeau pétrole fixe en tête (`PanelBand` : logo, nom et version pour le menu ; titre et « ? » pour Traces, Positionnement, Cartes et calques ; flèche Retour pour « Plus… »), tuiles #E2ECEF à 14 dp, bloc d'état sans surtitre (« Pile personnalisée » / « Carte affichée · IGN Cartes »), interrupteurs sans filet ; menu du point central au même style.
+  - Barre du bas (`MapBottomBar`) pleine largeur, pétrole opaque comme l'aperçu (même si « Menus opaques » est coupé), jusqu'au bord de l'écran (`Modifier.bleed`), Menu · Cartes · Traces · Position nommés, pastille turquoise clair sur le panneau ouvert ; la boussole passe au-dessus du zoom ; panneaux à 12 dp au-dessus de la barre, messages (snackbar) au-dessus d'elle.
+  - Cartes disponibles : champ de recherche blanc à 12 dp, carte de stockage (« 5,4 Go utilisés » · « sur 10,4 Go », barre fine, « Gérer »), titres de section pétrole, cartes d'une section en une liste blanche à filets, pastille « Affichée », bouton « Ajouter une carte » pétrole. Partage : « Créer un groupe et inviter » plein (52 dp), « Rejoindre » en contour avec icône QR et lien, « Réglages du partage » en liste groupée.
+  - Chaînes : `action_back`, `bar_tracks`, `bar_position`, `am_storage_used`, `am_storage_of`, `share_settings_caption` ; `am_storage` retirée, `am_storage_manage` raccourcie en « Gérer ».
+- **Décisions (ADR)** : ADR-074 (style « Crête », palette fixe par défaut, trois arrondis, barres communes ; remplace la valeur par défaut des couleurs dynamiques d'ADR-022 point 6).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` (JBR d'Android Studio, sans les variables du serveur : APK sans serveur intégré, comme en sessions 61 et 62) : 1er build en échec sur `MainMenuPanelTest` (« Pentes + Plan IGN » est désormais dans la ligne « Carte affichée · Pentes + Plan IGN ») ; test corrigé, 2e build BUILD SUCCESSFUL, version 0.4.76 → 0.4.77. Tests : core 876, data 310, p2p 29 (2 ignorés), app 272 (5 ignorés), 0 échec ; lint : 0 erreur (app 66 avertissements, comme avant).
+  - Émulateur (Medium_Phone, Android 37, `adb install -r -g`) en 0.4.77 : menu, Cartes disponibles, Partage, panneaux Traces, Positionnement, Cartes et calques, Réglages conformes à l'aperçu E ; seul écart, la barre du bas translucide (réglage « Menus opaques » coupé) au lieu de pleine : rendue opaque. 3e build BUILD SUCCESSFUL en 1 min 30 s, version → **0.4.78**, `ToolMap-debug-0.4.78.apk` (86,5 Mo) ; captures refaites (carte, menu, trois panneaux, thème de nuit par `cmd uimode night yes`).
+  - Comparaison : `docs/previews/design-00-style-emulateur.html` (aperçu E à gauche, émulateur 0.4.78 à droite pour le menu, Cartes disponibles et Partage ; les autres écrans et le thème de nuit dessous ; images dans `docs/previews/design-images/crete-*.jpg`).
+- **Problèmes / dette technique** : hors de l'aperçu, donc à revoir avec leur étape : la place de la boussole et du zoom (P29.1), les couleurs de la position suivie dans la barre (blanc, turquoise clair, orange clair), le thème de nuit (décrit seulement dans l'aperçu, capture dans la comparaison, à valider), le champ de recherche en pilule du panneau Traces (P29.4), les en-têtes de la feuille « Cartes affichées » et du panneau de zone (P29.3, P29.7), les 23 couleurs écrites en dur.
+- **Prochaine étape recommandée** : P29.1 (carte : boîtes d'information, barre du bas, zoom, point central, bandeaux) avec ses 5 variantes et la notification.
+
+## 2026-10-26 — Session 63 — [P29.0] Refonte de l'interface : audit et 5 variantes d'un style uniforme
+- **Branche / commit** : dossier local (non suivi par git) ; rien de commité ni de poussé (pas de demande).
+- **Objectif** : l'utilisateur demande de revoir toute l'interface avec les guides d'impeccable (pbakaus/impeccable), un style uniforme, 5 variantes à chaque changement et une notification pour demander le choix.
+- **Réalisé** :
+  - Guides d'impeccable lus (commit `ade3783` ; mode « Operate », Android / Material 3, couleur, typographie, mise en page, plancher de qualité) ; leur exécutable n'est pas lancé.
+  - Audit du code et de l'émulateur (0.4.76) : couleurs prises au fond d'écran par défaut (`dynamicColor = true`), barres du haut différentes (« Fermer » en texte, ✕), neuf arrondis, 23 couleurs en dur dans 8 fichiers, cartes teintées et listes à filets mélangées, surtitres en capitales, favoris en lettres. Constats, règles communes et étapes P29.0 à P29.10 : `docs/plan-design-2026-10.md` ; P29 ajouté à `docs/PLAN.md` et à la table des documents de `CLAUDE.md`.
+  - Aperçu P29.0 : `docs/previews/design-00-style.html` (état actuel refait avec le même moteur, variantes A Forêt, B TOP 25, C Balise, D Altimètre, E Crête, chacune sur la carte avec le menu, Cartes disponibles et Partage de position ; captures de l'émulateur dans `docs/previews/design-images/`). Rendu dans la conversation, copie autonome envoyée en fichier, notification envoyée pour demander le choix. **Pas de code** sans ce choix.
+- **Décisions (ADR)** : aucune (l'ADR du thème viendra avec le choix).
+- **Tests / vérifications** : aperçu ouvert dans le navigateur intégré, sans erreur de console, les 6 états affichés et relus à l'œil. Pas de build : aucune source modifiée ; APK local inchangé, `app/build/outputs/apk/debug/ToolMap-debug-0.4.76.apk`.
+- **Problèmes / dette technique** : aucun nouveau.
+- **Prochaine étape recommandée** : coder la variante choisie de P29.0 (thème, formes, barre du haut commune, `PanelParts`), build, capture de l'émulateur à côté de l'aperçu, puis P29.1 (carte) avec ses 5 variantes.
+
+## 2026-10-26 — Session 62 — [P17.5] Placement du cadre d'impression : seulement le format et Annuler / Suivant
+- **Branche / commit** : dossier local (non suivi par git) ; rien de commité ni de poussé (pas de demande).
+- **Objectif** : l'utilisateur trouve que les alertes prennent trop de place quand il place sa zone d'impression (« masque tout les affichages autre que la sélection du format et le Annuler/Suivant ») : coder la variante A de l'aperçu, validée le 2026-10-26 (« Oui, code la variante A »).
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/cadre-impression.html`, variante A (format seul en haut, Annuler / Suivant en bas, alertes sur l'écran suivant), validé par l'utilisateur le 2026-10-26.
+  - `PrintFrameBar` : la barre du cadre ne garde que Format ▾ · Orientation ▾ · Échelle ▾ · ⟲ ; la taille sur le terrain et les alertes orange (cartes hors de leur plage de zoom, sur-échantillonnées, indisponibles) n'y sont plus : elles restent sur l'écran de confirmation (ligne de résumé « A4 paysage · 1:25 000 · 6,6 × 3,7 km » et `PlanLines`), où elles étaient déjà. Chaîne `print_ground_size`, devenue inutile, retirée.
+  - `MapScreen` : pendant le placement du cadre (y compris le long d'une trace), plus de boîtes d'information (position, échelle), de point central, de crédits, de barre du bas, de boutons de zoom ni d'échange de carte, ni des bandeaux d'enregistrement, de cible et de suivi ; le bandeau du partage ne montre plus qu'un SOS en cours (`ShareHud(sosOnly = true)`). L'écran verrouillé garde sa pastille de déverrouillage.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` (JBR d'Android Studio, sans les variables du serveur : APK sans serveur intégré, comme en session 61) : BUILD SUCCESSFUL en 56 s, version 0.4.75 → **0.4.76**, `ToolMap-debug-0.4.76.apk` (86,5 Mo). Tests : core 876, data 310, p2p 29 (2 ignorés), app 272 (5 ignorés), 0 échec ; lint : 0 erreur (app 66 avertissements, data 1, comme avant ; `print_ground_size` retirée, donc pas de ressource inutilisée).
+  - Émulateur (Medium_Phone, `adb install -r -g`) : Imprimer ▸ A4 paysage 1:25 000 ▸ Choisir la zone à Pontcharra : la carte ne montre plus que la barre A4 · Paysage · 1:25 000 · ⟲, le cadre et Annuler / Suivant, conforme à l'aperçu validé. Seul écart : le bouton ⟲ (Tourner la feuille), déjà présent dans la barre et que l'aperçu ne dessinait pas (ni dans l'état actuel), est resté. Suivant ▸ confirmation : résumé « A4 paysage · 1:25 000 · 6.6 km × 3.7 km » et lignes du plan, avec l'habillage de la carte comme avant. Comparaison : `docs/previews/cadre-impression-emulateur.html`.
+  - P24.4 dans l'application : sur le même cadre déplacé à cheval sur 6° E, tuiles téléchargées puis « Créer le PDF » (MGRS) ; PDF récupéré par `adb pull` et rendu avec Inkscape : grille 31 à l'ouest, 32 à l'est, limite épaisse « 6° E », « 31T GL » / « 32T KR » de part et d'autre, chiffres voisins bleus en italique sur les quatre côtés, cartouche complet (`docs/previews/p24-images/emulateur-0.4.76-pdf-jonction.jpg`). Reste la validation de l'utilisateur sur un PDF réel.
+- **Problèmes / dette technique** : aucun nouveau.
+- **Prochaine étape recommandée** : validation par l'utilisateur d'un PDF réel à cheval sur deux zones (critère de P24.4), puis P24.5.
+
+## 2026-10-26 — Session 61 — [P24.4] Impression à cheval sur deux zones : chaque grille de son côté, limite épaisse, chiffres de la zone voisine
+- **Branche / commit** : dossier local (non suivi par git) ; rien de commité ni de poussé (pas de demande).
+- **Objectif** : l'utilisateur signale (captures du 2026-10-26) que la jonction des zones, juste à l'écran, échoue sur le PDF (quadrillage de la zone 31 prolongé sur toute la feuille) : coder P24.4 comme la feuille à cheval de l'aperçu validé le 2026-10-26 (`docs/previews/p24-mgrs.html` §4). Il demande aussi d'alléger l'écran de placement du cadre (alertes trop grandes, tout masquer sauf le format et Annuler / Suivant) : aperçu montré, en attente de validation.
+- **Réalisé** :
+  - `GridZones.pieces` / `GridZones.edges` / `GridZones.meeting` : le découpage de la région en zones (bandes jointes, antiméridien) quitte `ScreenGrid` pour servir aussi l'impression (même calcul à l'écran et sur papier).
+  - `GridPlanner` (UTM et MGRS) : chaque zone de la feuille trace sa grille dans son rectangle (la feuille est un rectangle Web Mercator, la zone aussi), ses chiffres sur sa part du bord ; ses lignes prolongées donnent, sur la part d'une zone adjacente, des étiquettes `neighbour` (pratique OTAN) ; `ZoneEdge` (méridien ou parallèle, zones ou bandes de part et d'autre) ; carrés nommés avec leur zone (« 31T GL », « 32T KR ») et étiquette à côté de la limite ; `zones`, `zoneSides` ; fin de `extended` et de la note « prolongé ». Le cadre gradué ignore les étiquettes voisines.
+  - `PageComposer` : limite en trait sombre de 0,6 mm (#1C2429) avec « 6° E » en haut (ou « 48° N » à gauche) ; noms des carrés alignés sur la limite ; chiffres voisins en bleu italique (#185FA5, 6 pt) dans une rangée extérieure, au-delà des chiffres de la zone (sur les côtés, la rangée prend la marge blanche jusqu'à 4 mm du bord du papier ; en bas, la bande seule) ; cartouche QUADRILLAGE d'une feuille à cheval comme l'aperçu : « MGRS 31T et 32T · WGS84 — carreaux de 1 km », « Limite des zones 31 / 32 : méridien 6° E (trait épais) », « Carrés de 100 km : 31T GL (ouest) · 32T KR (est) », « En bleu dans la marge : quadrillage de la zone voisine » (4,9 pt pour tenir dans la case de 46 mm ; une ligne qui ne tient plus n'est plus écrite par-dessus la note du cadre gradué).
+  - Textes du PDF : 10 chaînes `pdf_*` ajoutées, `pdf_extended_zone` retirée ; `docs/specs/print-pdf.md` §8 à jour.
+  - Écran de placement du cadre : aperçu actuel / variante A (format seul en haut, Annuler / Suivant en bas, alertes sur l'écran suivant) / variante B (une ligne repliée « 3 cartes non imprimées ») montré dans la conversation et rangé dans `docs/previews/cadre-impression.html` ; **pas de code** sans validation.
+- **Décisions (ADR)** : aucune nouvelle (la feuille à cheval suit les décisions de P24 du plan détaillé, validées avec l'aperçu).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply :core:test --tests "fr.toolmap.core.print.*" --tests "fr.toolmap.core.geo.*"` : BUILD SUCCESSFUL. `GridAtlasTest` : l'ancien test « zone prolongée » remplacé par 3 tests (feuille à 45,43° N / 6,004° E : zones 31T et 32T, limite unique au méridien 6° E, aucune ligne ne la traverse, chiffres propres et voisins égaux à `Utm.toUtm` dans la bonne zone à 1 m près, carrés « 31T GL » / « 32T KR » ouest / est collés à la limite, UTM 31N / 32N sans carrés ; feuille d'une seule zone sans limite ni voisin, limite de bande 48° N entre 32T et 32U sans chiffres voisins ; bande graduée qui garde les graduations de chaque zone et laisse celles de la voisine).
+  - PDF d'exemple écrits par `PrintExportTest` (`core/build/print-samples/nato-mgrs-pontcharra.pdf`, `top25-mgrs-pontcharra.pdf`, la feuille de la capture de l'utilisateur) et rendus en PNG avec Inkscape, relus à l'œil : grille 31 à l'ouest et 32 à l'est de la limite épaisse, « 6° E » en haut, chiffres voisins bleus en italique sur les quatre côtés, cartouche « MGRS 31T et 32T · WGS84 — carreaux de 1 km / Limite des zones 31 / 32 : méridien 6° E (trait épais) / Carrés de 100 km : 31T GL (ouest) · 32T KR (est) / En bleu dans la marge : quadrillage de la zone voisine » sans coupure. Deux défauts vus au premier rendu et corrigés : chiffres voisins des côtés absents (la bande de 7 mm était pleine : la rangée extérieure peut prendre la marge blanche jusqu'à 4 mm du bord du papier, sauf en bas) et cartouche tronqué (mise en page resserrée quand la feuille est à cheval).
+  - `./gradlew spotlessApply check assembleDebug` (JBR d'Android Studio) : BUILD SUCCESSFUL en 1 min 12 s, version 0.4.74 → **0.4.75**, `ToolMap-debug-0.4.75.apk` (86,5 Mo). Tests : core 876 (874 − 1 remplacé + 3 nouveaux), data 310, p2p 29 (2 ignorés), app 272 (5 ignorés), 0 échec ; lint : 0 erreur (app 66 avertissements, data 1, p2p aucun, comme avant).
+  - Les variables du serveur (`TOOLMAP_FIREBASE_DB_URL`, `TOOLMAP_FIREBASE_API_KEY`) n'étaient pas disponibles dans cette session (session dérivée) : l'APK local 0.4.75 et sa copie sur le Drive n'ont **pas de serveur intégré** (champs vides dans `BuildConfig`, vérifié) ; le partage de position demande de choisir le serveur dans l'application, ou d'utiliser l'APK de la CI après un push.
+  - Pas encore vérifié sur l'émulateur ni sur le téléphone : impression réelle d'une feuille à cheval depuis l'application.
+- **Problèmes / dette technique** : sur une feuille TOP 25, dont le quadrillage est déjà bleu, les chiffres voisins se distinguent par l'italique et la rangée extérieure plutôt que par la couleur (l'aperçu ne montrait que la feuille OTAN) ; près des coins, un chiffre voisin qui toucherait les coordonnées du coin n'est pas écrit.
+- **Prochaine étape recommandée** : validation par l'utilisateur d'un PDF réel à cheval (critère de P24.4), puis l'écran du cadre selon la variante choisie, puis P24.5.
+
+## 2026-10-26 — Session 60 — [P24.3] Grille MGRS / UTM : noms des zones et des carrés sur la carte, convergence dans la boîte Position
+- **Branche / commit** : dossier local (non suivi par git) ; rien de commité ni de poussé (pas de demande).
+- **Objectif** : P24.3 à la demande de l'utilisateur (« Oui, continue avec P24.3 ») : noms « 31T GL » / « 32T KR » sur la carte et convergence dans la boîte, comme dans l'aperçu validé le 2026-10-26 (`docs/previews/p24-mgrs.html`, sections 1 à 3).
+- **Réalisé** :
+  - `ScreenGrid` : noms de la grille (`ScreenGridPlan.labelsGeoJson`, `GridLabelKind`) placés selon la règle de l'aperçu : écran échantillonné (13 points sur le petit côté) ; zone qui ne montre qu'un carré : « 31T GL » au-dessus du milieu du carré ; sinon « 31T » au milieu de sa partie de l'écran et les lettres des carrés qui en couvrent assez (« GL ») sous leur milieu ; UTM : les zones seules ; vue trop large : noms des zones avec les limites.
+  - Convergence au centre (`ScreenGridPlan.convergenceDegrees`, `GridPlanner.convergenceDegrees(kind, lat, lon)`, même calcul que le cartouche imprimé) : ligne « Convergence 2°08′ O » sous la puce de la grille (UTM, MGRS, Lambert 93 en France ; chaîne `grid_convergence`).
+  - `GridLayers` : source `tm-g-grid-labels` et calque `tm-g-grid-labels-layer` (gris foncé #263238 détouré de blanc, 12 dp, 14 dp pour une zone, lettres de carré en graisse normale `GlyphInterceptor.REGULAR_FONT`) ; un nom de la grille ne cache jamais le nom d'un waypoint ou d'un membre.
+  - Écart à l'aperçu, dit à l'utilisateur : la ligne de convergence a le style de la puce (l'aperçu la montrait en jaune sur une boîte sombre ; la boîte de l'appli est claire).
+- **Décisions (ADR)** : ADR-073 (grille par zone, noms, convergence ; remplace le « pas de texte sur la carte » et la « grille de la zone du centre » d'ADR-022 point 4).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply :core:test --tests "fr.toolmap.core.geo.*" --tests "fr.toolmap.core.print.*"` : vert (après assouplissement d'un seuil de test : au moins 4 lettres de carré nommées sur la vue large).
+  - `./gradlew spotlessApply check assembleDebug` (JBR d'Android Studio, variables du serveur passées dans la commande, présentes dans `BuildConfig`, vérifié sans les afficher) : BUILD SUCCESSFUL en 1 min 15 s, version 0.4.73 → **0.4.74**, `ToolMap-debug-0.4.74.apk` (86,4 Mo). Tests : core 874 (870 + 4 nouveaux de `ScreenGridTest` : « 31T GL » / « 32T KR » de chaque côté de 6° E et zones seules en UTM, vue large avec les noms des zones et des carrés, vue trop large qui garde les noms, convergence MGRS ≈ −2,13° et Lambert 93, aucune hors de France ni en WGS84), data 310, p2p 29 (2 ignorés), app 272 (5 ignorés ; `StyleApplierTest` vérifie aussi le calque des noms), 0 échec ; lint : 0 erreur (app 66 avertissements, data 1, comme avant).
+  - Émulateur (Medium_Phone, 0.4.74 installé par-dessus, grille et coordonnées MGRS) aux centres et échelles de l'aperçu : jonction 45,42742 N 6,00573 E au zoom 11,5 (« 31T GL » à gauche de la limite 6° E, « 32T KR » à droite, « Convergence 2°08′ O » sous « Grille MGRS 32T · 5 km ») ; dézoom au zoom 10,03, 1:332 559 (« 10 km », mêmes deux noms) ; vue large 46,5 N 6,3 E au zoom 6,1, 1:4 972 041 (« 100 km », « Convergence 1°57′ O », zones 31T, 31U, 32T, 32U et lettres des carrés FL, GL, LR, MS…). Conforme à l'aperçu validé (sections 1 à 3), hormis l'écart dit plus haut (style de la ligne de convergence).
+  - Comparaison aperçu / émulateur régénérée : `docs/previews/p24-comparaison.html` (0.4.74) ; captures pleine taille `docs/previews/p24-images/emulateur-0.4.74-{jonction,dezoom,large}.jpg`.
+- **Problèmes / dette technique** : deux noms de la grille peuvent se chevaucher sur une vue très large ; sur la vue large, un nom placé sous la boîte Position y est caché (comme les autres textes de la carte).
+- **Prochaine étape recommandée** : P24.4 (impression à cheval sur deux zones, `GridPlanner` et `PageComposer`), puis P24.5.
+
+## 2026-10-26 — Session 59 — [P24.0][P24.2] Grille MGRS / UTM : chaque zone trace sa grille, limites des zones en trait épais, lignes de 10 et 100 km marquées au dézoom
+- **Branche / commit** : dossier local (non suivi par git) ; rien de commité ni de poussé (pas de demande).
+- **Objectif** : P24.0 validé par l'utilisateur le 2026-10-26 (« Je valide l'aperçu P24, variante A au dézoom. Tu peux coder P24.2. ») ; coder P24.2 fidèlement à l'aperçu `docs/previews/p24-mgrs.html` (sections 1 à 3, variante A).
+- **Réalisé** :
+  - `ScreenGrid` (UTM et MGRS) : chaque zone de grille visible trace sa propre grille, coupée à sa limite (bandes d'une même zone jointes, exceptions de Norvège et du Svalbard comprises) ; les limites des zones et des bandes sont des lignes à part (`GridLineLevel.ZONE_EDGE`), à tous les zooms. Fini le saut de toute la grille quand le centre passe 6° E.
+  - Variante A : le pas reste celui d'avant (même nombre de lignes), mais les lignes de 10 km et de 100 km sont plus marquées à tous les pas : au dézoom de 5 à 10 km, seules les lignes fines partent. Pas plafonné à 100 km (plus de pas de 200 ou 500 km qui sautaient une ligne de 100 km sur deux). Vue trop large pour des lignes : limites seules, sans puce ni note « Zone trop large ».
+  - Hors aperçu, laissé comme avant : UTM sous 1 km (une ligne sur cinq plus épaisse), WGS84 et Lambert 93.
+  - Propriété `level` des lignes au lieu de `major` ; `GridLayers` : largeurs de l'aperçu (pas 0,8 dp, 10 km 1,5, 100 km 2,3), calque `tm-g-grid-edge-layer` pour les limites (#1c2429, 3,2 dp, toujours plein même en style pointillé).
+  - Écran à cheval sur l'antiméridien (longitudes au-delà de 180°) : zone 1 dessinée à l'est de 180 ; équateur : grille continue (un seul hémisphère, P24.1).
+  - `docs/specs/ui-index.md` (ligne « Grille et informations ») et statut de l'aperçu mis à jour.
+  - Comparaison aperçu / émulateur : `docs/previews/p24-comparaison.html` (dessins de l'aperçu validé à côté des captures, images incluses dans la page) ; captures pleine taille `docs/previews/p24-images/emulateur-0.4.73-{jonction,dezoom,large}.jpg`. Pour l'ouvrir dans le navigateur de l'appli : `tools/previews/serve.mjs` (sert `docs/previews` sur le port 8765, configuration « previews » de `.claude/launch.json`).
+- **Décisions (ADR)** : aucune (P24.3 en écrira un pour les noms à l'écran, qui remplace ADR-022).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply :core:test --tests "fr.toolmap.core.geo.*"` : vert après correction du test (tolérance des extrémités coupées).
+  - `./gradlew spotlessApply check assembleDebug` (JBR d'Android Studio, variables du serveur passées dans la commande, présentes dans `BuildConfig`, vérifié sans les afficher) : BUILD SUCCESSFUL en 1 min 15 s, version 0.4.72 → **0.4.73**, `ToolMap-debug-0.4.73.apk` (86,4 Mo). Tests : core 870 (861 + 9 nouveaux de `ScreenGridTest` : deux zones à l'écran coupées à 6° E, limite présente à tous les pas de 1 à 100 km puis seule, dézoom 5 → 10 km qui garde les lignes de 10 km, vue large à 100 km avec la limite de bande 48° N, Norvège 32V, équateur, antiméridien, découpage, UTM sous 1 km inchangé), data 310, p2p 29 (2 ignorés), app 272 (5 ignorés ; `StyleApplierTest` vérifie aussi le calque des limites), 0 échec ; lint : 0 erreur (app 66 avertissements, data 1, p2p aucun, comme avant).
+  - Émulateur (Medium_Phone, 0.4.73 installé par-dessus, grille MGRS) aux centres et échelles de l'aperçu : jonction 45,42742 N 6,00573 E à 1:120 055 (« Grille MGRS 32T · 5 km », limite épaisse à 6° E, lignes de 31T et de 32T qui se rejoignent en biais) ; dézoom à 1:332 559 (« 10 km », toutes les lignes moyennes, limite à 6° E) ; vue large 46,5 N 6,3 E à 1:4 972 041 (« 100 km », limites 6° E et 48° N, grilles de 31 et 32 de chaque côté). Conforme à l'aperçu validé (sections 1 à 3), sans les noms et la convergence (P24.3).
+- **Problèmes / dette technique** : les extrémités coupées à une limite sont interpolées entre deux échantillons de la ligne : quelques mètres d'écart sur une vue de plusieurs centaines de km, invisible (un centième de pixel). Les noms de zone et de carré et la convergence à l'écran restent à faire (P24.3), comme l'impression à cheval (P24.4).
+- **Prochaine étape recommandée** : P24.3 (noms « 31T GL » / « 32T KR » et convergence dans la boîte, nouvel ADR), puis P24.4.
+
+## 2026-10-26 — Session 58 — [P24.1] La grille réapparaît sur la carte ; zones MGRS et UTM exactes en Norvège et au Svalbard, grille continue à l'équateur
+- **Branche / commit** : dossier local (non suivi par git) ; rien de commité ni de poussé (pas de demande).
+- **Objectif** : reprise de P24 après le changement d'ordinateur (« reprise ») : finir P24.1 et compiler un APK qui contient la correction de la grille effacée (session 57).
+- **Réalisé** :
+  - `GridPlanner` (zone du centre, zone de chaque point du pourtour, convergence par `Utm.convergenceDegrees`, référence d'exemple, carrés de 100 km) et `ScreenGrid` prennent la zone exacte (`Utm.zoneOf(lat, lon)`).
+  - Équateur : écran et feuille gardent l'hémisphère du centre pour toute la grille (`Utm.toUtm(…, north)` à l'aller comme au retour) : les lignes ne sont plus coupées ni décalées de 10 000 km au passage de l'équateur.
+  - Tests : `MgrsJunctionsTest` (9 tests sur les 40 positions GeoConvert : MGRS, zone, hémisphère, E / N au mètre, relecture à 1,5 m, 32X / 34X / 36X refusés, exceptions, hémisphère unique, convergence comparée au pas vers le nord de la projection) ; `GridZonesTest` (5 tests : 1 197 cases, bandes pavées sans trou ni recouvrement, exceptions, bord nord de X, cases sous un écran). `ProjectionsTest` « MGRS matches the reference library » rendu strict : son exclusion cachait aussi les zones 1 à 9, que la bibliothèque de référence écrit avec un zéro (« 08F »).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `./gradlew :core:test` : 861 tests, 0 échec (847 + 14 nouveaux).
+  - `./gradlew spotlessApply check assembleDebug` (JBR d'Android Studio, variables du serveur passées dans la commande, présentes dans `BuildConfig`, vérifié sans les afficher) : BUILD SUCCESSFUL en 2 min 5 s, version 0.4.71 → **0.4.72**, `ToolMap-debug-0.4.72.apk` (86,4 Mo). Tests : core 861, data 310, p2p 29 (2 ignorés), app 272 (5 ignorés, dont le nouveau test de `StyleApplierTest` : reconstruire les cartes garde la grille), 0 échec ; lint : 0 erreur (app 66 avertissements, data 1, p2p aucun).
+  - Émulateur (Medium_Phone, 0.4.72 installé par-dessus avec `adb install -r -g`) : grille MGRS et coordonnées MGRS réglées, centre 45,4274 N 6,0010 E (jonction 31T / 32T, Pontcharra), zoom 11 : les lignes de la grille sont de nouveau tracées (absentes en 0.4.71), boîte d'information « 32T KR 65398 34806 », « Grille MGRS 32T · 5 km ». Capture : `docs/previews/p24-images/emulateur-0.4.72-z11.png`. Comme avant, toute la grille suit encore la zone du centre (32T) : la grille par zone est P24.2, après validation de l'aperçu.
+- **Problèmes / dette technique** : l'aperçu P24.0 (`docs/previews/p24-mgrs.html`) attend toujours la validation de l'utilisateur ; P24.2 à P24.5 (grille par zone, noms, convergence à l'écran, feuille à cheval) n'ont pas commencé.
+- **Prochaine étape recommandée** : faire valider l'aperçu (variante A ou B au dézoom), puis P24.2.
+
+## 2026-10-25 — Session 57 — [P24.0][P24.1] Grille MGRS : aperçu à valider (jonction des zones, dézoom, vue large, feuille à cheval) ; la grille ne disparaît plus quand la carte se reconstruit ; zones exactes en Norvège et au Svalbard (commencé)
+- **Branche / commit** : dossier local (non suivi par git) ; rien de commité ni de poussé (pas de demande). Session arrêtée à la demande de l'utilisateur, qui change d'ordinateur : tout est enregistré dans le dossier local et copié sur le Drive (`scripts/drive-mirror.ps1`).
+- **Objectif** : P24 « Grille MGRS » (demande : « Fait la P24 Grille MGRS »).
+- **Réalisé** :
+  - Images de l'utilisateur reçues (3 captures à Pontcharra, 45,43° N 6,00° E), rangées dans `docs/previews/p24-images/`. Ce qu'elles montrent : (1) quand le centre passe 6° E, toute la grille tourne d'environ 4° d'un coup (31T, convergence +2°08′, puis 32T, −2°08′) ; (2) au dézoom (pas de 5 km → 10 km), la ligne de 265 km, juste à côté du centre, disparaît : restent 260 et 270 km, sur les côtés.
+  - **Aperçu P24.0** montré dans la conversation et enregistré : `docs/previews/p24-mgrs.html` (géométrie UTM réellement calculée, fond schématique). Quatre parties : écran à la jonction (actuel en 31T, actuel en 32T, proposé : chaque zone de son côté, limite épaisse, « 31T GL » et « 32T KR », ligne « Convergence 2°08′ O » dans la boîte de position) ; dézoom (actuel ; **variante A** lignes hiérarchisées, 10 km et 100 km plus marqués, recommandée ; **variante B** pas MGRS 1, 10, 100 km seulement) ; vue large 1:5 000 000 (lignes de 100 km, limites des zones et des bandes, noms) ; feuille A4 OTAN à cheval (actuelle : zone 32 prolongée ; proposée : chaque zone de son côté, graduations de la zone voisine en bleu dans la marge, cartouche qui cite les deux zones). **Pas encore validé** : l'utilisateur doit choisir A ou B et approuver le reste.
+  - **Défaut trouvé et corrigé** (régression de P20, session 50) : les calques « fantômes » de P20 avaient le préfixe `tm-g-`, celui de la grille (`tm-g-grid-layer`). `StyleApplier.clear`, appelé quand la densité de l'écran ou une source change, effaçait donc la grille, qui ne revenait plus (sa source restait, `GridLayers.install` ne refaisait rien). Vu sur l'émulateur en 0.4.71 : « Grille MGRS 31T · 50 km » dans la boîte, aucune ligne (`docs/previews/p24-images/emulateur-0.4.71-grille-absente.jpg`). Correction : préfixe `tm-ghost-`, `StyleApplier.isMapLayer`, test dans `StyleApplierTest`. Sans aperçu : rétablit l'affichage prévu.
+  - **P24.1 commencé** (`:core`) : `Utm.zoneOf(lat, lon)` avec les exceptions (32V de 3 à 12° E entre 56 et 64° N ; 31X, 33X, 35X, 37X entre 72 et 84° N) ; `Utm.toUtm(…, north = …)` pour garder un seul hémisphère de part et d'autre de l'équateur ; `Utm.convergenceDegrees` (repris par `NorthReferenceMath.utmConvergenceDegrees`) ; nouveau `GridZones.kt` (`GridZone`, 1 197 cases en rectangles longitude / latitude, `all`, `get`, `of`, `covering`) ; `Mgrs.toLonLat` refuse 32X, 34X, 36X. `Mgrs.of` et `CoordinateFormat.utm` prennent désormais la zone exacte.
+  - Références : mgrs-data.org ne propose que des fichiers à 100 m par zone (165 à 456 Mo chacun) ou une géodatabase ESRI, inutilisables ici ; remplacé par **GeoConvert (GeographicLib, C. Karney)**, indépendant de ToolMap : 40 positions aux jonctions dans `fixtures/mgrs/geoconvert-junctions.txt` (6° E à Pontcharra, Norvège, Svalbard, équateur, bords de bandes, 80° S, 84° N, antiméridien).
+- **Décisions (ADR)** : aucune encore (ADR prévu en P24.3 pour le texte de la grille, qui remplace ADR-022 sur ce point).
+- **Tests / vérifications** : **aucun build ni test Gradle** dans cette session (arrêtée au milieu de P24.1). Vérifié : le script de l'aperçu, exécuté par node, donne les lettres de GeoConvert aux centres des images 1 et 2 (31T GL, 32T KR) ; émulateur (Medium_Phone, 0.4.71) : grille absente, capture ci-dessus.
+- **Problèmes / dette technique** :
+  - Code modifié non compilé : `Utm.kt`, `GridZones.kt` (nouveau), `Mgrs.kt`, `UnitFormats.kt`, `StyleApplier.kt`, `GridLayers.kt`, `StyleApplierTest.kt`.
+  - Reste de P24.1 : passer `GridPlanner` (`zoneOf(frame.centerLon)` aux lignes ≈ 170, 171, 244, 272, 473 ; convergence par `Utm.convergenceDegrees`) et `ScreenGrid` (ligne ≈ 111) sur la zone exacte ; écrire `MgrsJunctionsTest` (lecture de la fixture : MGRS à 5 chiffres, zones 01–09 écrites sans zéro par ToolMap, zone et hémisphère, E / N à 1 m, aller-retour `Mgrs.toLonLat`) et `GridZonesTest` (1 197 cases, bandes pavées de −180 à 180 sans trou ni recouvrement, 31V 0–3°, 32V 3–12°, X jusqu'à 84° N, pas de 32X / 34X / 36X) ; rendre strict le test « MGRS matches the reference library » de `ProjectionsTest`.
+  - Émulateur laissé avec `settings.json` (grille et coordonnées MGRS) et la caméra à Pontcharra.
+- **Prochaine étape recommandée** : faire valider `docs/previews/p24-mgrs.html` (variante A ou B au dézoom), finir P24.1 (tests ci-dessus), `./gradlew spotlessApply check assembleDebug`, puis P24.2 (`ScreenGrid` par zone) une fois l'aperçu validé.
+
+## 2026-10-24 — Session 56 — [P21] Phase P21 close ; l'APK de debug n'a plus les outils de test en direct (`:debugkit` sorti du build)
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` ; rien de poussé (pas de demande de push).
+- **Objectif** : à la demande de l'utilisateur, retirer `:debugkit` de l'application et republier l'APK sans le kit de debug, puis clore toute la phase P21.
+- **Réalisé** :
+  - `settings.gradle.kts` n'inclut plus `:debugkit` ; `app/build.gradle.kts` ne le prend plus (`debugImplementation` retiré) et ne le compte plus dans l'empreinte des sources (`appSourceFingerprint`). Le `Set<AppExtension>` reste vide comme en release ; commentaires de `EventLogModule`, `ToolMapApp` et `debugkit/build.gradle.kts` mis à jour. Sources `debugkit/` et scripts `tools/livetest/` gardés, débranchés.
+  - P21 clos (« Tu peux clore tout le P21 ») : P21.4 à P21.7 ✅ dans `PLAN.md`, chacun avec ce qui n'a pas été vérifié ; P22 ne dépend plus de P21.5 (`PLAN.md`, `plan-fonctions-2026-10.md`) ; `plan-partage.md` marqué clos (§ 1, § 6) ; restes (compléments de c, o dit aux autres membres, t, j, k, revue l à r sur le téléphone, P21.6 en arrière-plan, petits points du debug) dans `docs/idees-futur.md` ; notes de clôture dans `event-log.md`, `live-test.md`, `p21-corrections.md` et `CLAUDE.md`.
+  - Serveur par défaut gardé : 0.4.70 avait été compilé sans les variables du serveur ; ce build les reprend de l'APK 0.4.69 du Drive (compilé avec, session 54), passées seulement dans la commande gradle, jamais affichées.
+- **Décisions (ADR)** : ADR-072 (`:debugkit` sorti du build ; remplace le point 3 d'ADR-070).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` (JBR d'Android Studio, variables du serveur passées dans la commande) : BUILD SUCCESSFUL en 2 min 37 s, version 0.4.70 → **0.4.71**, `ToolMap-debug-0.4.71.apk` (86,4 Mo). Tests : core 847, data 310, p2p 29 (2 ignorés), app 271 (5 ignorés), 0 échec (`AppStartupTest` compris : l'appli démarre avec un ensemble d'extensions vide) ; lint : 0 erreur.
+  - APK : 0 classe `Lfr/toolmap/debugkit` dans les `classes*.dex`, 0 mention de `debugkit` dans le manifeste (`aapt2 dump xmltree`) ; adresse du serveur et clé présentes une fois chacune dans le dex (comptées, jamais affichées) ; aucune des deux dans le journal du build.
+  - Émulateur (Medium_Phone, Android 37) : `adb install -r -g`, `am start -W` → `Status: ok`, `versionName=0.4.71`, carte affichée, processus vivant, aucun plantage (`logcat -b crash`), aucun événement `debug.*` ; `dumpsys package` : 0 récepteur `debugkit` ; `am broadcast` vers `fr.toolmap.debugkit.DebugCommands` : aucun destinataire (`result=0`).
+- **Problèmes / dette technique** : P21 clos sans le test qui devait revoir l à r et les alertes de 0.4.69 sur le téléphone ; les sources de `debugkit/` ne sont plus compilées et peuvent prendre du retard sur `:core`.
+- **Prochaine étape recommandée** : P22.0 (aperçu de l'Alerte et de l'écoute du groupe) ; en parallèle, P23.0 (aperçu de la saisie des valeurs).
+
+## 2026-10-24 — Session 55 — [P22][P23][P24][P25][P26][P27][P28] Plan des prochaines fonctions : alerte et écoute du groupe, saisie précise des valeurs, grille MGRS, partage des favoris, couleurs et modes de fusion, waypoints du groupe, dessin ; idées pour plus tard mises à part
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : à la demande de l'utilisateur, préparer la to-do list de sept fonctions, en markdown seulement, sans changement de code ; décisions prises par questions successives (`/grill-me`).
+- **Réalisé** :
+  - Lecture du code des sept sujets (trois explorations) : main levée sans lissage ni SVG ; aucun partage de point au groupe ; « Arrêter le SOS » qui n'arrête que la répétition locale ; favoris sans export ; MapLibre sans mode de fusion ; grille MGRS de la zone du centre prolongée, sans limite de zone, lettres fausses au-delà à l'impression, exceptions Norvège et Svalbard absentes, convergence jamais affichée à l'écran ; valeurs hors barre perdues au toucher de la barre (Conditions d'affichage).
+  - Quatre tours de questions (Q1 à Q63), récapitulatif validé par l'utilisateur (« Oui »).
+  - `docs/plan-fonctions-2026-10.md` (nouveau) : phases P22 à P28, existant, décisions, tâches et critères d'acceptation ; ordre et dépendances. Résumé des phases dans `PLAN.md`.
+  - `docs/idees-futur.md` (nouveau, à ne lire que sur demande) : idées de ces échanges (outil SOS forcé, membre perdu prévenu à la permanence, permanence sur PC) et idées déplacées de `PLAN.md` (lignes 💤 P8.9, P11.5 pour la gomme et la comparaison, P13.6, P15.9, P15.10 ; « Reporté » de P0.4, P4.4, P9.7 ; section « Bonus »).
+  - `CLAUDE.md` : règle « idées pour plus tard hors des plans » et les deux nouveaux fichiers dans le tableau des documents ; `ui-index.md` : la fusion renvoie à P26.
+- **Décisions (ADR)** : aucune (ADR à écrire pendant P22, P24 et P26, voir le plan). Règles de l'utilisateur (2026-10-24) : idées pour plus tard dans `docs/idees-futur.md` seulement ; petits incréments, un build par tâche ; les fonctions de groupe d'abord pour une station de ski.
+- **Tests / vérifications** : documentation seulement ; build et envoi : voir le dernier message de la session.
+- **Problèmes / dette technique** : les images de la grille MGRS citées par l'utilisateur ne sont pas arrivées dans la session : P24.0 commence par les comparer. Pour P27, l'utilisateur devra republier les règles Firebase.
+- **Prochaine étape recommandée** : clore P21.5 (`docs/plan-partage.md`), puis P22.0 (aperçu de l'Alerte et de l'écoute du groupe) ; en parallèle, P23.0 (aperçu de la saisie des valeurs), sans dépendance.
+
+## 2026-10-24 — Session 54 — [P21.4][P21.5] Second test en direct du partage de position ; ToolMap prévient quand un réglage du téléphone coupe le partage (localisation, économiseur de batterie, batterie optimisée) ; positions, horloge et serveur plus fiables
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : second test en direct du partage de position (téléphone de l'utilisateur, émulateur collecteur) et son bilan ; puis, à la demande de l'utilisateur, corriger les défauts trouvés et alerter sur ce que l'appli ne peut pas corriger seule (économiseur de batterie qui coupe le GPS, batterie de l'appli optimisée, localisation coupée), avec le conseil de mettre ToolMap « Sans restriction ».
+- **Déroulé du second test** (2026-10-24, 14:56 → 16:42, APK 0.4.66 ; téléphone SM-S931U, Android 15) : ordre et statuts `docs/plan-partage.md` § 3, problèmes notés sur le moment § 5, bilan `docs/specs/p21-corrections.md` § Second test.
+  - Conformes sur le téléphone : P21.7 (notification unique), d (55 positions sur 55 en 5 min écran éteint après un changement d'intervalle), a (reprise 0,22 s après un arrêt forcé et après une réinstallation), b, e, f, cache vidé, mode avion 3 min, coupure du réseau, arrêt et relance du partage, message texte.
+  - Partiellement : g (deux renouvellements de jeton sans coupure, mais pas pendant une heure de partage) ; P21.6 (écran gardé allumé au premier plan, pas en arrière-plan). Non observable : h. Confirmés : c, t.
+  - Nouveaux défauts : l, m, n, o, p, q, r (le plus grave : o, plus aucune position écran éteint avec l'économiseur de batterie, sans que personne le sache).
+  - Retirés à la demande de l'utilisateur : T0 en marchant, n° 18 (une heure de partage, trop long), n° 19 (redémarrage du téléphone).
+  - Chiffres (`analyze.mjs --from 14:56`) : 426 positions émises, 403 reçues (les 23 manquantes : collisions de numéros, m) ; médiane de 10 s entre deux positions pour 10 s demandées ; écriture d'une position 55 ms (médiane) ; batterie 55 % → 46 % en 105 min (mode test compris).
+- **Réalisé** :
+  - Bilan : défauts l à r consignés dans `p21-corrections.md` (symptôme, preuve, cause avec fichier et ligne, correction, vérification), récapitulatif et ordre conseillé.
+  - **(l)** `MeshNode` : une traînée reçue dont le dernier fix est plus récent que la position connue du membre la remplace (`recordFix` + `onPosition`).
+  - **(m)** `ShareStore.writeSeq` (au plus toutes les 10 s) ; le nœud suivant part de `max(heure, retenu + 1 000)` (`seqFloor`).
+  - **(n)** `FirebaseRelay.syncClock` refait une mesure dont l'aller-retour est négatif ou de plus de 10 s (`relay.clock.bad`, 3 essais) ; `NetworkWatch` suit `ACTION_TIME_CHANGED` → `onClockChanged` → écart remesuré (`relay.clock.changed`) ; un temps écoulé négatif compte comme écoulé (cadence, `PING`, vérification des liens, SOS).
+  - **(p)** `NetworkWatch.onOffline` → `RelayTransport.onOffline` : sans réseau, la boucle attend (`relay.offline.wait`, 5 min au plus) et repart au retour d'un réseau.
+  - **(q)** Battement vérifié chaque seconde sur l'heure murale (`beatIfDue`) au lieu du délai du minuteur.
+  - **(r)** `purgeOldFrames` à la connexion : liste `shallow` des clés `c`, `PATCH` de `null` pour celles d'un processus précédent de plus de 120 s (`PushIds.timeMs`, `relay.c.purge`).
+  - **(o) point 1** : `sys.power` relève `locMode` (mode de localisation de l'économiseur).
+  - **Alertes du partage (o, c)** : aperçu `docs/previews/p21-alertes.html` (état actuel ; variante A : cartes et pastille ; variante B : A + dialogue au démarrage), **variante B validée par l'utilisateur le 2026-10-24** (« Variante B · A + dialogue au démarrage »). `share/ShareAlerts.kt` (`ShareAlert`, `PhoneChecks`, `AndroidPhoneChecks`, `ShareAlertCards`, `ShareStartAlertDialog`, couleurs rouge / orange) ; `ShareController.recheckPhone` (toutes les 5 s dans un groupe, `share.alerts`) ; `ShareScreen` : cartes sous l'interrupteur, relues à chaque retour sur l'écran (`LifecycleResumeEffect`), dialogue à l'allumage du partage (la question des notifications vient après) ; `ShareHud` : pastille orange avec ⚠ ; `ShareService` : 2e ligne de la notification pour le réglage le plus grave ; icônes `ic_alert_location_off`, `ic_alert_battery_saver`, `ic_alert_battery` (Material Design Icons, Apache-2.0). La carte « Partage téléphone verrouillé » (ADR-051) et ses textes `share_battery_*` sont retirés.
+  - **Comparaison aperçu / émulateur** : `docs/previews/p21-alertes-emulateur.html` (captures recadrées, sans coordonnées). Écarts : thème sombre de l'appli, donc orange foncé (texte orange clair) ; icônes Material Design Icons au lieu de Tabler ; ligne de la notification en couleur normale du texte (Android ne garantit pas la couleur) ; pas de conseil Samsung.
+  - Docs : `p21-corrections.md` (corrigés en 0.4.69, paragraphe « Fait en 0.4.69 »), `plan-partage.md` (§ 1, § 6), PLAN (P21.4, P21.5), `ui-index.md` (ligne « Alertes du partage »), `event-log.md` (`share.alerts`, `relay.offline*`, `relay.clock.bad`, `relay.clock.changed`, `relay.c.purge`, `locMode`), `firebase-relay.md` § 3.
+- **Décisions (ADR)** : ADR-071 (alertes du partage ; remplace le point 4 d'ADR-051).
+- **Tests / vérifications** :
+  - Tests ciblés pendant le travail : `MeshNodeTest`, `WireTest` (cadence), `FirebaseRelayFixesTest` (9) et `ShareControllerTest` (19, dont `the phone settings that cut the sharing are read on demand and every 5 s in a group`) : verts.
+  - Émulateur (Medium_Phone, Android 37, 0.4.68 ; économiseur allumé, optimisation de la batterie de ToolMap, puis localisation coupée par `adb shell`) : cartes « Économiseur de batterie activé » et « Batterie de ToolMap optimisée » ; carte rouge « Localisation coupée » ajoutée en tête en moins de 5 s, retirée au retour ; dialogue « Le partage risque de s'arrêter » avec les deux puces à l'allumage du partage ; pastille orange ⚠ ; notification avec la 2e ligne (« Localisation coupée : aucune position ne part », puis « Économiseur de batterie : GPS coupé écran éteint ») ; « Mettre sans restriction » ouvre la demande d'Android, acceptée : la carte part (`share.alerts alerts=none` une fois l'économiseur coupé). Émulateur remis en état ensuite (localisation, économiseur, batterie, liste d'exemption).
+  - `./gradlew spotlessApply` puis `./gradlew check assembleDebug` (JBR d'Android Studio, sans les variables du serveur) : BUILD SUCCESSFUL en 2 min 17 s, `ToolMap-debug-0.4.69.apk`. Tests : core 847, data 310, p2p 29 (2 ignorés), app 271 (5 ignorés), debugkit 12 ; 0 échec. Lint : 0 erreur.
+  - Recherche des secrets (motif de `docs/plan-partage.md`, règles de travail) dans les lignes ajoutées du commit : aucune correspondance ; ni `tools/livetest/out/`, ni journal, ni APK dans le commit. Captures de `p21-alertes-emulateur.html` relues : aucune coordonnée.
+  - CI GitHub : run 40114796222 du commit `fac3dfe` non démarré (« recent account payments have failed or your spending limit needs to be increased », comme depuis le 2026-10-16) : pas d’artefact ni de pré-release ; APK local copié sur le Drive (`APK release/ToolMap.0.4.69.apk`, même taille).
+  - Serveur par défaut (demande de l'utilisateur : « Met en place le serveur par défaut pour tout utilisateur qui télécharge l'APK », valeurs redonnées, à garder cachées) : `./gradlew check assembleDebug` relancé avec `TOOLMAP_FIREBASE_DB_URL` et `TOOLMAP_FIREBASE_API_KEY` passées seulement dans la commande : BUILD SUCCESSFUL en 1 min 44 s, toujours 0.4.69 (sources inchangées). Contrôle sans afficher les valeurs : `BuildConfig.java` a une adresse `https://….firebasedatabase.app` et une clé `AIza…` de 39 caractères (comptage par `grep -c`), l'adresse est dans 2 fichiers `classes*.dex` de l'APK ; sur l'émulateur, carte « Serveur de coordination » : « Serveur intégré à l'application. » (l'adresse et la clé ne sont affichées nulle part). Aucune des deux valeurs dans le journal de build ni dans le dépôt. Les secrets GitHub du même nom existent depuis le 2026-10-12 : l'APK de la CI a le même serveur dès qu'un run démarre. Copie du Drive remplacée.
+- **Problèmes / dette technique** :
+  - Les variables du serveur (`TOOLMAP_FIREBASE_DB_URL`, `TOOLMAP_FIREBASE_API_KEY`) n'ont pas été redonnées pour le build local : l'APK local et sa copie sur le Drive n'ont pas de serveur intégré ; l'APK de la CI l'a (secrets du dépôt). **Réglé dans la session** : valeurs redonnées par l'utilisateur, APK recompilé avec le serveur intégré (voir Tests / vérifications).
+  - Aperçu complémentaire des alertes **non validé** : « Pas de position GPS depuis 2 min » (c), économiseur de données, batterie « restreinte » ; option t (« … est connecté(e) ») non validée non plus.
+  - (o) point 3 : les autres membres ne savent pas que la position est suspendue.
+  - P21.6 : écran pas gardé allumé en arrière-plan sur le téléphone (piste : fenêtre invisible `FLAG_KEEP_SCREEN_ON`).
+  - l à r vérifiés seulement par des tests unitaires ; (j) et (k) toujours à analyser ou décider.
+- **Prochaine étape recommandée** : faire valider l'aperçu complémentaire des alertes et l'option t ; puis un test en direct court avec 0.4.69 (corrections l à r, alertes avec l'économiseur de One UI), et P21.6 en arrière-plan (debug).
+
+## 2026-10-24 — Session 53 — [P21.4][P21.5][P21.6][P21.7] Premier test en direct du partage de position ; le partage ne s'arrête plus en changeant l'intervalle et reprend après un arrêt forcé ou une mise à jour ; la connexion au serveur tient mieux (changement de réseau, renouvellement du jeton, réseau bloqué, dernière position visible) ; une seule notification « ToolMap est actif en arrière-plan », avec l'icône de ToolMap dans la barre d'état ; pendant un test, l'écran du téléphone peut rester allumé
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : premier test en direct du partage de position (le téléphone de l'utilisateur, l'émulateur en collecteur), journal reçu en continu, défauts relevés pour P21.5 ; puis corriger les deux premiers (d : changer l'intervalle d'envoi arrêtait le service de premier plan ; a : le partage ne reprenait pas après un arrêt forcé ou une mise à jour de l'appli) ; à la demande de l'utilisateur, une notification permanente qui montre que ToolMap travaille en arrière-plan (P21.7, variante B de l'aperçu, validée le 2026-10-24) ; enfin (demande de l'utilisateur), les défauts sans effet visible de la connexion au serveur : b (un PING cachait la dernière position), e (position retenue écrite tard), f (flux resté sur l'ancien réseau), g (flux coupé toutes les heures par l'expiration du jeton), h (tentatives inutiles quand Android bloque le réseau) ; puis P21.6 (demande de l'utilisateur « Do P21.6 first ») : garder l'écran du téléphone allumé pendant un test, commandé depuis le PC, appli en arrière-plan aussi.
+- **Déroulé** (heures du téléphone, 2026-10-24, APK 0.4.60) : groupe créé sur le téléphone (SM-S931U, Android 15) à 08:39:57, rejoint par l'émulateur (`join.sh`), mode test allumé, suivi `live.mjs` sous le Monitor. Réglages du partage : 30 s et 10 m (5 s à partir de 09:20). L'utilisateur est resté chez lui jusqu'à 09:23, puis est parti en voiture (indisponible) : ensuite, seuls les tests côté PC.
+  - **T0** écourté (écran éteint par l'utilisateur au bout de 30 s). **T1** (immobile à l'intérieur, écran éteint, 08:46 → 09:01) : partage continu, mais fixes GPS espacés de 40 à 204 s pour 30 s demandées (1 à 5 satellites, C/N0 ≈ 21 dB-Hz) ; ni doze ni économiseur, seau 5 ; courant 50 à 400 mA ; écritures ≈ 400 ms en Wi-Fi écran éteint.
+  - **T2** pas fait comme prévu (l'appli est restée au premier plan jusqu'à la mise en veille) : couvert par T1.
+  - **T3** (appli balayée des récentes à 09:16:31) : service et processus continuent, journal continu ; à la relance (09:19:21), rien à refaire.
+  - **T12** (intervalle 10 s puis 5 s, 09:20:20) : **défaut (d)**, voir plus bas ; depuis, le téléphone n'envoie plus de position en arrière-plan.
+  - **T9** (départ de la maison, 09:23:51) : Wi-Fi perdu, réseau mobile 0,1 s après, serveur retrouvé 3,3 s après (par les nouvelles tentatives, sans `relay.reconnect.now` : service arrêté par (d)) ; `PING` en échec renvoyé ; écritures 35 à 50 ms en 4G.
+  - **T15** (appli de l'émulateur arrêtée de force et relancée) : le téléphone reprend l'envoi du journal à la même époque, numéros continus (4150 → 4194), sans doublon ; le partage de l'émulateur ne reprend pas (défaut a) ; l'émulateur relancé affiche le téléphone « sans position » (défaut b : `p` contenait un `PING`).
+  - **T14** (réseau de l'émulateur coupé 2 min, `svc wifi/data disable`) : membre perdu au bout de 45 s des deux côtés ; reconnexion 0,34 s après le retour du réseau, le téléphone revoit l'émulateur 2 s après ; journal rattrapé sans trou ni doublon.
+  - **T18** (nouveau, coupure de 30 s) : aucun membre perdu, reconnexion en 0,3 s ; une trame `p` retenue attend jusqu'à 15 s après la reconnexion (défaut e) ; à l'arrivée d'un second réseau, le flux reste sur l'ancien et tombe 30 s plus tard (défaut f, coupure 1,4 s).
+  - **T19** (nouveau, coupure de 9 min, 09:28:28 → 09:37:27) : l'émulateur voit le téléphone perdu à 09:29:11 ; au retour du réseau, le téléphone le revoit à 09:37:29 et renvoie ses 9 min de journal (779 lignes) en ≈ 4 s, sans trou ; défaut (f) de nouveau (flux tombé à 09:38:01, rouvert en 1,3 s).
+  - Entre-temps, sans manipulation : jeton Firebase renouvelé à 09:37:58 sans rouvrir le flux, coupé à son expiration à 09:39:57 (`token expired`, défaut g) ; au démarrage (08:40:08 → 08:45:20), réseau de l'appli bloqué par Android en arrière-plan (groupe créé, partage pas encore lancé) et tentatives toutes les 8 s (h).
+- **Réalisé** :
+  - Test en direct de ≈ 1 h ; rapport `analyze.mjs` ; défauts consignés (ci-dessous et PLAN P21.5) ; demande de l'utilisateur ajoutée en P21.6 (garder l'écran du téléphone allumé pendant un test).
+  - `live.mjs` : plus d'alerte « aucune position » pendant qu'un fix est retenu exprès (déplacement sous la distance minimale).
+  - `analyze.mjs` : adresse du serveur masquée (`host <serveur>`), coupures du flux séparées des tentatives de reconnexion échouées (comptées par raison).
+  - `pull.sh` : un fichier absent de l'émulateur n'est plus copié sous forme du message d'erreur de `cat`.
+  - `live-test.md` : scénarios T18 et T19, remarques de ce test (§8).
+  - `docs/specs/p21-corrections.md` (demande de l'utilisateur) : dossier de correction de chaque défaut ci-dessous (symptôme, preuve dans le journal, cause avec fichier et ligne, correction proposée, vérification), ordre conseillé, proposition pour P21.6 et liste du second test en direct ; référencé dans `CLAUDE.md` et PLAN P21.5, P21.6.
+  - **(d) corrigé** (0.4.62) : `ShareController.updateSettings` ne relance plus que la demande GPS (`startFixes`, événement `share.gps.restart`), le partage ne passe plus par « coupé » ; l'observateur de `ShareService` tourne sur `Dispatchers.Main` (plus `immediate`), un état passager n'arrête plus le service.
+  - **(a) corrigé** (0.4.62) : `ShareService.resumeIfInterrupted`, appelé par `ShareViewModel` à l'ouverture de l'appli, relance un partage que l'utilisateur n'a pas arrêté (arrêt forcé, mise à jour), si l'appareil est dans un groupe et a la permission de localisation (`share.resume`). Le défaut a été vu en direct sur le téléphone juste avant : mise à jour vers 0.4.61 à 11:24:42 (`app.exit reason=PACKAGE_UPDATED`), partage resté coupé.
+  - **P21.7, notification « ToolMap est actif en arrière-plan »** (demande de l'utilisateur) : aperçu `docs/previews/p21-notification.html` (état actuel, variante A « une notification par fonction », variante B « une seule notification »), **variante B validée par l'utilisateur le 2026-10-24**. `service/BackgroundNotification.kt` : une notification commune aux services du partage, de l'enregistrement et des alertes (même identifiant ; Android la garde tant qu'un des services est au premier plan), une ligne et un bouton d'arrêt par fonction, icône des sommets `ic_stat_toolmap` dans la barre d'état, couleur verte de l'icône, nouveau canal « Activité en arrière-plan » (importance par défaut, sans son ni vibration ; les canaux `sharing`, `recording`, `alerts-service` sont supprimés) ; affichée sans le délai de 10 s d'Android 12+. `ui/NotificationAsk.kt` : question « Montrer ToolMap dans la barre d'état ? » (Plus tard · Autoriser) au lancement du partage ou de l'enregistrement si les notifications sont refusées ; Autoriser demande la permission, ou ouvre les réglages des notifications de ToolMap si Android ne la demande plus. Événements `notify.ask*` (`event-log.md`). `ui-index.md` §7 à jour. Écart à l'aperçu : pour l'enregistrement, la question dit « l'enregistrement » au lieu de « le partage de position ».
+  - Dossier de correction : (d) et (a) marqués corrigés ; ajout du blocage de l'envoi du journal quand l'horloge d'un appareil saute (voir Problèmes).
+  - **(b), (e), (f), (g), (h) corrigés** (0.4.64, (f) complété en 0.4.65 ; demande de l'utilisateur « go on with the P21.5 fixes ») :
+    - (b) `FirebaseRelay.send` : la case `p` ne reçoit plus que des `POS` ; les `PING` passent par le canal de contrôle `c` (nettoyés au bout de 120 s, comme les autres trames). `relay.p.replaced` n'est plus émis pour une trame dont l'écriture a déjà commencé (`writingPosition`).
+    - (e) `openStream` écrit tout de suite une position retenue pendant la coupure (avant : au battement suivant, jusqu'à 15 s).
+    - (f) Le relais retient le réseau par défaut (`RelayTransport.onNetwork`) et celui de son flux : `reconnectNow` coupe un flux ouvert sur un autre réseau, même récent (`relay.reconnect.now moved=true`). 0.4.65 : le relais a son propre pool de connexions OkHttp, remplacé à chaque nouveau réseau (`relay.network pool=new`) ; en 0.4.64, l'émulateur montrait le flux rouvert sur une connexion de l'ancien réseau restée dans le pool, retombé 30 s plus tard.
+    - (g) Le flux retient son jeton ; après une écriture qui a renouvelé le jeton (2 min avant l'expiration), il est rouvert aussitôt avec le nouveau (`relay.stream.renew`), sans pause et sans passer par « injoignable ». Sur `auth_revoked`, seul le jeton du flux est oublié (le neuf sert tel quel : plus de second renouvellement) et la reconnexion se fait sans pause. `FirebaseAuth.invalidate(token)` n'oublie que le jeton donné.
+    - (h) Le suivi du réseau passe de `ShareService` (pendant le partage seulement) au contrôleur, tant qu'un groupe sur serveur existe (`NetworkWatch`, `AndroidNetworkWatch`) ; il transmet aussi `onBlockedStatusChanged` (`share.net.blocked`). Réseau bloqué : le relais n'essaie plus de se connecter (`relay.blocked.wait`) ni d'écrire de battement ; débloqué : tentative immédiate.
+  - **P21.6, écran gardé allumé** (0.4.66, debug seulement, rien de visible ajouté : la notification « Écran gardé allumé » attend un aperçu validé) : `cmd.sh awake <minutes>` (0 : arrêt) sur le collecteur → action `AWAKE` de `DebugCommands` → `DebugKit.setAwake` ; le collecteur met les secondes restantes dans ses annonces (champ `w` de la charge `col`, toutes les 5 s, gardé s'il redémarre ; ignoré par les versions précédentes). Le téléphone (`ScreenAwake`, `PowerScreenLock`) allume l'écran au début de la demande seulement, puis le garde allumé avec un verrou d'écran (`SCREEN_BRIGHT_WAKE_LOCK`, appli en arrière-plan aussi) jusqu'à la fin donnée, comptée depuis le démarrage (insensible aux sauts d'horloge) ; éteint au bouton marche, l'écran reste éteint. `cmd.sh awake <minutes> here` (ou sur un appareil qui n'est pas le collecteur, téléphone sur USB) : l'écran de l'appareil lui-même. Au plus 240 min. Événements `debug.awake.set`, `debug.awake` ; champs `awakeAskS` et `awake` dans `debug.status`. `live-test.md` §4 et `event-log.md` §5, §6 à jour.
+- **Décisions (ADR)** : aucune. Règle de l'utilisateur (2026-10-24), écrite dans `CLAUDE.md` : ce qui ne sert qu'au debug se fait sans aperçu ni question ; pendant les tests de debug, un plan écrit (`docs/plan-partage.md`, nouveau : état, ordre du second test, problèmes notés sur le moment, travail restant) et chaque problème noté au moment où il arrive.
+- **Tests / vérifications** :
+  - Canal du journal : `remote.log` du collecteur (`pull.sh`) : 12 493 lignes du téléphone, numéros 1 à 12 493 sans trou ni doublon, une seule marque `# log` (au début), aucune `# gap`, à travers T14, T15, T18 et T19 (contrôle par un script node sur les numéros). Les deux trous des journaux bruts de `live.mjs` (08:48:22, 09:18:24) sont côté PC : lignes reçues pendant le redémarrage du suivi, présentes dans `remote.log` et dans le logcat de l'émulateur.
+  - `node tools/livetest/analyze.mjs tools/livetest/out/20261024-094258 --from 08:44` (08:44 → 09:43) : téléphone 55 fixes reçus par le partage, 18 envoyés (distance minimale, puis défaut d) ; précision médiane 40 m ; écritures `p/POS` médiane 91 ms, `c/DIAG` 2835 trames médiane 189 ms ; batterie 77 % → 70 %, 307 mAh/h (debug en mode test, écran éteint 49 % du temps), CPU 2,7 % ; données de l'appli 32 Mio/h reçues, dont ≈ 2 Mio du flux du serveur (le reste par rafales, appli au premier plan : 7 Mio en 2 s à 09:06:52, 14 Mio en 15 s à 09:22:23) et 8 Mio/h envoyées.
+  - `node --check` sur `live.mjs` et `analyze.mjs` : OK.
+  - `./gradlew check assembleDebug` (JBR d'Android Studio ; serveur passé seulement par `TOOLMAP_FIREBASE_DB_URL` / `TOOLMAP_FIREBASE_API_KEY`) : BUILD SUCCESSFUL en 3 min 24 s, `ToolMap-debug-0.4.61.apk` (seuls le journal, le PLAN, la spec et les scripts ont changé). Tests : core 843, data 310, app 262 (5 ignorés), p2p 20 (2 ignorés), debugkit 8 ; 0 échec. Lint : 0 erreur ; app 66 avertissements, debugkit 0.
+  - Corrections (d) et (a), 0.4.62 : le nouveau test de (d) échouait avant la correction et passe après ; `ShareServiceResumeTest` passe. `./gradlew check assembleDebug` : BUILD SUCCESSFUL en 1 min 5 s, `ToolMap-debug-0.4.62.apk`.
+  - Émulateur, 0.4.62 : (a) mise à jour de l'APK par-dessus, puis arrêt forcé (`am force-stop`), partage allumé : à la relance, `share.resume` et partage repris ≈ 1 s après le lancement ; (d) intervalle 30 → 5 → 30 s : `share.gps.restart` à chaque changement, aucun `share.service.finish`, envoi continu.
+  - P21.7, 0.4.63 : `BackgroundNotificationTest` (Robolectric, 4 tests : lignes et boutons dans un ordre fixe, une fonction arrêtée laisse les autres, canal sans son qui remplace les trois anciens, `visible()`). Premier essai en échec à la compilation (`cancelAll` protégé dans l'ombre Robolectric du gestionnaire), corrigé. `./gradlew check assembleDebug` : BUILD SUCCESSFUL en 55 s, `ToolMap-debug-0.4.63.apk`. Tests : core 843, data 310, app 269 (5 ignorés), p2p 20 (2 ignorés), debugkit 8 ; 0 échec. Lint : 0 erreur, app 66 avertissements.
+  - Émulateur, 0.4.63 (`dumpsys notification`, captures) : une seule notification (id 4100, canal `background`, importance 3, service de premier plan, couleur verte), deux lignes et deux boutons avec le partage et l'enregistrement, au-dessus des notifications silencieuses ; icône des sommets dans la barre d'état ; « Arrêter l'enregistrement » arrête l'enregistrement et laisse la ligne du partage. Permission des notifications retirée (`pm revoke`) : la question s'affiche au lancement du partage (`notify.ask`) ; « Autoriser » ouvre la demande d'Android, accepter donne `notify.ask.result granted=true` ; après un refus définitif, « Autoriser » ouvre les réglages des notifications de ToolMap (`settings=true`). Permission rendue ensuite : la notification revient (au plus tard au renvoi de 10 s du partage).
+  - Comparaison aperçu validé / émulateur : `docs/previews/p21-notification-emulateur.html` (captures du 2026-10-24), envoyée à l'utilisateur.
+  - Corrections (b), (e), (f), (g), (h) : `FirebaseRelayFixesTest` (nouveau, 5 tests contre un faux Firebase MockWebServer : PING dans `c` et position intacte dans `p` ; position retenue écrite à la réouverture du flux ; flux de l'ancien réseau coupé même récent, et premier appel après le changement sur une connexion neuve ; jeton renouvelé → flux rouvert sans passer par « injoignable » ; aucune tentative tant que le réseau est bloqué, une aussitôt débloqué), `ShareControllerRelayTest` (7 tests, dont le suivi du réseau tant que le groupe existe), `FirebaseRelayReconnectTest` (2) : tous passent. Le contrôle « connexion neuve » échoue (`FirebaseRelayFixesTest.kt:243`) quand le changement de pool est neutralisé. `./gradlew check assembleDebug` : 0.4.64 BUILD SUCCESSFUL en 2 min 10 s ; 0.4.65 (pool) BUILD SUCCESSFUL en 1 min 11 s. Tests : core 843, data 310, app 270 (5 ignorés), p2p 25 (2 ignorés), debugkit 8 ; 0 échec. Lint : 0 erreur ; app 66 avertissements, debugkit 0.
+  - Émulateur, 0.4.64 puis 0.4.65 (logcat `TMEvent`) : (b) `relay.write what=c type=PING` toutes les 15 s, `what=p` seulement pour les `POS`. (f) `svc wifi disable` puis `enable` : en 0.4.64, flux coupé et rouvert aussitôt à chaque changement (`moved=true`) mais retombé 30 s après le retour du Wi-Fi (`Software caused connection abort`), d'où le pool propre au relais ; en 0.4.65, `relay.network pool=new`, flux rouvert en 0,3 s (mobile) et 1,7 s (Wi-Fi), aucune coupure dans les 50 s suivantes. (h) Sans partage, en arrière-plan 95 s : l'émulateur ne bloque pas le réseau ; blocage forcé 75 s (`cmd connectivity set-chain3-enabled true`, `set-package-networking-enabled false fr.toolmap`) : `share.net.blocked`, `relay.blocked.wait`, aucune tentative ; débloqué : connexion dans la même milliseconde, en ligne 0,83 s après. (e) et (g) : tests unitaires seulement ((g) demande une heure : second test en direct). Ensuite : partage de l'émulateur relancé, horloge remise à l'heure.
+  - P21.6, 0.4.66 : `ScreenAwakeTest` (4 tests : allumé une fois puis seulement gardé, jusqu'à ce que le collecteur dise non ; fin du temps puis nouvelle commande ; une demande `here` n'est pas annulée par les annonces ; champ `w` aller-retour, absent = 0) ; `bash -n tools/livetest/cmd.sh` : OK. `./gradlew check assembleDebug` : BUILD SUCCESSFUL en 1 min 55 s, `ToolMap-debug-0.4.66.apk`. Tests : core 843, data 310, app 270 (5 ignorés), p2p 25 (2 ignorés), debugkit 12 ; 0 échec. Lint : 0 erreur ; app 66 avertissements, debugkit 0.
+  - Émulateur, 0.4.66 (mise en veille réglée à 15 s puis remise, appli en arrière-plan, `dumpsys power`, logcat `TMEvent`) : sans demande, écran en veille après 15 s ; `awake 1 here` : verrou `toolmap:debug-awake` tenu, écran allumé à 10, 20, 30 s, puis `debug.awake on=false why=time` à 60 s et veille ; écran éteint, `awake 5 here` l'allume (verrou `toolmap:debug-wake` 1 s) ; bouton marche : écran éteint 12 s plus tard, verrou toujours tenu ; `awake 0 here` : `on=false why=asked`, veille. `cmd.sh awake 5` sur le collecteur : `awakeAskS=298` deux secondes après, aucun verrou sur l'émulateur ; `awake 0` : `awakeAskS=0`, préférence `awake_until` à 0. Le passage du champ `w` au téléphone reste à voir au second test en direct.
+  - Aperçu de la notification « Écran gardé allumé » (P21.6) : `docs/previews/p21-ecran-allume.html` (A : rien, état actuel ; B : ligne et bouton dans la notification de ToolMap ; C, conseillée : notification de test à part), envoyé à l'utilisateur, rien de codé ; puis abandonné à sa demande (« Pas besoin d'avoir une notification "Écran allumé" l'utilisateur le voit »).
+- **Problèmes / dette technique** (pour P21.5, PLAN) :
+  - **(d) Grave** : changer l'intervalle d'envoi arrête le service de premier plan sans le relancer. `ShareController.updateSettings` coupe puis relance le partage ; `ShareService.observe` voit `sharing=false` et appelle `finish()` (qui écrit aussi « actif = faux ») ; l'interface dit toujours « partage actif », mais en arrière-plan plus aucun fix (le dernier à 09:22:35 ; positions seulement quand l'appli revient au premier plan, vu à 09:45). Contournement : couper puis relancer « Partager ma position ».
+  - (a) Après un arrêt forcé, le partage ne reprend pas à la relance de l'appli (déjà vu à la répétition).
+  - (b) Un `PING` remplace la dernière position dans `p` ; un membre qui arrive lit « sans position » ; `relay.p.replaced` dit à tort la position « jamais écrite » (09:11:38, `old=POS`).
+  - (c) Aucun avertissement quand le GPS ne donne plus de fix (18 min sans fix, `gpsUnavailable=false`) : changement visible, aperçu à valider d'abord.
+  - (e) Une trame `p` retenue pendant une coupure n'est écrite qu'au battement suivant (jusqu'à 15 s) et pas à la réouverture du flux.
+  - (f) Quand un nouveau réseau par défaut arrive, le flux reste sur l'ancien et tombe quand Android le coupe (≈ 30 s plus tard).
+  - (g) Le jeton est renouvelé 2 min avant l'expiration, mais le flux garde l'ancien et se coupe toutes les heures (≈ 1,3 s).
+  - (h) Réseau bloqué par Android en arrière-plan (`net.blocked blocked=true`) : tentatives toutes les 8 s pour rien ; attendre `blocked=false`.
+  - Toast « … est connecté(e) » affiché sur un battement vieux de 68 s.
+  - À vérifier : 7 Mio téléchargés en 2 s à un retour au premier plan sans déplacement (09:06:52 ; tuiles de la carte ?).
+  - À la réouverture du flux, l'état complet du salon arrive d'un bloc (79 à 110 Kio en mode test, surtout les trames de journal pas encore nettoyées).
+  - À envisager : la localisation réseau en secours quand le GPS cale (fixes espacés jusqu'à 204 s à l'intérieur).
+  - Côté test : l'écran du téléphone s'éteint tout seul (P21.6) ; T0 en marchant, T2, T4 à T8, T10, T11, T13, T16 et T17 restent à faire, plutôt après P21.5 (le défaut d fausse la suite).
+  - Horloge de l'émulateur restée 13,6 min en retard après la mise en veille du PC : l'écart au serveur n'étant mesuré qu'à la connexion, le téléphone a jeté les accusés du collecteur comme trop vieux et l'envoi du journal s'est bloqué (renvois sans fin, `debug.payload.refused`). Remis par `adb shell cmd alarm set-time` ; piste de correction dans le dossier (Petits points).
+  - Cause du retard de 13,6 min de l'horloge de l'émulateur (ligne plus haut) : son passage au réseau mobile (`svc wifi disable`) la recule de 816 s (heure du réseau mobile émulé), et le retour du Wi-Fi ne la rattrape pas ; la mise en veille du PC n'y est pour rien. Remise par `adb shell cmd alarm set-time` après chaque essai de (f).
+  - Pendant un blocage du réseau par Android, les `PING` du maillage et les trames `DIAG` tentent encore une écriture (échec DNS en 3 ms, sans trafic), et le flux mort reste ouvert jusqu'à l'expiration de sa lecture (45 s) ; piste dans `p21-corrections.md` (h).
+  - Le temps relatif de la liste des membres suit la langue du système (« Hors ligne · 11 seconds ago » sur l'émulateur en anglais) : changement visible, aperçu d'abord.
+  - Le téléphone de l'utilisateur a les notifications de ToolMap refusées (`app.perm notify=false`) : Android y cachait déjà la notification du partage ; la question de P21.7 le signalera au prochain lancement du partage.
+  - `cmd.sh` répond avec l'état d'avant la commande (`awake` et `test` passent par le fil du module) : lire l'état d'après avec `cmd.sh status`.
+- **Prochaine étape recommandée** : installer la dernière version sur le téléphone, lancer le partage et répondre « Autoriser » à la question : vérifier l'icône de ToolMap dans la barre d'état (One UI) et la notification unique ; refaire T12 (d) et une mise à jour de l'APK (a). Le tout dans le second test en direct (P21.4), à suivre dans l'ordre de `docs/plan-partage.md` § 3 : il vérifie aussi (b), (f), (g), (h) et P21.6 sur le téléphone (`cmd.sh awake 30` sur le collecteur avant T0 et T2, `debug.awake on=true by=collector` attendu) ; problèmes notés au moment où ils arrivent (§ 5). Ensuite le travail restant de son § 6 : debug sans aperçu ni question, puis (c) et (t) avec un aperçu validé.
+
+## 2026-10-23 — Session 52 — [P21.1][P21.2][P21.3] Journal d'événements, module de test du build de debug et préparation du test en direct du partage
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : un journal de tout ce que l'application fait et subit, et un module de test réservé au build de debug qui envoie ce journal en direct à l'émulateur pendant un test du partage de position.
+- **Demande** (2026-10-23) : APK de debug avec un module de travail propre à l'environnement de test, absent du release ; revoir les données envoyées lors du partage et transférer tout ce qui sert à l'analyse des bugs et des performances, même lourd ; un module de log de tous les événements ; test en direct (Claude sur l'émulateur, l'utilisateur sur son téléphone en marchant) avec des notifications de l'application Claude pour les manipulations ; préparer l'environnement et les tests.
+- **Réalisé** :
+  - **Journal d'événements** (tous les builds, `docs/specs/event-log.md`) : `EventLog`, `EventStore`, `EventLine` dans `:core` (une ligne numérotée par événement, `files/eventlog/current.log` et `previous.log`, époque, fil d'écriture à part, niveaux `event` / `detail`, jauges) ; `AppEventLog` (debug : fichiers de 4 Mio, copie dans logcat `TMEvent`) ; `SystemEvents` (processus et raisons d'arrêt, activités, mémoire, écran, alimentation, doze, économie, localisation, réseau, permissions) ; événements du partage (`ShareController`, `ShareService`, `LocationSource`), du maillage (`MeshNode`), du serveur (`FirebaseRelay`, `FirebaseRest`, sans jamais l'URL ni le jeton), de WebRTC, de l'interface (écrans) et des plantages (`CrashReporter` vide le journal avant de mourir). Coordonnées seulement en mode test.
+  - **Module `:debugkit`** (`debugImplementation`, absent du release) : collecteur (l'émulateur), mode test de 30 min déclenché par le collecteur (détails, instantanés `snap.sys` / `snap.relay` / `snap.share` toutes les 5 s, suivi GNSS, état toutes les minutes), envoi du journal par le groupe chiffré avec accusés et renvois (`DiagCodec`, `DiagSender`, `DiagCollector`), écriture dans `remote.log` et logcat `TMRemote`, commandes `adb` (`DebugCommands`, permission `DUMP`). Branché par un `Set<AppExtension>` Hilt.
+  - **Protocole** : message `DIAG` (type 13) dans `Wire` et `MeshNode` (propagé comme un texte, ≤ 4096 octets, sous la limite des règles Firebase) ; `DiagChannel` implémenté par `ShareController` ; `RelayTransport.pendingWrites` : aucune trame de journal tant qu'une écriture au serveur attend.
+  - **Scripts PC** `tools/livetest/` : `setup.sh`, `join.sh`, `cmd.sh`, `pull.sh`, `live.mjs` (suivi en direct pour le Monitor : événements notables, trous de positions, résumé), `analyze.mjs` (rapport), `parse.mjs` ; `out/` non versionné.
+  - **Protocole de test** `docs/specs/live-test.md` : préparation, rôles, scénarios T0 à T17 (écran éteint, arrière-plan, fermeture, arrêt forcé, vider le cache, GPS, mode avion, données, Wi-Fi → mobile, économiseur, intervalle court, coupure et redémarrage côté émulateur, redémarrage du téléphone, effacer les données en dernier).
+  - **Répétition à deux émulateurs** (`live-test.md` §7) : un second AVD sans fenêtre (`Phone2`, port 5556) joue le téléphone, groupe créé sur le serveur de l'utilisateur. Corrigé à la suite : le collecteur garde où en est chaque membre (`DiagCollector.saved` / `restore`, préférence `members`) pour ne rien redemander après un redémarrage ; `live.mjs` et `analyze.mjs` écartent les lignes déjà vues (`makeDedupe`), le suivi n'affiche plus l'émulateur parmi les membres, le rapport signale le silence après la dernière position et nomme les écritures sans type (`h`) ; noms lisibles des raisons de démarrage (`START_ACTIVITY`…) et des arrêts 14 à 16 (`FREEZER`, `PACKAGE_STATE_CHANGE`, `PACKAGE_UPDATED`).
+  - **Docs** : ADR-070, PLAN P21, `p2p-sharing.md` (message `DIAG`), tableau de `CLAUDE.md`.
+- **Décisions (ADR)** : ADR-070.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` (JBR d'Android Studio ; serveur passé seulement par `TOOLMAP_FIREBASE_DB_URL` / `TOOLMAP_FIREBASE_API_KEY`) : BUILD SUCCESSFUL, version 0.4.60. Tests : core 843, data 310, app 262 (5 ignorés), p2p 20 (2 ignorés), debugkit 8 ; 0 échec. Lint : 0 erreur ; app 67 avertissements (dont `LogNotTimber` dans `AppEventLog` et `CrashReporter`), debugkit 0.
+  - `:debugkit` absent de `releaseRuntimeClasspath` et `benchmarkRuntimeClasspath`, présent dans `debugRuntimeClasspath` (`./gradlew :app:dependencies`).
+  - Émulateur (`setup.sh`) : fichiers `files/eventlog/{current,previous}.log` et `epoch`, lignes `TMEvent`, événements système (`app.start`, `app.start.reason reason=START_ACTIVITY`, `app.exit reason=PACKAGE_UPDATED`, `sys.power`, `net.*`), instantanés, commandes `COLLECT`, `STATUS`, `MARK`, `SNAPSHOT`.
+  - Répétition à deux émulateurs par le serveur Firebase de l'utilisateur (≈ 8 min puis ≈ 3 min) : mode test allumé seul sur le « téléphone », journal reçu en continu (≈ 290 lignes/min, ≈ 1 trame/s, ≈ 280 octets par trame), accusés et `remote.log` ; arrêt forcé et relance du « téléphone » : même époque, numéros continus ; membre perdu après 45 s puis retrouvé ; `live.mjs` sous le Monitor (événements, alerte « aucune position depuis 65 s », résumés) ; `pull.sh` puis `analyze.mjs` (rapport complet). Après la correction (0.4.60) : collecteur arrêté de force et relancé, aucun renvoi ni nouvelle marque `# log`.
+- **Problèmes / dette technique** :
+  - **Trouvés par la répétition, à traiter en P21.5** : après un arrêt forcé, le partage ne reprend pas à la relance de l'appli (seul le système relance le service, `START_STICKY`, ce que l'arrêt forcé empêche ; la préférence « actif » reste vraie) ; un `PING` écrase la position dans `p` 0,2 s après elle (`relay.p.replaced old=POS new=PING` au premier fix ; la position était en cours d'écriture et elle est arrivée, mais l'événement la dit « jamais écrite » et un membre qui se connecte ensuite lit le `PING`).
+  - Le test en direct avec le téléphone (P21.4) reste à faire : le GPS réel, la mise en veille, le réseau mobile et la batterie ne se voient pas sur l'émulateur.
+  - Lint de l'app : 67 avertissements (64 avant la session).
+- **Prochaine étape recommandée** : P21.4, le test en direct avec l'utilisateur (`docs/specs/live-test.md`).
+
+## 2026-10-23 — Session 51 — [P20.7] Favori « Sortie Ski » et cartes de ski intégrées ; favoris fournis réduits à deux
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : fournir la configuration de ski de l'utilisateur en favori « Sortie Ski », avec les cartes de ses fichiers AQX intégrées au catalogue, et ne garder que « Rando Multi-Zoom » et « Sortie Ski » comme favoris fournis.
+- **Aperçu validé** : la capture « Cartes affichées » envoyée par l'utilisateur le **2026-10-23**, sa configuration réelle montée avec les bandes d'altitude (du haut vers le bas : IGN Pentes (montagne) « Visible à partir du zoom 12 · 30 % d'opacité », Traces_ski_yeti_api et Pistes Layer à partir du zoom 12, SnowBase Map « Au-dessus de 1550 m », IGN SCAN 25 Touristique), avec la demande : « Met les en place dans les cartes par défaut […] Change la liste des cartes par défaut pour le "Rando Multi-Zoom" et "Sortie Ski" uniquement ». Aucun autre changement d'interface. Comparaison capture / émulateur : `docs/previews/p20-7-sortie-ski-emulateur.html`.
+- **Réalisé** :
+  - **D'abord sur l'émulateur** : import de `COM.109.AQX` et `USR.IGN+PENTES+YETI_TRANSITOIRE 2024_SANS GEOKEY.AQX`, pile montée comme sur la capture ; `workstate.json` relu (ign-scan25 ; OSMSNOWM au-dessus de 1550 m ; OSMSKIM et TRACESHIVERNALES à partir du zoom 12 ; ign-pentes à 30 % à partir du zoom 12 ; ET partout) et carte vérifiée (neige au-dessus de 1550 m, pistes et traces à partir du zoom 12).
+  - **Catalogue** (`builtin-sources.aqx`) : `OSMSNOWM` (SnowBase Map), `OSMSKIM` (Pistes Layer), `TRACESHIVERNALES` (Traces_ski_yeti_api), sous les ids des fichiers de l'utilisateur (une copie importée est remplacée, les piles et favoris enregistrés la retrouvent) ; https, 2 connexions, agent utilisateur ToolMap, referer d'OpenSnowMap (sans lui : « access denied »).
+  - **Favoris** (`Workspaces`) : `sortieSki` ajouté ; `builtin` = Rando Multi-Zoom, Sortie Ski ; « IGN Topo 8–16, Plan 1–7, Pentes », « OpenStreetMap », « OpenTopoMap » et « Photos aériennes » retirés (le premier reste un exemple des tests, `TestWorkspaces.kt`).
+  - **Tuiles déjà téléchargées** : `StorageKeys.takenOverByBuiltins` et `StorageManager.mergeTakenOverStorages()` versent les tuiles `t-<hash>` d'une carte importée devenue intégrée dans le stockage de la carte intégrée, au démarrage (`ToolMapApp.migrateTileStorage()`).
+  - **Tests** : `BuiltinSourcesTest` (+2 : cartes de ski, favori Sortie Ski), `TileSetIdentityTest` (+1), `StorageManagerTest` (+1), `WorkspaceTest`, `LayerZoomTest`, `WorkspaceStoreTest`, `MapCatalogTest` (groupe « Autres cartes » des traces Yeti), `MultiZoomDraftTest` (copie d'OpenSnowMap sur un autre serveur) ; fixtures `fixtures/aqx/user/` identiques aux fichiers de l'utilisateur (vérifié par `diff`).
+  - **Docs** : ADR-069, PLAN P20.7, `ui-index.md` (C5).
+- **Décisions (ADR)** : ADR-069 (cartes de ski intégrées sous les ids des fichiers, favori Sortie Ski, favoris fournis réduits à deux, migration des tuiles `t-<hash>`), qui modifie la liste des favoris d'ADR-052 et d'ADR-063.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply :core:test :data:testDebugUnitTest` : vert (exit 0).
+  - `./gradlew spotlessApply check assembleDebug` : vert (exit 0, 1 min 48 s) ; tests `:core` 834, `:data` 310, `:app` 262 dont 5 ignorés, `:p2p` 20 dont 2 ignorés, 0 échec ; Lint 0 erreur, 64 avertissements (inchangé) ; APK `app/build/outputs/apk/debug/ToolMap-debug-0.4.57.apk`.
+  - Émulateur « Medium_Phone », APK 0.4.57 installé par-dessus la 0.4.56 (avec les deux fichiers importés et leurs tuiles) :
+    - migration : `t-9b0b8c964b81c67f`, `t-b0625d38e2d4d420` et `t-a5c3b5b496f7f0b8.mbtiles` disparus au démarrage, remplacés par `OSMSNOWM.mbtiles` (11,9 Mo ; « Sur l'appareil : 236 tuiles, 12.4 Mo »), `OSMSKIM.mbtiles` (38 tuiles) et `TRACESHIVERNALES.mbtiles` (38 tuiles) ;
+    - Cartes disponibles : SnowBase Map et Pistes Layer dans « Cartes OpenStreetMap », Traces_ski_yeti_api dans « Autres cartes », plus de groupe « Mes cartes » (les copies importées sont remplacées) ;
+    - favoris : « Enregistrer l'affichage », « Rando Multi-Zoom », « Sortie Ski » seulement ; « Sortie Ski » surligné d'emblée (la pile montée depuis les fichiers importés est la sienne) ;
+    - « Rando Multi-Zoom » puis « Sortie Ski » appliqués : Cartes affichées = IGN Pentes (montagne) « Visible à partir du zoom 12 · 30 % d'opacité », Traces_ski_yeti_api et Pistes Layer « Visible à partir du zoom 12 », SnowBase Map « Au-dessus de 1550 m », IGN SCAN 25 Touristique « 100 % d'opacité », comme sur la capture de l'utilisateur ; carte : neige au-dessus de 1550 m, traces et pistes au zoom 13 (45,76° N 6,41° E).
+- **Problèmes / dette technique** :
+  - Dans Cartes affichées, « 30 » et « % d'opacité » peuvent se retrouver sur deux lignes (vu sur l'émulateur) : une espace insécable avant « % » réglerait ce point, à faire après un aperçu (changement de texte visible).
+  - La CI GitHub ne démarre toujours pas (limite de dépense du compte).
+- **Prochaine étape recommandée** : P15.1 (build benchmark et mesures), puis P19.8 à P19.12 (V2 des itinéraires), à commencer par leurs aperçus.
+
+## 2026-10-23 — Session 50 (suite) — [P20.6] Cartes selon l'altitude jugées satisfaisantes sur le téléphone
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : consigner le test des cartes selon l'altitude sur le téléphone de l'utilisateur et clore la phase P20.
+- **Réalisé** :
+  - Retour de l'utilisateur du 2026-10-23, avec l'APK 0.4.55 (commit 2f1b366) : « P20.6, le test local est satisfaisant, rien à changer pour le moment ».
+  - P20.6 passée à ✅ dans `docs/PLAN.md` (avis consigné, sans chiffres relevés) ; spec `elevation-maps.md` §5 mise à jour : WebP sans perte et cache des tuiles découpées restent des pistes, non retenues.
+  - Aucun changement de code.
+- **Décisions (ADR)** : aucune (ADR-068 inchangé).
+- **Tests / vérifications** : `./gradlew check assembleDebug` : vert (exit 0, Lint 0 erreur, 64 avertissements), APK `ToolMap-debug-0.4.56.apk` (le titre de cette entrée entre dans l'APK, d'où le nouveau correctif).
+- **Problèmes / dette technique** : pas de mesures chiffrées sur le téléphone (temps de redessin, batterie) ; à reprendre si un appareil plus lent montre des lenteurs. La CI GitHub ne démarre toujours pas (limite de dépense du compte).
+- **Prochaine étape recommandée** : P15.1 (build benchmark et mesures), puis P19.8 à P19.12 (V2 des itinéraires), à commencer par leurs aperçus.
+
+## 2026-10-23 — Session 50 — [P20.0][P20.1][P20.2][P20.3][P20.4][P20.5] Cartes selon l'altitude : bande par calque, Conditions d'affichage ET / OU, altitudes hors ligne
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : changer de carte selon l'altitude (ex. OpenTopoMap sous 1500 m, OpenSnowMap au-dessus), mesurer la faisabilité et le coût, garder les tuiles pour le hors ligne, régler le seuil en direct même hors ligne ; réglage placé avec la plage de zoom du calque, les deux combinés en ET / OU.
+- **Aperçu validé** : `docs/previews/p20-elevation.html` (aperçu rendu dans la conversation), réponse de l'utilisateur du **2026-10-23** : « Oui, je valide la variante A (panneau en bas, réglage en direct au relâcher, ET/OU), avec la ligne de carte et la ligne « Altitudes » au téléchargement. » Comparaison aperçu / émulateur : `docs/previews/p20-elevation-emulateur.html`.
+- **Réalisé** :
+  - **Masque par altitude** (P20.1, ADR-068, spec `docs/specs/elevation-maps.md`) :
+    - `:core` : `ElevationMask` (bande, zooms entiers de OU, requête d'URL `alt=min,max&whole=a,b`), `DemWindow` (tuile d'altitudes au zoom `min(z, 13)`), `MaskRaster` (altitudes mini / maxi sous une tuile, interpolation, opacité avec un pixel de fondu) ;
+    - `:data` : `BitmapElevationMasker` (altitudes décodées en cache, 64 tuiles ; découpe par écriture directe du canal alpha, un `DST_IN` restait sans effet sur les tuiles JPEG) ; `TileInterceptor.masked` : tuile hors bande = 404, toute dedans = tuile d'origine sans recodage, à cheval = PNG découpé, jamais stocké ;
+    - la bande voyage dans l'id de source du style (`StyleSources`, `opensnowmap?alt=1500,`) : une nouvelle bande est une nouvelle source MapLibre.
+  - **Modèle** (P20.2) : `LayerConfig.displayMinElevation` / `displayMaxElevation` / `rangeLogic` (ET par défaut), `LayerStack.setElevationRange`, `StackToStyle` (OU retire `minzoom` / `maxzoom`), `LayerElevation` ; favoris : `WorkspaceLayer` garde la bande et ET / OU (un favori enregistré avec une bande la perdait).
+  - **Panneau « Conditions d'affichage »** (P20.3, variante A) : menu ⋮ d'un calque de Cartes affichées, remplace « Plage de zoom » (dialogue `ZoomDialog` et `ZoomRangeBar` retirés) ; panneau non modal en bas de la carte (`MapsPage.CONDITIONS`, `DisplayConditionsPanel`), commandes du bas remontées de sa hauteur, Retour ou ✕ le ferment ; barres zoom 0-20 et altitude 0-4800 m par 50 m (`RangeBar` commun, `ZoomBar` prend un `max`, `ElevationBar`), appliquées au relâcher ; ET / OU et phrase d'explication ; repère « centre N m » (altitude du centre, 300 ms après le dernier déplacement). Ligne du calque : « Au-dessus de 1500 m · zooms 8 à 16 » (ET), « … ou zooms 8 à 16 » (OU). Espace insécable avant « m » dans les textes d'altitude (`cond_alt_*`, `cond_band_*`, repères de la barre) : la 0.4.54 coupait « 2000 / m » en fin de ligne dans la phrase OU (vu sur l'émulateur), corrigé en 0.4.55.
+  - **Sans écran blanc** (P20.4) : `BandSwap` (`:core`) et fantômes `tm-g-<id>` de `MapController` / `StyleApplier` : l'ancien dessin reste dessous jusqu'à ce que la carte redevienne immobile après une image ; mesuré avant : ≈ 0,5 s de carte vide à chaque seuil.
+  - **Hors ligne** (P20.5) : ligne « Altitudes (pour …) » dans « Sélectionner et enregistrer une zone » (`MapsViewModel.elevationRow`, `AreaRow.forMaps`, zooms par ligne) : cochée si une carte à bande l'est, zooms du plus bas des cartes à bande jusqu'à 13 (`ZoneRequest.zoomLimits["terrarium"]`), sans allonger le curseur.
+  - **Mode avion** : MapLibre ne demandait plus aucune tuile (il se croit hors réseau) : `MapLibre.setConnected(true)` dans `ToolMapApp.ensureMapLibre()`, toutes ses tuiles passant par l'intercepteur.
+  - **Mesures** : extras `perf.overlay`, `perf.altmin`, `perf.altmax`, `perf.logic` de `PerfIntent`, journal `ToolMapPerf` (`MapPerfLog`, lignes `mask` / `masked` de l'intercepteur) ; documentés dans `tools/perf/README.md` et `performance.md`.
+  - **Docs** : spec `elevation-maps.md` (nouvelle, ajoutée au tableau de `CLAUDE.md`), ADR-068, PLAN P20, `ui-index.md` (§2.3 T5, §5.2), aperçu validé `docs/previews/p20-elevation.html`.
+- **Décisions (ADR)** : ADR-068 (bande par calque, masque dans l'intercepteur, bande dans l'URL, ET / OU, fantômes, réglage au relâcher, altitudes hors ligne, `setConnected(true)`).
+- **Tests / vérifications** :
+  - Mesures sur l'émulateur « Medium_Phone » (APK benchmark 0.4.53, OpenTopoMap + SnowBase Map `OSMSNOWM` importée, bande au-dessus de 1500 m, Vanoise 45,60° N 6,75° E, zoom 10,5) : masque 3 à 6 ms par tuile, recodage PNG 37 à 100 ms ; redessin plein écran après un nouveau seuil 309 à 453 ms depuis le stockage, 2,6 à 3,1 s par le réseau ; démarrage à froid en mode avion 1 498 ms (172 tuiles du stockage, 0 réseau) ; seuil 1500 → 1300 m en mode avion : 343 ms. Conclusion : calcul léger, réglage en direct retenu.
+  - Tests ajoutés : `ElevationMaskTest` (9, `:core`), `BitmapElevationMaskerTest` (3, `:data`), `LayerElevationTest` (9), `BandSwapTest` (3), `ZoomBarTest` (+1, barre plus longue), `WorkspaceTest` (+1, bande d'un favori), `MapsViewModelTest` (+3 : ligne Altitudes et `zoomLimits`, ligne décochée, ouverture du panneau).
+  - `./gradlew spotlessApply :core:test :app:testDebugUnitTest --tests fr.toolmap.maps.MapsViewModelTest` : vert (exit 0).
+  - `./gradlew spotlessApply check assembleDebug` : vert en 0.4.54 (tests `:core` 831, `:data` 309, `:app` 262 dont 5 ignorés, `:p2p` 20 dont 2 ignorés, 0 échec ; Lint 0 erreur, 64 avertissements, +2 `Log` au lieu de Timber comme le reste de `MapController` et `MapPerfLog`), puis vert en **0.4.55** après la correction des espaces (exit 0, Lint 0 erreur, 64 avertissements) ; APK `app/build/outputs/apk/debug/ToolMap-debug-0.4.55.apk`.
+  - Vérification sur l'émulateur (APK debug 0.4.54, puis 0.4.55 pour la phrase OU), OpenTopoMap + SnowBase Map, 45,60° N 6,75° E :
+    - masque : SnowBase Map au-dessus de 1500 m, OpenTopoMap en dessous ;
+    - ligne du calque : « Au-dessus de 1500 m » ; ET : « Au-dessus de 2000 m · à partir du zoom 8 » ; OU : « Au-dessus de 2000 m ou à partir du zoom 8 » ;
+    - panneau : menu ⋮ ▸ « Conditions d'affichage » ; phrases ET (« Visible à tous les zooms, au-dessus de 1500 m seulement. »), OU sans plage (« Sans plage de zoom, OU revient à ET. »), OU à partir du zoom 8 (« Entière à partir du zoom 8 ; aux autres zooms, au-dessus de 2000 m seulement. », carte entière au zoom 13) ; repère « centre 922 m » ;
+    - sans écran blanc : captures prises juste après le relâcher (1500 → 2000 m) : ancien dessin, aucune image vide ;
+    - sélection de zone : ligne « Altitudes (pour SnowBase Map) 3-13 · 10 tuiles à télécharger · 1.3 Mo · 19 déjà stockées », cochée ; enregistrement 40 / 40 tuiles, 0 erreur ;
+    - mode avion (0.4.54) : démarrage à froid 1 588 ms, 172 tuiles du stockage, 0 réseau ; seuil 1500 → 1300 m redessiné en 362 ms (57 tuiles du stockage, 0 réseau, 0 échec) ; mode avion retiré ensuite ;
+    - captures à côté de l'aperçu validé : `docs/previews/p20-elevation-emulateur.html`, soumises à l'utilisateur avant le commit (sa demande du 2026-10-23) ; validées le **2026-10-23** : « Oui, les captures sont validées : committe et pousse la P20. »
+- **Problèmes / dette technique** :
+  - Le recodage PNG est le poste lourd ; un téléphone est plus lent que l'émulateur : à mesurer sur le téléphone (P20.6) ; pistes : WebP sans perte, cache des tuiles découpées.
+  - Limite juste à un demi-pixel d'altitudes près (≈ 7 m au zoom 13), pixels de bord répétés le long des coutures des tuiles d'altitudes ; OU change de dessin au zoom de tuile entier.
+  - Hors ligne sans altitudes stockées, un calque à bande n'affiche rien ; le formulaire « Nouveau téléchargement » n'ajoute pas les altitudes d'office (seule la sélection de zone le fait).
+  - OpenSnowMap n'est pas dans le catalogue fourni (à importer en `.aqx`).
+  - Écarts avec l'aperçu, mineurs et liés à des cas non dessinés : ligne OU « … ou zooms 8 à 16 », bande de zooms de la ligne Altitudes comme les autres lignes, phrases des cas limites (« Sans plage de zoom, OU revient à ET. »), la barre de zoom s'applique aussi au relâcher ; plage ouverte écrite « à partir du zoom 8 » ; sans plage de zoom, pas de « Réinitialiser » à côté de « Tous les zooms », le résumé se place donc juste sous « Zoom ».
+- **Prochaine étape recommandée** : P20.6 (mesures sur le téléphone de l'utilisateur, avec l'APK de cette session) ; puis P15.1 (build benchmark et mesures), et P19.8 à P19.12 (V2 des itinéraires), à commencer par leurs aperçus.
+
+## 2026-10-22 — Session 49 (suite) — [P14.11] Petits défauts visibles corrigés : date des noms en français, dossiers gardés ouverts, bande sous la barre, cases à cocher, libellés des activités, ligne Points
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : coder fidèlement les six points de l'aperçu `docs/previews/p14-defauts.html` validés par l'utilisateur le 2026-10-22, puis comparer l'application sur l'émulateur à l'aperçu validé.
+- **Aperçu validé** : `docs/previews/p14-defauts.html` (Artifact https://claude.ai/artifact/MgtXTzYKwqXr8hWsepSenQ), réponse de l'utilisateur du **2026-10-22** : « 1 A, 2 oui, 3 oui, 4 oui, 5 A, 6 oui ». Comparaison aperçu / émulateur : `docs/previews/p14-defauts-emulateur.html` (Artifact https://claude.ai/artifact/TcpUAW3f9y4VZCrVXrV5BN), captures du 2026-10-22.
+- **Réalisé** :
+  - **1, date des noms par défaut** (variante A) : nouveau `NameDates` (`:core`, `d MMM yyyy 'à' HH:mm` en `Locale.FRENCH`, fuseau du téléphone) : « 22 oct. 2026 à 17:02 » quelle que soit la langue du téléphone. Utilisé pour « Zone du … » (formulaire de téléchargement et sélection de zone), « Sortie du … » (dialogue de l'enregistreur), « Tracé du … » et « Itinéraire du … » (dessin), « Mesure du … », et les lignes Début et Fin du détail d'une trace. Le nom de secours de l'enregistreur (démarrage sans nom, ex. depuis le service) n'est plus « 2026-10-22 17:02 » mais « Sortie du 22 oct. 2026 à 17:02 » (`RecordingController.defaultName`, fourni par `RecordingModule`). Les noms existants ne changent pas.
+  - **2, dossiers** : les dossiers ouverts et la position de la liste vivent dans `TracksViewModel` (`expandedFolders`, `toggleFolder`, `expandFolder`, `libraryScroll`) au lieu d'un `remember` de l'écran : gardés au retour d'un détail et quand on ferme puis rouvre l'explorateur, tant que l'application tourne ; tout est replié au lancement suivant.
+  - **3, bande vide sous la barre du haut** : `padding(padding).consumeWindowInsets(padding).safeDrawingPadding()` dans Traces et waypoints, le détail d'une trace et Cartes hors ligne : la barre d'état n'est plus comptée deux fois (la bande en trop en bas disparaît aussi) ; découpes d'écran et clavier toujours pris en compte.
+  - **4, cases à cocher** : nouveau `ui/CheckRow` (`toggleable` sur toute la ligne, rôle « case à cocher », effet d'appui sur toute la ligne, case de 48 dp gardée pour que rien ne bouge) aux six endroits : cartes de Nouveau téléchargement et « Respecter les plages de zoom des calques », cartes de « Sélectionner et enregistrer une zone », import .aqx (case grisée pour une carte non prise en charge), Pointillés et Flèches de sens du style d'une trace, « Ajouter la carte à la carte affichée » et « Sans mes clés d'API » de l'éditeur de carte.
+  - **5, grille « Quelle activité ? »** (variante A) : libellés sur deux lignes au plus, 4 colonnes gardées, et césure activée (`Hyphens.Auto`) : sans elle, Android ne coupe jamais après un trait d'union et la 0.4.49 affichait « Pousse-pous / se » ; la 0.4.50 affiche « Pousse- / pousse » comme l'aperçu.
+  - **6, ligne Points** : `tracks_points_segments` devient un pluriel : « 358 · 1 segment », « 3 segments ».
+  - **Docs** : `ui-index.md` (§6.1, §6.2, §9, §10.3), `PLAN.md` (P14.11).
+- **Décisions (ADR)** : aucune (corrections d'interface dans le cadre existant).
+- **Tests / vérifications** :
+  - Tests ajoutés : `NameDatesTest` (3, nouveau : format, langue du téléphone sans effet, fuseau), `TracksViewModelTest` (+1 : dossiers ouverts et position gardés par le view model, rien au lancement suivant).
+  - `./gradlew spotlessApply check` vert du premier coup : `:core` 808 tests, `:data` 306, `:app` 259 (5 ignorés), `:p2p` 20 (2 ignorés), 0 échec ; lint : 0 erreur, 62 avertissements (inchangé).
+  - `./gradlew spotlessApply check assembleDebug` vert en 63 s (ToolMap 0.4.49), puis `spotlessApply :app:assembleDebug` après la césure (ToolMap 0.4.50). Build final du 2026-10-23 : `./gradlew spotlessApply check assembleDebug` vert (exit 0) : `:core` 808 tests, `:data` 306, `:app` 259 (5 ignorés), `:p2p` 20 (2 ignorés), 0 échec ; version 0.4.50 inchangée.
+  - Émulateur « Medium_Phone », application en français (0.4.49 puis 0.4.50 pour la grille) : explorateur, détail et Cartes hors ligne sans bande vide (puces de l'explorateur remontées de 63 px) ; dossier « korita-zbevnica » ouvert, détail de « 03-OCT-10 #2 » puis Fermer : toujours ouvert ; explorateur fermé puis rouvert : toujours ouvert ; après réinstallation (nouveau lancement) : replié ; « Zone du 22 oct. 2026 à 17:35 » (Télécharger autour de la trace ACTIVE LOG) ; Début « 3 oct. 2010 à 09:36 », Fin « 3 oct. 2010 à 10:52 », Points « 176 · 1 segment » et « 358 · 1 segment » ; deux enregistrements courts : « Sortie du 22 oct. 2026 à 17:36 » et « à 17:39 », l'ancien nom « Sortie du 22 oct. 2026 17:02 » inchangé ; application passée en anglais (`cmd locale set-app-locales fr.toolmap --locales en-US`) : toujours « Sortie du 22 oct. 2026 à 17:40 », puis remise en français ; appui à droite du nom « OpenTopoMap » : cochée (58 puis 116 tuiles), effet d'appui sur toute la ligne pendant un appui long ; Pointillés et Flèches de sens cochés par leur nom (dialogue annulé) ; grille des activités sans « … ».
+- **Problèmes / dette technique** :
+  - Les impressions (`PrintViewModel`) gardent leur propre format de date, hors du périmètre de l'aperçu.
+  - Non vus sur l'émulateur (même code, couvert par le composant ou la fonction communs) : noms « Tracé du », « Itinéraire du », « Mesure du » ; cases de la sélection de zone, de l'import .aqx et de la dernière étape de l'éditeur de carte ; position de défilement gardée (la liste d'essai tient sur l'écran ; test `TracksViewModelTest`).
+  - Avec la césure activée, un libellé trop long pour sa colonne pourrait être coupé par un tiret ajouté ; aucun ne l'est aujourd'hui.
+- **Prochaine étape recommandée** : P15.1 (build benchmark et mesures sur l'émulateur) ; en parallèle, P19.8 à P19.12 (V2 des itinéraires), à commencer par leurs aperçus.
+
+## 2026-10-21 — Session 49 — [P4.3][P14.2][P14.3][P14.4][P14.6][P14.7][P16.7] Fonctions P14 validées : certificats, catalogue des cartes, aide, mode nuit, atlas d'une trace, explorateur, icônes
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : coder les 13 décisions que l'utilisateur a validées le 2026-10-20 sur les aperçus de `docs/previews/p14-fonctions.html` (P14.2 à P14.7, P16.7), fidèlement aux maquettes, puis comparer l'application sur l'émulateur aux maquettes validées.
+- **Aperçu validé** : `docs/previews/p14-fonctions.html` (Artifact https://claude.ai/artifact/S8KNNWfr8Uuww2BppNUthB), réponses de l'utilisateur du **2026-10-20** : « 1 inchangé, 2 C, 3 oui, 4 B, 5 inchangé, 6 oui, 7 A, 8 oui, 9 oui, 10 B, 11 oui, 12 inchangé, 13 oui ». Comparaison maquette / émulateur : `docs/previews/p14-fonctions-emulateur.html` (Artifact https://claude.ai/artifact/RdEAnLHQ15JXqmvvXKHpnA), 16 captures du 2026-10-21.
+- **Réalisé** :
+  - **S2, certificats** (décision 2, variante C ; ADR-066) :
+    - `network_security_config.xml` : trafic en clair toujours permis, autorités du système **et de l'utilisateur** ;
+    - interrupteur « Accepter un certificat HTTPS invalide » retiré de l'assistant, `DraftIssue.INSECURE_TLS` supprimé ; `insecure` d'un `.aqx` importé gardé pour l'export, jamais appliqué ;
+    - `TileProbe` : nouveau verdict `CERTIFICATE_REJECTED`, message « Certificat du serveur refusé » avec la marche à suivre.
+  - **F3, F4, F5, catalogue des cartes** (décision 3 ; ADR-067) :
+    - champ « Rechercher une carte » (nom et groupe, sans casse ni accents) ;
+    - menu ⋮ : Télécharger une zone… (cette seule carte cochée), Vider les tuiles stockées (si la carte en a), Exporter en .aqx… (clés d'une carte ajoutée retirées), Masquer de la liste (carte fournie) ou Supprimer (carte importée) ;
+    - puce « N cartes masquées · Afficher », carte grisée « Masquée » et « Remettre dans la liste » ; liste dans `AppSettings.hiddenMaps` ; une carte masquée de la pile est ignorée sur la carte.
+  - **R5 / F11, aide** (décision 4, variante B) : les « ? » de Cartes et calques, Traces et waypoints et Positionnement ouvrent « Aide et à propos » défilée à leur section, surlignée 1,6 s puis estompée ; nouvelle section « Positionnement ».
+  - **F6, boîte Position** (décision 6) : menu Copier les coordonnées · Partager cette position · Format suivant (DD, DM, DMS, UTM, MGRS, Lambert 93).
+  - **F8, fiche** (décision 7, variante A) : deuxième rangée en 4 tuiles Partager · Exporter · Masquer · Supprimer ; Exporter écrit le GPX par le sélecteur de fichiers.
+  - **F9, imprimer le long d'une trace** (décision 8 ; ADR-067) : bouton du détail d'une trace ; mêmes questions que l'impression, puis pages numérotées le long de la trace (10 % de recouvrement), panneau « N pages le long de la trace », PDF d'une page par cadre sans page d'assemblage (`PrintPlan`), carte cadrée sur l'ensemble (`PrintViewport.fit`).
+  - **F10, surface mesurée** (décision 9) : « Télécharger cette zone… » en mode Surface dès 3 points, ouvre « Nouveau téléchargement » avec le polygone.
+  - **F14, mode nuit** (décision 10, variante B ; ADR-067) : interrupteur « Mode nuit » dans le menu principal, intensité dans Réglages ▸ Affichage (20 à 90 %, défaut 60 %) ; `StackToStyle` baisse la luminosité des cartes raster.
+  - **F7, explorateur** (décision 11 ; ADR-067) : puces de tri (Date, Nom, Distance) et de filtre (Tout, Traces, Itinéraires, Waypoints) gardées d'une ouverture à l'autre, recherche par nom (liste à plat), sélection multiple par appui long (afficher / masquer, déplacer, exporter en un GPX, supprimer avec confirmation) ; logique pure dans `LibraryOrder` (`:core`).
+  - **P16.7, icônes** (décision 13) : enregistreur (trace et épingle, rouge pendant l'enregistrement) et bouton Cartes de la barre du bas (carte pliée).
+  - **Gardés tels quels** à la demande de l'utilisateur : G1 (libellé « Couleur par défaut »), F15 (pas de bloc des services en cours), F12 (la confirmation de suppression reste).
+  - **Docs** : `ui-index.md` (toutes les lignes touchées, §9), `ui-reorganization.md` (§0, lots 2 à 4, réponses en §6), `aqx-format.md` (`insecure`), `print-pdf.md` (§1, §5), `PLAN.md` (statuts, point du 2026-10-21).
+  - **Suite du 2026-10-22, aperçu des petits défauts** (P14.11, nouvelle ligne de `PLAN.md` ; demande de l'utilisateur : « Oui, prépare l'aperçu des petits défauts relevés ») : `docs/previews/p14-defauts.html` (Artifact https://claude.ai/artifact/MgtXTzYKwqXr8hWsepSenQ), actuel (captures de l'émulateur, ToolMap 0.4.48) à côté du proposé (capture retouchée ou maquette). **Aucun code touché, en attente de validation.** Six points :
+    1. date des noms par défaut (« Zone du », « Sortie du », « Tracé du », « Itinéraire du », « Mesure du », lignes Début et Fin du détail) : elle suit la langue du téléphone (`DateFormat.getDateTimeInstance`, styles différents selon l'écran, ISO pour le nom de secours de l'enregistreur) ; proposé un seul format français, variante A « 22 oct. 2026 à 17:02 » (recommandée) ou B « 22/10/2026 17:02 » ;
+    2. dossiers repliés au retour d'un détail (état déplié gardé par `remember` dans `TracksScreen`) ; proposé : liste et dossiers ouverts gardés tant que l'application tourne ;
+    3. bande vide de 24 dp sous la barre du haut : `padding(padding).safeDrawingPadding()` compte deux fois la barre d'état (63 px mesurés par `dumpsys window`) dans Traces et waypoints, le détail d'une trace et Cartes hors ligne ; proposé montré par les captures dont on a retiré ces 63 px ;
+    4. case à cocher : **non reproduit dans Réglages** (un appui sur le titre « Demander l'activité » coche la case, toute la ligne est cliquable), mais réel ailleurs, où seule la case réagit : cartes de Nouveau téléchargement et « Respecter les plages de zoom des calques », cartes de « Sélectionner et enregistrer une zone », import .aqx, Pointillés et Flèches de sens du style, deux cases de la dernière étape de l'éditeur de carte ; proposé : toute la ligne réagit ;
+    5. libellés coupés de « Quelle activité ? » (`maxLines = 1`, 4 colonnes de 68 dp) : variante A deux lignes (recommandée) ou B trois colonnes (la grille défile) ; maquettes faites avec les icônes découpées dans la capture, texte réduit de 5 % pour égaler la largeur mesurée sur Android ;
+    6. trouvé en préparant l'aperçu : « Points : Points : 358 · segments : 1 » dans le détail d'une trace ; proposé « Points 358 · 1 segment ».
+- **Décisions (ADR)** : ADR-066 (autorités installées par l'utilisateur au lieu de `insecure`) ; ADR-067 (cartes fournies masquées dans les réglages, mode nuit par la luminosité raster, atlas le long d'une trace sans page d'assemblage, tri et filtre gardés dans les réglages).
+- **Tests / vérifications** :
+  - Tests ajoutés : `LibraryOrderTest` (6, nouveau), `MapCatalogTest` (+3 : carte masquée, carte de l'utilisateur jamais masquée, recherche), `MapsViewModelTest` (+2), `TracksViewModelTest` (+1 : tri et filtre gardés), `RasterAdjustTest` (+1 : mode nuit, carte inversée ou non), `PrintPlannerTest` (pas de page d'assemblage le long d'une trace), `PrintViewportTest` (+1 : les pages tiennent dans la place libre), `AppSettingsTest` (intensité du mode nuit), `TileProbeTest` (+2 : certificat refusé), `SourceDraftTest` (seul l'avertissement « en clair » reste) ; `RouteSheetTest` mis à jour (`onExport`).
+  - Pendant le travail : `./gradlew :core:test`, `:data:testDebugUnitTest` et `:app:testDebugUnitTest` ciblés, verts après corrections (nom de chaîne en double, KDoc orphelin, imports manquants, `onExport` manquant dans `RouteSheetTest`).
+  - Émulateur « Medium_Phone » (APK debug 0.4.46) : chaque décision vue et capturée (16 captures, page de comparaison ci-dessus) ; formats de la boîte Position vérifiés un par un ; enregistrement démarré puis arrêté pour l'icône rouge ; export GPX jusqu'au sélecteur de fichiers ; « Imprimer le long » sur une trace de 2,7 km et une boucle de 8,6 km (9 pages en A4 paysage au 1:10 000) ; téléchargement d'une surface de 3 points jusqu'au formulaire ; mode nuit allumé puis éteint ; carte IGN Plan v2 masquée puis remise.
+  - `./gradlew spotlessApply check assembleDebug` : deux passages rouges, corrigés :
+    - `TracksFoldersScreenTest` attendait l'ancien sous-titre « Éléments : 0 » ; il cherche maintenant « Dossier · 0 élément » en sous-chaîne (Robolectric tourne en anglais, où 0 prend le pluriel : « 0 éléments ») ;
+    - lint `NonObservableLocale` (erreur) : `Locale.getDefault()` lu dans le panneau « N pages le long de la trace » (`PrintOverlay.kt`) ; le recouvrement s'écrit maintenant en entier, sans lire la langue.
+  - Puis vert en 1 min 14 s (ToolMap 0.4.48) : `:core` 805 tests, `:data` 306, `:app` 258 (5 ignorés), `:p2p` 20 (2 ignorés), 0 échec ; lint : 0 erreur, 62 avertissements (dont `AcceptsUserCertificates`, voulu, ADR-066).
+  - Suite du 2026-10-22 (aperçu P14.11) : captures sur l'émulateur avec ToolMap 0.4.48, langue de l'application passée en français (`cmd locale set-app-locales fr.toolmap --locales fr-FR`) pour comparer les noms ; enregistrement court lancé et arrêté dans chaque langue ; ouverture d'un détail depuis un dossier ouvert puis Fermer ; appui sur le titre « Demander l'activité » ; insets lus par `dumpsys window` (barre d'état 63 px, barre de navigation 63 px) et `uiautomator dump` (puces de l'explorateur à y = 294, barre du haut finie à 231). Page vérifiée dans le navigateur intégré (largeurs des libellés mesurées : 5 % plus larges que sur Android, corrigé), puis publiée.
+  - Build de fin de la suite du 2026-10-22 : `./gradlew spotlessApply check assembleDebug` vert en 5 s (aucune source changée, tâches à jour ; la version reste 0.4.48).
+- **Problèmes / dette technique** :
+  - Sur une boucle, les pages de « Imprimer le long » se recouvrent beaucoup (elles suivent la trace dans l'ordre) ; une page peut couvrir deux passages.
+  - Le menu ⋮ d'une carte s'ouvre vers le haut quand la place manque (comportement d'Android) ; le menu de la boîte Position reste ouvert après « Format suivant » (voulu, pour enchaîner).
+  - Constats antérieurs vus pendant les captures, non corrigés (visibles, à mettre dans un prochain aperçu) : noms par défaut des zones et des traces au format de date de la langue du téléphone (« Zone du 10/21/26 5:47 PM » sur l'émulateur anglais) ; l'état déplié d'un dossier se perd après l'ouverture d'un détail ; grand espace sous la barre du haut de l'explorateur.
+  - Écarts mineurs à la maquette F7 : la ligne d'un dossier garde son chevron et sa case de visibilité ; les sous-titres n'ont plus ↑, ↓ ni le nombre de points (comme la maquette).
+  - Le mode nuit n'assombrit pas les cartes vectorielles (aucune n'est fournie aujourd'hui).
+  - À voir sur téléphone : un serveur signé par une autorité installée par l'utilisateur ; le déplacement vers une carte SD (P14.2) ; l'impression d'un atlas réel à 100 %.
+- **Prochaine étape recommandée** : un aperçu des petits défauts visibles relevés (date des noms par défaut en français, dossier qui se replie, espace sous la barre de l'explorateur, case des Réglages au titre, libellés coupés de la grille des activités), puis P15.1 (build benchmark et mesures sur l'émulateur) ; en parallèle, P19.8 à P19.12 (V2 des itinéraires), à commencer par leurs aperçus. Mise à jour du 2026-10-22 : l'aperçu est fait (`p14-defauts.html`) ; attendre la réponse de l'utilisateur (1 A ou B, 2, 3, 4, 5 A ou B, 6), coder P14.11 fidèlement, comparer sur l'émulateur, puis P15.1.
+
+## 2026-10-20 — Session 48 — [P14.4][P15.3][P16.6][P14.2–P14.7][P16.7] Favoris masqués dans la sauvegarde, plafond OSM, icônes vérifiées, aperçus à valider
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : à la demande de l'utilisateur (« Check PLAN.md and complet what need to be done »), avancer les tâches restantes du plan : corriger les dettes sans effet visible, vérifier P16.6, et préparer les aperçus de tout ce qui change l'interface (P14.2 à P14.7, P16.7), puisque ce code attend un « oui » de l'utilisateur.
+- **Réalisé** :
+  - **Favoris fournis supprimés dans la sauvegarde** (P14.4, `[F2]`, question 3 de `ui-reorganization.md` §7.4) :
+    - `BackupPaths.areaOf` range `workspaces/hidden-builtins.txt` dans la rubrique `workspaces` ;
+    - le nom du fichier est une seule constante, `BackupPaths.HIDDEN_BUILTINS_FILE`, que `WorkspaceStore` réutilise ;
+    - fait selon la recommandation du document (sans effet visible). Une sauvegarde plus ancienne, restaurée, fait revenir les favoris fournis comme avant (`backup-format.md` §6).
+  - **Plafond des 1 500 tuiles** (P15.3, `BulkPolicy` : OSM, OSM France, OpenTopoMap) : il compte les tuiles à télécharger, plus celles déjà stockées.
+    - `ZonePlan.storedPerMember` donne les tuiles présentes par carte ;
+    - `ZoneDownloader.run` ne les compte que si une carte limitée dépasserait le plafond ;
+    - une zone reprise, élargie ou retéléchargée n'est plus refusée pour des tuiles qui ne demandent rien au serveur. Le serveur ne reçoit toujours pas plus de 1 500 demandes par zone (`performance.md` §4).
+  - **P16.6 vérifié** :
+    - planche des icônes tirée des drawables de l'application (script de la session, à partir de `tools/icons/catalog.txt`) : 313 icônes de waypoint et 33 d'activité, aucun fichier manquant ni vide ;
+    - grille « Quelle activité ? » vue sur l'émulateur : 4 colonnes, 33 icônes nettes.
+  - **Aperçus à valider** : `docs/previews/p14-fonctions.html` (page autonome, captures de l'émulateur en JPEG intégrées), publiée aussi en Artifact privé : https://claude.ai/artifact/S8KNNWfr8Uuww2BppNUthB. Pour chaque point : l'état actuel (capture) et la proposition (maquette), avec des variantes quand un choix se pose. **13 décisions** :
+    1. `[G1]` : libellé seul (A) ou « Couleur des nouvelles traces », appliquée à toutes les traces nouvelles (B, recommandé) ;
+    2. `[S2]` : appliquer `insecure` (A, risque pour Google Play), retirer l'interrupteur (B), ou le retirer et faire confiance aux certificats installés par l'utilisateur, avec un message « Certificat du serveur refusé » à l'étape de test (C, recommandé) ;
+    3. F3 / F4 / F5 : champ de recherche du catalogue ; menu ⋮ d'une carte avec « Télécharger une zone… », « Vider les tuiles stockées », « Exporter en .aqx… », « Masquer de la liste » ; puce « 2 cartes masquées · Afficher » et « Remettre dans la liste » ;
+    4. R5 / F11 : courte aide par panneau avec un lien « Toute l'aide et à propos › » (A, recommandé), ou grande page ouverte à la section du panneau (B) ;
+    5. F15 : bloc « EN COURS » en haut de Positionnement (téléchargement, alerte de proximité, suivi de trace), chacun avec « Arrêter » ;
+    6. F6 : appui sur la case Position : Copier les coordonnées, Partager cette position, Format suivant ;
+    7. F8 : deuxième rangée de la fiche en 4 tuiles Partager · Exporter · Masquer · Supprimer (A, recommandé), ou Partager qui ouvre un choix (B) ;
+    8. F9 : « Imprimer le long de cette trace… » : cadres enchaînés le long de la trace, 10 % de recouvrement ;
+    9. F10 : « Télécharger cette zone… » en mode Surface de la mesure, dès 3 points ;
+    10. F14 : filtre de nuit dans Réglages ▸ Affichage seulement (A), ou interrupteur dans le menu principal et intensité dans les réglages (B, recommandé) ;
+    11. F7 : puces Date↓ / Tout / Traces / Itinéraires / Waypoints, recherche, menu de tri ; sélection multiple par appui long (afficher, déplacer, exporter, supprimer) ;
+    12. F12 : suppression sans confirmation et « ANNULER » 5 s (A, recommandé), ou confirmation puis « ANNULER » (B) ;
+    13. P16.7 : 2 icônes à reconstruire, Enregistreur (point → trace et repère, rouge pendant l'enregistrement) et Cartes de la barre du bas (calques → carte) ; l'imprimante d'« Imprimer » est gardée ; les 11 autres correspondent au relevé.
+  - **Aucun code d'interface** n'a été touché (ni Compose, ni `strings.xml`, ni `res/`) : tout attend la validation (règle UI/UX de `CLAUDE.md`).
+  - **Émulateur** remis dans son état : réglage « demander l'activité » remis comme avant après la capture de la grille, enregistrement annulé, assistant d'ajout de carte annulé sans rien créer.
+- **Décisions (ADR)** : aucune. Les deux corrections précisent ADR-052 (favoris fournis) et ADR-015 point 3 (`BulkPolicy`) sans les contredire ; specs mises à jour : `backup-format.md` §2 et §6, `performance.md` §4, `ui-reorganization.md` §0, §7.1 et §7.4.
+- **Tests / vérifications** :
+  - `BackupModelTest` : `workspaces/hidden-builtins.txt` est dans `workspaces`, le même nom ailleurs n'entre pas ; `BackupServiceTest` : le fichier est sauvegardé (manifeste à 9 entrées) et restauré à l'identique.
+  - `ZoneDownloaderTest` : nouveau test « tiles already stored do not count against a community server's limit ».
+  - `./gradlew :core:test :data:testDebugUnitTest` ciblés (sauvegarde, téléchargement) : un premier passage rouge (compte du manifeste attendu à 8, corrigé à 9), puis vert.
+  - Planche des icônes : `node sheet.mjs` → « icons 313, activities 33, problems 0 ».
+  - `./gradlew spotlessApply check assembleDebug` : vert en 1 min 15 s (ToolMap 0.4.45) ; `ZoneDownloaderTest` 21/21, `BackupServiceTest` 17/17, `BackupModelTest` 8/8 dans ce build.
+- **Problèmes / dette technique** (constats sur l'émulateur, non corrigés car visibles, à mettre dans un prochain aperçu) :
+  - Réglages : un appui sur le titre d'une ligne ne coche pas sa case, seul l'appui sur la case le fait.
+  - Le nom par défaut d'un itinéraire prend le format de date de la langue du téléphone (anglais sur l'émulateur) : à vérifier en français sur le téléphone.
+  - Grille des activités : « Course à pied », « Pousse-pousse » et « Ski de randonnée » coupés par « … ».
+  - CI GitHub toujours bloquée par la facturation (depuis le 2026-10-16).
+- **Prochaine étape recommandée** : l'utilisateur répond aux 13 décisions de `docs/previews/p14-fonctions.html` (ex. « 1 B, 2 C, 3 oui… ») ; coder alors les points validés, dans l'ordre B de `ui-reorganization.md` §7.3. En attendant : P19.8 à P19.12 (V2 des itinéraires), à commencer par leurs aperçus.
+
+## 2026-10-20 — Session 47 — [P19.6] Altitudes Terrarium des tronçons tracés à la main
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : donner des altitudes aux tronçons d'itinéraire tracés à la main, à partir des tuiles Terrarium, pour que le bandeau « km · ↑ · ↓ · durée », la fiche et le profil altimétrique comptent aussi ces tronçons.
+- **Réalisé** :
+  - **`HandLegElevations`** (`:core`, spec `routing.md` §5.6 mise à jour) :
+    - un tronçon à la main (ligne droite par choix, ou faute de données BRouter) reçoit les altitudes Terrarium par le même client de tuiles que la carte et que la complétion des traces (P5.5) ;
+    - dans un itinéraire qui suit les chemins, il est échantillonné tous les 30 m le long de sa ligne (droite sur la carte, au plus 500 points), pour qu'une crête entre deux étapes compte ; ces points sont enregistrés avec le plan (`n` du `tm:leg`) ;
+    - un itinéraire entièrement à la main n'a d'altitude qu'à ses étapes, puisqu'il est enregistré par ses seules étapes (ADR-065) : les chiffres de l'éditeur restent ceux de la fiche. À l'enregistrement, `RoutePlanGpx.stopPoints` garde ses étapes seules ;
+    - une tuile qui manque : pas d'altitude du tout pour ce tronçon, et pas de nouvelle demande avant la prochaine ouverture de l'éditeur ;
+    - les altitudes trouvées sont gardées par les extrémités du tronçon (aussi dans l'autre sens) : Annuler / Rétablir, Inverser et Aller-retour ne redemandent rien.
+  - **`DrawViewModel`** : après chaque changement, les tronçons à la main qui en manquent sont demandés en un seul appel à `ElevationCompleter` (chaque tuile lue une fois), puis le panneau est republié. `RoutePlanEditor.applyElevations` les pose sans créer d'étape d'annulation, et sans que l'itinéraire ouvert passe « modifié ».
+  - **Aucun changement visible** hors des chiffres (bandeau, fiche) et du profil altimétrique.
+  - **Émulateur** : BRouter 1.7.9 et `E5_N45.rd5` avaient disparu de l'émulateur. Ils ont été réinstallés depuis les fichiers déjà vérifiés de la session 46, sans nouveau téléchargement.
+- **Décisions (ADR)** : aucune (précision de la spec §5.6 ; ADR-065 inchangé).
+- **Tests / vérifications** :
+  - `HandLegElevationsTest` (`:core`, 9 tests) :
+    - échantillons droits sur la carte, au plus 30 m, 500 points au plus ;
+    - une crête comptée dans ↑ et ↓ ;
+    - aller-retour GPX du plan échantillonné ;
+    - itinéraire tout à la main limité à ses étapes ;
+    - tronçons routés ou en calcul laissés à BRouter ;
+    - tronçon inversé déjà connu ;
+    - tuile manquante : pas d'altitude, pas de nouvelle demande ;
+    - pas d'étape d'annulation.
+  - `DrawViewModelTest` (Robolectric, 3 tests de plus, 13 au total) :
+    - un itinéraire à la main est enregistré par ses 2 étapes, à l'altitude de la tuile (812 m) ;
+    - un itinéraire ouvert reçoit les altitudes sans passer « modifié » ni pouvoir être annulé ;
+    - hors ligne, il n'a pas d'altitude.
+  - `./gradlew spotlessApply :core:test --tests "fr.toolmap.core.route.*"` et `:app:testDebugUnitTest --tests "fr.toolmap.draw.*" --tests "fr.toolmap.tracks.RouteSheetTest"` : vert.
+  - `./gradlew check assembleDebug` : vert (ToolMap 0.4.44).
+  - **Émulateur « Medium_Phone »** (ToolMap 0.4.44, position simulée) :
+    - A (45,000° N, 6,08° E) → B (45,015° N) : routé, « 1.67 km · ↑ 563 m · ↓ 42 m · 2 h 10 » ;
+    - C à 44,92° N, hors de la case : message « Pas de données BRouter ici : tronçon tracé à la main. » et pointillés « à la main ». Le bandeau compte maintenant ce tronçon : « 11.9 km · ↑ 3026 m · ↓ 1882 m · 15 h 20 » ;
+    - le profil altimétrique couvre tout l'itinéraire (« De 860 m à 2983 m »). La ligne droite passe près des cotes 2933 et 2840 de la carte IGN ;
+    - enregistré : 398 points. La fiche affiche « 11.9 km · ↑ 3026 m · ↓ 1882 m · 15 h 20 · Randonnée » ;
+    - « Modifier le tracé » rouvre les mêmes chiffres, et « Quitter » ferme sans rien demander : l'itinéraire n'est pas marqué modifié.
+- **Problèmes / dette technique** :
+  - Un tronçon à la main très accidenté donne beaucoup de dénivelé, comme une trace qui couperait tout droit : c'est le terrain sous la ligne, ce n'est pas un chemin.
+  - Après un échec (hors ligne), les altitudes ne sont redemandées qu'à la prochaine ouverture de l'éditeur.
+  - CI GitHub toujours bloquée par la facturation (depuis le 2026-10-16).
+- **Prochaine étape recommandée** : essayer l'APK sur le téléphone avec BRouter et ses cases (« Depuis ma position », « Recalculer » quand les données arrivent, itinéraire importé de plus de 30 points), puis la première tâche ⬜ non bloquée de PLAN.md.
+
+## 2026-10-18 — Session 46 (fin) — [P19.4][P19.5][P19.7] Parcours complet avec BRouter : boucle à « A » seul
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : avec l'accord de l'utilisateur (« Oui, télécharge E5_N45.rd5 dans BRouter sur l'émulateur et termine P19.7 »), faire le parcours réel de la spec §10 sur l'émulateur et comparer aux maquettes validées.
+- **Réalisé** :
+  - **Données** : `E5_N45.rd5` (252 617 132 octets, brouter.de) placé dans `segments4` de BRouter sur l'émulateur ; la case couvre 45–50° N et 5–10° E (Chartreuse, Belledonne, Allevard).
+  - **Parcours sur l'émulateur, avec BRouter** (ToolMap 0.4.41 puis 0.4.42) :
+    - tronçons routés le long des chemins, bandeau « km · ↑ · ↓ · durée » et « n étapes » ;
+    - « Insérer ici » sur le tracé (déviation), « Déplacer ici » (tronçons voisins recalculés), « Supprimer l'étape » ;
+    - Outils : « Boucler vers le départ » (11.0 km, ↑ 537 m = ↓ 537 m), « Aller-retour » (12.9 km, ↑ 611 m = ↓ 611 m, 5 étapes), « Inverser le sens » (↑ 186 / ↓ 425 devient ↑ 425 / ↓ 187, durée recalculée) ;
+    - volet Étapes et menu ⋮ conformes à l'écran 3 ; « Tronçon suivant en ligne droite » donne des pointillés « à la main » et le sous-titre « tronçon suivant à la main » ;
+    - profil altimétrique à la demande (462 → 781 m, pentes en couleur) ;
+    - enregistrement d'une boucle, fiche conforme à l'écran 6 (« 11.0 km · ↑ 537 m · ↓ 537 m · 4 h 14 · Randonnée », tuiles 3 + 3), « Modifier le tracé » rouvre les 4 étapes sans recalcul ;
+    - interrupteur éteint : le panneau redevient celui d'aujourd'hui (« Main levée »), comme l'annonce l'écran 2 ; rallumé, le plan revient ;
+    - **hors de la case** (B vers 44,92° N), réglage par défaut : message de l'écran 5 « Pas de données BRouter ici : tronçon tracé à la main. » avec « Tout dessiner à la main » et « Ouvrir BRouter », tronçon en pointillés « à la main », interrupteur allumé ; B ramené dans la case par « Déplacer ici » : le tronçon est de nouveau routé ;
+    - **autre réglage** « Passer tout l'itinéraire en dessin à la main » (écran 7, à sa place après « Style des traces ») : « Dessin à la main activé : pas de données BRouter ici. » avec « Ouvrir BRouter » seul, l'interrupteur s'éteint. Réglage remis par défaut ensuite.
+  - **Corrections** :
+    - bandeau : le profil n'apparaît plus sur sa deuxième ligne (variante A validée : la puce du panneau le montre déjà) ;
+    - boucle : les lettres « A » et « D » se superposaient au départ. En édition, la couche des lettres suit l'ordre des repères (`symbolZOrder` SOURCE) et l'arrivée d'une boucle n'a plus de lettre (`RoutePlanGeoJson`) ; après l'enregistrement, pas de repère d'arrivée sur une boucle (`RouteMarkers.saved`). C'est ce que le code annonçait déjà (« le départ reste au-dessus de l'arrivée d'une boucle ») ; la règle est ajoutée à la spec `routing.md` (repères).
+  - **Captures à côté des maquettes** : `docs/previews/p19-routing-emulateur.html` reprend la page validée (`docs/previews/p19-routing.html`, variante A, validée le 2026-10-18) et ajoute à la fin des sections 2 à 7 les captures de l'émulateur.
+  - **Correction de l'entrée « Session 46 (suite) »** : le message « Pas de données BRouter ici » est celui de l'**écran 5** (et non 4) ; le volet Étapes est l'écran 3 et le menu Outils l'**écran 4**.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply :core:test --tests "fr.toolmap.core.route.*" assembleDebug` : vert (nouveaux tests `RouteMarkersTest` ×2 et « a loop shows « A » alone on its start » dans `RoutePlanGeoJsonTest`).
+  - Émulateur « Medium_Phone », ToolMap 0.4.42, BRouter 1.7.9 avec `E5_N45.rd5` : parcours ci-dessus, captures dans la page de comparaison.
+  - `./gradlew check assembleDebug` : voir le dernier message de la session.
+- **Problèmes / dette technique** :
+  - Reste P19.6 : altitudes Terrarium des tronçons tracés à la main (sans elles, un itinéraire avec un tronçon à la main n'a pas de ↑ / ↓ pour ce tronçon).
+  - Non vu sur l'émulateur : « Depuis ma position » (GPS réel), « Recalculer » d'un tronçon quand ses données arrivent après coup, l'itinéraire importé de plus de 30 points. À voir sur le téléphone.
+  - Le nom par défaut « Itinéraire du Oct 18, 2026 3:37 PM » suit la langue du système de l'émulateur (anglais), comme les tracés : pas propre à P19.
+  - CI GitHub bloquée par la facturation depuis le 2026-10-16.
+- **Prochaine étape recommandée** : P19.6, altitudes Terrarium des tronçons à la main (spec §5.6), puis essai de l'APK sur le téléphone avec BRouter et ses cases.
+
+## 2026-10-18 — Session 46 (suite) — [P19.1][P19.7] BRouter sur l'émulateur : profil Voiture corrigé
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : avec l'accord de l'utilisateur (« Télécharge BRouter »), installer BRouter sur l'émulateur et vérifier l'appel réel.
+- **Réalisé** :
+  - **BRouter installé** :
+    - BRouter 1.7.9 (versionCode 56), `btools.routingapp_56.apk` pris sur F-Droid (3,3 Mo) ;
+    - signature F-Droid vérifiée avec gpg : « Good signature from F-Droid <admin@f-droid.org> », clé 37D2 C987 89D8 3119 4839 4E3E 41E7 044E 1DBA 2E89 ;
+    - dossier par défaut accepté au premier lancement ; le gestionnaire de téléchargement des données a été fermé : les `.rd5` n'ont pas encore été acceptés par l'utilisateur.
+  - **Bug trouvé et corrigé** :
+    - l'application BRouter 1.7.9 n'installe pas `car-vario`, mais seulement `car-fast`, `car-eco`, `car-vario-nocost` et leurs variantes ;
+    - le profil Voiture de ToolMap était donc refusé (« Profil « car-vario » absent de BRouter. », retour à Randonnée) ;
+    - `RoutingProfiles.CAR` vaut maintenant `car-fast`. Le libellé « Voiture » ne change pas, il n'y a pas d'effet visible. La spec `routing.md` est corrigée.
+    - L'affirmation de la session 45 (« `car-vario`, le seul profil voiture ») venait du dépôt de BRouter, pas de l'application installée.
+  - **Écran comparé aux maquettes validées** (`docs/previews/p19-routing.html`, variante A, validée le 2026-10-18) :
+    - avec BRouter, l'interrupteur « Suivre les chemins » est actif et la puce Profil s'affiche ;
+    - sans données, un tronçon A → B donne le message de l'écran 4 (« Pas de données BRouter ici : tronçon tracé à la main. », avec « Tout dessiner à la main » et « Ouvrir BRouter ») ;
+    - le tronçon est en pointillés avec « à la main », et le bandeau du haut affiche « 4.07 km · 1 h 01 / Randonnée · 2 étapes » ;
+    - le volet Étapes et le menu Outils sont conformes à l'écran 3.
+- **Décisions (ADR)** : aucune (correction d'une valeur de la spec).
+- **Tests / vérifications** :
+  - Émulateur « Medium_Phone » avec ToolMap 0.4.37, puis 0.4.38 après la correction : Voiture accepté par BRouter, seule l'absence de données reste signalée.
+  - `./gradlew spotlessApply check assembleDebug` : voir le dernier message de la session.
+- **Problèmes / dette technique** :
+  - Le calcul réel d'un tronçon (tracé qui suit les chemins, « Insérer ici », durée de BRouter) n'est pas encore vu : il faut une case `.rd5`. Pour la Chartreuse, c'est `E5_N45.rd5`, à télécharger depuis l'application BRouter.
+  - Il reste aussi les altitudes Terrarium des tronçons tracés à la main.
+- **Prochaine étape recommandée** : avec l'accord de l'utilisateur, télécharger `E5_N45.rd5` dans BRouter sur l'émulateur, puis finir P19.7 (tracé routé, Insérer ici, captures des écrans 2 et 3 en mode routé).
+
+## 2026-10-18 — Session 46 — [P19.3][P19.6] Tests de la file BRouter et de la fiche de l'itinéraire
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : écrire les tests laissés en suspens par la session 45, sans changer l'interface.
+- **Réalisé** :
+  - **`RoutingQueueTest`** (7 tests, faux moteur dont le test donne les réponses) :
+    - un tronçon à la fois, dans l'ordre ;
+    - le tronçon en calcul est annulé quand il n'est plus voulu ;
+    - un tronçon en attente qui n'est plus voulu n'est jamais calculé ;
+    - le calcul en cours continue s'il est toujours voulu, et un tronçon demandé deux fois n'est calculé qu'une fois ;
+    - au-delà de 35 s, l'erreur TIMEOUT est renvoyée et le tronçon suivant démarre ;
+    - les erreurs de BRouter sont transmises telles quelles ;
+    - `cancel` oublie tout.
+  - **`RouteSheetTest`** (Robolectric, 3 tests) :
+    - un itinéraire calculé affiche la ligne « km · ↑ · ↓ · 15 min · Vélo », lue dans le plan des extensions GPX ;
+    - un itinéraire tracé à la main n'affiche ni durée ni profil ;
+    - les tuiles vont par 3 + 3 (sans « Statistiques »), et « Convertir en trace » appelle la conversion avec le nom de l'itinéraire.
+  - **`RouteNoticesTest`** (Robolectric, 4 tests) :
+    - le texte de chaque erreur, pour un tronçon et pour tout l'itinéraire ;
+    - le profil inconnu est nommé dans le message ;
+    - les boutons du message : « Tout dessiner à la main » n'apparaît que pour un tronçon, « Ouvrir BRouter » toujours.
+  - Aucun changement du code de l'application : `RoutingEngine` était déjà une interface, donc remplaçable par un faux moteur.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply :app:testDebugUnitTest --tests "fr.toolmap.draw.RoutingQueueTest" --tests "fr.toolmap.draw.RouteNoticesTest" --tests "fr.toolmap.tracks.RouteSheetTest"` : vert, 14 tests (7 + 4 + 3), aucun ignoré.
+  - `./gradlew check assembleDebug` : voir le dernier message de la session.
+- **Problèmes / dette technique** :
+  - Il reste à faire :
+    - les altitudes Terrarium des tronçons tracés à la main (P19.6, spec §5.6) ;
+    - le parcours P19.7 et les captures du mode routé sur l'émulateur, qui attendent l'accord de l'utilisateur pour télécharger BRouter et une case `.rd5`.
+  - La CI GitHub ne démarre pas, bloquée par la facturation (limite de dépenses), comme le 2026-10-16.
+- **Prochaine étape recommandée** : P19.7, avec l'accord de l'utilisateur pour télécharger BRouter (F-Droid) et une case `.rd5` sur l'émulateur.
+
+## 2026-10-18 — Session 45 — [P19.1][P19.2][P19.3][P19.4][P19.5][P19.6] Itinéraires qui suivent les chemins avec BRouter
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : coder les itinéraires calculés par BRouter, fidèlement aux maquettes validées.
+- **Réalisé** :
+  - **Validation des maquettes (P19.0)** : le 2026-10-18, l'utilisateur a répondu « Version A. Je valide les écrans 3 à 7. » Preview validée : `docs/previews/p19-routing.html`, variante A (chiffres en haut de la carte), écrans 3 à 7 tels quels.
+  - **Moteur (P19.1)** : `IBRouterService.aidl` recopié (`data/src/main/aidl`), `<queries>` dans le manifeste, `BRouterEngine` (`:data`) avec liaison, `isInstalled` et un appel par tronçon ; lecture des réponses et classement des erreurs dans `:core` (`BRouter.kt`, `Routing.kt`). Profil Voiture : `car-vario`, le seul profil voiture du dossier `profiles2` de BRouter.
+  - **Modèle (P19.2)** : `RoutePlan`, `RoutePlanEditor` (les 10 opérations, Annuler / Rétablir, `trimBefore`), `LegCache`, `RoutePlanGpx`. Le plan est rangé dans les extensions GPX de l'itinéraire, sans migration Room (ADR-065).
+  - **Calcul (P19.3)** : `RoutingQueue` (un appel à la fois, annulation des tronçons périmés, 35 s au plus) et le réglage « Sans données BRouter » (`placemarks.routingNoData`).
+  - **Écran d'édition (P19.4)** :
+    - interrupteur « Suivre les chemins (BRouter) », grisé avec « Installer » sans BRouter ;
+    - puce et dialogue Profil (avec « Autre… » et « Recalculer tout l'itinéraire ») ;
+    - bandeau des chiffres en haut de la carte (`RouteStatsCard`, variante A) ;
+    - « Insérer ici » quand le réticule est sur le tracé, « Depuis ma position » ;
+    - volet Étapes et son ⋮ ;
+    - Outils : Ajouter au début, Inverser le sens, Boucler vers le départ, Aller-retour, Profil altimétrique, Tout effacer ;
+    - messages BRouter (Tout dessiner à la main · Ouvrir BRouter) et question au-delà de 30 points.
+    - Fichiers : `DrawControls.kt`, `RouteControls.kt`, `RouteIcons.kt`, `RouteNotices.kt`, `DrawViewModel.kt`.
+  - **Repères (P19.5)** :
+    - pendant l'édition, `EditLayers` et `RoutePlanGeoJson` : A vert et lettre rouge à l'arrivée, étapes nommées avec icône et nom, passages en petits disques blancs, pointillés « à la main » et « calcul… » ;
+    - après l'enregistrement : départ, arrivée et étapes nommées (`TrackDisplay`) ;
+    - lettres dessinées par `WaypointGlyphs`.
+  - **Fiche de l'itinéraire (P19.6)** : tuiles en 3 + 3 (Suivre · Modifier le tracé · Convertir en trace / Partager · Masquer · Supprimer) et ligne « km · ↑ · ↓ · durée · profil » (`SavedRouteInfo`). « Convertir en trace » copie la géométrie dans une nouvelle trace.
+  - **Réglage** : « Sans données BRouter » dans Réglages ▸ Repères et traces, après « Style des traces » (écran 7).
+  - **Correction pendant la session** : la réécriture de `DrawViewModel` avait perdu « Couper en deux ici » (traces) ; c'est rétabli.
+  - **Écart d'affichage corrigé** : interrupteur éteint, les libellés « à la main » ne sont plus posés sur chaque tronçon, où ils couvraient les poignées du milieu. Cela suit les maquettes, qui ne les montrent qu'en mode routé.
+- **Décisions (ADR)** : ADR-065 (plan dans les extensions GPX, remplace la colonne `plan_json` d'ADR-064).
+- **Tests / vérifications** :
+  - `./gradlew :core:test --tests "fr.toolmap.core.route.*"` : vert, 42 tests (`BRouterTest` 4, `RoutePlanEditorTest` 21, `RoutePlanGpxTest` 4, nouveaux `RouteSummaryTest` 7 et `RoutePlanGeoJsonTest` 6).
+  - `./gradlew :app:testDebugUnitTest --tests "fr.toolmap.draw.*"` : `DrawViewModelTest` vert, 10 tests (construction mise à jour pour BRouter et les réglages).
+  - `./gradlew spotlessApply check assembleDebug` : vert (APK 0.4.35, avant le correctif des libellés).
+  - Émulateur « Medium_Phone », sans BRouter :
+    - mode Itinéraire avec l'interrupteur grisé et « Installer » (écran 5) ;
+    - trois points à la main : A vert, C rouge, poignées du milieu ;
+    - enregistrement, puis fiche en 3 + 3 avec « Convertir en trace » (écran 6) ; la conversion a créé la trace (« 1 trace · 2 itinéraires ») et affiché « Trace créée : … » ;
+    - Réglages ▸ Repères et traces ▸ « Sans données BRouter » : dialogue conforme à l'écran 7.
+- **Problèmes / dette technique** :
+  - Le mode routé (écrans 2 à 4 : bandeau, Insérer ici, volet Étapes, messages) n'a pas pu être vu sur l'émulateur : BRouter et ses données `.rd5` n'y sont pas installés, et leur téléchargement attend l'accord de l'utilisateur.
+  - Encore à faire :
+    - les tests de `RoutingQueue` avec un faux moteur ;
+    - les tests Robolectric de la fiche ;
+    - les altitudes Terrarium des tronçons à la main (spec §5.6).
+- **Prochaine étape recommandée** : avec l'accord de l'utilisateur, installer BRouter (F-Droid) et une case `.rd5` sur l'émulateur, puis faire le parcours P19.7. Il faudra aussi les captures du mode routé à côté des écrans 2 à 4 des maquettes.
+
+## 2026-10-18 — Session 44 — [P19.0] Itinéraires calculés avec BRouter : plan, spec et maquettes
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session). Aucun code de l'application modifié.
+- **Objectif** : préparer, avant tout code, la création d'itinéraires à plusieurs étapes qui suivent les chemins grâce à BRouter, avec leurs outils d'édition et leurs écrans.
+- **Réalisé** :
+  - Demande de l'utilisateur : créer des tracés à plusieurs étapes depuis le panneau des waypoints, par autorouting BRouter, avec des paramètres d'édition (point au milieu, début ou fin, déviation). Interrogatoire en trois tours (Q1 à Q21) : toutes les recommandations acceptées, sauf Q4 et Q9 (sans données BRouter : dessin à la main, avec deux comportements au choix).
+  - Spec `docs/specs/routing.md` : moteur BRouter par AIDL (un appel par tronçon, GeoJSON), plan d'étapes et de tronçons gardé avec la géométrie, 10 opérations d'édition, calcul automatique par tronçon avec annulation et cache, profils, repères, GPX (`tm:plan`), fiche après enregistrement, V2.
+  - `PLAN.md` : phase P19 (P19.0 à P19.7, V2 en P19.8 à P19.12) ; P6.5 remplacé par P19. `CLAUDE.md` : la spec ajoutée aux documents de référence.
+  - Maquettes actuel / proposé `docs/previews/p19-routing.html` (captures de l'émulateur à gauche), publiées en page privée : https://claude.ai/artifact/AWqt33HvMTzaKTCQxb2brJ. Sept écrans : panneau du drapeau (inchangé), mode Itinéraire en deux variantes (A : chiffres en haut de la carte, recommandée ; B : tout en bas), itinéraire vide et puce Profil, volet Étapes et ⋮, menu Outils, messages (BRouter absent, deux comportements sans données, itinéraire de plus de 30 points), fiche avec « Convertir en trace », réglage « Sans données BRouter ».
+- **Décisions (ADR)** : ADR-064 (remplace P6.5 ; précise ADR-019).
+- **Tests / vérifications** : aucune modification de code. Rendu de la page de maquettes vu une fois dans le navigateur intégré (menu ⋮ déplacé sous sa ligne). Sur l'émulateur, un itinéraire d'essai à la main a été enregistré pour la capture de la fiche (« Itinéraire du Oct 18, 2026 12:44 PM »). Build et CI : voir le dernier message de la session.
+- **Problèmes / dette technique** : l'interface AIDL de BRouter (nom du service, paramètres, forme du retour) est à confirmer sur la version publiée en P19.1. Le profil VTT (`mtb`) n'est peut-être pas fourni par BRouter (message « profil inconnu » prévu).
+- **Prochaine étape recommandée** : attendre la validation des maquettes (variante A ou B, écrans 3 à 7), la consigner ici avec sa date, puis P19.1 (client AIDL, avec BRouter installé sur l'émulateur depuis F-Droid) et P19.2 (modèle `:core`).
+
+## 2026-10-18 — Session 43 — [P18.9] Favori « Rando Multi-Zoom » en cinq cartes empilées
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : le favori « Rando Multi-Zoom » montre les cartes qu'il utilise, chacune avec sa plage de zoom, au lieu d'une seule carte qui change de fond en interne : montrer ce que permettent les options au lieu d'imposer le montage.
+- **Réalisé** :
+  - Nouvelle règle dans `CLAUDE.md` : toute modification UI/UX passe d'abord par un aperçu visuel validé par l'utilisateur.
+  - Aperçu (avant : capture de l'émulateur ; après : maquette de « Cartes affichées » à cinq lignes et frise des zooms) validé le 2026-10-18, avec deux choix de l'utilisateur : zoom 17 confié au SCAN 25 (12–17), ancienne carte multi-zoom retirée.
+  - `Workspaces.randoMultiZoom` : OSM 1–8, OpenTopoMap 9–11, IGN SCAN 25 12–17, OSM 18, IGN Photographies aériennes 19 (calques ordinaires avec plage d'affichage). Source `RANDO_ZOOM_GROUP` retirée de `builtin-sources.aqx`.
+  - Mise à jour sans carte vide : `Workspaces.replaceRetired` remet les cinq calques à la place de l'ancienne carte dans l'état enregistré (`MapViewModel`), qui sort aussi de la bascule rapide.
+  - « Cartes affichées » : la ligne d'un calque limité à des zooms dit sa plage (« Visible aux zooms 12 à 17 », « Visible au zoom 19 »), puis « inactif à ce zoom » hors de sa plage, sur deux lignes au plus, comme la preview validée ; l'opacité n'y figure plus que sous 100 %. Texte de plage partagé avec le dialogue de zoom (`zoomRangeText`).
+  - Docs : ADR-063, PLAN (P18.9, P12.3), `ui-index.md` (C5, §5.2).
+- **Décisions (ADR)** : ADR-063 (remplace le 2e point d'ADR-052).
+- **Tests / vérifications** (JDK d'Android Studio) :
+  - Tests : `WorkspaceTest` (ancienne carte remplacée par les cinq calques, copie importée conservée), `BuiltinSourcesTest` (une seule carte intégrée à chaque zoom de 1 à 19) ; `MapCatalogTest`, `MultiZoomViewModelTest` mis à jour. `./gradlew spotlessApply :core:test :data:testDebugUnitTest :app:testDebugUnitTest` : vert après correction de `MultiZoomViewModelTest` (2 cartes multi-zoom au lieu de 3).
+  - Émulateur « Medium_Phone », APK installé par-dessus l'ancien (état enregistré : ancienne carte « Rando Multi-Zoom ») : au zoom 14, panneau Cartes « 5 cartes », favori « Rando Multi-Zoom » toujours sélectionné ; « Cartes affichées » : Photographies aériennes « Visible au zoom 19 · inactif à ce zoom », OpenStreetMap « Visible au zoom 18 · … », IGN SCAN 25 « Visible aux zooms 12 à 17 », OpenTopoMap « 9 à 11 · … », OpenStreetMap « 1 à 8 · … », conforme à la preview.
+  - Build complet `./gradlew check assembleDebug` et CI : voir le dernier message de la session.
+- **Problèmes / dette technique** : une copie de `USR.PERSONNAL_MULTIZOOM.AQX` importée à la main sur un téléphone redevient visible au catalogue (elle était masquée par la carte intégrée de même identifiant).
+- **Prochaine étape recommandée** : vérifier sur le téléphone que le favori s'affiche bien après la mise à jour (ancien état remplacé) ; puis la recommandation de la session 42.
+
+---
+
+## 2026-10-18 — Session 42 — [P18.5][P18.6][P18.7][P18.8] Quatre défauts de la revue UX : « aucune trace », tuiles déjà stockées, retour au panneau Cartes, waypoint sous le point central
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : corriger les quatre défauts notés en session 41 : « 0 traces » dans le panneau du drapeau, un total de zone qui compte les tuiles déjà stockées, le panneau Cartes fermé au retour de Stockage, un waypoint sous le point central qu'on ne peut pas toucher.
+- **Réalisé** :
+  - **« aucune trace »** (P18.5) : zéro s'écrit « aucune trace · aucun itinéraire · aucun waypoint » (`TracksMenu.countText`). Cause du « 0 traces » vu à la revue : l'émulateur est en anglais, et la règle anglaise met 0 au pluriel (la française au singulier : « 0 trace », guère mieux).
+  - **Tuiles déjà stockées** (P18.6) : `TilePlanner.countStored` (`:core`) compte les tuiles stockées d'une zone avec deux questions au stockage (compte sur un rectangle, liste sur le rectangle englobant d'un polygone ou d'un couloir, estimation proportionnelle au-delà de 500 000) ; `MbTilesFile.countTiles` ; `ZoneDownloader.plan(withStored = true)` pour l'estimation seulement. La taille estimée ne compte plus que les tuiles manquantes. Panneau de zone : « À télécharger : 458 tuiles · 10.8 Mo (31 déjà stockées) », même détail par carte, « Déjà enregistrée » et bouton grisé quand il ne manque rien ; formulaire de téléchargement : « Tuiles : N, dont M déjà stockées — à télécharger : K ».
+  - **Retour au panneau Cartes** (P18.7) : Téléchargements et Stockage ne ferment plus le panneau ; il reste caché derrière l'écran et réapparaît au retour.
+  - **Point central** (P18.8) : l'appui transmet sa position sous le doigt ; `MapController.tapNearCentre` ouvre le membre ou l'élément dessiné là, comme un appui ailleurs sur la carte ; sinon le menu rapide. Appui long : toujours le menu rapide (aussi pour TalkBack).
+  - Docs : PLAN (P18.5 à P18.8), `ui-index.md` (G12, T5, C10, C11, Explorer, navigation STORAGE / DOWNLOADS, DOWNLOADS).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** (JDK d'Android Studio) :
+  - Nouveaux tests : `TilePlannerStoredTest` (4 : rectangle sans liste, polygone qui ignore le reste de son rectangle, rien de stocké, estimation au-delà du seuil) ; `MapsViewModelTest` « tiles already stored are counted apart… » (zone en partie puis entièrement stockée) ; `CenterPointTest` (décalage de l'appui, appui long).
+  - `./gradlew spotlessApply :core:test --tests '*TilePlannerStoredTest*' :app:assembleDebug` : **BUILD SUCCESSFUL**, 4 tests, 0 échec.
+  - Émulateur « Medium_Phone », APK 0.4.28 : panneau du drapeau « aucune trace · aucun itinéraire · 1 waypoint » ; « Waypoint 1 » amené sous le point central, appui ▸ sa fiche ; appui long ▸ menu rapide ; appui sans rien dessous ▸ menu rapide ; Cartes ▸ Stockage ▸ Retour et Cartes ▸ Téléchargements ▸ Retour ▸ panneau Cartes rouvert ; zone sur une région déjà parcourue : « À télécharger : 458 tuiles · 10.8 Mo (31 déjà stockées) ».
+  - Build complet `./gradlew check assembleDebug` et CI : voir le dernier message de la session.
+- **Problèmes / dette technique** : la limite des serveurs restreints (`BulkPolicy`) compte encore toutes les tuiles de la zone, y compris celles déjà stockées (non changé).
+- **Prochaine étape recommandée** : vérifier sur le téléphone les noms des membres et l'écran Partage en groupe (session 41) ; puis la recommandation de la session 39.
+
+---
+
+## 2026-10-18 — Session 41 — [P18.1][P18.2][P18.3][P18.4] Revue UX : noms sur la carte, fiche d'un waypoint, écran Partage, stockage hors ligne
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : demande « revois les UI/UX des waypoints sur la carte, du partage de positions et du stockage hors ligne ». Revue faite sur l'émulateur, puis corrections ciblées : les noms des waypoints et des membres écrits sur la carte, une fiche de waypoint plus complète (Partager, Supprimer, distance), l'écran Partage qui montre d'abord les actions, un stockage plus lisible.
+- **Réalisé** :
+  - **Noms sur la carte** (P18.1, ADR-062) : le style de base a des glyphes, servis par `GlyphInterceptor` (`:data`) qui dessine chaque plage de 256 caractères avec la police du téléphone ; champ de distance signée et fichier PBF dans `:core` (`SignedDistance`, `GlyphRange`). Couches de noms des waypoints (`TrackOverlay`) et des membres (`ShareLayers`), réglage Repères ▸ « Noms sur la carte » (actif par défaut).
+  - **Fiche d'un élément touché** (P18.2) : icône du waypoint, chiffres sur une ligne, bloc « Depuis votre position » (distance et cap) quand la position est active, commandes en tuiles comme les panneaux ; nouveaux **Partager** (GPX de l'élément) et **Supprimer** (confirmation). Icônes `MenuIcons.VisibilityOff` et `Bell`, `MapController.lastPosition()`.
+  - **Partage de position** (P18.3) : hors groupe, créer / rejoindre en premier ; en groupe, interrupteur d'envoi, membres, inviter, SOS, messages en premier ; profil, réglages d'envoi et serveur dans des cartes repliées avec un résumé (`FoldCard`).
+  - **Stockage hors ligne** (P18.4) : total en tête, une ligne compacte par carte triée par taille (tuiles, zooms, barre de part du total), commandes dans le menu ⋮. « Cartes hors ligne » vide : explication et bouton « Sélectionner et enregistrer une zone », qui revient à la carte et ouvre la sélection (`MapsViewModel.askSaveArea`).
+  - Docs : ADR-062, PLAN (P18), `ui-index.md` (G2, G3, §2.4, §7, §8).
+- **Décisions (ADR)** : ADR-062 (glyphes dessinés sur le téléphone ; remplace « pas d'étiquettes » d'ADR-018 et d'ADR-021).
+- **Tests / vérifications** (JDK d'Android Studio) :
+  - Nouveau `GlyphRangeTest` (champ de distance, plages, gras, structure du PBF). `./gradlew spotlessApply :app:assembleDebug` : vert à chaque étape.
+  - Émulateur « Medium_Phone » : « Waypoint 1 » écrit à droite de son icône, centré, net ; fiche du waypoint avec Supprimer (confirmation, annulée), Partager (« Waypoint_1.gpx » dans le sélecteur d'Android), « DEPUIS VOTRE POSITION · 3.90 km · cap 146° SE » avec une position simulée ; écran Partage hors groupe (actions en tête, cartes repliées) ; Stockage (18.9 Mo, 6 cartes triées, menu ⋮ : Exporter · Effacer les tuiles de plus de 30 j · Tout effacer) ; « Cartes hors ligne » vide ▸ bouton ▸ la carte s'ouvre avec la zone à enregistrer.
+  - Build complet `./gradlew check assembleDebug` et CI : voir le dernier message de la session.
+- **Problèmes / dette technique** : l'écran Partage en groupe et les noms des membres n'ont pas pu être vus sur l'émulateur (il faut deux téléphones). Notés, non corrigés : « 0 traces » au singulier dans le panneau du drapeau ; le total de « Sélectionner et enregistrer une zone » compte aussi les tuiles déjà stockées ; « Stockage » ouvert depuis le panneau Cartes le referme au retour ; un waypoint sous le point central ne se touche pas (le point central prend l'appui).
+- **Prochaine étape recommandée** : vérifier sur le téléphone les noms des membres et l'écran Partage en groupe ; puis les points notés ci-dessus, ou la recommandation de la session 39.
+
+---
+
+## 2026-10-18 — Session 40 — [P17] Impression : plantage de « Télécharger les tuiles manquantes » sur une carte multi-zoom
+- **Branche / commit** : dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session).
+- **Objectif** : plantage signalé par l'utilisateur sur son téléphone (Samsung SM-S931U, 0.4.17) : Imprimer ▸ « Télécharger les tuiles manquantes » avec la carte « Rando Multi-Zoom » ferme l'application (`NoSuchElementException: Key ign-scan25 is missing in the map`, `ZoneDownloader.runTiles`).
+- **Réalisé** :
+  - Cause : `ZoneDownloader.missing()` range les tuiles à télécharger sous la carte dont le serveur les sert (pour une carte multi-zoom, l'une des cartes qui la composent, ici `ign-scan25`), alors que `runTiles()` ne connaissait que les cartes demandées par l'impression (`RANDO_ZOOM_GROUP`). Avec une carte simple, les deux coïncident : d'où un premier essai sans plantage sur l'émulateur avec « IGN Cartes ».
+  - Correction : `runTiles()` cherche la source de chaque carte renvoyée par `missing()` (limite des serveurs restreints et téléchargement), après avoir vérifié les cartes demandées.
+  - Test de non-régression `PrintDataTest` « listed tiles of a multi-zoom map are downloaded for the map it shows ».
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** (JDK d'Android Studio) :
+  - Émulateur « Medium_Phone », APK 0.4.17 : avec « IGN Cartes », 72 tuiles téléchargées, 0 échec ; avec « Rando Multi-Zoom » (144 tuiles), plantage reproduit, même trace que sur le téléphone.
+  - `./gradlew spotlessApply :data:testDebugUnitTest --tests "fr.toolmap.data.print.PrintDataTest" --tests "fr.toolmap.data.download.ZoneDownloaderTest"` : **BUILD SUCCESSFUL**, 9 + 20 tests, 0 échec.
+  - Build complet et vérification sur l'émulateur avec le nouvel APK : voir le dernier message de la session.
+- **Problèmes / dette technique** : aucun nouveau.
+- **Prochaine étape recommandée** : refaire le téléchargement des tuiles manquantes avec « Rando Multi-Zoom » sur le téléphone ; puis la recommandation de la session 39 (mesure à la règle, `[F9]` ou P16.7).
+
+---
+
+## 2026-10-17 — Session 39 — [P17.1][P17.2][P17.3][P17.4] Impression façon carte papier : deux questions, un cadre, une feuille TOP 25 ou OTAN
+- **Branche / commit** : copie locale mise dans le dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16` (commit : voir le dernier message de la session) ; ce commit regroupe aussi les sessions 32 à 38, restées locales. Version livrée : voir `version.properties`.
+- **Objectif** : demande de l'utilisateur (`/grill-me`, questions Q1 à Q23 validées) : « Imprimer » pose deux questions (taille avec orientation, échelle), puis on place un cadre de taille fixe sur la carte comme « Sélectionner et enregistrer une zone », la confirmation demande la grille et les waypoints, et la feuille respecte les normes des cartes papier. Puis deux PDF A4 de contrôle : OTAN / MGRS / OpenTopoMap et TOP 25 / UTM / IGN SCAN 25.
+- **Réalisé** :
+  - Parcours en trois étapes (`PrintStage` SETUP · FRAME · CONFIRM) : fenêtre Taille (A5 · A4 · A3 · Letter · Autre…) + orientation et Échelle (1:10 000 à 1:250 000 · Autre…), dernière impression présélectionnée ; cadre posé sur la carte, nord en haut, environ 70 % de la place, déplacé d'un doigt ; bandeau Format ▾ · Orientation ▾ · Échelle ▾ · ⟲ et taille au sol ; confirmation (grille, waypoints, traces, titre « carte · date », tuiles manquantes à télécharger jusqu'à 1 500, « Plus d'options » : style, dpi, marge, pas de grille, noms, éléments, sous-titre) ; issue « PDF enregistré · 1 page · … » avec Ouvrir · Partager. Atlas et modèles quittent l'écran (une page, dernière impression mémorisée).
+  - Feuille aux conventions des cartes papier (`PageComposer`, `SheetLayout`, `GridSpacing`, `GridPlanner`) : marge, étiquettes à chiffres principaux, coins, cadre double gradué dans l'autre système, bandeau du bas en cases (titre et légende, ÉCHELLE, NORDS, QUADRILLAGE, encadré OTAN « Donner une référence »), waypoints à glyphe, deux styles IGN TOP 25 et OTAN.
+  - Corrigé après relecture des PDF de contrôle : la case NORDS perdait ses dernières lignes (l'angle quadrillage–magnétique manquait dans les deux styles) : une ligne par angle, nom à gauche et valeur à droite, l'angle quadrillage–magnétique toujours écrit, coupure du nom après le tiret, la variation annuelle cède la place la première ; libellés « Déclinaison », « Convergence », « Angle quadrillage–magnétique ». Barre d'échelle : l'unité suit le dernier nombre (« 400 500 m » ne se touchent plus). Nom de fichier proposé sans « · » ni date en double (`ToolMap_OpenTopoMap_1-50000_2026-10-17.pdf`). Confirmation : la carte recadre le cadre au-dessus de la feuille, hors des cases, de la barre et des boutons de zoom. Taille au sol avec les mêmes décimales des deux côtés et le séparateur de la langue (`PrintFormat.groundSize`).
+  - Docs : ADR-061, `print-pdf.md` (§1, §6, §7, nouvelle §8), `ui-index.md` (T3, M4, atlas), PLAN (P17).
+- **Décisions (ADR)** : ADR-061 (deux questions, cadre posé sur la carte, une page, PDF seul, feuille TOP 25 ou OTAN).
+- **Tests / vérifications** (JDK d'Android Studio) :
+  - `./gradlew spotlessApply check` : vert après correction de deux lignes trop longues (ktlint) et d'une icône absente (`Icons.ScreenRotation` → `SettingsIcons.Rotate90`) ; `./gradlew assembleDebug` : APK 0.4.15.
+  - Nouveaux tests : `PrintExportTest` « the norths box always shows the three angles with their values, in both styles », `PrintViewportTest` (nom de fichier avec « · », taille au sol en français et en anglais). `./gradlew spotlessApply :core:test --tests "fr.toolmap.core.print.*" :app:compileDebugKotlin` : **BUILD SUCCESSFUL**. `./gradlew check assembleDebug` (avant les derniers correctifs) : **BUILD SUCCESSFUL in 1m 21s**, version 0.4.15 → 0.4.16.
+  - Émulateur « Medium_Phone » (en anglais, d'où « 10/17/26 » et les points décimaux), APK 0.4.16 : fenêtre des deux questions (A4 paysage · 1:50 000 présélectionnés), cadre à 70 %, confirmation avec le cadre visible au-dessus, téléchargement des tuiles (17 puis 150), « Plus d'options » ▸ style, enregistrement par le sélecteur de fichiers, « PDF enregistré · 1 page · 2.1 Mo » puis « 2.3 Mo ».
+  - PDF de contrôle relus à l'écran (Inkscape, 60 à 300 dpi) : `P17_OTAN_MGRS_OpenTopoMap_A4.pdf` (1:50 000, MGRS 31T, case NORDS complète en degrés et millièmes, encadré « Centre de la feuille : 31T GL 262 356 ») et `P17_TOP25_UTM_IGN25_A4.pdf` (1:25 000, IGN SCAN 25 Touristique net, quadrillage UTM bleu incliné de la convergence, waypoints du Nivolet et trace).
+  - Après l'entrée du journal : `./gradlew check assembleDebug` : **BUILD SUCCESSFUL in 1m 7s**, version 0.4.16 → **0.4.17**, APK `app/build/outputs/apk/debug/ToolMap-debug-0.4.17.apk`. Sur l'émulateur avec 0.4.17 : cadre au-dessus de la confirmation, dégagé des cases, de la barre et des boutons ; « 6.6 km × 3.7 km » ; PDF TOP 25 refait : case NORDS complète (déclinaison, « en 2026, évolue de 0°10′ E par an », convergence, « Angle quadrillage– / magnétique 1°05′ E »). Le PDF OTAN (0.4.16) ne change pas : son libellé tient sur une ligne.
+  - **Validation** : l'utilisateur a relu les deux PDF (« Les rendus sont propres ») et demandé le commit et le miroir Drive. P17.1 à P17.4 passent ✅.
+- **Problèmes / dette technique** : le crédit de la source IGN SCAN 25 Touristique s'écrit seulement « IGN » (texte de la définition de la source). La taille estimée du PDF est une fourchette large (817 Ko à 10,9 Mo). L'échelle réelle se vérifie à la règle sur une feuille imprimée à 100 %.
+- **Prochaine étape recommandée** : mesurer à la règle une feuille imprimée à 100 % ; puis l'atlas depuis la fiche d'une trace (`[F9]`), ou P16.7 (icônes de menus).
+
+---
+
+## 2026-10-17 — Session 38 (suite) — [P14.10] Menus de base refaits dans le style du dialogue waypoint
+- **Branche / commit** : copie locale (dossier `ToolMap/` non suivi par git sur ce poste) : rien de committé ni poussé. Copie des fichiers d'avant la modification dans le bac à sable de la session.
+- **Objectif** : demande de l'utilisateur (« Je valide les recommandations, construit les nouveaux UI/IX ») : réaliser les lots 0, C, E, A et D, puis B des maquettes ; le lot F (Réglages) n'est pas demandé.
+- **Réalisé** :
+  - Lot 0 : `map/PanelParts.kt` (cadre `BarPanel`, `PanelHeader`, bloc teinté `StateCard`, tuiles tonales `ActionTiles`, `MenuRow` avec sous-titre, `PanelSwitch`, `PanelChevron`) ; nouvelles icônes (waypoint, trace, itinéraire, enregistrement, copier, fichier, hors ligne).
+  - Lot C, Traces et waypoints : champ « Rechercher un lieu, des coordonnées », tuiles Waypoint ici · Trace · Itinéraire, Explorer avec le nombre de traces, d'itinéraires et de waypoints, « Importer un fichier… » (même sélecteur que l'écran Traces), interrupteur « Tout afficher sur la carte » (`TrackRepository.setAllVisible`, une transaction sur les quatre tables).
+  - Lot E, point central : bloc teinté avec les coordonnées (bouton de format DD ▾ du dialogue waypoint ; un appui copie), l'altitude du relief, trois commandes, rangée Copier · Partager · Ouvrir avec, pointe vers le centre ; le dialogue « Coordonnées » est retiré ; message « Coordonnées copiées ».
+  - Lots A et D, menu principal et Cartes et calques (`[R2]`) : en-tête à pastille, tuiles Masquer · Verrouiller · Imprimer · Mesurer, bloc « Carte affichée » (favori courant ou « Pile personnalisée », cartes de la pile, vignettes) qui ouvre le panneau Cartes, « Informations à l'écran », Réglages…, Plus…, Quitter en bas ; section « Espace de travail » retirée ; page Plus… sans sections. `maps/MapsRootPanel.kt` remplace la feuille `MapsRootSheet.kt` : panneau au-dessus de la barre, bloc « Cartes affichées », rangée de favoris avec la tuile « + Enregistrer l'affichage », interrupteur Mode hors ligne, puces Couverture · Importer .aqx · Téléchargements · Stockage.
+  - Lot B, Positionnement (`[R4]`) : bloc « Position en temps réel » avec précision, altitude et source ; segments « La carte suit » Libre · Suivi · Boussole · Explorer (`MapController.applyFollow`, `tilted`) ; sous-titres de l'enregistreur, du baromètre et du partage (chevron au lieu d'un interrupteur).
+  - Tests mis à jour ou ajoutés : `MainMenuPanelTest`, `TracksMenuPanelTest`, `PositionMenuPanelTest`, `CenterPointTest`, `CenterQuickMenuRenderTest`, `NavigationBackTest`.
+  - Docs : `ui-index.md` (§2.1, §2.2 G12, §3, §3.1, §4, §5.1, §6.0, §9), `ui-reorganization.md` (R2 et R4 ✅), PLAN (P14.10 ✅, lot F non retenu), ADR-060.
+- **Décisions (ADR)** : ADR-060 (un seul style pour les panneaux de la barre ; panneau Cartes au-dessus de la barre ; favori courant dans le menu ; « La carte suit »).
+- **Tests / vérifications** (JDK d'Android Studio) :
+  - `./gradlew spotlessApply check assembleDebug` : échecs corrigés en route (chaîne `tracks_import` en double → `tracks_import_file` ; 3 erreurs ktlint ; un appel de test lié au mauvais paramètre ; « Réglages… » hors de l'écran de Robolectric → `performScrollTo` ; pluriel de 0 selon la langue de Robolectric). Puis **BUILD SUCCESSFUL in 44s** : 235 tests de `:app`, 0 échec, 5 ignorés ; lint et ktlint verts ; APK 0.4.13. Après l'entrée du journal : `./gradlew check assembleDebug` : **BUILD SUCCESSFUL in 1m 5s**, version 0.4.13 → **0.4.14**, APK `app/build/outputs/apk/debug/ToolMap-debug-0.4.14.apk` (85,8 Mo).
+  - Émulateur « Medium_Phone », APK 0.4.13 : menu principal (bloc « Pile personnalisée » avec IGN Pentes + SCAN 25 + OSM, vers le panneau Cartes) ; panneau Cartes (bouton allumé, favoris non coupés, retour de Cartes disponibles panneau ouvert, Retour le ferme) ; drapeau (« Tout afficher » masque puis remontre le waypoint) ; Positionnement (Boussole allume la position, « ± 5 m · 986 m · GPS + baromètre », Explorer incline la carte, Libre la remet à plat, segment allumé conforme) ; point central (« 1038 m · relief », Copier → « Coordonnées copiées ») ; page Plus… (Nouveautés, Signaler une erreur, Diagnostic). `logcat -b crash` : rien de ToolMap.
+  - Pas de CI ni de lien d'artefact : dossier non poussé (comme les sessions 34 à 38).
+  - Miroir Drive : `scriptsdrive-mirror.ps1` : 26 fichiers copiés, 0 échec ; APK publié `G:Mon Drive - JeanClaude CodeAPK releaseToolMap.0.4.14.apk`.
+- **Problèmes / dette technique** : sur l'émulateur en anglais, « 0 traces » (règle de pluriel de la langue du téléphone ; « 0 trace » en français). Le numéro de version a sauté plusieurs correctifs (0.4.8 → 0.4.13) à cause des builds échoués après l'incrémentation (ADR-059). Lot F (Réglages) non fait. Inclinaison d'Explorer et usage réel à voir sur téléphone.
+- **Prochaine étape recommandée** : faire essayer l'APK sur téléphone ; puis, si l'utilisateur le souhaite, le lot F (Réglages) ; sinon P14 restant (R5, F3…).
+
+---
+
+## 2026-10-17 — Session 38 — [P14.10] Menus de base : analyse et maquettes
+- **Branche / commit** : copie locale (dossier `ToolMap/` non suivi par git sur ce poste) : rien de committé ni poussé. Aucun fichier source modifié.
+- **Objectif** : demande de l'utilisateur : analyser les menus de base et proposer des améliorations d'interface, avec des rendus visuels avant de toucher au code, dans le style du dialogue « Nouveau waypoint ».
+- **Réalisé** :
+  - Captures sur l'émulateur (APK 0.4.6) : menu principal et page Plus…, Positionnement, Traces et waypoints, Cartes et calques (options ouvertes), menu du point central, Réglages, dialogue « Nouveau waypoint ».
+  - Page de maquettes privée publiée pour l'utilisateur (https://claude.ai/artifact/4cC9TWu1UmTZDYPTThHC1L) : les cinq règles tirées du dialogue waypoint (pastille en tête, bloc d'état teinté, trois niveaux d'action, le rare replié, valeurs préremplies), un socle commun de quatre pièces, puis pour chaque menu la capture actuelle, la maquette, les constats et les changements, et un tableau de lots (0 socle, A à F).
+  - Constats principaux : « Quitter » au milieu des commandes du menu principal ; page Plus… réduite à trois lignes ; même icône pour Mode explorateur et Baromètre ; « Partage de position… » avec un interrupteur qui ouvre un écran ; même crayon pour Dessiner une trace et un itinéraire ; panneau Cartes et calques d'un autre style que les trois autres ; noms des favoris coupés au milieu des mots (« OpenStreetM / ap ») ; le menu du point central ne montre pas les coordonnées du point.
+  - PLAN : tâche P14.10 ajoutée (🔄, en attente du choix des lots).
+- **Décisions (ADR)** : aucune (propositions seulement).
+- **Tests / vérifications** :
+  - Rendu de la page de maquettes vérifié dans le navigateur intégré (largeur 422 px, pas de défilement horizontal) ; corrigé : couleur du logo de la pastille, largeur des tuiles de favori.
+  - `./gradlew check assembleDebug` (JDK d'Android Studio) : **BUILD SUCCESSFUL in 54s**, « version 0.4.6 → 0.4.7 » (le journal entre dans l'empreinte), APK `app/build/outputs/apk/debug/ToolMap-debug-0.4.7.apk` (85,7 Mo), code identique à 0.4.6 hors « Nouveautés ».
+  - Pas de CI ni de lien d'artefact : dossier non poussé (comme les sessions 34 à 37).
+  - Miroir Drive : `scripts\drive-mirror.ps1` : 3 fichiers copiés, 0 échec ; APK publié `G:\Mon Drive\2 - Jean\Claude Code\APK release\ToolMap.0.4.7.apk`.
+  - Pendant les captures, un favori (« IGN Topo 8–16, Plan 1–7, Pentes ») a été appliqué par erreur sur l'émulateur, puis remis par « Revenir à la carte de fond précédente ».
+- **Problèmes / dette technique** : les nombres des maquettes (traces, waypoints, précision GPS) sont des exemples. Le passage du panneau Cartes d'une feuille du bas à un panneau posé au-dessus de la barre (lot D) est à confirmer par l'utilisateur.
+- **Prochaine étape recommandée** : selon le choix de l'utilisateur ; recommandation : lot 0 (socle), puis C et E, puis A et D ensemble (règlent R2), puis B (R4) ; F en dernier.
+
+---
+
+## 2026-10-17 — Session 37 — [P14.9] Dialogue « Nouveau waypoint » allégé
+- **Branche / commit** : copie locale (dossier `ToolMap/` non suivi par git sur ce poste) : rien de committé ni poussé. Copie des fichiers d'avant la modification dans le bac à sable de la session.
+- **Objectif** : demande de l'utilisateur : le dialogue « Nouveau waypoint » est trop chargé ; proposer des améliorations avec des maquettes, puis réaliser la proposition A (dialogue allégé) choisie par l'utilisateur.
+- **Réalisé** :
+  - Maquettes (page privée publiée pour l'utilisateur) : capture de l'écran actuel (2 écrans, 13 éléments touchables, défilement), diagnostic champ par champ, propositions A (dialogue allégé), B (feuille du bas), C (création express). L'utilisateur a choisi **A seule**.
+  - `WaypointDialog.kt` réécrit : pastille du symbole (48 dp, petit crayon) à gauche du nom ; nom prérempli et sélectionné pour un nouveau waypoint, clavier ouvert ; position sur une ligne avec un bouton de format (DD, DM, DMS, UTM, MGRS, L93 ▾ : menu qui remplace les 7 boutons texte et réécrit la position) ; altitude lue sur le relief pour un nouveau waypoint (« 282 m · relief », « Altitude… », « Altitude inconnue »), relue après une saisie de coordonnées (délai de 400 ms) tant que l'altitude n'a pas été tapée ; le crayon ouvre la saisie libre (analyse et messages d'erreur inchangés) ; « Centre de la carte » devient « Déplacer au centre de la carte », en modification seulement ; description repliée derrière « + Ajouter une description » (ouverte d'office si elle existe) ; Annuler · Y aller (tonal) · Enregistrer (plein) sur une ligne.
+  - `core/…/track/WaypointNames.kt` : numéro suivant le plus grand « Waypoint N » existant (casse et espaces ignorés, trous non recomblés).
+  - `TracksViewModel.terrainElevation` : altitude d'un point par l'`ElevationCompleter` existant (tuile Terrarium, `null` hors ligne). `MapScreen` passe le nom par défaut et cette fonction au dialogue.
+  - Chaînes : « Enregistrer et y aller » → « Y aller », « Changer » → « Changer le symbole » (description de la pastille), nouvelles chaînes du dialogue.
+  - Docs : `ui-index.md` §2.4, PLAN (P14.9).
+- **Décisions (ADR)** : aucune (changement d'interface sans effet sur l'architecture ni les données).
+- **Tests / vérifications** (JDK d'Android Studio) :
+  - `./gradlew spotlessApply :core:test --tests '*WaypointNames*' :app:compileDebugKotlin` : **BUILD SUCCESSFUL in 35s** (`WaypointNamesTest`, 4 tests).
+  - `./gradlew spotlessApply check assembleDebug` : **BUILD SUCCESSFUL in 2m 15s** (version 0.4.4 → 0.4.5). Après correction des boutons (« Annuler » passait seul sur une 2e ligne) : `./gradlew spotlessApply assembleDebug` (0.4.5 → 0.4.6), puis `./gradlew check assembleDebug` : **BUILD SUCCESSFUL in 1m 14s**, version inchangée **0.4.6**, APK `app/build/outputs/apk/debug/ToolMap-debug-0.4.6.apk` (85,7 Mo).
+  - Émulateur « Medium_Phone », APK 0.4.6, appui long sur la carte (Chambéry) : le dialogue tient sans défilement ; « Waypoint 1 » sélectionné ; « 282 m · relief » ; menu des 6 formats, UTM → « 31T 728489 E 5050584 N » ; crayon → champs Coordonnées (avec le bouton UTM) et Altitude 282 ; « Ajouter une description » → champ « Source » ; Enregistrer → drapeau sur la carte et « Waypoint enregistré. » ; nouvel appui long → « Waypoint 2 », « 277 m · relief » ; fiche du waypoint ▸ Modifier → « Modifier le waypoint » avec coordonnées, altitude, « Déplacer au centre de la carte » et description ouverts. `logcat -b crash` : seul un plantage du Bluetooth de l'émulateur, aucun de ToolMap.
+  - Pas de CI ni de lien d'artefact : dossier non poussé (comme les sessions 34 à 36).
+  - Miroir Drive : `scripts\drive-mirror.ps1` : 10 fichiers copiés, 0 échec ; APK publié `G:\Mon Drive\2 - Jean\Claude Code\APK release\ToolMap.0.4.6.apk`.
+- **Problèmes / dette technique** :
+  - Enregistrer après un passage en UTM, MGRS ou Lambert 93 garde la position arrondie au mètre du texte affiché (45.571250 → 45.571253 lors de l'essai), comme avant P14.9.
+  - Le clavier s'ouvre sur le nom à chaque création : à juger sur le téléphone (gants, petit écran). Le format choisi n'est pas mémorisé d'une ouverture à l'autre (il repart du réglage Unités).
+  - Altitude du relief seulement en ligne ou si la tuile Terrarium est stockée.
+- **Prochaine étape recommandée** : essayer le dialogue sur le téléphone ; puis, si l'utilisateur le souhaite, la proposition C (création express en option de l'appui long) ; sinon celle de la session 35 (P15.5 et P15.7 sur téléphone).
+
+---
+
+## 2026-10-17 — Session 36 — [P10.4] Numéro de version automatique (CORRECTIF à chaque changement des sources)
+- **Branche / commit** : copie locale (dossier `ToolMap/` non suivi par git sur ce poste) : rien de committé ni poussé. Version livrée **0.4.4** (premières versions automatiques : 0.4.1 à 0.4.4, 0.4.2 sans APK).
+- **Objectif** : demande de l'utilisateur : la version reste à 0.4.0 malgré plusieurs mises à jour ; faire en sorte que deux fichiers n'aient jamais le même numéro, si petit que soit le changement.
+- **Réalisé** :
+  - Cause : le numéro était écrit à la main (`appVersionName` dans `app/build.gradle.kts`, règle d'ADR-040 « une fois par livraison ») et les sessions 34 et 35 ne l'ont pas changé (« Version inchangée 0.4.0 »).
+  - `version.properties` (nouveau, racine) : `version` + `sourceHash`. `app/build.gradle.kts` (`appVersion`, `appSourceFingerprint`) : empreinte SHA-256 des fichiers Gradle et des sources hors tests de `:app`, `:core`, `:data`, `:p2p` ; un build local d'APK dont l'empreinte a changé passe le CORRECTIF à +1 et réécrit le fichier ; la CI (`CI=true`) ne réécrit jamais et échoue si l'empreinte ne correspond pas.
+  - Le journal entre aussi dans l'empreinte (titres et « Objectif », que « Nouveautés » copie dans l'APK) : écrire l'entrée avant le dernier build.
+  - `scripts/drive-mirror.ps1` lit le numéro dans `version.properties`.
+  - Docs : ADR-059, `release.md` §1, `CLAUDE.md` (§ Numéro de version), PLAN P10.4.
+- **Décisions (ADR)** : ADR-059 (remplace le point 2 d'ADR-040).
+- **Tests / vérifications** (JDK d'Android Studio) :
+  - `./gradlew check assembleDebug` : **BUILD SUCCESSFUL in 1m 42s**, « version 0.4.1 enregistrée », `ToolMap-debug-0.4.1.apk`.
+  - Cas essayés avec `./gradlew assembleDebug --dry-run` après une modification de `app/build.gradle.kts` : `CI=true` → **BUILD FAILED** avec le message « version.properties ne correspond pas aux sources » ; en local → 0.4.1 → 0.4.2 ; relancé sans changement → reste 0.4.2 ; `CI=true` avec sources égales → vert ; fichier ajouté dans `core/src/test` → reste 0.4.2 ; fichier ajouté dans `app/src/main` avec `./gradlew help` → reste 0.4.2 (pas de tâche d'APK).
+  - Après correction d'une ligne trop longue (ktlint) : `./gradlew spotlessApply` puis `./gradlew check assembleDebug` : **BUILD SUCCESSFUL in 1m 17s**, « version 0.4.2 → 0.4.3 », APK `app/build/outputs/apk/debug/ToolMap-debug-0.4.3.apk` (85,7 Mo).
+  - Ajout du journal à l'empreinte, puis `./gradlew check assembleDebug` : **BUILD SUCCESSFUL in 1m 31s**, « version 0.4.3 → 0.4.4 », APK **`ToolMap-debug-0.4.4.apk`**. Essai : un espace ajouté dans un « Objectif » → 0.4.5 (`--dry-run`) ; essai annulé, `version.properties` remis à 0.4.4 / `89dbc3df3a5ae8c1`, et `CI=true ./gradlew assembleDebug --dry-run` vert (empreinte égale).
+  - Pas de CI ni de lien d'artefact : dossier non poussé (comme les sessions 34 et 35).
+  - Miroir Drive : `scripts\drive-mirror.ps1` : 8 fichiers copiés, 0 échec ; APK publié `G:\Mon Drive\2 - Jean\Claude Code\APK release\ToolMap.0.4.4.apk`.
+- **Problèmes / dette technique** :
+  - Deux copies de travail (poste Windows et cloud) partant du même numéro peuvent produire le même suivant : une seule copie à la fois.
+  - Rien n'est poussé sur GitHub depuis la session 33 : la première CI qui recevra `version.properties` devra trouver l'empreinte égale aux sources poussées (pousser tel quel le dossier compilé).
+- **Prochaine étape recommandée** : celle de la session 35 (essai de l'APK sur le téléphone pour P15.5 et P15.7).
+
+---
+
+## 2026-10-16 — Session 35 — [P15.2][P15.3][P15.4][P15.5][P15.6][P15.7][P15.8] Procédure de performance (tuiles, zone, carte persistante, profil, modèles, caméra, trace)
+- **Branche / commit** : copie locale (dossier `ToolMap/` non suivi par git sur ce poste) : rien de committé ni poussé. Version inchangée **0.4.0**.
+- **Objectif** : « Lance toute la procédure de performance » : P15.2 à P15.8 dans l'ordre, mesure avant / après sur l'émulateur (P15.9 et P15.10 restent 💤).
+- **Réalisé** (détails et chiffres : `docs/specs/performance.md` §9) :
+  - **P15.2** tuiles : `RecentFirstGate` (plus récente d'abord, appel annulé retiré sans requête), `<max-threads>6` sur les sources IGN, `maxRequestsPerHost` 64. T2 9 606 → 7 408 ms.
+  - **P15.3** zone : fils selon `<max-threads>` (OSM / OSM France / OpenTopoMap : 2 fils, 300 ms), `TileBatch` (64 tuiles ou 1 s), une lecture par tuile, état chaque seconde. Z 12,2 → 7,1 s.
+  - **P15.4** la carte reste composée et `MapView` arrêté (non détruit) sous les écrans pleins. R : retour 514 → 178–240 ms.
+  - **P15.5** module `:baselineprofile`, `profileinstaller`, profil de 2,6 Mo versionné (`app/src/main/baseline-prof.txt`, régénération `./gradlew :app:generateBaselineProfile`). **Aucun gain démontrable sur l'émulateur.**
+  - **P15.6** `MapsViewModel` : catalogue à la première lecture (`by lazy`), création 25–70 ms → < 8 ms ; `WhileSubscribed` volontairement non appliqué.
+  - **P15.7** caméra lue dans des `derivedStateOf` et sous-composables : recompositions de `MapScreen` en glissement 692 / 676 → 68 / 68.
+  - **P15.8** `TrackRepository.appendedSince` (journal des lots) + `TrackDisplay` prolonge la ligne (partie gelée + queue < 256 points) ; un lot sur 20 000 points 13 → 5 ms (JVM).
+- **Décisions (ADR)** : ADR-057 mis à jour, ADR-058 (file de tuiles, fils par source) ; rien de nouveau pour P15.6 à P15.8 (choix décrits dans `performance.md` §9).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug assembleBenchmark` (JDK d'Android Studio, après P15.8 et suppression du test de chronométrage temporaire) : **BUILD SUCCESSFUL in 3m 14s**. APK : `app/build/outputs/apk/debug/ToolMap-debug-0.4.0.apk` (86,0 Mo) et `app/build/outputs/apk/benchmark/ToolMap-benchmark-0.4.0.apk` (67,6 Mo).
+  - Tests ajoutés : `RecentFirstGateTest`, `TileInterceptorTest` (ordre, annulation, fils par source), `ZoneDownloaderTest` / `TileBatchTest`, `NavigationBackTest` (carte non recréée), `MapsViewModelTest` (catalogue à la première lecture), `TrackDisplayTest` (5 : aucun rechargement complet sur 40 lots, écart ≤ 2,5 m, nouveau segment, inversion → relecture, `appendedSince` contigu puis `null`).
+  - Essai sur l'émulateur avec l'APK benchmark final : installation, lancement, carte IGN affichée, `logcat -b crash` vide.
+  - Mesures : tableaux de `performance.md` §9. A : recompositions −90 %, 90e percentile 42 → 38 ms, **images lentes inchangées (≈ 89 %)**.
+- **Problèmes / dette technique** :
+  - P15.5 : l'effet du profil n'est pas visible sur l'émulateur (dérive de l'émulateur plus grande que l'effet) : **à vérifier sur le téléphone**.
+  - P15.7 : le taux d'images lentes du scénario A n'a pas baissé (rendu OpenGL de l'émulateur) ; découpage complet RS3 non fait.
+  - P15.8 : scénario G non rejoué sur l'émulateur (impraticable) ; remplacé par une mesure JVM. Le GeoJSON de la ligne entière est encore reconstruit à chaque lot (5 ms à 20 000 points).
+  - Non vérifiés : cas limites de P15.4 avec TalkBack et boîtes de dialogue ; ajustement sur des limites (fit-to-bounds) carte arrêtée.
+  - Le redémarrage de l'émulateur en cours de séance (dérive) a **supprimé les applications installées à la main, dont AlpineQuest** : à réinstaller si besoin pour les comparaisons.
+  - Protocole : redémarrer l'émulateur avant une série, entrelacer l'avant et l'après (`performance.md` §7).
+- **Prochaine étape recommandée** : essai de l'APK sur le téléphone (démarrage à froid, glissement sur carte stockée et en ligne, enregistrement d'une longue trace) pour confirmer P15.5 et P15.7 ; puis décider de P15.9 (M5) et P15.10 d'après ces essais et les mesures de batterie.
+
+---
+
+## 2026-10-16 — Session 34 — [P15.1] Build benchmark, relevé de temps et mesures de référence
+- **Branche / commit** : copie locale (dossier `ToolMap/` non suivi par git sur ce poste) : rien de committé ni poussé. Copie des fichiers d'avant la modification dans le bac à sable de la session. Version inchangée **0.4.0**.
+- **Objectif** : réaliser P15.1 (session lancée par la session 33) : build « benchmark », premier passage de R8, relevé de temps, scripts `adb`, mesures de référence sur l'émulateur.
+- **Réalisé** :
+  - `app/build.gradle.kts` : type de build **`benchmark`** (`initWith(release)`, non debuggable, `profileable`, R8 et réduction des ressources, clé de debug fixe, `matchingFallbacks += "release"`) ; champ `BuildConfig.PERF_LOG` (vrai en debug et benchmark, faux en release). La release n'est pas modifiée. APK : `ToolMap-benchmark-0.4.0.apk`, 67,6 Mo (debug : 86,6 Mo).
+  - **R8** : aucune règle à ajouter. L'APK benchmark s'installe par-dessus l'APK de debug, ouvre la carte IGN, et les écrans essayés (réglages, nouveautés, panneau des cartes, menu de position, profil du partage) ne plantent pas (`logcat -b crash` vide). `mapping.txt` : `org.webrtc.**` et `NativeMapView` gardés par les règles des bibliothèques. `proguard-rules.pro` : commentaire mis à jour.
+  - **Relevé de temps** `fr.toolmap.perf.MapPerfLog` (étiquette logcat `ToolMapPerf`) : une ligne par étape (ouverture, geste, mouvement de caméra), `ms` depuis le début de l'étape, `idle_ms` depuis l'arrêt de la caméra, tuiles par origine (`TileStats`). Constaté : `onDidFinishRenderingMap(true)` seul ne revient pas à chaque lancement ; l'étape se termine donc au premier des trois signaux de MapLibre (carte entièrement dessinée, image entièrement dessinée, repos), jamais pendant un geste ou une animation, et l'ouverture attend ses tuiles (le style vide est dessiné avant). `ZoneDownloadWorker` écrit `zone completed ms=…` à la fin d'un téléchargement (debug et benchmark).
+  - **Point de départ fixe** `fr.toolmap.perf.PerfIntent` : extras de lancement `perf.source`, `perf.lat/lon/zoom`, `perf.zone/zmin/zmax`, lus par `MainActivity.handleIntent` en debug et benchmark seulement (pas de `run-as` sur un APK non debuggable).
+  - **Scripts** `tools/perf/` (Git Bash) : `lib.sh`, `0-startup.sh`, `R-return.sh`, `A-pan.sh`, `T-tiles.sh online|stored`, `Z-zone.sh`, `run-all.sh [apk]`, `README.md` ; relevés bruts dans `tools/perf/out/` (non versionné). Git Bash réécrit `/sdcard/…` : `MSYS_NO_PATHCONV=1`.
+  - Docs : `performance.md` §6 (ce qui est fait) et §7 (scripts, vue fixe, carré Z), `release.md` §1 (nom de l'APK benchmark), `CLAUDE.md` (commandes), PLAN (P15.1 ✅).
+- **Décisions (ADR)** : aucune nouvelle (réalisation d'ADR-057) ; le point d'entrée des scripts par extras d'intent est décrit dans `performance.md` §6.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` (JDK d'Android Studio) : **BUILD SUCCESSFUL in 1m 5s** ; `check` ne lance que les tests et le lint de debug (le type benchmark n'ajoute rien à la CI). `./gradlew :app:assembleBenchmark` : vert (il a fallu une fois le réseau : `compose-group-mapping` absent du cache hors ligne).
+  - **Mesures de référence** (émulateur « Medium_Phone », Android 17 / API 37, APK benchmark, 16/10 19 h 44 – 19 h 56, `bash tools/perf/run-all.sh` puis `Z-zone.sh` relancé seul) :
+    - **0** démarrage à froid, 5 fois : `TotalTime` médian **818 ms** (734 à 856) ; carte dessinée **1 125 ms** après le début du processus.
+    - **R** carte → Traces → Retour, 10 fois : carte dessinée **422 ms** après sa création (390 à 474), **514 ms** après la touche Retour ; images de l'interface : 862, **15,1 % lentes**, 90e 40 ms, 95e 61 ms.
+    - **A** 64 glissements en 60 s : 935 images, **48,9 % lentes**, 90e 31 ms, 95e 34 ms.
+    - **T2** tuiles en ligne (3 passages après `pm clear`, médianes) : total **9 606 ms**, dont **6 182 ms d'attente après l'arrêt de la caméra** ; ouverture 2 742 ms (33 tuiles réseau), glissements 570 à 844 ms (attente 0 à 294 ms, 4 à 16 tuiles), zoom 1 2 058 ms (attente 1 756 ms, 38 à 47 tuiles), zoom 2 1 244 ms (attente 948 ms, 34 tuiles).
+    - **T1** tuiles stockées (même parcours, 3 passages après un passage de préparation) : total **4 402 ms**, dont **874 ms d'attente** ; ouverture 781 ms (33 tuiles stockées), glissements 568 à 655 ms (attente 0 à 85 ms), zooms 377 et 299 ms (attente 0). Quelques tuiles des zooms (2 à 9) restent en réseau : le passage de préparation ne voit pas exactement les mêmes.
+    - **Z** zone IGN 5 km × 5 km, zooms 12 à 16, 3 passages après `pm clear` : **12,2 s** médian (11,8 à 12,9), **16,5 tuiles/s** ; 234 tuiles dont 202 téléchargées (les 32 autres stockées par l'affichage de la carte ouverte), 4,6 Mo.
+    - Mémoire, carte ouverte : 74 784 Ko (PSS total).
+  - Lecture : en ligne, l'attente des tuiles après l'arrêt de la carte (≈ 6,2 s sur le parcours) domine ; stockées, elle tombe à moins de 0,9 s. C'est ce que P15.2 vise (T2), puis P15.3 (Z).
+  - Pas de CI ni de lien d'artefact (dossier non poussé, CI arrêtée) ; APK locaux : `app/build/outputs/apk/debug/ToolMap-debug-0.4.0.apk` et `app/build/outputs/apk/benchmark/ToolMap-benchmark-0.4.0.apk`.
+- **Problèmes / dette technique** :
+  - Non essayés sous R8 : la création d'un groupe de partage (WebRTC, Firebase), l'enregistrement d'une trace, l'import de fichiers, l'impression PDF, la sauvegarde. À essayer avant d'activer R8 en release (ADR-027).
+  - Mesures réseau dépendantes de la connexion du poste : comparer l'avant et l'après dans la même séance (§7). Un passage de T1 a eu un zoom à 3,4 s (9 tuiles réseau) : la médiane l'absorbe.
+  - `gfxinfo` ne compte que les images de l'interface Compose : le rendu OpenGL de la carte n'y figure pas.
+  - Arrêter `run-all.sh` par le gestionnaire de tâches laisse tourner le script enfant et son `adb logcat` : les tuer à la main (`ps -ef | grep tools/perf`).
+- **Prochaine étape recommandée** : P15.2 (tuiles de la carte : `<max-threads>6` IGN, `maxRequestsPerHost` 64, file la plus récente d'abord), puis refaire T2 et T1 dans la même séance qu'une nouvelle mesure de référence.
+
+---
+
+## 2026-10-16 — Session 33 — [P15] Plan d'amélioration des performances revu
+- **Branche / commit** : copie locale (dossier `ToolMap/` non suivi par git sur ce poste) : rien de committé ni poussé. Copie des 4 documents d'avant la modification dans le bac à sable de la session. Version inchangée **0.4.0**, aucun code modifié.
+- **Objectif** : « prépare un plan d'amélioration des performances de l'application » (entretien en trois séries de questions, plan final validé : « Oui, le plan est bon »).
+- **Réalisé** :
+  - Constat refait sur le code actuel : RS1 (pile de retour) fait ; PF1 non fait ; `MapScreen.kt` à 1 527 lignes ; l'APK testé est un APK de debug, sans R8 ni Baseline Profile (PF9).
+  - Symptôme de l'utilisateur : **les tuiles apparaissent lentement quand on déplace la carte**. Causes trouvées dans le code (non mesurées) : 40 à 60 tuiles par écran (ADR-032, gardé), 2 ou 3 téléchargements simultanés par source (IGN sans `<max-threads>` → 3), `maxRequestsPerHost = 20` qui fait attendre les tuiles stockées derrière le réseau, file dans l'ordre d'arrivée, tuiles multi-zoom recomposées à chaque affichage. Téléchargement de zone : plafond de 3 fils, une transaction SQLite par tuile, lectures en double, état réécrit toutes les 250 ms.
+  - Règles d'usage vérifiées : WMTS de la Géoplateforme sans limite de requêtes par seconde (CGU de cartes.gouv.fr, art. 3.2) ; OSM sans limite chiffrée mais usage hors ligne interdit. L'utilisateur garde l'enregistrement de zone OSM actuel (écart consigné).
+  - `docs/specs/performance.md` réécrit : §2 constat, §3 tuiles (M1 à M5, D1 à D5), §4 règles d'usage, §6 build benchmark et Baseline Profile, §7 protocole **sur l'émulateur seulement** (scénarios 0, R, A, T1, T2, Z, G ; batterie renvoyée à plus tard sur téléphone), §8 ordre et tests.
+  - `docs/PLAN.md` : P15 renuméroté en P15.1 à P15.10 (aucune tâche n'était commencée) ; ordre conseillé et ligne P10.1 mis à jour. `CLAUDE.md` : description de `performance.md`.
+- **Décisions (ADR)** : ADR-057 (mesures sur l'émulateur, build `benchmark`, Baseline Profile) ; ADR-058 (connexions par serveur, `<max-threads>6` pour l'IGN, `maxRequestsPerHost` à 64, file servie de la plus récente à la plus ancienne, écritures groupées du téléchargement de zone).
+- **Tests / vérifications** :
+  - `./gradlew check assembleDebug --offline` (JDK d'Android Studio) : **BUILD SUCCESSFUL in 32s** (190 tâches, 7 exécutées : aucun code modifié) ; `./gradlew assembleDebug --offline` relancé ensuite pour embarquer cette entrée dans « Nouveautés » ;
+  - faits cités vérifiés dans le code : `BulkPolicy.DEFAULT_THREADS = 3`, `TileSource.DEFAULT_MAX_THREADS = 3`, `MAX_PARALLEL_CALLS = 20`, `Semaphore(level.maxThreads, true)`, `REPORT_INTERVAL_NANOS = 250 ms`, `<max-threads>2` sur OSM, OpenTopoMap et les 25 cartes du catalogue, aucun sur les sources IGN fournies ; aucune autre référence aux anciens numéros P15.x hors du journal ;
+  - pas de CI ni de lien d'artefact (dossier non poussé, CI arrêtée) ; APK local : `app/build/outputs/apk/debug/ToolMap-debug-0.4.0.apk`.
+- **Problèmes / dette technique** : rien n'est mesuré ; les gains annoncés sont des hypothèses tirées du code. Le défaut de sauvegarde de `hidden-builtins.txt` (session 32) reste ouvert. CI toujours arrêtée (limite de dépense GitHub).
+- **Prochaine étape recommandée** : P15.1 (build benchmark, relevé de temps, mesures de référence sur l'émulateur), puis P15.2.
+
+---
+
+## 2026-10-16 — Session 32 — [docs] Réécriture des documents périmés
+- **Branche / commit** : copie locale (dossier `ToolMap/` non suivi par git sur ce poste) : rien de committé ni poussé. Copie des fichiers d'avant la réécriture dans le bac à sable de la session. Version inchangée **0.4.0**, aucun code modifié.
+- **Objectif** : « Tu vas réécrire les markdown obsolètes » ; plan présenté puis validé par l'utilisateur (« Oui, réécris les 7 fichiers comme prévu »).
+- **Réalisé** :
+  - `README.md` : fonctions de P11 à P16 (catalogue en ligne, dossiers, icônes, multi-zoom, point central), partage par serveur Firebase ou direct, état réel (P0 à P13 codés, P14 à P16 en cours, émulateur depuis le 2026-10-15, ce qui reste à voir sur téléphone), APK en local quand la CI ne tourne pas.
+  - `CLAUDE.md` : deux environnements (cloud, poste Windows avec émulateur « Medium_Phone » et `adb`) ; dossier non suivi par git et dépôt `JRRocks/ToolMap` ; point 7 du protocole : commandes `gh` à défaut des outils GitHub, cas de la CI qui ne démarre pas pour une raison de facturation ; tableau des documents complété (`comparaison-alpinequest-toolmap.md`, `aq-icons-inventaire.md`, `tools/icons/`). Le protocole du journal ne change pas.
+  - `docs/PLAN.md` : **statuts et critères d'acceptation inchangés** ; nouvel « ordre conseillé » (CI, P16.6/P16.7, P14.2 à P14.4, P14.6/P14.7, P15) ; vision (N1 avec le serveur, N6 point central, parité « interface fidèle ») ; architecture (Firebase, projections maison au lieu de proj4j, paquets réels de `:app`, chemin d'une tuile avec `TileResolver`) ; lignes de tâches raccourcies (le détail reste dans ce journal) ; stratégie de test avec l'émulateur ; risques mis à jour (CGNAT réglé par P13, Vulkan réglé, CI arrêtée, dossier non suivi par git). Seuls changements de texte dans des critères : P0.1 (l'application s'ouvre sur l'émulateur, session 27), P0.3 (note sur la CI arrêtée), P16.7 (critère écrit : « reconstruction vérifiée sur émulateur »).
+  - `docs/specs/ui-reorganization.md` : devenu un suivi (✅ / ◐ / ⬜) ; tableau « Ce qui reste » ; lot 1 fait ; N4 fait autrement (diagnostic réservé au debug) ; F2, F16 faits, F7 en partie (dossiers P16.5) ; « Quitter » (ADR-053) et aide de P16.3 dans l'arborescence ; étude de l'ordre mise à jour (F2 fait = début de l'option B).
+  - `docs/specs/p2p-sharing.md` : en-tête et §1 réécrits pour décrire les deux modes (serveur par défaut depuis P13, direct conservé) au lieu de « aucun serveur » contredit par un encart ; §2 cite `FirebaseRelay` ; §8 précisé « mode direct ». CLAUDE.md suit.
+  - `docs/specs/ui-index.md` : en-tête (tenu à jour jusqu'à 0.4.0, vérifié sur émulateur), ligne M1 (version lue de `BuildConfig`).
+  - `docs/specs/backup-format.md` : exemple en 0.4.0 ; deux limites ajoutées au §6.
+- **Décisions (ADR)** : aucune (pas de décision d'architecture ; DECISIONS.md non modifié).
+- **Tests / vérifications** :
+  - `./gradlew check assembleDebug --offline` (JDK d'Android Studio) : **BUILD SUCCESSFUL in 1m 2s** (190 tâches, 19 exécutées, les tests à jour puisque aucun code n'a changé) ; `./gradlew assembleDebug --offline` relancé ensuite pour embarquer cette entrée : vert, `assets/whats-new.txt` de l'APK commence par elle ;
+  - tableaux markdown de `PLAN.md` et `ui-reorganization.md` contrôlés (même nombre de colonnes sur chaque ligne) ;
+  - affirmations nouvelles vérifiées dans le code : cartes du catalogue rangées dans `filesDir/sources` (`TileModule`, `SourceRepository.store`), en-tête du menu lu de `BuildConfig.VERSION_NAME`, sauvegarde limitée à `workspaces/*.json` ;
+  - pas de CI ni de lien d'artefact (dossier non poussé, CI arrêtée) ; APK local : `app/build/outputs/apk/debug/ToolMap-debug-0.4.0.apk` (86,6 Mo).
+- **Problèmes / dette technique** :
+  - **Défaut trouvé en relisant le code** (non corrigé, hors du périmètre « documents ») : la liste des favoris fournis supprimés (`workspaces/hidden-builtins.txt`, ADR-052) n'entre pas dans la sauvegarde, qui ne prend que `workspaces/*.json` (`BackupPaths.areaOf`) ; après une restauration, ces favoris reviennent. Consigné dans `backup-format.md` §6 et `ui-reorganization.md` §7.4.
+  - Les autres documents (`aqx-format`, `print-pdf`, `multi-zoom`, `firebase-relay`, `release`, `performance`, `comparaison-alpinequest-toolmap`, `aq-icons-inventaire`, README des fixtures) ont été jugés à jour et non touchés.
+  - Cette entrée apparaîtra dans « Nouveautés » de l'application (5 dernières entrées du journal, P16.3).
+- **Prochaine étape recommandée** : relever la limite de dépense GitHub Actions et pousser vers `JRRocks/ToolMap` ; corriger la sauvegarde de `hidden-builtins.txt` ; puis P16.7.
+
+---
+
+## 2026-10-16 — Session 31 — [P16.6] Icônes d'AlpineQuest : waypoints et activités
+- **Branche / commit** : voir le dernier message de la session (branche `sauvegarde/p16-2026-10-16` du dépôt `JRRocks/ToolMap`) ; version inchangée **0.4.0**.
+- **Objectif** : « Utilise l'émulateur pour faire une comparaison entre AlpineQuest et ToolMap, tout sur les icônes : reconstruis chaque icône différente ou manquante ; tous les waypoints en une seule couleur ; les activités à l'identique. »
+- **Réalisé** :
+  - Relevé complet d'AlpineQuest (version complète sur l'émulateur) : 16 catégories d'icônes de waypoint (313 icônes, dépliées et défilées), grille de 32 activités + Autre + Aucune, icônes des menus : `docs/aq-icons-inventaire.md`.
+  - Catalogue `tools/icons/catalog.txt` et générateur `tools/icons/generate.mjs` (ADR-056) : 313 + 33 VectorDrawables, libellés, `WaypointCatalog`, `TrackActivity` (33), `WaypointIconRes`, `ActivityRes`.
+  - `WaypointSymbols` réécrit sur le catalogue (clés, alias Garmin, couleur de catégorie) ; `TrackGeoJson.points` écrit `icon` ; `DisplayData.pointIcons` ; `TrackOverlay` : couche `SymbolLayer` du glyphe blanc sur le disque (rayon 10), `WaypointGlyphs` rend le glyphe (image `tm-wp-<id>` ajoutée au style à la demande).
+  - `WaypointDialog` : ligne « icône + Changer » ; `WaypointIconPicker` : catégories repliables avec compte, recherche (déplie les catégories trouvées). `ActivityDialog` : grille de 4 colonnes des 33 activités avec icône colorée ; `labelRes()` délègue à `ActivityRes`.
+  - Mention des licences (CC0, Apache 2.0) dans `ThirdParty.kt`.
+- **Décisions (ADR)** : ADR-056.
+- **Tests / vérifications** : `./gradlew spotlessApply check assembleDebug` : **vert** (tests unitaires, ktlint, lint). Nouveau `WaypointSymbolsTest` (6 tests) ; `EditorGeoJsonTest` adapté. Émulateur (APK 0.4.0 installé) : « Créer un waypoint… » affiche l'icône par défaut, « Changer » ouvre les 16 catégories, la recherche « Sommet » trouve l'icône, enregistré : le disque vert avec le glyphe blanc apparaît sur la carte.
+- **Problèmes / dette technique** : la grille des activités n'a pas été ouverte sur l'émulateur (réglage « Demander l'activité ») ; pas de choix « Aucune » dans la grille ; les glyphes ne sont pas les dessins exacts d'AlpineQuest (propriétaires). Les icônes de menus ne sont pas encore comparées (P16.7). `docs/specs/ui-index.md` mis à jour pour les écrans touchés. CI GitHub toujours bloquée par la limite de dépense : APK local.
+- **Prochaine étape recommandée** : P16.7 (icônes de menus d'après le relevé), vérifier la grille des activités sur téléphone.
+
+---
+
+## 2026-10-16 — Session 30 (suite) — [P16] Dépôt GitHub et CI bloquée
+- **Branche / commit** : la copie locale a été mise dans le dépôt `JRRocks/ToolMap`, branche `sauvegarde/p16-2026-10-16`, commit `159e9e4` (au-dessus de `main` = `06c80c7`, qui s'arrêtait à P10). Pas de PR. Corrige l'entrée précédente (« rien de committé ni poussé »).
+- **Objectif** : obtenir l'APK de la CI, sinon donner l'APK local (demande de l'utilisateur).
+- **Réalisé** : poussé tout `ToolMap/` hors `build/`, `.gradle/`, `.kotlin/`, `local.properties` et APK ; `firebase/*-debug.log` ajouté à `.gitignore` (journal de l'émulateur, non versionné).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** : run « CI » 38876943335 : **échec sans démarrer** (3 s) : « recent account payments have failed or your spending limit needs to be increased ». Ce n'est pas un échec de code. Compilation locale verte (voir l'entrée précédente). Aucun artefact ni pré-release `debug-<sha7>`.
+- **Problèmes / dette technique** : tant que la facturation ou la limite de dépense de GitHub Actions n'est pas réglée, la CI ne tourne pas et l'APK vient de la compilation locale : `app/build/outputs/apk/debug/ToolMap-debug-0.4.0.apk`. Chaque push relance une CI qui échoue de la même façon.
+- **Prochaine étape recommandée** : relever la limite de dépense dans GitHub (Billing & plans), relancer le run 38876943335, puis ouvrir une PR vers `main` si l'utilisateur le demande.
+
+---
+
+## 2026-10-16 — Session 30 — [P16.1 à P16.5] Écarts avec AlpineQuest
+- **Branche / commit** : copie locale (dépôt `C:\Bureau\Desktop\Jean`, branche `sauvegarde/2026-10-10`, sans remote ; le dossier `ToolMap/` n'y est pas suivi) : rien de committé ni poussé, pas de CI ni de lien d'artefact. Version inchangée : **0.4.0**.
+- **Objectif** : « Corrige les différences entre AlpineQuest et ToolMap dans ce qui est manquant dans ToolMap. Garde les "New" de ToolMap en place. » (`docs/comparaison-alpinequest-toolmap.md`). Dix questions posées, toutes validées ; nouvelle phase P16 dans PLAN.
+- **Réalisé** :
+  - **P16.1** : `SettingsScreen` garde les catégories ouvertes (`OpenCategories`) et un `BackHandler` les replie une à une avant de quitter ; le logo, barre masquée, rétablit la barre (`chromeHidden = false`).
+  - **P16.2** : `MenuAction.EXIT` et ligne « Quitter » (dialogue « Quitter ToolMap ? », texte sur ce qui continue en arrière-plan) ; interrupteur Baromètre dans `PositionMenu` (visible si capteur). Le dialogue d'activité à l'enregistrement existait déjà : faux écart. ADR-053.
+  - **P16.3** : « Plus… » ▸ Aide : Nouveautés (`WhatsNewTask` dans `app/build.gradle.kts` génère `whats-new.txt` depuis les 5 dernières entrées de ce journal) et Signaler une erreur (`ErrorReport` dans `:core`, `CrashReporter.errorReport`, partage Android, rien envoyé tout seul).
+  - **P16.4** : `online-catalog.aqx` (25 cartes), `OnlineCatalog`, `OnlineCatalogScreen`, « Ajouter une carte ▸ Catalogue en ligne… », `SourceRepository.alreadyHave` / `addFromCatalog`. Adresses vérifiées avec `curl`. ADR-054.
+  - **P16.5** : `TrackRepository.createFolder`, `moveItem`, `moveFolder` ; `TrackDao.allFolders` ; `NamespaceMerger` offre les préfixes de toutes les racines au sommet de la bibliothèque ; écran « Traces et waypoints » : « Nouveau dossier » en haut, « Nouveau sous-dossier » et « Déplacer vers… » dans les menus ⋮ (`MoveDialog`). Aucune migration Room. ADR-055.
+  - Docs : PLAN (P16), DECISIONS (ADR-053 à 055), `ui-index.md` (§3, §3.1, §4, §5.3, §6.1), `comparaison-alpinequest-toolmap.md` (§10 et lignes corrigées).
+- **Décisions (ADR)** : ADR-053 (remplace ADR-034 point 5 et ADR-039 point 3), ADR-054, ADR-055.
+- **Tests / vérifications** :
+  - nouveaux ou étendus : `ErrorReportTest`, `OnlineCatalogTest`, `SourceRepositoryTest` (+2), `TrackFoldersTest` (6), `NavigationBackTest` (10), `MainMenuPanelTest`, `PositionMenuPanelTest`, `TracksFoldersScreenTest` ;
+  - `./gradlew spotlessApply check assembleDebug --offline` : **BUILD SUCCESSFUL** (core 713 tests, data 282, app 225 dont 5 ignorés, p2p 20 dont 2 ignorés ; 0 échec ; lint vert) ;
+  - rien vu sur émulateur ni téléphone pendant cette session.
+- **Problèmes / dette technique** :
+  - pas de lien CI (dépôt local sans remote) ; APK local : `app/build/outputs/apk/debug/ToolMap-debug-0.4.0.apk` (86 Mo) ;
+  - **à voir sur téléphone** : Retour dans une catégorie, Quitter, interrupteur Baromètre, Nouveautés, Signaler une erreur, ajout depuis le catalogue (surtout la clé Ordnance Survey et l'affichage des tuiles), création et déplacement de dossiers ;
+  - le catalogue est figé dans l'APK : une adresse qui change se corrige dans `online-catalog.aqx` ;
+  - si deux imports donnent un même préfixe XML à deux espaces de noms différents, un élément déplacé prend celui de la racine d'arrivée (ADR-055) ;
+  - tri, filtre et sélection multiple des traces restent à faire (P14.7) ;
+  - fichiers touchés, faute de git : `settings/SettingsScreen.kt`, `map/{MapScreen,MainMenu,PositionMenu}.kt`, `crash/CrashReporter.kt`, `maps/{OnlineCatalogScreen,MapsViewModel,AvailableMapsScreen}.kt`, `tracks/{TracksScreen,TracksViewModel,TrackDialogs}.kt`, `data/.../tracks/{TrackRepository,TrackDao,NamespaceMerger}.kt`, `data/.../sources/SourceRepository.kt`, `core/.../crash/ErrorReport.kt`, `core/.../maps/OnlineCatalog.kt`, `core/src/main/resources/online-catalog.aqx`, `app/build.gradle.kts`, `strings.xml` et les tests ci-dessus.
+- **Prochaine étape recommandée** : installer l'APK et vérifier les points « à voir sur téléphone » ; remettre ToolMap dans son dépôt GitHub (`JRRocks/ToolMap`) pour pousser les sessions 28 à 30 et obtenir l'APK de la CI ; puis P14.6 / P14.7 (tri et filtre des traces) ou la suite de P14.2 (`[S2]`, `[G1]`).
+
+---
+
+## 2026-10-15 — Session 29 — [P14.2] Chevauchements de la carte (V2) et diagnostic (N4)
+- **Branche / commit** : copie locale (dépôt `C:BureauDesktopJean`, branche `sauvegarde/2026-10-10`, sans remote ; le dossier `ToolMap/` n'y est pas suivi) : rien de committé ni poussé, pas de CI ni de lien d'artefact. Version inchangée : **0.4.0**.
+- **Objectif** : corriger `[V2]` (éléments flottants de la carte qui se recouvrent) et `[N4]` (écran de mise au point montré à l'utilisateur), relevés en session 27 (`ui-index.md` §10).
+- **Réalisé** :
+  - **V2** : nouveau `app/.../map/MapChromeLayout.kt`. `ChromePlacement` contient l'arithmétique pure ; `MapTopChrome` et `MapBottomChrome` sont deux `Layout` Compose qui l'appliquent. `MapScreen` les utilise à la place des colonnes alignées chacune dans son coin, qui ne se voyaient pas :
+    - les panneaux du haut se placent à côté des boîtes d'information s'ils tiennent dans la largeur restante, sinon en dessous ; `TOP_PANEL_OFFSET` (48 dp fixes) est supprimé ;
+    - les boutons de droite se placent à côté de la barre, ou au-dessus si la ligne est trop étroite ; l'attribution passe à la ligne avant eux ;
+    - sélection de zone : `SaveAreaOverlay(shade, handles)` est appelé deux fois, l'ombre sous les éléments flottants et les poignées au-dessus. Le rectangle de départ vient de `ChromePlacement.freeOfBoxes` (sous les boîtes ou à leur droite) et de la nouvelle `MapController.screenArea`.
+  - **N4** : `MainMenuState.diagnostics` (`BuildConfig.DEBUG` dans `MapScreen`). La section « Cartes hors ligne ▸ Diagnostic des tuiles » de « Plus… » n'existe que dans l'APK debug. J'ai choisi de la réserver au debug plutôt que de la déplacer dans « Aide et à propos », comme le prévoyait P14.2 : c'est un outil de mise au point.
+  - `ui-index.md` : lignes DIAGNOSTICS, P8, synthèse N4 et V2 passées à ✅ ; nouveau §10.6 (règle de mise en page et vérifications). PLAN : P14.2 note `[N4]` fait (la tâche reste 🔄 pour S2 et G1).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - nouveaux tests :
+    - `MapChromeLayoutTest` (8 tests) : 4 sur l'arithmétique et 4 de rendu Robolectric sur écran 1000 × 1000 dp ; ils vérifient que les rectangles ne se recouvrent pas : panneau à côté ou sous les boîtes, attribution, barre et zoom, zoom au-dessus de la barre sur 280 dp ;
+    - `MainMenuPanelTest` (+2) : diagnostic absent hors debug, présent en debug ;
+  - `./gradlew spotlessApply` puis `./gradlew check assembleDebug` : **BUILD SUCCESSFUL** (core 704 tests, app 217 dont 5 ignorés, data 274, p2p 20 dont 2 ignorés ; 0 échec ; lint vert) ;
+  - émulateur « Medium_Phone » (Android 37, 1080 × 2400). Constat **avant**, sur l'ancien APK : attribution OpenTopoMap jusqu'à x = 1032, sur « Zoomer » (x = 954) ; panneau d'enregistrement à y = 211, sur la boîte Échelle. **Après** réinstallation, aucun recouvrement :
+    - attribution jusqu'à x = 885 ;
+    - enregistrement, cible, boîtes GPS et baromètre : panneaux sous la dernière boîte, bandeau de cible sous le panneau ;
+    - paysage : panneaux à côté des boîtes ;
+    - zone : poignées sous les boîtes, et une poignée glissée sous la boîte Échelle puis ressortie suit le doigt ;
+    - « Plus… » montre le diagnostic dans l'APK debug.
+  - Captures dans le bac à sable de la session, non versionnées.
+- **Problèmes / dette technique** :
+  - pas de lien CI (dépôt local sans remote, dossier non suivi) ; APK local : `app/build/outputs/apk/debug/ToolMap-debug-0.4.0.apk` ;
+  - l'absence du diagnostic en release n'a pas été vue sur appareil (pas d'APK release construit), seulement par le test ;
+  - zoom pour gaucher (`CenterStart`) non revu : il peut encore toucher des boîtes très hautes sur un écran court en paysage ;
+  - fichiers touchés, faute de git : `map/MapChromeLayout.kt` (nouveau), `map/MapScreen.kt`, `map/MainMenu.kt`, `map/MapController.kt`, `maps/SaveAreaPanel.kt`, tests `map/MapChromeLayoutTest.kt` (nouveau) et `map/MainMenuPanelTest.kt`, `docs/specs/ui-index.md`, `docs/PLAN.md`.
+- **Prochaine étape recommandée** : remettre ToolMap dans son dépôt GitHub (`JRRocks/ToolMap`) pour pousser les sessions 28 et 29 et obtenir l'APK de la CI ; puis la suite de P14.2 (`[S2]` `insecure`, `[G1]` libellé).
+
+---
+
+## 2026-10-15 — Session 28 — [P14.1] Pile de retour et défauts trouvés sur émulateur
+- **Branche / commit** : copie locale du poste de l'utilisateur (dépôt `C:\Bureau\Desktop\Jean`, branche `sauvegarde/2026-10-10`, sans remote GitHub ; le dossier `ToolMap/` n'y est pas suivi par git) : rien de committé ni poussé, pas de CI ni de lien d'artefact. Version inchangée : **0.4.0**.
+- **Objectif** : corriger les défauts de la session 27 (`ui-index.md` §10) : P14.1 (N1, N2, N3, N5, N6, N7, N8, N9), plus V1 et V3.
+- **Réalisé** :
+  - **Pile de retour** (`performance.md` RS1) : nouveau `app/.../ui/BackStack.kt` (fonctions pures `open`, `replace`, `back`) ; `MainActivity` garde la liste des écrans dans un `rememberSaveable` (sauvegardée par les noms des écrans), avec un seul `BackHandler` à la racine actif dès qu'un écran est posé sur la carte. Tous les « Fermer » appellent `back()` ; les actions qui mènent à la carte (« Voir sur la carte », « Aller vers », « Modifier le tracé »…) vident la pile. `detailFrom`, `wizardFrom` et `multiZoomFrom` sont supprimés. L'assistant, quand il envoie vers Stockage (fichier MBTiles), est remplacé par Stockage. Corrige N1, N2, N3, N9.
+  - **Multi-zoom** : `MultiZoomScreen(editorOnly)` : ouvert depuis le catalogue, Annuler et Retour dans l'éditeur reviennent au catalogue (avant : la liste multi-zoom) ; depuis les Réglages, ils reviennent à la liste. Retour dans l'éditeur = Annuler.
+  - **Dessin et mesure (N5)** : `BackHandler` dans `DrawBar` (comme « Quitter » : confirmation s'il y a des changements) et dans `MeasureBar` (ferme la mesure). Désactivés quand l'écran est verrouillé.
+  - **Verrou (N6, N8)** : Retour sur l'écran verrouillé n'en sort pas et rappelle « Maintenez l'écran pour le déverrouiller » ; `controller.onLongPress` ne fait rien tant que `locked`.
+  - **Commandes masquées (N7)** : `MainMenuState.controlsHidden` ; la ligne du menu devient « Afficher les commandes de la carte » (chaîne `menu_show_controls`, existante mais inutilisée) et `MenuAction.HIDE` bascule ; Retour réaffiche aussi les commandes. Le gestionnaire de sortie (`confirmExit`) est désactivé dans ces états, pour que les gestionnaires restent exclusifs.
+  - **V1** : `GeocodeParsers.parseIgn` ne met plus la catégorie dans `subtitle` (l'écran l'affiche déjà en tête) ; `GeocodeParsersTest` mis à jour.
+  - **V3** : aide « Prise en main » réécrite selon les libellés actuels (`about_start_map`, `_offline`, `_tracks`, `_share`, `_backup`) ; `builtin-sources.aqx` : « IGN Photographies aériennes », « IGN Topo 25k (zoom forcé) » (`MultiZoomViewModelTest` suit) ; nouvelle chaîne `draw_default_route_name` « Itinéraire du %1$s » pour un itinéraire.
+  - `docs/specs/ui-index.md` : tableaux du §1 (écrans, modes), M1 à M3, T1, T2, L1 et synthèse §9 à jour ; nouveau §10.5 (vérifications). PLAN : P14.1 ✅.
+- **Décisions (ADR)** : aucune nouvelle ; RS1 de `performance.md` appliqué tel quel (pas de Navigation Compose).
+- **Tests / vérifications** :
+  - nouveaux tests : `BackStackTest` (6 tests, JVM) et `NavigationBackTest` (7 tests Robolectric sur la vraie `MainActivity` : Réglages ▸ Sauvegarde ▸ Retour ▸ Retour ; À propos ▸ Retour et ▸ Fermer ; commandes masquées par le menu et par Retour ; Retour écran verrouillé ; Retour en dessin avec un point ▸ « Abandonner les modifications ? »). Piège trouvé : avec activity 1.13 (navigationevent), un `BackHandler` activé par le dernier geste n'atteint le dispatcher de l'activité qu'une image plus tard ; le test avance l'horloge de 1 s avant chaque Retour ;
+  - `./gradlew spotlessApply` puis `./gradlew check assembleDebug` : **BUILD SUCCESSFUL** (core 704 tests, app 207 dont 5 ignorés, data 274, p2p 20 dont 2 ignorés ; 0 échec ; lint vert) ;
+  - émulateur « Medium_Phone » (Android 37), APK réinstallé : tous les parcours de `ui-index.md` §10.5 refaits et conformes (Retour sur les 11 écrans, N2, N3 trois fois de suite, N5 avec Annuler et Abandonner, N6, N7, N8 avec contre-épreuve déverrouillée, N9 détail ▸ liste ▸ carte, éditeur multi-zoom et assistant depuis le catalogue, recherche « Chamonix », catalogue, nom d'itinéraire).
+- **Problèmes / dette technique** : pas de lien CI (dépôt local sans remote, dossier non suivi) ; APK local : `app/build/outputs/apk/debug/ToolMap-debug-0.4.0.apk`. Non traités : N4 (diagnostic exposé), V2 (chevauchements des éléments flottants), le « ? » du partage qui annonce Firebase (dépend de P13.5), les remarques de §10.3. Liste des fichiers touchés, faute de git : `MainActivity.kt`, `ui/BackStack.kt` (nouveau), `map/MapScreen.kt`, `map/MainMenu.kt`, `draw/DrawControls.kt`, `measure/MeasureBar.kt`, `multizoom/MultiZoomScreen.kt`, `res/values/strings.xml`, `core/.../search/GeocodeParsers.kt`, `core/.../builtin-sources.aqx`, tests `ui/BackStackTest.kt` et `NavigationBackTest.kt` (nouveaux), `GeocodeParsersTest.kt`, `MultiZoomViewModelTest.kt`.
+- **Prochaine étape recommandée** : remettre ToolMap dans son dépôt GitHub (`JRRocks/ToolMap`) pour pousser ces changements et obtenir l'APK de la CI ; puis V2 (mise en page des éléments flottants) et N4, ou P14.2 selon le PLAN.
+
+---
+
+## 2026-10-15 — Session 27 — [P14.0] Vérification de la navigation sur émulateur
+- **Branche / commit** : copie locale du poste de l'utilisateur (dépôt `C:\Bureau\Desktop\Jean`, branche `sauvegarde/2026-10-10`, sans remote GitHub) ; aucun code modifié, rien de committé ni poussé. Version inchangée : **0.4.0**.
+- **Objectif** : demande de l'utilisateur : « Fais le point de la navigation, utilise l'émulateur pour cliquer sur chaque bouton et analyser si le résultat attendu est le bon selon le nom du bouton et/ou selon le code associé. »
+- **Réalisé** : premier passage de `ui-index.md` **en exécution**. Émulateur Android Studio « Medium_Phone » (Android 37), APK debug installé, GPS simulé à Chamonix ; chaque bouton touché par `adb shell input`, écran lu par `uiautomator dump` et captures, comparé au libellé et au code. Résultats dans `ui-index.md` §10 (et lignes N7 à V3 de la synthèse §9).
+  - Confirmés : N1 (Retour quitte l'app depuis 9 écrans testés), N2, N3, N4, N5 (dessin et mesure), N6.
+  - Nouveaux : **N7** « Masquer les commandes » irréversible (`chromeHidden` jamais remis à `false`) ; **N8** appui long actif écran verrouillé (`onLongPress` ne teste pas `locked`) ; N9 Téléchargements depuis le détail d'une trace revient à la carte ; V1 catégorie de recherche en double (`SearchScreen` + `GeocodeParsers`) ; V2 chevauchements (attribution sur « + », enregistrement et cible sur la boîte Échelle, poignée de zone) ; V3 textes périmés (aide « Prise en main », aide du partage) ou fautifs (« aeriennes », « zoom force », itinéraire nommé « Tracé du … »).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** : `./gradlew assembleDebug` (JDK d'Android Studio, `local.properties` créé vers le SDK local) → `BUILD SUCCESSFUL in 4m 28s` ; `adb install -r -g app/build/outputs/apk/debug/ToolMap-debug-0.4.0.apk` → `Success` ; parcours manuel scripté décrit ci-dessus. `./gradlew check` non relancé (aucun code modifié). Pas de push : ce dépôt n'a pas de remote, donc pas de CI ni de lien d'artefact.
+- **Problèmes / dette technique** : langue de l'émulateur en anglais (dates des noms par défaut en anglais) ; « Ouvrir avec » non vérifiable avec plusieurs applications (une seule sur l'émulateur) ; partage à deux téléphones non testé.
+- **Prochaine étape recommandée** : P14.1 (pile de retour, N1 à N6) en y ajoutant N7, N8 et N9, puis V1 à V3 (corrections courtes).
+
+## 2026-10-14 — Session 26 — [P14.4] Favoris fournis supprimables, « Rando Multi-Zoom » en premier favori
+- **Branche** : `ccr-e59b55ac-kt4qb9`, parti de `3d16680`. Version inchangée : **0.4.0**.
+- **Objectif** : demande de l'utilisateur : « Permet de supprimer les cartes par défaut. Et mets ma carte AQX parmi les défauts à la place du IGN » (fichier `USR.PERSONNAL_MULTIZOOM.AQX`, déjà en fixture `fixtures/aqx/user/`).
+- **Réalisé** (ADR-052) :
+  - `WorkspaceStore` : suppression d'un favori fourni = masquage (`hidden-builtins.txt`), `favorites`, `hiddenBuiltins`, `restoreBuiltins()` ; `MapViewModel.favorites` utilisé par le panneau Cartes, le menu principal et « Cartes affichées ».
+  - Panneau « Cartes et calques » : appui long ▸ Supprimer marche aussi pour un favori fourni ; Options ▸ « Rétablir les favoris fournis (n supprimé(s)) » ; aide mise à jour.
+  - `builtin-sources.aqx` : carte multi-zoom intégrée `RANDO_ZOOM_GROUP` « Rando Multi-Zoom » (OSM 1–8, OpenTopoMap 9–11, IGN SCAN 25 12–16, OSM 18, IGN Ortho 19), en références `toolmap-map:` aux cartes intégrées (partage leurs tuiles).
+  - `Workspaces` : favori « IGN topo » remplacé, en tête, par « Rando Multi-Zoom » (`builtin-rando-multizoom`).
+  - Docs : ADR-052, PLAN P14.4 🔄, `ui-index.md` C5.
+- **Tests / vérifications** : `./gradlew spotlessApply check assembleDebug` → `BUILD SUCCESSFUL in 47s`. Premier essai : 7 tests rouges dans `:core` (la copie brute des URL du fichier s'appropriait le stockage d'OSM, SCAN 25…) → carte réécrite en références ; tests attendus mis à jour (`WorkspaceTest`, `MapCatalogTest`, `MultiZoomViewModelTest`). Nouveaux : `WorkspaceStoreTest` (favori fourni supprimé, gardé après redémarrage, rétabli ; premier favori), `BuiltinSourcesTest` (niveaux et stockage de Rando Multi-Zoom).
+- **Problèmes / dette technique** : zoom 17 sans niveau propre (comme dans le fichier : complété par la règle des zooms manquants) ; reste de P14.4 : masquer une carte fournie du catalogue (`[F3]`). Non vérifié sur téléphone.
+- **Prochaine étape recommandée** : sur téléphone, ouvrir Cartes et calques : « Rando Multi-Zoom » en premier favori ; appui long sur un favori fourni ▸ Supprimer, relancer l'app, puis Options ▸ Rétablir.
+
+## 2026-10-14 — Session 25 — [P13.8] Partage téléphone verrouillé et reconnexion agressive
+- **Branche** : `ccr-e59b55ac-kt4qb9`, parti de `62f937a`. Version inchangée : **0.4.0**.
+- **Objectif** : test terrain de l'utilisateur (capture) : partage correct un moment, puis « Serveur injoignable (réseau coupé ?) », soi-même « Hors ligne », un autre membre « Synchronisation perdue · 19 minutes » sans retour ; l'app semble se fermer téléphone verrouillé. Demande : continuer d'émettre téléphone verrouillé, reconnexion assez agressive.
+- **Analyse** : `ShareService` était déjà au premier plan avec verrou de réveil, mais `START_NOT_STICKY` (une mort du processus arrêtait le partage pour de bon) ; la boucle de reconnexion attendait jusqu'à 30 s et ignorait les changements de réseau ; un flux SSE accroché à l'ancien réseau restait jusqu'à 75 s ; hors réseau, chaque position ajoutait une écriture (20 s d'échec chacune) à la file, et la présence, coincée derrière, n'arrivait plus aux autres longtemps après le retour du réseau.
+- **Réalisé** (ADR-051) :
+  - `FirebaseRelay` : attente plafonnée à 8 s, `reconnectNow()` (réveil immédiat + `Call.cancel` d'un flux de plus de 5 s), délai de lecture 45 s, écritures de position et de présence fusionnées (une seule en attente, la plus récente).
+  - `ShareService` : `START_STICKY` + drapeau d'arrêt voulu ; refus de démarrage au premier plan géré ; écoute du réseau par défaut → `ShareController.reconnectServer()`.
+  - Écran de partage : carte « Partage téléphone verrouillé » (exemption d'optimisation de batterie, conseil Samsung « Applications jamais en veille »).
+  - Docs : ADR-051, `firebase-relay.md` §3, `p2p-sharing.md`, `ui-index.md`, PLAN P13.8.
+- **Tests / vérifications** : `./gradlew spotlessApply check assembleDebug` → `BUILD SUCCESSFUL in 1m 8s` (premier essai rouge : `MockWebServer.shutdown()` levait une `IOException` sur le flux volontairement muet ; arrêt rendu tolérant, assertions déjà vertes). Nouveau `FirebaseRelayReconnectTest` 2/2 : essai relancé < 1,5 s après `reconnectNow()` au lieu de 4 s ; flux muet remplacé tout de suite.
+- **Problèmes / dette technique** : non vérifié sur téléphone ; une relance par le système après mort peut être refusée par Android 12+ si la localisation n'est autorisée « que pendant l'utilisation » (le service s'arrête alors proprement).
+- **Prochaine étape recommandée** : sur les deux téléphones, appuyer sur « Autoriser sans restriction de batterie » (et, sur Samsung, « Applications jamais en veille »), puis refaire une sortie téléphones verrouillés, avec une coupure de réseau volontaire (mode avion 1 min) : vérifier le retour « En ligne » en moins de 15 s.
+
+## 2026-10-14 — Session 24 — [P13.7] Jetons de membre en silhouettes teintées
+- **Branche** : `ccr-e59b55ac-kt4qb9`, parti de `7fa4ccb`. Version inchangée : **0.4.0**.
+- **Objectif** : demande de l'utilisateur (image d'un cavalier d'échecs plein, lien Flaticon) : des icônes qui prennent la couleur choisie, « comme des jetons de jeu sur une minicarte », 15 variées.
+- **Réalisé** :
+  - Flaticon écarté (compte, attribution par icône, récupération automatique interdite) ; silhouettes de game-icons.net (CC BY 3.0) prises dans le paquet npm `@iconify-json/game-icons` : cavalier, loup, renard, aigle, pieuvre, T-rex, licorne, dragon, fantôme, extraterrestre, robot, magicien, ninja, viking, + initiales = 15. Vecteurs `ic_token_*` teintés.
+  - Jeton : silhouette ou initiales de la couleur choisie, disque blanc (ou presque noir sous une couleur claire, `MemberLook.backdrop`), anneau de la couleur ; même dessin sur la carte (`MemberMarkerBitmap`). Image de profil inchangée (dans l'anneau).
+  - Attribution dans `ThirdParty` ; ADR-050 ; `p2p-sharing.md`, `ui-index.md`, PLAN.
+- **Tests / vérifications** : `./gradlew spotlessApply check assembleDebug` → `BUILD SUCCESSFUL in 2m 40s`. `MemberIconsTest` 2/2 (un dessin par jeton, noms alignés), `MemberLookTest` (15 au plus, fond contrasté). Planche `MemberTokensRenderTest` (15 jetons × 5 couleurs) regardée : toutes les silhouettes prennent la couleur, fond sombre sous le jaune ; marge intérieure agrandie (60 % du disque) car la corne de la licorne touchait l'anneau.
+- **Prochaine étape recommandée** : vérifier les jetons sur la carte à deux téléphones ; test à deux téléphones (P13.2).
+
+## 2026-10-14 — Session 23 — [P13.7] Icônes de profil rigolotes et image de profil partagée
+- **Branche** : `ccr-e59b55ac-kt4qb9`, parti de `b0558ae` ; code en `a794675`, puis ce commit (journal et PLAN, oubliés dans `a794675` par l'arrêt d'un script de mise à jour des docs).
+- **Objectif** : demande de l'utilisateur : remplacer les icônes par un choix de profil avec des icônes rigolotes (animaux, monstres, personnages), 15 au plus ; permettre d'importer sa propre image de profil, en taille réduite obligatoire, vue par tout le groupe.
+- **Réalisé** :
+  - Icônes : initiales + 14 emoji (renard, panda, grenouille, pieuvre, T-rex, licorne, manchot, monstre, fantôme, extraterrestre, robot, magicien, vampire, zombie), dessinés par la police du système ; vecteurs Material retirés (et leur ligne dans `ThirdParty`). Pas de personnages sous droits (marques déposées).
+  - Image de profil : « Importer une image… » (sélecteur de photos), `MemberPicture` recadre au carré, redresse (EXIF), réduit à 64 × 64 et encode en JPEG ≤ 6 Ko ; « Votre image » s'ajoute aux choix, « Retirer » l'enlève. Envoi au groupe par le nouveau message `AVATAR` (12), propagé comme un texte et renvoyé à chaque nouveau lien (`MeshNode.setPicture`). Affichée dans la liste des membres, leur fiche et sur la carte.
+  - Docs : ADR-049 (remplace les points 2 et 4 d'ADR-048), `p2p-sharing.md`, `ui-index.md`, PLAN P13.7.
+- **Tests / vérifications** : `./gradlew spotlessApply check assembleDebug` → `BUILD SUCCESSFUL in 4m 20s`. `MemberLookTest` 8/8, `MeshNodeTest` 17/17 (nouveau : image relayée, renvoi inutile évité, retrait, refus au-delà de 6 Ko), `WireTest` 9/9, `ShareModelsTest` 6/6, `MemberPictureTest` 2/2 (Robolectric, bruit 1200 × 800 → 64 × 64 sous 6 Ko).
+- **Problèmes / dette technique** : l'aspect des emoji dépend du téléphone (Samsung et Google les dessinent différemment) ; les identifiants d'icône de la session 22 ont changé de sens (APK de test seulement).
+- **Prochaine étape recommandée** : sur deux téléphones à jour, choisir un emoji puis une image et vérifier que l'autre les voit sur la carte et dans la liste ; test à deux téléphones (P13.2).
+
+## 2026-10-14 — Session 22 — [P13.7] Apparence des membres : icône, couleur libre, tracé ou position seule
+- **Branche** : `ccr-e59b55ac-kt4qb9`. Version inchangée : **0.4.0**.
+- **Objectif** : demande de l'utilisateur (capture de l'écran de partage) : cacher le texte d'explication derrière un petit « ? » ; remplacer le choix de couleur par des icônes ; sous les icônes, un bouton de couleur avec cercle chromatique ; l'icône et sa couleur sont ce que les autres voient ; option pour afficher le tracé de chacun ou seulement sa position actuelle.
+- **Réalisé** :
+  - `:core` : `MemberLook` (icône dans l'octet de poids fort + RGB, clé d'image de carte, clarté) et `ColorWheel` (HSV, point du cercle ↔ teinte/saturation) ; `ShareSettings` gagne `icon`, `color`, `showTrails` (les anciens réglages gardent leur couleur de palette) ; `HELLO`, `PEERS` et le code d'appairage passent la couleur sur 4 octets, `PROTOCOL` = 2, version du code = 3 (la 2 est celle des invitations au serveur ; ADR-048). Bogue corrigé au passage : l'octet de couleur ne gardait que la composante bleue de la couleur ARGB.
+  - `:app` : 12 icônes Material (Apache 2.0) en vecteurs `ic_member_*` + « Initiales » ; `MemberLookPicker` (grille d'icônes sur le disque de la couleur choisie, bouton « Couleur de l'icône… », dialogue cercle chromatique + luminosité + palette) ; « ? » dans la barre du haut ouvre l'explication ; carte « Tracé des membres » ; sur la carte, les membres deviennent des symboles (`MemberMarkerBitmap`), traces masquées si l'option est coupée. `ThirdParty` cite Material Icons.
+  - Docs : ADR-048, `p2p-sharing.md`, `ui-index.md`, PLAN P13.7.
+- **Tests / vérifications** : `./gradlew spotlessApply check assembleDebug` → `BUILD SUCCESSFUL in 2m 8s` (un premier essai a échoué sur `ShareControllerTest` : la version 2 du code d'appairage était déjà celle des invitations au serveur ; corrigé en 3). Nouveaux tests : `MemberLookTest` (6), `MemberIconsTest` (2), cas ajoutés à `WireTest` et `ShareModelsTest`.
+- **Problèmes / dette technique** : un téléphone en 0.4.0 et un téléphone à jour ne se comprennent plus : mettre à jour tous les téléphones du groupe.
+- **Prochaine étape recommandée** : vérifier sur deux téléphones à jour que chacun voit l'icône et la couleur de l'autre, et l'interrupteur du tracé ; test à deux téléphones (P13.2).
+
+## 2026-10-14 — Session 21 — [P14] « Partage de position » dans le panneau Positionnement
+- **Branche** : `ccr-e59b55ac-kt4qb9`. Version inchangée : **0.4.0**.
+- **Objectif** : demande de l'utilisateur : déplacer le bouton « Partage de position » du menu Plus… vers le panneau Positionnement.
+- **Réalisé** : ligne retirée de `MainMenu` (Plus… ▸ Outils), ajoutée sous « Enregistreur de trace » dans `PositionMenuPanel` avec un interrupteur qui montre si le partage est actif ; un appui ferme le panneau et ouvre l'écran de partage. `docs/specs/ui-index.md` mis à jour.
+- **Tests / vérifications** : `./gradlew check assembleDebug` (résultat dans la réponse à l'utilisateur).
+- **Prochaine étape recommandée** : vérifier sur appareil ; test à deux téléphones (P13.2).
+
+## 2026-10-13 — Session 20 — [P13] Plantage en quittant un groupe de partage
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`. Version inchangée : **0.4.0**.
+- **Objectif** : corriger `NetworkOnMainThreadException` (rapport du 2026-10-13, SM-S931U) au bouton « Quitter le groupe ».
+- **Cause** : `FirebaseRelay.close()` fermait la réponse HTTP du flux (fermeture TLS = écriture réseau) et attendait l'écrivain sur le thread principal.
+- **Réalisé** : `close()` marque les liens fermés tout de suite, puis ferme le flux, supprime la balise de présence et attend l'écrivain sur un thread démon `toolmap-relay-close`.
+- **Tests / vérifications** : `./gradlew check assembleDebug` (résultat dans la réponse à l'utilisateur).
+- **Prochaine étape recommandée** : vérifier sur appareil « Quitter le groupe » ; test à deux téléphones (P13.2).
+
+## 2026-10-12 — Session 19 (suite) — [P10.3] Clé de publication créée, secrets ajoutés
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `6defe08`. Version inchangée : **0.4.0**.
+- **Objectif** : vérifier la CI de `6defe08`, puis signer les APK de la CI avec la clé de publication.
+- **Réalisé** :
+  - CI de `6defe08` (run 38274900901) verte : APK signé par la clé de debug publique (`e4e1cfd2…eea9`, aucun secret) ; ancien artefact 11670340678 supprimé ; seule la pré-version `debug-6defe08` reste ; artefact refusé par le quota, APK livré par la pré-version (garde ADR-046 passée).
+  - À la demande explicite de l'utilisateur, clé de publication générée dans la session (PKCS12, RSA 4096, alias `toolmap`, empreinte SHA-256 `77:E0:6B:A5:…:87:CD:05:48`), fichier supprimé aussitôt ; l'utilisateur a créé les quatre secrets. Ses valeurs sont passées par le chat : à remplacer par une clé créée sur le poste de l'utilisateur avant une publication sur Google Play.
+- **Tests / vérifications** : ce push doit produire un APK dont l'étape « Show the signer of the debug APK » affiche `77e06ba5…87cd0548` (résultat dans la réponse à l'utilisateur et dans la prochaine entrée).
+- **Prochaine étape recommandée** : désinstaller ToolMap une fois puis installer l'APK signé ; test à deux téléphones (P13.2) ; P13.5 ; décision sur la réécriture de l'historique avant de passer le dépôt public.
+
+## 2026-10-12 — Session 19 — [P10.3] Nettoyage avant publication : clé d'exemple retirée, APK de la CI signés par la clé de publication, un seul APK gardé
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `d5d96ac`. Version inchangée : **0.4.0** (aucun changement de code d'application ; la signature de la CI change dès que les secrets existent).
+- **Objectif** : demande de l'utilisateur : retirer la clé Google en clair, retirer son adresse e-mail, retirer les anciennes APK sans clé de signature, donner la clé de signature et le nom du secret, faire le reste du nettoyage.
+- **Réalisé** :
+  - `RelayTest` : la valeur d'exemple `AIzaSyExample_…` (commit `80e8edf`) devient `fake-key`. Ce n'était pas la clé du projet : la vraie (`TOOLMAP_FIREBASE_API_KEY`) n'apparaît dans aucun fichier suivi ni dans aucun commit (recherche sur tout l'historique).
+  - Adresse e-mail : absente de tous les fichiers suivis. Elle reste dans les métadonnées de deux commits anciens (`3aac3a5`, `06c80c7`). L'identité git du dépôt est `Claude <noreply@anthropic.com>` ; aucun secret n'en a besoin.
+  - APK anciennes : une seule pré-version (`debug-d5d96ac`), gardée pour les tests sur téléphone ; un artefact `toolmap-debug-apk` d'un run précédent (`11670340678`), que l'ancien nettoyage gardait ; sur le poste, `app/build/outputs/apk/release/app-release-unsigned.apk` (non signé, du 2 octobre) et l'APK de debug local, supprimés. Le nettoyage de la CI supprime désormais tous les `toolmap-debug-apk` avant d'envoyer celui du run ; la pré-version précédente est supprimée par l'étape de publication, comme avant.
+  - Signature : `app/build.gradle.kts` signe la configuration `debug` avec la clé de publication quand elle existe ; `ci.yml` la décode comme `release.yml` (mêmes noms de secrets) ; sans secret, repli sur la clé de debug publique, avec avertissement. Étape « Show the signer of the debug APK » ajoutée.
+  - Docs : `release.md` §1 et §2 (création de la clé sur le poste de l'utilisateur, quatre secrets), ADR-047, PLAN P10.3.
+- **Décisions (ADR)** : ADR-047 (remplace le point 3 d'ADR-009 pour les APK distribués ; précise ADR-027).
+- **Tests / vérifications** :
+  - `./gradlew check assembleDebug` → `BUILD SUCCESSFUL in 2m 23s`, sortie 0 (spotless, lint, tests unitaires, APK). L'APK local est signé par la clé publique : empreinte `E4:E1:CF:D2:…:EE:A9`.
+  - YAML de `ci.yml` lu avec PyYAML (12 étapes) ; chaque bloc `run` passe `bash -n` ; le script de nettoyage passe `node --check`.
+  - Câblage de la signature, avec une clé jetable créée hors du dépôt puis supprimée : sans variable → clé publique ; avec les variables → empreinte de la clé jetable (`40:39:76:D1:…:EE:70`) ; sans variable de nouveau → clé publique. Aucune clé réelle n'a été créée ni affichée.
+- **Problèmes / dette technique** :
+  - Historique : l'e-mail (deux commits) et la clé publique de debug (`0ae8c79`) restent dans git. Les retirer demande une réécriture et un force-push sur `main`, avec de nouveaux hash ; GitHub garde en plus les commits de la PR #1 accessibles. Pas fait sans accord explicite.
+  - Tant que les quatre secrets n'existent pas, les APK de test restent signés par la clé publique (avertissement dans la CI).
+  - `FirebaseRelayEmulatorTest.kt:85` : avertissement `lateinit` inutile, toujours non traité.
+- **Prochaine étape recommandée** :
+  1. Utilisateur : créer la clé de publication sur son ordinateur (`release.md` §2), puis les quatre secrets ; garder la clé et les mots de passe hors du dépôt.
+  2. Utilisateur : désinstaller ToolMap une fois sur chaque téléphone avant d'installer la première APK signée par la clé de publication.
+  3. Décider de la réécriture de l'historique (e-mail, clé publique) avant de passer le dépôt public.
+  4. Test à deux téléphones (P13.2) et P13.5 sur l'APK de la CI.
+
+## 2026-10-12 — Session 18 — [P13.2] Test du relais sur le vrai projet Firebase ; [P13.5] clé fournie, secrets CI
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `700d863`. Un commit `[P13.2]` (test, `.gitignore`, PLAN, journal). Version inchangée : **0.4.0** (aucun fichier d'application modifié).
+- **Objectif** : l'utilisateur a ajouté les secrets CI `TOOLMAP_FIREBASE_DB_URL` et `TOOLMAP_FIREBASE_API_KEY`. Faire tourner le test du relais contre son vrai projet Firebase, sans écrire la clé dans le dépôt.
+- **Réalisé** :
+  - `FirebaseRelayEmulatorTest` a deux modes : l'émulateur (`FIREBASE_EMULATOR=1`, prioritaire) et le vrai projet, si `TOOLMAP_TEST_FIREBASE_URL` est défini. La clé vient de `TOOLMAP_TEST_FIREBASE_KEY`, obligatoire, lue dans l'environnement seulement. Sans variable, les tests restent sautés : la CI ne change pas.
+  - Chaque test supprime son salon (`DELETE` avec un jeton anonyme). Un échec de suppression n'affiche que la classe de l'exception ou le code HTTP, jamais l'URL (qui porte le jeton), et ne masque pas le résultat du test. Le test de nom trop long nettoie aussi son salon.
+  - `.gitignore` : `/*-debug.log`, journaux que l'émulateur Firebase écrit à la racine.
+  - `PLAN.md` : P13.2 « vérifié sur le vrai projet », reste le test à deux téléphones ; P13.5 : clé fournie, secrets CI enregistrés, reste la vérification de l'APK et le test sur téléphone.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - Vrai projet : `TOOLMAP_TEST_FIREBASE_URL=… TOOLMAP_TEST_FIREBASE_KEY=… ./gradlew spotlessApply :p2p:testDebugUnitTest --tests '*FirebaseRelayEmulatorTest*' --rerun` → `BUILD SUCCESSFUL` ; XML : 2 tests, 0 sauté, 0 échec, 0 erreur. Aucun « test room not deleted » : les deux salons ont été supprimés (réponse HTTP 2xx).
+  - Émulateur : `scripts/firebase-emulator-test.sh` → `BUILD SUCCESSFUL`, `exit=0` ; XML : 2 tests, 0 sauté, 0 échec.
+  - `./gradlew spotlessCheck --rerun` → `BUILD SUCCESSFUL`.
+  - `./gradlew check assembleDebug` → `BUILD SUCCESSFUL`. `:p2p:testDebugUnitTest` relancé : 18 tests, 2 sautés (relais, sans variable), 0 échec. `:app:testDebugUnitTest` à jour : aucun fichier d'application modifié depuis son passage complet de 15:20 UTC (189 tests, 4 sautés, 0 échec).
+  - CI du commit `700d863` (run 38269709848) : **vert**, terminé à 15:35 UTC. C'est la première exécution CI réussie du correctif `stopAndJoin`, et la première de la garde « Check that the APK was delivered » : elle a réussi, l'artefact `toolmap-debug-apk` ayant été téléversé.
+  - CI du commit poussé dans cette session : résultat donné dans la conversation (cette entrée est écrite avant le push).
+- **Problèmes / dette technique** :
+  - Le test sur le vrai projet écrit dans la base de l'utilisateur : un salon temporaire par test, supprimé à la fin. Si le processus de test est tué en plein milieu, le salon peut rester.
+  - Règles : `rooms/$room` autorise l'écriture, suppression comprise, à tout compte anonyme qui connaît l'identifiant du salon (16 octets, transmis par l'invitation). Le contenu reste scellé, mais l'identifiant est un secret de groupe. À réexaminer si les invitations peuvent fuir.
+  - Avertissement de compilation existant, non traité : `lateinit` inutile sur `Side.node` (`FirebaseRelayEmulatorTest.kt`).
+- **Prochaine étape recommandée** : (1) vérifier que l'APK du run CI de ce commit porte l'adresse et la clé (contrôle sur le dex, sans afficher la clé) ; (2) test à deux téléphones de P13.2 (action de l'utilisateur) ; (3) décisions de l'utilisateur sur l'ordre des lots 3 et 4 (`ui-reorganization.md` §7.4).
+
+---
+
+## 2026-10-12 — Session 17 (suite) — [P10.3] Deux tests instables corrigés ; [P13.5] console Firebase en cours
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `f1d61c3`. Un commit `[P10.3]` (tests, plan, journal). Version inchangée : **0.4.0** (seuls des tests changent).
+- **Objectif** : le run CI 38264169174 du commit `f1d61c3` a échoué sur `SettingsRenderTest > darkSettings` (`UncaughtExceptionsBeforeTest`), alors que le code de l'application n'avait pas changé. Le protocole demande d'en trouver la cause, sans relancer ni désactiver le test.
+- **Réalisé** :
+  - **Cause 1, coroutines qui survivent à leur test** : `SettingsRenderTest` n'était pas en cause (il est sauté en CI). `kotlinx-coroutines-test` impute au test suivant de la même JVM une exception levée par une coroutine orpheline. Deux sources trouvées dans les résultats locaux : `TracksViewModelTest`, dont le ViewModel lit encore la base Room sur `Dispatchers.IO` quand `@After` la ferme (« connection pool has been closed », 1 à 2 fois par run) ; `PrintViewModelTest`, dont le `tearDown` annulait le scope du ViewModel sans attendre sa fin, si bien qu'une coroutine revenait de `Dispatchers.IO` pendant que la classe suivante installait son dispatcher principal. Correctif : `ViewModel.stopAndJoin()` (`app/src/test/.../testing/ViewModelTesting.kt`) annule `viewModelScope` et attend la fin de ses coroutines (au plus 10 s) avant la fermeture de la base et `resetMain`. Appliqué à `TracksViewModelTest`, `PrintViewModelTest` et `SearchViewModelTest` (même schéma de lecture continue de la bibliothèque, sans fuite observée).
+  - **Cause 2, course dans le faux GPS de `RecordingControllerTest`** : le compteur `collectors` passait à 1 avant l'abonnement réel au `MutableSharedFlow`. Sans abonné ni rejeu, les positions émises dans cette fenêtre étaient perdues, et « points counted » expirait au bout de 10 s (échec vu dans « keeping a recovered recording closes it without recording further »). Correctif : compter le récepteur dans `onSubscription` (appelé une fois l'abonné enregistré), avec un compteur atomique lu depuis un autre thread.
+  - `PLAN.md` : P13.5 passe à 🔄 (avancement de la console Firebase).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - Avant correctif : `:app:testDebugUnitTest --rerun` sur `TracksViewModelTest` et `SearchViewModelTest`, 4 runs, fuite dans chacun ; suite complète de `:app`, l'échec de la CI reproduit au 4e run (`SettingsRenderTest > darkSettings`, fuite venant de `PrintViewModelTest`) ; un run suivant a échoué sur `RecordingControllerTest`.
+  - Après correctif : `RecordingControllerTest` 25 runs verts ; suite complète de `:app` (`--rerun`) **10 runs verts, aucune exception orpheline** (`Exception in thread` absent de tous les résultats).
+  - `./gradlew check assembleDebug` : `BUILD SUCCESSFUL` en 39 s.
+  - Run CI du commit poussé : résultat donné dans la conversation (cette entrée est écrite avant le push).
+- **Problèmes / dette technique** :
+  - **Leçon** : l'entrée précédente (session 17) donnait `./gradlew check assembleDebug` vert, mais 186 tâches sur 189 étaient « à jour » : les tests n'avaient pas été relancés. Sur un doute d'instabilité, il faut forcer les tests (`--rerun`) et les répéter.
+  - Un échec isolé, vu une fois pendant les runs restreints à `TracksViewModelTest` et `SearchViewModelTest` après le premier correctif, n'a pas pu être identifié (résultats écrasés par le run suivant) ; il ne s'est pas reproduit en 40 runs restreints ni en 10 runs complets.
+  - Les autres tests qui installent un dispatcher principal (`DrawViewModelTest`, `MeasureViewModelTest`, `MapsViewModelTest`, `SourceWizardViewModelTest`, `MultiZoomViewModelTest`, `BackupViewModelTest`, `AlertControllerTest`) n'arrêtent pas leur ViewModel ; aucune fuite n'y a été observée. `stopAndJoin()` est à leur appliquer si cela change.
+- **Prochaine étape recommandée** : finir P13.5 avec l'utilisateur (clé API Web, puis secrets CI `TOOLMAP_FIREBASE_DB_URL` et `TOOLMAP_FIREBASE_API_KEY`), puis le test à deux téléphones de P13.2 ; ensuite, l'ordre des lots 3 et 4 (`ui-reorganization.md` §7.4).
+
+## 2026-10-12 — Session 17 — [P10.3] Garde de livraison de l'APK ; [P14.0] étude de l'ordre des lots 3 et 4
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `8a5c785`. Deux commits : `[P10.3]` (`ci.yml`, `release.md`, ADR-046, `PLAN.md`, journal) puis `[P14.0]` (`ui-reorganization.md` §7). Version inchangée : **0.4.0** (ADR-040 : modification de CI et de documentation, pas d'APK livré).
+- **Objectif** : demandes de l'utilisateur (2026-10-12) : « Ajoute une étape de garde » et « Étaye les lots 3 et 4 de la question 5 ».
+- **Réalisé** :
+  - `ci.yml` : identifiants `publish-apk` et `upload-apk` sur les deux étapes de livraison ; étape finale « Check that the APK was delivered », réservée aux push et conditionnée à `success()`. Elle passe si l'artefact `toolmap-debug-apk` a été téléversé, ou si la pré-version `debug-<sha7>` porte un `ToolMap-debug-*.apk` (vérifié par `gh release view`, donc aussi sur un re-run). Elle échoue si aucun des deux n'existe.
+  - `release.md` §1 : paragraphe « Garde de livraison ».
+  - ADR-046 : complète ADR-045 en reprenant son alternative écartée, avec une condition de réussite qui tient sur un re-run.
+  - `ui-reorganization.md` §7 : étude des lots 3 et 4 à partir du code (R2, R4, R5, F2, F3, sauvegarde des favoris), graphe des dépendances, trois ordres (A : ordre du plan, B : F2-F3-F4 d'abord, C : par écran), recommandation B, trois décisions pour l'utilisateur, effort. Renvoi depuis §6, point 5.
+  - `PLAN.md` : P10.3 (garde, ADR-046) et en-tête de P14 (ordre ouvert, §7).
+- **Décisions (ADR)** : ADR-046. L'ordre des lots 3 et 4 reste une décision de l'utilisateur : aucun ADR.
+- **Tests / vérifications** :
+  - Fichier `ci.yml` lu par `yaml.safe_load` : la garde est la dernière étape, sa condition est `success() && github.event_name == 'push'`, et les deux identifiants sont présents.
+  - Logique de la garde exécutée hors CI : script extrait du YAML, `gh` simulé. Quatre cas : artefact téléversé → sortie 0 ; artefact refusé mais pré-version avec APK → 0 ; ni l'un ni l'autre → 1 ; pré-version sans APK → 1. Résultats conformes.
+  - `./gradlew check assembleDebug` : `BUILD SUCCESSFUL` en 29 s (189 tâches, 3 exécutées, 186 à jour). Le code Kotlin n'a pas changé.
+  - Run CI du commit poussé : son résultat est donné dans la conversation (cette entrée est écrite avant le push).
+- **Problèmes / dette technique** :
+  - La garde vérifie la présence d'un fichier `.apk` dans la pré-version, pas son intégrité (ADR-046).
+  - Le cas « artefact refusé et pré-version en échec » n'est vérifié que par simulation : aucun run réel ne le produit tant que la publication fonctionne.
+  - Le quota d'artefacts reste épuisé : chaque push n'a pour APK que sa pré-version, qui remplace la précédente.
+- **Prochaine étape recommandée** : l'utilisateur décide l'ordre des lots 3 et 4 et répond aux trois questions de `ui-reorganization.md` §7.4 (recommandation : option B, avec F2 d'abord ; la liste des favoris masqués doit suivre la sauvegarde). Ensuite, P14.4 (F2, F3, F4), à moins que l'utilisateur ne choisisse un autre ordre.
+
+## 2026-10-12 — Session 16 — [P10.3] Téléversement des artefacts CI non bloquant ; correction du journal de la session 15
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `fd1f04a`. Un commit `[P10.3]` (CI, spécification, décision, journal). Version inchangée : **0.4.0** (une modification de CI ne livre pas d'APK : ADR-040 ; `docs/specs/release.md` §1).
+- **Objectif** : demande de l'utilisateur (2026-10-12) : rendre le téléversement des artefacts non bloquant. Le run 38251268017 (commit `fd1f04a`) avait réussi la compilation, les tests, le lint et `assembleDebug` (12 min 23 s) et n'échouait qu'au téléversement de `toolmap-debug-apk` et de `reports`, refusé par le quota de stockage.
+- **Réalisé** :
+  - `.github/workflows/ci.yml` : `continue-on-error: true` sur « Upload debug APK » et « Upload reports », avec un commentaire. La publication de la pré-version et la suppression des anciens artefacts étaient déjà non bloquantes ; la compilation, les tests et le lint restent bloquants.
+  - `docs/specs/release.md` §1 : téléversement non bloquant, pré-version comme livraison de référence.
+  - ADR-045 (`docs/DECISIONS.md`), qui complète ADR-027.
+  - Correction de l'entrée de la session 15 (ci-dessous).
+- **Décisions (ADR)** : ADR-045.
+- **Tests / vérifications** :
+  - Syntaxe de `ci.yml` vérifiée par `yaml.safe_load` : les quatre étapes `continue-on-error` sont présentes (« Delete old artifacts », « Publish the debug APK », « Upload debug APK », « Upload reports ») ; « Style, lint, unit tests, debug APK » et « Install Android SDK » ne le sont pas.
+  - `./gradlew check assembleDebug` : `BUILD SUCCESSFUL` en 37 s (189 tâches, dont 186 à jour ; les tâches de lint et de check agrégées ont été réexécutées, sans recompilation ni relance des tests). Le code Kotlin n'a pas changé depuis le commit `fd1f04a`, dont la compilation et les tests ont réussi en CI.
+  - Pré-version `debug-fd1f04a` relue par l'API GitHub : asset `ToolMap-debug-0.4.0.apk`, 84 983 230 octets, identique à l'APK local.
+  - Le run CI de ce commit n'est pas cité ici : cette entrée est écrite avant le push. Son résultat est donné dans la conversation.
+- **Problèmes / dette technique** :
+  - Une panne qui touche à la fois le téléversement et la pré-version laisse un run vert sans APK ; une étape de garde est à ajouter si cela arrive (ADR-045).
+  - Le quota est partagé entre tous les dépôts du compte : sa consommation ailleurs n'est pas visible depuis ce dépôt.
+  - La pré-version `debug-fd1f04a` disparaît au push suivant, car une seule pré-version est gardée.
+  - **Correction de l'entrée de la session 15** : elle annonçait « Avertissements de compilation : 7 ». C'était le nombre réémis par la compilation locale incrémentale, qui ne recompile que certains modules. Le journal de la CI (compilation complète, run 38251268017) en compte **35** : 31 dans des fichiers que P14.8 ne touche pas, et 4 dans des fichiers qu'il touche (`MapScreen.kt` lignes 441 et 1210, `CenterPointTest.kt` ligne 24, `CenterQuickMenuRenderTest.kt` ligne 38). Ces quatre lignes sont antérieures à P14.8 (`git blame`) : aucun avertissement n'est introduit par P14.8.
+- **Prochaine étape recommandée** : si la limite gêne, décider de l'étape de garde (ADR-045). Ensuite, les décisions en attente de l'utilisateur (`docs/specs/ui-reorganization.md` question 5, écarts avec AlpineQuest, trailer de `d41d82b`), puis P14.1 (pile de retour).
+
+## 2026-10-12 — Session 15 — [P14.8] Ouvrir un point avec une autre application (Waze, application par défaut)
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `9c894f0`. Un commit `[P14.8]` (code, tests, documentation, version 0.4.0). Version livrée : **0.4.0** (ADR-040 : une fonction visible de plus, donc un MINEUR de plus).
+- **Objectif** : demande de l'utilisateur (2026-10-12) : dans le menu rapide du point central, une icône « Ouvrir avec » ; une application par défaut paramétrable (« Other application » avec un défaut, comme dans AlpineQuest) ; l'usage visé : envoyer la position à Waze pour obtenir le chemin jusqu'à ce point, comme un « aller à ».
+- **Réalisé** :
+  - Menu rapide : troisième icône « Ouvrir avec » (flèche sortant d'un cadre, comme sur la capture de l'utilisateur), après Coordonnées et Partager ce point. Les trois icônes se partagent la largeur de la rangée ; « Partager ce point » passe sur deux lignes. Le grisage est celui du menu (`pointMenuAllowed`).
+  - Action (`openPoint`, `map/PointApps.kt`) : l'application par défaut, si elle est installée et sait ouvrir la position, s'ouvre directement ; sinon le sélecteur du système, avec Waze en tête s'il est installé ; aucune application : un message.
+  - Réglages ▸ Carte ▸ « Ouvrir les positions avec » : « Demander à chaque fois » (défaut), puis les applications qui ouvrent `geo:` et Waze s'il est installé. Champ `AppSettings.pointApp` (nom de paquet).
+  - Liens (`PointLinks`, `:core`, testé) : Waze reçoit `https://waze.com/ul?ll=<lat>,<lon>&navigate=yes` avec le paquet `com.waze` ; les autres applications reçoivent `geo:<lat>,<lon>?q=<lat>,<lon>`.
+  - Manifeste : `<queries>` pour le schéma `geo` et le paquet `com.waze` (Android 11 et plus).
+  - Icône : `MenuIcons.OpenWith`, dessinée à partir du tracé Material « exit_to_app » (`material-icons-core` ne le fournit pas).
+  - Documentation : `ui-index.md` (G12 mis à jour, G13 et F16 ✅), `DECISIONS.md` (ADR-044), `PLAN.md` (P14.8 ✅).
+- **Décisions (ADR)** : ADR-044 (application par défaut dans les Réglages ; le choix du sélecteur n'est pas mémorisé ; Waze par son propre lien ; `<queries>`). Précise ADR-043 sans le remplacer.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply` : `BUILD SUCCESSFUL` (formatage et ordre des imports seulement ; seuls les fichiers de la tâche sont modifiés).
+  - `./gradlew check assembleDebug --continue` : `BUILD SUCCESSFUL` en 5 min. Tests, relus dans les rapports XML : 1 170 tests dans 161 suites, 0 échec, 0 erreur, 6 ignorés (`core` 691 tests / 93 suites ; `data` 272 / 31 ; `p2p` 18 / 4, dont 2 ignorés ; `app` 189 / 33, dont 4 ignorés). Au commit précédent : 1 165 tests dans 160 suites (session 14) ; +5 tests (4 dans `PointLinksTest`, 1 dans `AppSettingsTest`) et +1 suite (`PointLinksTest`).
+  - `:app:testDebugUnitTest` a été restauré du cache de build (`FROM-CACHE`, mêmes entrées que le run complet) après le passage filtré du rendu, qui avait écrasé les rapports ; le code n'a pas changé depuis ce run.
+  - Suites nommées : `PointLinksTest` (4) vert ; `AppSettingsTest` (9) vert, dont « the app that opens a point is kept, and nothing is chosen by default » ; `CenterPointTest` (3) vert, dont la ligne « Ouvrir avec » qui appelle sa commande.
+  - Rendu : `./gradlew :app:testDebugUnitTest --tests '*CenterQuickMenuRenderTest*' -Ptoolmap.renders=<dossier>` : `BUILD SUCCESSFUL` ; `centre-menu.png` relu : trois icônes sur une rangée, libellés lisibles.
+  - Avertissements de compilation : 7, tous antérieurs à ce changement (`createComposeRule` déprécié dans quatre tests, dont `CenterPointTest` et `CenterQuickMenuRenderTest` ; deux `Expression is unused` dans `MapScreen.kt` ; un dans `SettingsStoreTest`).
+  - APK : `app/build/outputs/apk/debug/ToolMap-debug-0.4.0.apk`, 84 983 230 octets.
+  - **Non vérifié** : aucun comportement sur téléphone (pas d'émulateur). En particulier : le lien Waze réellement ouvert avec Waze installé (format de la documentation publique de Waze, non testable hors appareil) ; le sélecteur du système ; la liste proposée dans les Réglages ; le repli quand l'application par défaut a été désinstallée.
+- **Problèmes / dette technique** :
+  - Si `https://waze.com/ul` n'enclenche pas le guidage sur un téléphone donné, l'autre forme documentée par Waze est `waze://?ll=<lat>,<lon>&navigate=yes` ; non retenue ici (documentation ancienne, non vérifiée sur les versions actuelles).
+  - Le lien ne porte pas de nom : le point est désigné par ses coordonnées.
+  - Navigation Google Maps (`google.navigation:`) non ajoutée.
+  - Les 7 avertissements listés ci-dessus restent à traiter (P15).
+- **Prochaine étape recommandée** : l'utilisateur essaie sur téléphone, Waze installé : « Ouvrir avec » sans défaut (sélecteur) ; puis avec Waze choisi dans Réglages ▸ Carte ▸ Ouvrir les positions avec (Waze doit s'ouvrir sur l'itinéraire vers le point). Décisions toujours en attente de l'utilisateur : `ui-reorganization.md` question 5, écarts avec AlpineQuest, trailer de `d41d82b`. Ensuite P14.1 (pile de retour).
+
+## 2026-10-12 — Session 14 — [P14.2] [P14.3] [P14.5] Cartes sur carte SD, panneau du drapeau, menu du point central
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `d41d82b`. Trois commits : `5770296` [P14.2] (stockage), `86be4f9` [P14.3] (drapeau), puis [P14.5] (point central, version 0.3.0, documentation). Version livrée : **0.3.0** (ADR-040 : version mineure).
+- **Objectif** : demande de l'utilisateur (2026-10-12) : (1) rendu visuel du panneau du drapeau, à comparer à sa capture AlpineQuest ; (2) garder un seul parcours de téléchargement de zone (« Sélectionner et enregistrer une zone ») ; (3) coder l'emplacement de stockage comme un déplacement réel des cartes vers la carte SD (S1) ; (4) un petit cercle blanc au centre de la carte qui ouvre un menu rapide, comme AlpineQuest (F1).
+- **Réalisé** :
+  - **P14.2 : stockage (S1)**. Le réglage déplace les fichiers MBTiles vers un dossier de la carte SD amovible. Déroulé : demande écrite (`tiles-move.txt`) ; redémarrage de l'application (AlarmManager, 500 ms) ; `StorageMoveActivity` dans le processus `:storage`, qui n'ouvre aucune tuile ; arrêt des téléchargements en cours ; contrôle que les deux dossiers sont utilisables ; copie fichier par fichier avec vérification de la taille ; bascule du dossier en service (`tiles-location.txt`, écriture atomique) ; suppression des originaux. Une copie qui échoue est annulée, et l'ancien dossier reste en service.
+  - Carte SD démontée = indisponible partout : affichage, téléchargement de zone (refusé), sauvegarde (`TILES_UNAVAILABLE`, refusée plutôt qu'incomplète), restauration (attendue ; rien n'est créé sous un point de montage absent).
+  - Le champ `storage` d'`AppSettings` est retiré. Le choix est proposé dans les Réglages, avec confirmation.
+  - **P14.3 : drapeau (R1, R3)**. Panneau « Traces et waypoints » au-dessus de la barre : Explorer, Ajouter un waypoint ici, Dessiner une trace, Dessiner un itinéraire, Rechercher un lieu… « Plus… » ne garde que Mesurer, Partager et le diagnostic. « Télécharger la zone affichée… » est retiré.
+  - **P14.5 : point central (F1, G12)**. `CenterPoint` (cible de 48 dp, cercle blanc de 20 dp à bord sombre). Un appui ouvre `CenterQuickMenu` au-dessus du point : Définir comme cible · Créer un waypoint… · Mesurer depuis ici · Coordonnées (boîte de dialogue avec « Copier ») · Partager ce point. Grisé pendant un dessin, une mesure, une impression, un enregistrement de zone et écran verrouillé. L'appui long de la carte ne change pas (G1).
+  - **Rendus** : `TracksMenuRenderTest` et `CenterQuickMenuRenderTest` (gated par `-Ptoolmap.renders`) écrivent `flag-panel.png` et `centre-menu.png` hors dépôt.
+  - Documentation : `ui-index.md` (S1 ✅, G12, §6.0 du drapeau), `ui-reorganization.md` (réponses 1 à 4 de l'utilisateur consignées ; question 5 ouverte ; R1, R3, S1, F1 ✅), `DECISIONS.md` (ADR-042, ADR-043), `PLAN.md` (P14.2 et P14.3 🔄, P14.5 ✅).
+- **Comparaison avec AlpineQuest** (captures de l'utilisateur) :
+  - *Panneau du drapeau* (PLACEMARKS) : même en-tête en capitales, avec filet et « ? ». « Explorer », « Créer un repère » et « Rechercher » ont leur équivalent. ToolMap ajoute deux lignes « Dessiner » et des séparateurs. Manquent : « Repères affichés » (liste des éléments affichés sur la carte), « Contrôle du temps » et la section repliable « OPTIONS ». Style : carte blanche sans séparateurs chez AlpineQuest, surface Material 3 teintée chez ToolMap.
+  - *Menu du point* (« Set as target ») : « Définir comme cible », « Créer un waypoint… », la mesure, les coordonnées et le partage ont leur équivalent. Manquent : l'icône photo et l'icône d'épingle à droite de « Créer un repère », le regroupement sous « Outils… », l'icône d'itinéraire, et la pointe qui relie le menu au point.
+- **Décisions (ADR)** : ADR-042 (déplacement des cartes : copie vérifiée, bascule par fichier pointeur, processus `:storage`, carte démontée = indisponible). ADR-043 (le drapeau ouvre un panneau ; le point central ouvre un menu rapide ; l'appui long reste un réglage).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply` : `BUILD SUCCESSFUL`.
+  - `./gradlew check assembleDebug --continue` : `BUILD SUCCESSFUL` en 54 s. `:app:testDebugUnitTest` et `:app:lintDebug` exécutés ; `:data`, `:core` et `:p2p` à jour depuis leur dernier passage vert. Résultats : 1 165 tests dans 160 suites, 0 échec, 0 erreur, 6 ignorés (2 rendus sans dossier, `SettingsRenderTest` 2, `FirebaseRelayEmulatorTest` 2 qui demandent un émulateur).
+  - Suites nommées, toutes vertes : `CenterPointTest` (3), `TracksMenuPanelTest` (2), `MainMenuPanelTest` (3), `TileRelocatorTest` (8), `TileLocationTest` (5), `BackupLocationsTest` (3), `BackupTilesCardTest` (3), `MbTilesStoreAvailabilityTest` (3), `AppSettingsTest` (8).
+  - Rendus : `./gradlew :app:testDebugUnitTest --tests '*TracksMenuRenderTest*' -Ptoolmap.renders=<dossier>` puis `--tests '*CenterQuickMenuRenderTest*'` : `BUILD SUCCESSFUL`, PNG écrits.
+  - Commits intermédiaires : `5770296` et `86be4f9` compilés séparément (sources et tests de `:app`, `:data`, `:core`, dans un arbre de travail à part) : `BUILD SUCCESSFUL`. Leurs tests unitaires n'ont pas été relancés.
+  - APK : `app/build/outputs/apk/debug/ToolMap-debug-0.3.0.apk`, 84 964 614 octets.
+  - **Non vérifié** : aucun comportement à l'écran (pas d'émulateur, pas de téléphone) ; le déplacement réel vers une carte SD (fichiers en cours d'écriture, journal WAL, système de fichiers de la carte) ; la relance de l'application après le déplacement (AlarmManager) ; la taille et la position du menu du point sous le doigt, et son chevauchement avec la barre.
+- **Problèmes / dette technique** :
+  - Avertissements de compilation hérités, non traités : deux branches `Unit` inutiles dans des `when` de `MapScreen.kt` (déjà présentes dans `d41d82b`).
+  - `MapScreen.kt` dépasse 1 300 lignes (P15).
+  - Question 5 de `ui-reorganization.md` (ordre des lots 3 et 4) toujours ouverte. Restent à faire : R2, R4, R5 (P14.3) ; S2, N4 et G1 (P14.2).
+  - Le menu du point ne reprend pas encore la photo ni le regroupement « Outils… » : à décider avec l'utilisateur.
+- **Prochaine étape recommandée** : l'utilisateur valide sur téléphone le déplacement vers la carte SD (P14.2), puis le panneau du drapeau et le menu du point (P14.3, P14.5), et tranche les écarts relevés ci-dessus. Ensuite P14.1 (pile de retour).
+
+---
+
+## 2026-10-12 — Session 13 — [P14.0] Index de l'interface, réorganisation proposée, performance
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `0461bb7` ; documentation seule, un commit poussé.
+- **Objectif** : demande de l'utilisateur : analyser le projet (l'interface d'AlpineQuest a été reprise sans toujours la logique derrière chaque bouton) ; créer un index des boutons, de la navigation et des fonctions ; proposer une réorganisation des menus et des fonctions utiles (ex. supprimer les favoris fournis) ; **planifier seulement, ne pas coder** ; supprimer les markdown obsolètes et les remplacer par des documents de restructuration et de performance ; pas de refonte, rester proche d'AlpineQuest.
+- **Réalisé** :
+  - Lecture du code : `MainActivity.kt` (navigation), `map/MainMenu.kt`, `map/MapScreen.kt`, `map/PositionMenu.kt`, panneaux `maps/`, écrans `tracks/`, `settings/`, et recherche du lecteur de chacun des 50 réglages hors de l'écran Réglages.
+  - `docs/specs/ui-index.md` (nouveau) : navigation (14 écrans, destination du « Fermer » et de la touche Retour), barre du bas, gestes, panneaux, menu principal, « Plus… », Positionnement, Cartes et calques, Traces, autres écrans, réglages ; statut de chaque entrée et synthèse des écarts.
+  - `docs/specs/ui-reorganization.md` (nouveau) : quatre lots (réparer, retirer le factice, réorganiser légèrement, ajouter), arborescence proposée, 14 fonctions proposées, 5 décisions attendues de l'utilisateur.
+  - `docs/specs/performance.md` (nouveau) : reprend l'inventaire et le protocole de P10.1, ajoute PF1 à PF8 et la restructuration légère RS1 à RS5, scénarios de mesure 0 et R.
+  - Retirés : `docs/specs/maps-layers-ui.md` et `docs/specs/battery-and-performance.md` (contenu repris). Gardés : les specs de format ou de protocole (ADR-041, point 3).
+  - `docs/PLAN.md` : phases P14 (P14.0 ✅, P14.1 à P14.7 ⬜) et P15 (P15.1 à P15.5 ⬜, P15.6 💤), ordre conseillé, liens vers les specs retirées annotés. `CLAUDE.md` : tableau des documents. `docs/DECISIONS.md` : ADR-041.
+- **Constats principaux** (détail dans `ui-index.md` §9) :
+  - **Touche Retour d'Android** : seuls la carte, l'assistant et le diagnostic ont un `BackHandler` ; depuis les onze autres écrans pleins, Retour **quitte l'application**. En mode dessin et en mesure, Retour quitte aussi l'application (tracé non enregistré perdu).
+  - « À propos » revient aux Réglages alors qu'il n'est plus ouvert que depuis la carte (depuis P11.11) ; Stockage revient toujours à la carte.
+  - Réglage « Emplacement de stockage » factice (déjà noté en P11.8) ; `insecure` de l'assistant non appliqué (déjà noté en P4.3). Les 49 autres réglages de l'écran ont un lecteur.
+  - Favoris fournis non supprimables (le dialogue le refuse), favoris non renommables ; « Espace de travail » du menu principal = favoris du panneau Cartes ; cartes fournies non masquables ; forme « polygone » de téléchargement sans outil pour la dessiner ; écran de mise au point (`SpikeScreen`) dans « Plus… ».
+  - Performance : la `MapView` est détruite et recréée à chaque écran plein (`when (screen)`) ; 16 modèles de vue à la portée de l'activité ; `MapScreen` de 1 303 lignes lit ~30 états.
+- **Décisions (ADR)** : ADR-041 (index de l'interface comme référence unique ; specs remplacées retirées ; règle « réparer, retirer, déplacer, ajouter »). Les changements d'interface restent proposés.
+- **Tests / vérifications** :
+  - `./gradlew check assembleDebug` (journal hors dépôt) : `BUILD SUCCESSFUL in 1m 26s`, `EXIT=0` ; aucune source modifiée, tâches de test à jour. APK : `app/build/outputs/apk/debug/ToolMap-debug-0.2.0.apk` (84,9 Mo). Version inchangée (documentation seule, ADR-040 point 2).
+  - Liens entre documents : plus aucune mention des deux fichiers retirés dans `CLAUDE.md` et `PLAN.md` hors des annotations « retiré le 2026-10-12 ». Le code ne cite aucun des deux fichiers retirés (recherche dans les `.kt`, `.kts`, `.yml`, `.sh`, `.xml`).
+  - Non vérifié : tout comportement à l'écran (pas d'émulateur) ; les constats viennent de la lecture du code.
+- **Problèmes / dette technique** : les ADR-030 et 034 à 039 et les anciennes entrées du journal citent des sections de `maps-layers-ui.md` (historique git). Le quota d'artefacts GitHub peut encore bloquer `toolmap-debug-apk` : lien de secours `debug-<sha7>`.
+- **Prochaine étape recommandée** : l'utilisateur répond aux cinq questions de `ui-reorganization.md` §6. Sans attendre : **P14.1** (pile de retour, Retour en dessin, mesure et écran verrouillé), puis P14.2 ; demander les mesures de référence P15.1 avant P15.2.
+
+## 2026-10-11 — Session 12 — [P10.4] Numéro de version qui évolue : 0.2.0
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `81ea058` ; code et documentation dans `45a2ddc`, ce journal dans le commit suivant ; poussés ensemble.
+- **Objectif** : demande de l'utilisateur « Le nom de la release est toujours en 0.1.0, fait évoluer les versions lorsqu'il y a de l'évolution ». Depuis le premier APK, `appVersionName` valait `0.1.0` : le fichier s'appelait `ToolMap-debug-0.1.0.apk` et la pré-version `debug-<sha7>` ne portait aucune version, alors que P11.6 à P11.11 ont changé l'application. Aucune règle ne disait quand le numéro devait changer.
+- **Réalisé** :
+  - `app/build.gradle.kts` : `appVersionName` 0.1.0 → 0.2.0 (`versionName`, nom de l'APK). « Aide et à propos » et l'en-tête du menu le lisent à l'exécution : `BuildConfig.VERSION_NAME` vaut `0.2.0` dans le code généré.
+  - `.github/workflows/ci.yml`, étape « Publish the debug APK » : le titre devient `ToolMap debug <version> (<sha7>)`, les notes portent la version. La version est lue dans le nom de l'APK compilé, pour ne pas la recopier. Test local du bloc `run` extrait du fichier, avec un faux `gh` hors dépôt : titre `ToolMap debug 0.2.0 (81ea058)`, étiquette `debug-81ea058`, syntaxe bash valide.
+  - `docs/specs/release.md` : §1, sous-section « Numéro de version » (la règle), exemples `ToolMap-debug-0.2.0.apk` et titre de la pré-version ; §3, étiquette `v<version>`.
+  - `CLAUDE.md`, point 7 : exemple `ToolMap-debug-0.1.0.apk` remplacé par « version de `app/build.gradle.kts` ».
+  - `docs/DECISIONS.md` : ADR-040. `docs/PLAN.md` : P10.4 (🔄).
+- **Décisions (ADR)** : ADR-040 « Numéro de version : `0.MINEUR.CORRECTIF`, une incrémentation par livraison ». Il précise le point 4 de ADR-027 sans le remplacer ; le `versionCode` n'est pas changé.
+  - `0.1.0` → `0.2.0` : P11.10 et P11.11 changent l'interface (catégories, retraits), donc un MINEUR.
+  - Une incrémentation par livraison, pas par push : les corrections de CI et les tests ne changent pas le numéro.
+- **Tests / vérifications** :
+  - `./gradlew check assembleDebug` (journal de build hors dépôt) : `BUILD SUCCESSFUL in 4m 1s`, `EXIT=0`. Inclus : `spotlessCheck` (passé), `:app:lintDebug` (passé), `:app:testDebugUnitTest` (exécuté : 181 tests, 0 échec, 2 ignorés), `:app:assembleDebug`.
+  - Tâches de test à jour, modules inchangés depuis le dernier run vert (mêmes sources) : `:core:test` 686 tests, `:data:testDebugUnitTest` 250 tests, `:p2p:testDebugUnitTest` 18 tests (2 ignorés) ; 0 échec dans les rapports XML.
+  - APK : `app/build/outputs/apk/debug/ToolMap-debug-0.2.0.apk` (84,9 Mo). L'APK `0.1.0` du build précédent a disparu du dossier.
+  - CI du dernier commit poussé : à suivre ; son résultat est donné dans le message de fin de session et consigné dans l'entrée suivante.
+- **Problèmes / dette technique** :
+  - Le `versionCode` des APK de debug reste 1 (la CI de debug ne passe pas `toolmap.versionCode`, ADR-027 point 4). Une mise à jour à même code s'installe, donc rien ne bloque ; à revoir si le code compte un jour.
+  - Quota de stockage d'artefacts toujours atteint (P11.11) : le lien de secours reste la pré-version `debug-<sha7>`.
+  - La publication de ce push supprime la pré-version `debug-81ea058` (une seule est gardée) : le lien de l'APK `0.1.0` ne servira plus.
+- **Prochaine étape recommandée** : installer sur téléphone `ToolMap-debug-0.2.0.apk`, de la pré-version `debug-<sha7>` du dernier push ; vérifier « Aide et à propos » et l'en-tête du menu (0.2.0). Puis, comme avant : trancher les deux parcours de zone et l'ouverture de « Plus… » (P10.4 reste 🔄 jusqu'à ce contrôle, comme P11.10 et P11.11).
+
+## 2026-10-11 — Session 11 — [P11.11] Retrait des doublons des menus et réglages
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `9947307` ; commit `d8ccc79` (code, tests, textes, ADR-039, spec, plan), suivi du commit de ce journal ; poussés ensemble.
+- **Objectif** : demande de l'utilisateur « Retire les doublons », après l'inventaire de P11.10. ADR-038 laissait les doublons à trancher ; cette demande les tranche. Un réglage n'a plus qu'une commande ; une commande qui a un sens propre est gardée (spec `docs/specs/maps-layers-ui.md` §11.3).
+- **Réalisé** :
+  - `map/MainMenu.kt` : retirés du menu principal la section Options (Mode hors ligne, Couverture hors ligne, Grille, Mode nuit) et « Netteté des cartes… ». « Informations en haut à gauche » reste, avec un rappel `onCoordinates` à la place de `onToggle`. Retirés de « Plus… » : Traces et waypoints, Enregistrer une trace, Importer une carte, Téléchargements, Stockage hors ligne. Restent : Traces (dessiner une trace, dessiner un itinéraire, ajouter un waypoint ici), Outils (rechercher un lieu, mesurer, partage de position), Cartes hors ligne (télécharger la zone affichée, diagnostic des tuiles). `SharpnessDialog` et les icônes devenues inutiles retirés.
+  - `map/PositionMenu.kt` : retirés la ligne Baromètre et la section OPTIONS (dix cases). Restent Mode explorateur, Position en temps réel, Enregistreur de trace, et le « ? ».
+  - `map/MapScreen.kt` : branches de `runMenuAction` et états devenus inutiles retirés (hors ligne, grille, nuit, enregistrement possible, baromètre, netteté) ; le panneau Positionnement ne reçoit plus `settings` ni `onUpdate`.
+  - `settings/SettingsScreen.kt`, `settings/SettingsIcons.kt`, `MainActivity.kt` : catégorie Aide retirée de Réglages (son seul lien, « À propos », reste au « ? » du menu principal et du panneau Positionnement). Réglages a neuf catégories ; les 50 réglages sont inchangés.
+  - `values/strings.xml` : treize chaînes sans usage retirées.
+  - Tests : `MainMenuPanelTest` (absents : Mode hors ligne, Mode nuit, Netteté ; présents : « Réglages… », « Informations en haut à gauche » ; « TRACES » replie et déplie « Dessiner une trace ») ; `SettingsCategoriesTest` (neuf titres, chacun une fois).
+  - Docs : ADR-039 ; `docs/specs/maps-layers-ui.md` §8, §10 et §11 (tableau 11.3 : le sort de chaque doublon) ; ligne P11.11 du plan (🔄) ; ligne P11.10 annotée (neuf catégories depuis P11.11).
+- **Décisions (ADR)** : ADR-039 « Retrait des doublons : un réglage, une seule commande ». Il remplace en partie ADR-034 (point 2), ADR-037 (points 4 et 6) et ADR-038 (point 4) ; ADR-038 point 2 passe à neuf catégories. Trois points à relire :
+  - le baromètre du panneau Positionnement est retiré : il ne pouvait pas choisir le baromètre seul (il passait du GPS à « automatique ») ; le réglage Altitude, qui a ses trois modes, reste la seule commande ;
+  - la case rapide « Grille » est retirée : il n'y a plus de retour au dernier choix, et Réglages propose « aucune » ;
+  - « Verrouiller l'écran » (verrouille la carte) et « Afficher par-dessus l'écran verrouillé » (réglage) restent distincts ; de même « Mode explorateur » (commande, bascule à la main) et « Mode explorateur automatique » (réglage, agit quand on incline la carte).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` (journal de build hors dépôt) : `BUILD SUCCESSFUL in 3m 57s`, `EXIT=0`. Inclus dans `check` : `spotlessCheck` et `lintDebug` (app, data, p2p) sans erreur.
+  - Tests JVM, 0 échec : `core` 686 ; `data` 250 (tâches à jour, module inchangé) ; `p2p` 18, 2 ignorés (à jour, module inchangé) ; `app` 181, 2 ignorés (exécuté dans ce build). `MainMenuPanelTest` et `SettingsCategoriesTest` sont verts.
+  - Avertissements de compilation déjà présents avant ce passage : deux « Expression is unused » dans `MapScreen.kt` (branches `Unit` de `LongPressAction.NONE` et de `MapsPage.SAVE_AREA, MapsPage.NONE`, présentes dans `9947307`) ; `createComposeRule` déprécié dans les tests Compose (même règle que `SettingsRenderTest`).
+  - APK : `app/build/outputs/apk/debug/ToolMap-debug-0.1.0.apk` (86 Mo), produit par ce build.
+  - CI du commit `9947307` (run 50, P11.10) : le job `build` réussit au build, aux tests, au lint, à la suppression des anciens artefacts et à la publication de la pré-version `debug-9947307`. Seules les étapes « Upload debug APK » et « Upload reports » échouent, avec `Artifact storage quota has been hit`. Le run 49 (P11.9) a la même cause.
+  - Non vérifié (pas d'émulateur) : le rendu des menus, la hauteur des en-têtes de « Plus… » et des catégories, le pliage au doigt et avec gants.
+- **Problèmes / dette technique** :
+  - Quota de stockage d'artefacts du compte GitHub : `toolmap-debug-apk` ne peut pas être envoyé. Le nettoyage du job garde le seul artefact existant (`Kept toolmap-debug-apk 11670340678; deleted 0 artifacts`), donc le code ne peut pas libérer le quota. Le lien de secours est la pré-version `debug-<sha7>` (CLAUDE.md, point 7). Libérer le quota relève du compte, pas du dépôt.
+  - À trancher par l'utilisateur : « Télécharger la zone affichée… » (Plus…) et « Sélectionner et enregistrer une zone » (panneau Cartes) ouvrent deux parcours ; les deux sont gardés. Faut-il aussi que les trois sections de « Plus… » s'ouvrent repliées ? Elles s'ouvrent dépliées aujourd'hui (ADR-038).
+  - `withBarometer` (`:core`) n'a plus d'appelant dans l'app ; il reste couvert par `BarometerTickTest`, plutôt que de toucher `:core` dans ce passage.
+  - Le retour rapide à la grille disparaît : à surveiller sur téléphone.
+- **Prochaine étape recommandée** : installer sur téléphone l'APK de la pré-version `debug-<sha7>` publiée par la CI de ce push, et vérifier : menu principal raccourci, « Plus… » (trois sections), panneau Positionnement (trois lignes et le « ? »), Réglages (neuf catégories). Trancher les deux parcours de zone et l'état d'ouverture de « Plus… ». P11.10 et P11.11 restent 🔄 jusqu'à ce contrôle.
+
+---
+
+## 2026-10-11 — Session 10 — [P11.10] Menus et réglages rangés par catégories
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `f48a72c` ; commits `abbf1ad` (code, tests et textes), `4f44d8a` (spec §8 et §11, ADR-038, plan), suivis du commit de ce journal ; poussés ensemble.
+- **Objectif** : demande de l'utilisateur (capture du menu OPTIONS) : l'engrenage « tous les réglages » est collé à « Grille : MGRS », impossible à distinguer de la case. Trois demandes : 1) faire le point de tous les menus, sous-menus et réglages ; 2) les ranger par catégories ; 3) dans le menu complet, des lignes repliables pour un menu moins dense.
+- **Réalisé** :
+  - Inventaire dans `docs/specs/maps-layers-ui.md` §11 : arbre des menus et sous-menus (§11.1), les dix catégories et leurs réglages (§11.2), 13 doublons (§11.3).
+  - `map/MainMenu.kt` : engrenage retiré de la ligne « Grille » ; « Réglages… » est l'unique accès aux réglages. La page « Plus… » est rangée en trois sections repliables (`MenuSection`, ouvertes au départ) : Traces (5 commandes), Outils (3), Cartes hors ligne (5). Les 13 commandes d'origine sont toutes là.
+  - `settings/SettingsScreen.kt` : les réglages sont rangés en dix catégories repliables (`SettingsCategory`, fermées au départ, état gardé par `rememberSaveable`). Les 50 réglages sont repris (§11.2) ; seul leur rangement change.
+  - `values/strings.xml` : les sept titres de section d'avant (« Unités d'affichage », « Réglages techniques », « Réglages de la carte », « Repères », « Positionnement », « Enregistreur de trace », « Orientation ») sont remplacés par neuf `settings_section_*` ; « Alertes » reprend `settings_alerts`. Trois titres `menu_more_*` ajoutés.
+  - Tests : `app/…/settings/SettingsCategoriesTest.kt` et `app/…/map/MainMenuPanelTest.kt` (Robolectric).
+- **Décisions (ADR)** : ADR-038 « Menus et réglages rangés par catégories repliables » : engrenage retiré (« Réglages… » seul accès) ; dix catégories fermées au départ dans Réglages ; trois sections ouvertes au départ dans « Plus… » ; doublons conservés, à trancher par l'utilisateur.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` (log du passage : `build-p11-10b.log`) : `BUILD SUCCESSFUL in 3m 15s`, `EXIT=0`. Inclus dans `check` : `spotlessCheck` et `lintDebug` (app, data, p2p) : 0 erreur.
+  - Tests JVM, 0 échec : `core` 686, `data` 250, `p2p` 18 (2 ignorés), `app` 181 (2 ignorés).
+  - Nouveaux tests verts : `SettingsCategoriesTest` 2/2 (chacun des dix titres apparaît une fois, fermé ; un appui sur « Affichage » ouvre « Thème ») ; `MainMenuPanelTest` 2/2 (« Grille : MGRS » sans engrenage, « Réglages… » présent ; un appui sur « TRACES » replie puis déplie « Enregistrer une trace »).
+  - Premier passage : échec de compilation des tests (`assertExists` et `assertDoesNotExist` n'existent pas dans cette version de Compose), remplacés par des comptages `assertCountEquals`.
+  - APK : `app/build/outputs/apk/debug/ToolMap-debug-0.1.0.apk` (86 Mo), produit par ce passage, après la dernière modification des sources.
+  - Non vérifié ici (pas d'émulateur) : le rendu à l'écran, la hauteur des en-têtes, le geste de pliage.
+- **Problèmes / dette technique** :
+  - Doublons laissés en place (spec §11.3) : mode hors ligne, import, traces, grille, netteté, mode nuit, aide, boîtes d'information, les dix cases OPTIONS. À trancher par l'utilisateur.
+  - « Plus… » s'ouvre avec ses trois sections dépliées : à la première ouverture, la page n'est pas moins dense. Choix pour ne rien cacher ; à inverser si l'utilisateur le préfère (§11.4).
+  - Les en-têtes de section (`MenuSection`) n'ont pas de hauteur minimale, contrairement aux lignes de Réglages (56 dp, 72 dp avec gants) : à vérifier au doigt et avec gants.
+- **Prochaine étape recommandée** : installer l'APK du run « CI » de ce push et vérifier sur téléphone : les dix catégories (lisibilité, ouverture d'une catégorie), les trois sections de « Plus… », le bouton « Réglages… ». Trancher les doublons (§11.3) et dire si « Plus… » doit s'ouvrir replié. P11.10 reste 🔄 jusqu'à ce contrôle.
+
+## 2026-10-11 — Session 9 — [P11.9] Panneau « Positionnement » à la AlpineQuest
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `97a3629` ; commits `9a95fab` (panneau) et `eebccfb` (correctif lint), suivis du commit de ce journal.
+- **Objectif** : demande de l'utilisateur, capture du menu POSITIONING d'AlpineQuest : « Rajoute les même sous menus et les fonctionnalités ». Le bouton position ouvre désormais un panneau au lieu de cycler entre les modes.
+- **Réalisé** :
+  - `map/PositionMenu.kt` (nouveau) : panneau « Positionnement » (titre et « ? », mode explorateur avec coche, position en temps réel, enregistreur de trace et baromètre en interrupteurs, « OPTIONS » repliable avec les 10 cases des réglages existants).
+  - `map/MainMenu.kt` : bouton position (un appui = panneau, appui long = ancien cycle, fond coloré quand le panneau est ouvert), icône `MenuIcons.Unfold`, `MenuRow` partagé (`internal`).
+  - `map/MapController.kt` : `LocationMode.next()` ; `applyLocationMode` remet `locationOn` à vrai ; `disableLocation` (coupure réversible) ; `enterExplorer` / `leaveExplorer` (inclinaison de 60°, à plat et nord en haut au retour).
+  - `map/MapScreen.kt` : panneau avec voile, touche Retour, confirmation de sortie non demandée tant que le panneau est ouvert ; actions des lignes ; permission de localisation demandée puis action rejouée (`withLocationPermission`).
+  - `map/MapInfoBoxes.kt` : boîte baromètre seulement si la coche est mise.
+  - `core/settings/AppSettings.kt` : `AltitudeMode.barometerOn()` et `withBarometer(on)`, fonctions pures.
+  - `values/strings.xml` : 8 libellés `position_*`.
+  - Tests : `core/…/settings/BarometerTickTest.kt`, `app/…/map/LocationModeTest.kt`.
+  - Docs : `docs/specs/maps-layers-ui.md` (§8 ligne Position, §10 nouveau), `docs/DECISIONS.md` (ADR-037), `docs/PLAN.md` (P11.9 reste 🔄 : vérification sur téléphone).
+- **Décisions (ADR)** : ADR-037 (panneau au tap, appui long = ancien cycle, baromètre = coche sur `AltitudeMode`, « ? » ouvre « À propos »).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug`, 1er passage : `:app:lintDebug` en échec (1 erreur, `MissingPermission` sur `isLocationComponentEnabled = false` dans `disableLocation`) ; corrigé par `@SuppressLint("MissingPermission")`, comme `applyLocationMode` (commit `eebccfb`).
+  - 2e passage : `BUILD SUCCESSFUL in 2m 5s` (`EXIT=0`) ; `spotlessCheck` et `check` passés ; lint : 0 erreur.
+  - Tests JVM : `core` 686, `data` 250, `app` 177 (2 ignorés), `p2p` 18 (2 ignorés) : 0 échec. Nouveaux tests verts : `BarometerTickTest` 5/5, `LocationModeTest` 1/1.
+  - APK : `app/build/outputs/apk/debug/ToolMap-debug-0.1.0.apk` (86 Mo), produit par ce passage.
+  - Non vérifié ici : le rendu du panneau et son comportement à l'écran (pas d'émulateur, pas de test de rendu).
+- **Problèmes / dette technique** :
+  - Le « ? » du panneau ouvre « À propos » : ToolMap n'a pas d'aide dédiée au positionnement.
+  - Deux avertissements de compilation « Expression is unused » dans `MapScreen` (cas `Unit` d'un `when`) : ils existent avant P11.9, non touchés.
+  - L'aide AlpineQuest consultée ne définit pas le « mode explorateur » (le PDF d'aide dépasse la taille lisible ; les pages HTML ne couvrent pas le menu). La définition de ToolMap est gardée ; l'inclinaison de 60° du bouton est à ajuster sur appareil.
+  - Non vérifié sur appareil (pas d'émulateur) : le panneau face à la capture, la coupure et la reprise de la position, l'enregistreur démarré et arrêté depuis le panneau, la coche baromètre, l'appui long.
+- **Prochaine étape recommandée** : lire le run « CI » du push (commit du journal) et donner le lien de l'APK ; installer l'APK et vérifier les points ci-dessus ; dire si l'inclinaison de 60° convient ; demander une aide dédiée au positionnement si elle est voulue.
+
+## 2026-10-10 — Session 8 (suite 2) — [P0.3] APK de debug publié en pré-release GitHub
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `33b9d18`.
+- **Constat** : run `38063175589` (commit `33b9d18`) : l'étape « Delete old artifacts » a effacé 41 artefacts (1 714,3 Mo) et gardé `toolmap-debug-apk` 11670340678 (P11.7). Le téléversement du nouvel APK échoue toujours sur « Artifact storage quota has been hit » (recalcul 6 à 12 h, ou remise à zéro le 1er novembre).
+- **Objectif** : demande de l'utilisateur : « Publie l'APK dans une Release GitHub ».
+- **Réalisé** :
+  - `.github/workflows/ci.yml` : `contents: write` (au lieu de `read`) ; étape « Publish the debug APK » (pushes seulement, `continue-on-error`, placée avant le téléversement) : crée la pré-release `debug-<sha7>` au commit, y joint `ToolMap-debug-<version>.apk`, puis supprime les anciennes pré-releases `debug-*` et leurs étiquettes.
+  - Docs : `docs/specs/release.md` (« Release de debug », lien direct), `CLAUDE.md` point 7 (lien de repli), `PLAN.md` P0.3.
+- **Décisions (ADR)** : aucune. Choix de mise en œuvre : une pré-release par commit, seule la plus récente gardée (même règle que les artefacts), ce qui garde le stockage du dépôt borné.
+- **Tests / vérifications** : YAML relu par `yaml.safe_load` (permissions `contents: write`, `actions: write` ; ordre des étapes OK) ; syntaxe bash de l'étape de publication vérifiée (`bash -n`). Les appels `gh release` ne peuvent être essayés que sur le runner GitHub : leur résultat est à lire dans le run de ce push.
+- **Problèmes / dette technique** :
+  - Le job reste rouge tant que le téléversement de l'artefact est bloqué par le quota. La pré-release, elle, n'est pas concernée.
+  - Le dépôt étant privé, le lien de téléchargement demande d'être connecté à GitHub.
+  - Les autres dépôts de l'utilisateur ne sont pas accessibles à cette session.
+- **Prochaine étape recommandée** : lire le run de ce push (étape « Publish the debug APK ») ; si la pré-release existe, donner le lien `https://github.com/JRRocks/ToolMap/releases/download/debug-<sha7>/ToolMap-debug-0.1.0.apk`.
+
+## 2026-10-10 — Session 8 (suite) — [P0.3] CI : effacer les anciens artefacts (quota de 0,5 Go du compte)
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `39010eb`.
+- **Constat** : run `38060606414` (commit `39010eb`, noms des APK) : `BUILD SUCCESSFUL in 11m 49s`, tests et lint verts, le glob `*.apk` trouve un fichier ; seul le téléversement échoue, « Artifact storage quota has been hit ». L'utilisateur montre l'avis de GitHub : 0,5 Go de stockage Actions par mois **pour tout le compte** (plusieurs dépôts), 100 % utilisés, remise à zéro le 1er novembre 2026.
+- **Objectif** : demande de l'utilisateur : « Purge les anciens artefacts », puis « Comment créer de la place ? j'ai plusieurs repo ».
+- **Réalisé** :
+  - Le connecteur GitHub de la session ne sait pas effacer un artefact (liste, téléchargement, relance, annulation, effacement des logs seulement) ; pas de CLI `gh` ici. L'effacement passe donc par la CI elle-même.
+  - `.github/workflows/ci.yml` : permission `actions: write` ; étape « Delete old artifacts » (`actions/github-script@v7`, pushes seulement, `continue-on-error`) avant le téléversement : garde le `toolmap-debug-apk` le plus récent, efface les autres et tous les `reports`, ne touche pas aux artefacts de release ; `reports` gardés 7 jours au plus.
+  - Docs : `docs/specs/release.md` §1 (« Place occupée par les artefacts » : comptage en Go × heures, règle de nettoyage), `CLAUDE.md` point 7, `PLAN.md` P0.3.
+- **Décisions (ADR)** : aucune (réglage de la CI, pas d'architecture).
+- **Tests / vérifications** : YAML relu par `yaml.safe_load` (permissions `contents: read`, `actions: write` ; étape placée entre le build et le téléversement) ; `./gradlew check assembleDebug` : **BUILD SUCCESSFUL** en 28 s (code de l'application inchangé). L'étape de nettoyage ne peut s'essayer que sur GitHub : son journal (artefacts effacés, Mo libérés) est à lire dans le run du push.
+- **Problèmes / dette technique** :
+  - Effacer arrête la consommation mais ne rend pas ce qui a été consommé ce mois-ci (Go × heures). Le téléversement peut donc rester bloqué jusqu'au recalcul (6 à 12 h) ou jusqu'au 1er novembre ; la doc de GitHub et les retours d'utilisateurs ne permettent pas de trancher.
+  - Les autres dépôts de l'utilisateur ne sont pas accessibles à cette session : leurs artefacts sont à effacer à la main.
+  - Piste durable, non faite (change le lien donné à l'utilisateur, donc à lui de décider) : publier l'APK de debug comme fichier d'une release GitHub, qui ne compte pas dans ce quota.
+- **Prochaine étape recommandée** : lire l'étape « Delete old artifacts » du run de ce push ; dès qu'un téléversement réussit, donner le lien de l'artefact (zip contenant `ToolMap-debug-0.1.0.apk`).
+
+## 2026-10-10 — Session 8 — [P10.3] Nom des APK : ToolMap-<phase>-<version>.apk
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `60a3223`.
+- **Objectif** : demande de l'utilisateur : « Markdown, renome les app-debug en [Nom de l'app]-[Phase(debug/pre-release/release)]-[Version].apk ». Puis le lien de l'APK.
+- **Réalisé** :
+  - `app/build.gradle.kts` : `appVersionName` (0.1.0) sert au `versionName` et au nom du fichier ; bloc `androidComponents` qui fixe `ToolMap-${buildType}-$appVersionName.apk` pour chaque variante. Le nom est le même en local et sur la CI.
+  - `docs/specs/release.md` §1 : la convention, écrite en Markdown.
+  - `CLAUDE.md` (protocole point 7, section « Commandes ») : les noms `app-debug.apk` remplacés par `ToolMap-debug-<version>.apk`. Les noms d'artefacts GitHub (`toolmap-debug-apk`, `toolmap-release-apk`) ne changent pas ; le zip contient le fichier renommé.
+  - `docs/PLAN.md` : P10.3 mentionne la convention.
+- **Décisions (ADR)** : aucune. Convention de nommage, pas d'architecture.
+- **Tests / vérifications** :
+  - `./gradlew assembleDebug` (56 s) : **BUILD SUCCESSFUL**. Sortie : `app/build/outputs/apk/debug/ToolMap-debug-0.1.0.apk`, 84 905 518 octets, comme l'ancien `app-debug.apk` ; l'ancien fichier n'existe plus.
+  - `./gradlew spotlessCheck check assembleDebug` (1 min 53 s) : **BUILD SUCCESSFUL, EXIT=0**, 0 échec : `:core` 681, `:data` 250, `:p2p` 18, `:app` 176 tests.
+- **Problèmes / dette technique** :
+  - `pre-release` n'est pas encore un type de build : la convention le prévoit, le fichier n'existera qu'avec ce type.
+  - Le nom ne porte pas le `versionCode` (numéro de run CI) : le lien de l'artefact indique le run.
+  - Quota d'artefacts toujours plein à la rédaction (run `38057988620`) ; la CI du commit de rename sera à vérifier.
+- **Prochaine étape recommandée** : après la CI verte, donner le lien de l'artefact `toolmap-debug-apk` (zip contenant `ToolMap-debug-0.1.0.apk`). Si le quota reste plein, purger les anciens artefacts (décision de l'utilisateur).
+
+## 2026-10-10 — Session 7 (suite) — [P11.8] CI : test de pause rendu déterministe, quota d'artefacts
+- **Branche / commits** : `81ca614` (CI rouge : run `38056824085`), puis `3bad189` (correction).
+- **Constat** : le job `build` a échoué sur `RecordingControllerTest > a pause cuts the track into two segments…` (la trace stockée n'avait que trois points au lieu de deux segments de trois). En local, le test passait.
+- **Cause** : mon attente `live.pointCount == 3` était vraie dès le `resume()`. Le segment courant repart de statistiques à zéro, donc le compte en direct vaut déjà 3 (la trace précédente) avant que les nouveaux fixes soient traités. `stop()` arrivait avant eux selon l'ordonnancement, et la trace n'était écrite qu'à trois points. Sur un runner chargé le collecteur est en retard, d'où l'échec. C'est un défaut de ma modification du test, pas du moteur.
+- **Correction** : l'attente porte sur `live.lastFix` du vingt-deuxième fix, qui n'apparaît qu'une fois celui-ci traité ; le compte à trois est vérifié ensuite. Les autres attentes sur `pointCount` ne peuvent être vraies qu'après traitement (vérifié à la relecture).
+- **Vérifications** : `RecordingControllerTest` 7/7 : quatre passes normales, trois passes sous charge CPU (quatre boucles `while :` en parallèle). `./gradlew spotlessCheck check assembleDebug` : **BUILD SUCCESSFUL** (`:app:testDebugUnitTest` exécuté, APK 84,9 Mo).
+- **Problème hors code, non résolu ici** : la CI n'a pas pu téléverser les rapports : « Artifact storage quota has been hit ». Le quota d'artefacts du dépôt est atteint ; il se recalcule toutes les 6 à 12 h. Tant qu'il est plein, l'artefact `toolmap-debug-apk` ne peut pas être créé et **le lien de téléchargement de l'APK ne peut pas être donné**. Je n'ai supprimé aucun artefact : c'est à l'utilisateur de décider de purger les anciens.
+- **Dette** : le test partage une variable `now` non volatile entre threads ; à rendre explicite plus tard.
+- **Prochaine étape recommandée** : attendre la CI verte sur `3bad189`, puis libérer le quota d'artefacts (ou attendre le recalcul) pour que l'APK soit téléversé.
+
+## 2026-10-10 — Session 7 — [P11.8] Réglages et moteurs à la AlpineQuest
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `cf4c188` ([P11.7]).
+- **Objectif** : demande de l'utilisateur : « Crée tous les paramètres comme dans AlpineQuest. Rajoute une icône pour chaque option. Une fois le visuel terminé, code tous les moteurs associés aux boutons. Enfin envoie-moi des rendus visuels. »
+- **Réalisé** :
+  - **`:core`** : `AppSettings` étendu (enums de choix, `MapCanvasSettings`, `PlacemarkSettings`, `PositionSettings`, `RecorderSettings`) ; `UnitFormats.kt` (cap en degrés, mils ou grades ; pente ; pression ; nord de référence et convergence UTM) ; `EgmGeoid.kt` (lecture du géoïde EGM96) ; `SignalWatch.kt` (perte de signal), `PositionTrail.kt`, `TrackActivity.kt` ; densité de la grille dans `ScreenGrid`.
+  - **`:app`, réglages** : `SettingsScreen` en sections, une icône par option (`SettingsIcons.kt`, 59 icônes Material), libellés dans `strings.xml`.
+  - **Moteurs branchés** : `Formats` (distance, surface, cap, pente, pression, coordonnées secondaires) ; `MapController` (gestes, explorer automatique, recentrage après 10 s) ; `MapInfoBoxes` (taille, fond, cap) ; boutons + / − (pas, côté gauche, masquage) ; grille (densité, tirets) ; appui long (waypoint, mesure, cible) ; placemarks (taille, couleur, flèches, contour, bordures, ombres) ; trace (`TrailLayers`) ; cap et nord (`HeadingSensor`, `NorthOffsets`) ; `AltitudeService` + `AssetGeoidModel` (EGM96) ; `RecordingController` (perte de signal, statistiques par segment, mode tableau de bord) + `ActivityDialog` ; `MainActivity` (barres masquées sur la carte par `WindowInsetsControllerCompat`, balayage pour les rappeler ; verrou par `setShowWhenLocked` ou le drapeau `FLAG_SHOW_WHEN_LOCKED` sous l'API 27) ; `MapScreen` (confirmation de sortie par `AlertDialog`, avec des `BackHandler` qui s'excluent).
+  - **Stockage** : le choix est enregistré mais **non appliqué** (les cartes restent dans la mémoire du téléphone). Le libellé et la doc le disent maintenant.
+  - **Correction en cours de session** : `segmentBase` était pris après `core.onFix`, donc le premier point d'un segment était compté dans la base (un point de moins au segment). Pris avant le fix. Le test « une pause coupe la trace en deux segments » attendait l'ancien comptage ; il vérifie maintenant le réglage par défaut, et un test couvre le cas sans remise à zéro.
+  - **Docs** : ADR-036 ; P11.8 dans `PLAN.md`.
+- **Décisions (ADR)** : ADR-036 (réglages en un fichier, formats purs dans `:core`, une icône par option, géoïde EGM96 local).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply spotlessCheck check assembleDebug` : **BUILD SUCCESSFUL** (passe finale, 3 min 9 s), 0 échec : `:core` 681, `:data` 250, `:p2p` 18, `:app` 176.
+  - Tests ciblés par module : `AppSettingsTest` 8/8 (aller-retour des nouveaux réglages), `ScreenGridTest` 11/11 (densité), `AltitudeServiceTest` 14/14 (géoïde : sens de la correction, options désactivées), `RecordingControllerTest` 7/7 (segments, pause, sans remise à zéro).
+  - Rendus : `SettingsRenderTest` (Robolectric, thème clair et sombre), 7 pages chacun, dans le dossier de rendus de la session.
+  - Lint : une erreur corrigée (`LocalContextGetResourceValueCall` : lecture d'une ressource par `LocalContext` dans `MapScreen`, remplacée par `LocalResources`).
+- **Problèmes / dette technique** :
+  - **Stockage des cartes non appliqué** : le déplacement touche les modules qui écrivent sous `filesDir` (tuiles, téléchargements, sauvegarde, enregistreur, alertes, partage, base des traces). À faire dans une entrée dédiée, avec un ADR si le dossier change.
+  - **Carte MapLibre non vérifiée à l'écran** : pas d'émulateur. Les barres, le verrou, la confirmation de sortie, la grille en tirets et la trace ne se voient que sur appareil.
+  - **Écarts assumés** : couleur des waypoints donnée par leur symbole ; activité demandée au début d'un enregistrement, pas à chaque segment.
+- **Prochaine étape recommandée** : l'utilisateur installe l'APK de la CI et vérifie les points « À voir sur téléphone » de P11.8 (barres masquées puis rappelées par un balayage, verrou, confirmation de sortie, grille en tirets, recentrage, trace). Ensuite, décider si le stockage des cartes est déplacé dans cette branche ou une tâche à part.
+
+## 2026-10-10 — Session 6 — [P11.7] Informations en haut à gauche comme AlpineQuest
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `2b2bd1f` ([P11.6]).
+- **Objectif** : l'utilisateur : « Met en place les mêmes détails en haut à gauche » (capture d'AlpineQuest : position MGRS et altitude, échelle « 1:27,410 16/18 » avec une barre « 500 m », GPS « 0 sats », baromètre « 953.54 hPa »).
+- **Réalisé** :
+  - **`:core`** : `ScaleBar` calcule le ratio d'AlpineQuest (`denominator`, `ratioText`, `forDisplayedZoom`) ; la barre et le ratio partagent la même échelle en mètres par dp. `ScaleBar.compute` (caméra) conservé.
+  - **`:data`** : `AltitudeStatus` expose `accuracyMeters` (précision du GPS) et `pressureHpa` (dernière pression lue).
+  - **`:app`** : `record/GnssSatellites.kt` (nouveau) compte les satellites utilisés par le fix (`GnssStatus`, écouté seulement pendant la localisation) ; `map/MapInfoBoxes.kt` (nouveau) empile position, échelle (« 1:… », zoom affiché et « /max » du fond, barre), GPS et baromètre (appui = calibrage) ; `MapOverlays` perd l'ancienne pastille de coordonnées, la ligne d'altitude et la barre du bas ; `MapScreen` branche la pile, calcule le zoom max du fond et ne met plus d'échelle en bas ; `MapViewModel.satellites()` ; `MenuIcons.Gauge` (icône du baromètre) ; `strings.xml` (libellés de la pile, « Informations en haut à gauche »).
+  - **Docs** : ADR-035 (remplace le point 4 de ADR-034 : le réglage cache toute la pile), spec `maps-layers-ui.md` §8 corrigée (échelle, réglage, « Masquer les commandes ») et §9 (pile, convention du ratio, écarts), P11.7 dans `PLAN.md`.
+- **Décisions (ADR)** : ADR-035.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply` : EXIT=0 (ordre des imports corrigé).
+  - `./gradlew :core:test --tests 'fr.toolmap.core.geo.Scale*'` : `ScaleRatioTest` 6/6, `ScaleBarTest` 10/10 verts (les tests existants passent après la factorisation de `ScaleBar`).
+  - `./gradlew :data:testDebugUnitTest --tests 'fr.toolmap.data.altitude.*'` : `AltitudeServiceTest` 12/12 verts.
+  - `./gradlew spotlessCheck check assembleDebug` : **EXIT=0** (`BUILD SUCCESSFUL in 1m 44s`), 0 échec : `:core` 659, `:data` 248, `:p2p` 18, `:app` 173. APK debug : `app/build/outputs/apk/debug/app-debug.apk` (99,4 Mo).
+  - **Non vérifié sur téléphone ni dans un émulateur** : l'aspect de la pile n'a été comparé à la capture qu'à la lecture du code et par le ratio calculé (1:27 373 pour 1:27 410 sur la capture, soit 0,14 % d'écart).
+- **Problèmes / dette technique** :
+  - Compilation : un nom de test contenait `:` (Kotlin refuse) ; renommé.
+  - Lint : `registerGnssStatusCallback(Executor, Callback)` exige l'API 30 alors que le minSdk est 26 (erreur `NewApi`). Remplacé par la surcharge `(Callback, Handler)` sur le looper principal (API 24).
+  - Avertissement pré-existant laissé en l'état : la chaîne `menu_show_controls` n'est plus utilisée (P11.6).
+  - **Écarts assumés avec AlpineQuest** (spec §9) : pas d'altitude du centre de la carte, pas le « (1) » de la ligne GPS, pas le « (+0.00) » du baromètre, pas de dénivelé vers la cible (une cible n'a pas d'altitude), couleur du thème et non rouge.
+  - Le baromètre n'a de boîte que si le téléphone en a un et que la localisation est active.
+- **Prochaine étape recommandée** : l'utilisateur installe l'APK de la CI et compare la pile du haut à gauche avec la capture (barre de 500 m, satellites, pression, appui sur la boîte baromètre), et la barre du bas (P11.6). Ensuite P11.6 et P11.7 passent ✅ si la disposition convient ; sinon corrections sur ses remarques.
+
+## 2026-10-10 — Session 5 — [P11.6] Menus à la AlpineQuest : barre du bas, panneau principal, verrou
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `80e8edf` ([P13]).
+- **Objectif** : l'utilisateur : « Reprends la même disposition des menus de AlpineQuest pour ToolMap » (trois captures : panneau de menu ouvert avec ses sections, barre du bas, boîtes d'information).
+- **Réalisé** :
+  - **`:core`** : `AppSettings.showCoordinates` (vrai par défaut ; un ancien fichier de réglages se lit sans erreur).
+  - **`:app`** : `map/MainMenu.kt` (nouveau) : `MapBottomBar` (logo, cartes, traces et waypoints, position, boussole), `MenuLogoButton` (barre réduite), `LockedPill` (appui long pour déverrouiller), `MapZoomButtons` (+ / −, un niveau à la fois), `MainMenuPanel` (pages « principal » et « Plus… », sections « Espace de travail », « Options » avec cases, « Information à l'écran »), `SharpnessDialog` (le dialogue de l'ADR-032, réutilisé), `MenuIcons` (icônes dessinées à la main).
+  - **`MapScreen`** : menu ⋮ en haut à droite et boussole supprimés ; états « masquer » et « verrouiller » (`rememberSaveable`) ; verrou = gestes MapLibre coupés (`MapController.setGesturesEnabled`) ; `BackHandler` qui ferme le menu.
+  - **`SettingsScreen`** : `sharpnessLabel` / `sharpnessDetail` extraits pour le dialogue du menu.
+  - **`MapViewModel`** : `updateSettings` (grille, mode nuit, coordonnées s'écrivent dans `SettingsStore`).
+  - **`MapController`** : `zoomBy`, `setGesturesEnabled`.
+  - **`MainActivity`** : `onOpenAbout` branché sur l'écran « À propos » (bouton « ? »).
+  - Docs : P11.6 dans `PLAN.md`, ADR-034 (remplace « menu ⋮ inchangé »), `docs/specs/maps-layers-ui.md` §1 corrigé et nouveau §8 (barre, zoom, menu, verrou, omissions).
+- **Décisions (ADR)** : ADR-034.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply` : **EXIT=0** (après deux corrections de mise en forme : lignes de plus de 120 caractères, puis opérateurs `+` manquants dans les chaînes SVG découpées).
+  - `./gradlew check assembleDebug` : **EXIT=0** (`BUILD SUCCESSFUL in 4m 50s`), 1 092 tests, 0 échec (`:core` 653, `:data` 248, `:p2p` 18, `:app` 173). `AppSettingsTest` : 7 tests verts, dont le nouveau. APK debug construit (99,4 Mo).
+  - **Non vérifié sur téléphone ni dans un émulateur** : la disposition n'a été comparée aux captures qu'à la lecture du code.
+- **Problèmes / dette technique** :
+  - **Écarts assumés avec AlpineQuest** (spec §8) : pas de « Quitter » (les services de premier plan ont leurs propres arrêts), pas de liste personnalisable (crayons), pas de « Mon compte », pas d'« Élément personnalisé », pas d'échelle circulaire, pas d'assombrissement de la carte pour le mode nuit (c'est le thème de l'application).
+  - Le menu ⋮ a été remplacé : les commandes les moins courantes sont sous « Plus… », un niveau de plus qu'avant.
+  - Le verrou ne bloque que l'écran carte, pas le système (pas de verrou d'écran).
+  - Les icônes dessinées à la main (`MenuIcons`) n'ont pas été rendues : leur aspect reste à voir.
+  - Les panneaux qui s'ouvrent au-dessus de la barre (impression, dessin, mesure) n'ont pas été vérifiés sur la hauteur de la barre.
+- **Prochaine étape recommandée** : l'utilisateur installe l'APK de la CI et compare avec les captures : barre du bas, panneau, « Plus… », verrou (appui long), « Masquer les commandes ». Puis P11.6 ✅ si la disposition convient, sinon corrections sur la base de ses remarques.
+
+## 2026-10-05 — Session 4 — [P13] Serveur de coordination Firebase pour le partage de position + icônes d'état des pairs
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `b96dcb4` (+ commits de la session 3 déjà poussés).
+- **Objectif** : l'utilisateur : « le partage de position P2P échoue ; installe un serveur Firebase qui sert de coordinateur (signalisation / routage), avec mon compte Google (plan gratuit), tous les utilisateurs de l'app y sont invités ; ajoute une icône d'état pour chaque pair (en ligne, hors ligne, non appairé, appairé, synchronisation perdue…) ».
+- **Réalisé** :
+  - **`:core`** : `Relay.kt` (`RelayConfig`, `RelayPaths`, `RoomInvite` + `RoomInviteCodec` `toolmap://join`, `ServerState`, `PeerState`, interfaces `RelayTransport(Factory)`), `MeshLink.isBroadcastMedium` (pas de réinondation sur un bus), `ShareSettings.server`, `GroupRecord.server`.
+  - **`:p2p`** : `FirebaseRelay` (REST + SSE OkHttp, auth anonyme, présence 15 s, trames scellées, nettoyage, bannissement), `FirebaseRest`, `RoomState`, `ServerSentEvents`.
+  - **`:app`** : `ShareController` (groupes sur serveur, invitation immédiate sans réponse, `joinRoom`, états), `PeerStatusIcon` (5 icônes dessinées, distinctes par la forme et la couleur, description d'accessibilité), liste des membres et fiche avec icône + mot, ligne « Serveur : … », carte « Serveur de coordination » (adresse + clé API, validation, retour au serveur intégré), filtre d'intention `toolmap://join`, `BuildConfig` `FIREBASE_DB_URL` / `FIREBASE_API_KEY` (secrets CI `TOOLMAP_FIREBASE_DB_URL` / `TOOLMAP_FIREBASE_API_KEY`, facultatifs).
+  - `firebase/database.rules.json`, `firebase/firebase.json`, `scripts/firebase-emulator-test.sh`.
+  - Docs : ADR-033 (remplace en partie ADR-004), `docs/specs/firebase-relay.md` (dont le guide pas à pas de la console Firebase), section P13 de `PLAN.md`, tableau de `CLAUDE.md`, note dans `p2p-sharing.md`.
+- **Décisions (ADR)** : ADR-033.
+- **Tests / vérifications** :
+  - Émulateurs Firebase réels (auth + base, règles chargées), `FirebaseRelayEmulatorTest` avec `FIREBASE_EMULATOR=1` : vert (deux clients : position, texte, présence, départ, retrait).
+  - Nouveaux tests JVM : `RelayTest`, `RoomStateTest`, `ShareControllerRelayTest` (6 : invitation immédiate, état du serveur, adhésion sans réponse, invitation expirée, autre groupe, départ qui ferme la connexion).
+  - `./gradlew spotlessApply check assembleDebug` : **EXIT=0** (4 min 22 s), 1 091 tests, 0 échec (`:core` 652, `:data` 248, `:p2p` 18, `:app` 173). APK debug construit (99,4 Mo).
+- **Problèmes / dette technique** :
+  - **Aucun projet Firebase n'existe encore** : P13.5 est à faire par l'utilisateur (guide au §8 de la spec). Sans adresse ni clé, l'app reste en mode direct WebRTC.
+  - **Pas vérifié** sur un vrai projet Firebase, ni sur téléphone (réseau mobile, écran éteint, aspect des icônes, quotas).
+  - Limites assumées (ADR-033) : règles sans notion d'appartenance au groupe ; REKEY relisible par un client modifié et retiré ; noms affichés en clair dans la présence ; invitation utilisable par quiconque la possède pendant 7 jours.
+  - La cause réelle de l'échec du WebRTC direct n'est toujours pas établie.
+- **Prochaine étape recommandée** : l'utilisateur crée le projet Firebase (spec §8), saisit l'adresse et la clé dans Partage › Serveur de coordination (ou les met en secrets GitHub), crée un groupe sur un téléphone et rejoint par l'invitation sur un second, sur des réseaux différents ; vérifier que les icônes passent en « En ligne » puis « Synchronisation perdue » quand on coupe les données. Puis P13.2 / P13.4 ✅.
+
+---
+
+## 2026-10-03 — Session 3 (suite 22) — [P1.8] Cartes floues par rapport à AlpineQuest : netteté selon la densité de l'écran
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `b96dcb4`.
+- **Objectif** : l'utilisateur envoie deux captures de la même vue (Chambéry – lac du Bourget) avec le même fichier `USR.PERSONNAL_MULTIZOOM.AQX` : « ToolMap est moins net qu'AlpineQuest ; l'image reste floue à certains zooms ». ToolMap affiche « z 12.6 », AlpineQuest « 1:109,600 14/18 ».
+- **Constat** : la cause n'est pas le `.aqx` mais MapLibre. Il choisit les tuiles raster du zoom `round(caméra + log2(512 / tileSize))` et dessine une tuile sur `tileSize` dp. Avec `tileSize` = 256 (taille réelle des tuiles), à « z 12.6 » (caméra 11,6) il prenait le zoom 13 et un pixel de tuile couvrait ≈ 2,1 pixels de l'écran (densité 2,8125 du SM-S931U). AlpineQuest affiche à la même vue le zoom 14 à ≈ 1 pixel d'écran par pixel de tuile (mesuré sur la capture : barre de 2 km ≈ 301 px sur 1 080 → 6,65 m/px ; tuile z14 à 45,6° N : 6,69 m/px). Écart : log2(densité) ≈ 1,5 niveau, sur toutes les cartes.
+- **Réalisé** :
+  - **`:core`** : `ZoomMapping` devient une valeur propre à l'écran (`forScreen(densité, grossissement)`, `STANDARD` = ancien comportement) : taille déclarée à MapLibre `round(256 / tileScale)` (91 sur ce téléphone), décalage zoom affiché − caméra `log2(512 / taille déclarée)` (2,49 ; 1 avant), `requestedTileZoom`. `TileSharpness` (choix du réglage). `LayerZoom.cameraRange` et `StackToStyle.desired` reçoivent la correspondance (borne max jamais négative pour MapLibre). `AppSettings.maps.tileMagnification` (défaut 1 = comme AlpineQuest, aussi pour un ancien fichier de réglages) et `zoomMapping(densité)`.
+  - **`:app`** : `StyleApplier` (taille de tuile déclarée par source et pour la couverture, dans la signature : changer de netteté reconstruit les sources), `MapController.sync` (reconstruit aussi quand la correspondance change), `MapScreen` (correspondance calculée depuis `LocalDensity` et le réglage ; pastille « z », barres de zoom, zone à enregistrer, téléchargement, vignettes ; actions mémorisées recalculées quand elle change), `MainActivity` (assistant), Réglages › Cartes › **« Netteté des cartes »** : « Nette, comme AlpineQuest » / « Agrandie ×1,5 » / « Agrandie ×2 » / « Taille Android ×2,8 ».
+  - Docs : ADR-032, P1.8 dans `PLAN.md` (et note sous P3.1), statuts d'ADR-011 et ADR-016.
+- **Décisions (ADR)** : ADR-032 (remplace la correspondance de zoom d'ADR-011 et la traduction numérique d'ADR-016 ; note que MapLibre arrondit au plus proche pour le raster).
+- **Tests / vérifications** :
+  - Nouveaux tests : `ZoomMappingTest` (6 : la vue de la capture passe du zoom 13 à ×2,13 au zoom 14 à ×1,07 ; pour 9 densités, chaque choix du réglage, tuiles de 256 et 512 px et toute caméra de 0 à 20 par pas de 0,05, un pixel de tuile couvre le grossissement choisi à √2 près ; valeurs inutilisables ; choix proposés), `StyleApplierTest` (2, `:app`) ; `LayerZoomTest` refait pour 4 correspondances (STANDARD, densités 1,5 / 2,8125 / 4) + 1 test ; `AppSettingsTest` +1 (ancien fichier → net, aller-retour) ; `ScaleBarTest` adapté.
+  - `./gradlew spotlessApply :core:test --tests 'fr.toolmap.core.geo.*' --tests 'fr.toolmap.core.layers.*' --tests 'fr.toolmap.core.settings.*'` : vert (`ZoomMappingTest` 6/6, `LayerZoomTest` 8/8, `AppSettingsTest` 6/6).
+  - `./gradlew spotlessApply check assembleDebug` : **EXIT=0** (3 min 38 s), 1 067 tests, 0 échec (`:core` 643, `:data` 248, `:p2p` 9, `:app` 167). Lint : 0 erreur ; rapports XML : 28 avertissements (`LogNotTimber` ×27 sur des journaux existants, `UsableSpace` ×1) et 1 indice (`AutoboxingStateCreation`, `MultiZoomScreen`), aucun sur une ligne ajoutée. APK debug construit (99,4 Mo).
+- **Problèmes / dette technique** :
+  - **Pas vérifié sur téléphone** : netteté réelle, fluidité, nombre de tuiles chargées (4 à 8 fois plus qu'avant à l'écran, comme AlpineQuest), consommation de données en ligne, lisibilité des textes des tuiles (petits, comme dans AlpineQuest ; le réglage les grossit).
+  - Pour une même vue, le zoom affiché augmente (z 12,6 → z 14,1) et les zooms proposés à l'enregistrement d'une zone aussi : c'est le zoom des tuiles réellement à l'écran.
+  - Les zooms manquants composés (ADR-031) portent sur 4 à 8 fois plus de tuiles affichées : premier affichage plus lent quand on dézoome sous le premier zoom d'une carte en ligne.
+  - La validité d'une taille de tuile non puissance de deux (91) côté MapLibre repose sur la lecture de son code (`coveringZoomLevel` : seul le choix du zoom en dépend, le dessin suit l'emprise de la tuile) ; à confirmer à l'écran.
+- **Prochaine étape recommandée** : l'utilisateur installe l'APK de la CI et refait la vue de sa capture (Chambéry, carte « Rando Multi-Zoom ») : la pastille doit indiquer ≈ « z 14 » et l'image être aussi nette que dans AlpineQuest. Essayer Réglages › Cartes › Netteté des cartes (×1,5, ×2, Taille Android) pour comparer. Puis P1.8 ✅ ou ajustement ; reprendre ensuite les vérifications de P12 (journal précédent).
+
+---
+
+## 2026-10-03 — Session 3 (suite 21) — [P12.1–P12.4] Tuiles partagées entre cartes, cartes multi-zoom, zooms complétés
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `e861b97`.
+- **Objectif** : l'utilisateur a envoyé sept fichiers (`USR.PERSONNAL_MULTIZOOM.AQX`, `USR.IGNPENTESYETI_TRANSITOIRE_2024_SANS_GEOKEY.AQX`, `USR.AQ_TEST_4.AQX`, `OSM.AQX`, `IGN_Topo_zoom_test.txt`, `GOOGLE.AQX`, `COM.109.AQX`) : « fais d'abord le tri entre les doublons » (réponse dans le chat), puis corriger deux défauts d'AlpineQuest (une même carte décrite par plusieurs `.aqx` est téléchargée plusieurs fois ; aucun outil pour faire interagir les cartes selon le zoom, `USR.PERSONNAL_MULTIZOOM.AQX` étant le modèle), « ne jamais afficher du vide » (réglage type `map.scales.default_overscaling_levels=3`), pouvoir rester sur l'IGN Topo 25k (« zoom forcé »), « installe toute cette logique dans les options de ToolMap ».
+- **Réalisé** :
+  - **Section P12 dans `PLAN.md`**, spec `docs/specs/multi-zoom.md`, `aqx-format.md` complété (`<servers>`, trous de `<zoom-values>`, `toolmap-map:`, CRS des bbox).
+  - **`:core`** (testé en JVM) : `TileSetIdentity` + `StorageKeys` (identité d'un jeu de tuiles par URL normalisée, nom du stockage : id de la carte fournie ou `t-<hash>`), `MapRef` (`toolmap-map:<id>[?z=n]`), `TileResolver` + `ScalingPolicy` (recettes `Direct` / `Enlarge` / `Shrink` / `None`, zooms réels nécessaires à un zoom affiché), `MultiZoomDraft` (tranches, problèmes bloquants ou informatifs, conversion en source, création depuis un `.aqx` dont les trous de `<zoom-values>` deviennent des zooms forcés), `SourceDuplicates` (doublons exacts ou partiels à l'import), `AqxParser` (`<servers>` d'OpenSnowMap, CRS 3857 déduit d'une URL WMS), `AppSettings.maps.overscalingLevels`, `MapCatalog` (groupe « Cartes multi-zoom »), carte fournie `ign-topo25k` « IGN Topo 25k (zoom forcé) », `ign-scan25` jusqu'au zoom 16 (vérifié sur le serveur).
+  - **`:data`** : `MbTilesStore` range chaque (carte, zoom) dans le stockage de son jeu de tuiles (zoom non déclaré : niveau le plus proche) ; `TileInterceptor` compose les tuiles réduites ou agrandies (`BitmapTileComposer`, PNG jamais stocké, statistique `COMPOSED`) ; `ZoneDownloader` traduit chaque zoom affiché en tuiles réelles, comptées une fois par (stockage, zoom) ; `HttpPrintTileFetcher` compose de même ; `StorageManager` : usage par jeu de tuiles et cartes qui le partagent, `unusedAfterReplacing`, `migrateLegacyFiles` ; `TileProbe` jamais composé.
+  - **`:app`** : package `fr.toolmap.multizoom` (`MultiZoomViewModel`, `MultiZoomScreen` : liste, barre des zooms 0–22, une carte par tranche avec curseur double, choix de la carte, zoom forcé, problèmes sous la tranche) ; Réglages › **Cartes** (curseur « Zooms manquants » 0–4, bouton « Cartes multi-zoom… », note sur les tuiles partagées) ; « Cartes disponibles » (nouvelle carte multi-zoom, « Modifier les zooms », « Créer une carte multi-zoom à partir de celle-ci ») ; aperçu d'import (doublons décochés, « Tuiles en commun avec ») ; Stockage (« Tuiles partagées par N cartes ») ; assistant (purge des seules tuiles devenues inutiles) ; `StyleApplier` (plage MapLibre élargie vers le bas, style reconstruit quand elle change) ; migration au démarrage (`ToolMapApp`).
+- **Décisions (ADR)** : ADR-031 (stockage par jeu de tuiles, remplace en partie ADR-003 ; cartes multi-zoom par références ; zooms manquants composés par l'intercepteur ; rien de composé n'est stocké).
+- **Tests / vérifications** :
+  - Nouveaux tests : `TileSetIdentityTest`, `MapRefTest`, `TileResolverTest`, `MultiZoomDraftTest`, `SourceDuplicatesTest` (avec les fichiers de l'utilisateur, copiés dans `fixtures/aqx/user/`, clé publique `ign_scan_ws` seulement) + ajouts à `AqxParserTest`, `BuiltinSourcesTest`, `MapCatalogTest`, `PrintPlanTest`, `PrintPlannerTest` en `:core` ; `BitmapTileComposerTest` (pixels, `@GraphicsMode(NATIVE)`) + ajouts à `MbTilesStoreTest`, `TileInterceptorTest`, `ZoneDownloaderTest`, `StorageManagerTest` en `:data` ; `MultiZoomViewModelTest` (6) en `:app`.
+  - Tests ciblés en cours de route : `./gradlew :core:test`, `:data:testDebugUnitTest` (244 puis `StorageManagerTest` 18/18), `:app:testDebugUnitTest --tests 'fr.toolmap.maps.*' --tests 'fr.toolmap.multizoom.*' --tests 'fr.toolmap.wizard.*'` : verts.
+  - `./gradlew spotlessApply check assembleDebug` : **EXIT=0**, 1 057 tests, 0 échec (`:core` 635, `:data` 248, `:p2p` 9, `:app` 165). Lint : 0 erreur, 27 avertissements (25 avant ; +2 `LogNotTimber` pour les journaux de la migration et des erreurs de stockage, comme le reste de l'application ; 4 `PluralsCandidate` apparus au premier passage corrigés par des pluriels). APK debug construit (99,4 Mo).
+- **Problèmes / dette technique** :
+  - **Aucune vérification sur téléphone** : rendu des tuiles réduites et agrandies, durée du premier affichage, éditeur (curseurs, menus déroulants), aspect de l'IGN 25k aux zooms 13-14 et 17-18.
+  - Les tuiles composées sont demandées en série (jusqu'à 64 tuiles réelles pour 3 niveaux de réduction) : lent au premier affichage en ligne ; à paralléliser si c'est gênant.
+  - Une carte multi-zoom n'est pas exportable vers AlpineQuest (`toolmap-map:` est une extension ToolMap).
+  - « Cartes disponibles » : la taille d'un groupe additionne les cartes, donc compte deux fois un jeu de tuiles partagé par deux cartes du groupe.
+  - En cours de session : les tests de `ZoneDownloaderTest` attendaient sans fin un fichier nommé d'après la carte (désormais `t-<hash>`) ; corrigé en passant par `storageIdsOf` et en bornant l'attente (`withTimeout`). Onze tests de `:data` adaptés à la nouvelle règle (et non affaiblis), un zoom hors des niveaux d'une carte n'était plus stocké (corrigé dans `MbTilesStore`), `ZoneEstimator` gardait des zooms à 0 tuile (filtrés).
+- **Prochaine étape recommandée** : l'utilisateur installe l'APK de la CI et vérifie (1) qu'une carte importée en double (ex. `USR.AQ_TEST_4.AQX`) n'est pas retéléchargée dans une zone déjà enregistrée, (2) la carte fournie « IGN Topo 25k (zoom forcé) » aux zooms 12 à 18, (3) Réglages › Cartes › Zooms manquants (dézoomer sous le premier zoom d'une carte), (4) Réglages › Cartes › « Cartes multi-zoom… » : refaire `USR.PERSONNAL_MULTIZOOM.AQX` (ou « Partir d'une carte existante… » après l'avoir importé), l'afficher, télécharger une zone. Puis P12.3 ✅ ou ajustements.
+
+---
+
+## 2026-10-03 — Session 3 (suite 20) — [P11.1–P11.4] Interface « Cartes et calques » à la AlpineQuest
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `c620a38`.
+- **Objectif** : l'utilisateur a envoyé six captures d'AlpineQuest (carte, « Maps & layers », cartes à la demande, cartes affichées, menu d'un calque, « Select and save an area »), demandé l'arborescence de ses captures et celle de ToolMap (réponse donnée dans le chat), puis : « Met en place le même arborescence que AlpineQuest. Idéalement un visuel similaire également. »
+- **Réalisé** :
+  - **Nouvelle section P11 dans `PLAN.md`** et spec `docs/specs/maps-layers-ui.md` (arborescence, correspondances, menu d'un calque, mode zone, ce qui n'est pas fait).
+  - **`:core`** (testé en JVM) : `MapCatalog` (groupes OpenStreetMap / IGN / Mes cartes / Locales / Autres, fonds avant calques, crédit), `AreaSelection` (rectangle à 4 coins, poignées sans croisement), `ZoneStrips` (« 1-14/17 », cellules par zoom, repère), `LayerConfig.inverted` (couleurs inversées par échange `brightness-min` / `brightness-max`, aussi dans la matrice du PDF), `LayerStack.removeOthers/setInverted`, `Workspace.matches`, 4 favoris fournis de plus.
+  - **`:data`** : `ForcedRefresh` + `TileInterceptor` (« Forcer la mise à jour » : une fois par tuile et par session, repli sur la tuile stockée si le serveur échoue, sans effet hors ligne).
+  - **`:app`** : package `fr.toolmap.maps` — `MapsRootSheet` (3 entrées, favoris en vignettes avec signet / appui long, options), `DisplayedMapsSheet` (une ligne par calque : vignette, « 80 % d'opacité », œil, goutte, menu ⋮ avec Détails, Forcer la mise à jour, Ordre, Opacité, Couleurs, Couleurs inversées, Plage de zoom), `AvailableMapsScreen` (jauge, groupes repliables, cartes avec menu, bouton « Ajouter une carte »), `SaveAreaPanel` + `SaveAreaOverlay` (rectangle et 4 poignées sur la carte, une ligne par carte avec barre de zooms, curseur « Zoom maximal », total, « Enregistrer la zone »), `MapThumbnails` (vignettes par le circuit des tuiles), `MapsIcons` (œil, goutte, couches, signet… absents de `material-icons-core`), `MapsViewModel`. `ZoneEstimator` extrait du formulaire de téléchargement pour servir aux deux. `MapScreen` : le bouton « Calques » devient « Cartes » et ouvre le panneau ; `MainActivity` : écran `AVAILABLE`, retour de l'assistant vers l'écran qui l'a ouvert. L'ancienne feuille `LayersSheet` et ses textes sont supprimés.
+  - **Pas fait (P11.5, 💤)** : mode de fusion, gomme de couleur, comparaison de deux cartes (MapLibre n'a pas de quoi les faire) ; voir la spec §6.
+- **Décisions (ADR)** : ADR-030 (regroupement par fournisseur, favoris = `Workspace`, vignettes par le circuit des tuiles, mise à jour forcée par session, inversion par la luminosité, `ZoneQueue`, `WorkManager` en `Lazy`).
+- **Tests / vérifications** :
+  - Nouveaux tests : `MapCatalogTest`, `SaveAreaTest` (+ ajouts à `LayerStackTest`, `RasterAdjustTest`, `WorkspaceTest`) en `:core` ; 4 tests de `TileInterceptorTest` en `:data` ; `MapsViewModelTest` (17) et `MapsHelpersTest` (6) en `:app`.
+  - `./gradlew spotlessApply check assembleDebug` : **EXIT=0**, 995 tests, 0 échec (`:core` 597, `:data` 230, `:p2p` 9, `:app` 159). Lint : 0 erreur, 25 avertissements (inchangé : 46 avant le nettoyage des textes devenus inutiles et le passage au pluriel de « tuile(s) »). APK debug construit (99,4 Mo).
+- **Problèmes / dette technique** :
+  - **Aucune vérification visuelle** (pas d'émulateur) : l'apparence est une transposition de captures décrites, pas une copie ; les espacements, la taille des vignettes, le geste des poignées pendant que la carte bouge et la durée de chargement des vignettes sont à juger sur téléphone.
+  - Première erreur de la session : `AppStartupTest` est tombé parce que `MapsViewModel` (créé avec l'écran carte) demandait `DownloadScheduler` donc `WorkManager`, non initialisé dans Robolectric. Corrigé à la cause (`WorkManager` demandé au premier téléchargement seulement) et non en adaptant le test.
+  - Le menu ⋮ de la carte garde ses entrées d'avant (importer, téléchargements, stockage, couverture, mode hors ligne) en plus de « Options » dans le panneau : à élaguer quand l'utilisateur aura jugé la nouvelle organisation.
+- **Prochaine étape recommandée** : l'utilisateur installe l'APK de la CI de ce commit et regarde (1) le panneau « Cartes et calques », (2) « Cartes affichées » et le menu ⋮ d'un calque, (3) « Cartes disponibles », (4) « Sélectionner et enregistrer une zone » (poignées, lignes, enregistrement). Il dit ce qui s'écarte d'AlpineQuest ; on ajuste le visuel (P11.2–P11.4) puis on traite P11.5 si une fonction manque.
+
+---
+
+## 2026-10-03 — Session 3 (suite 19) — [P1.1] Plantage aux premières tuiles : expression régulière refusée par Android
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `fa96a1a`.
+- **Objectif** : l'utilisateur a installé l'APK de `fa96a1a` ; le nouvel écran de rapport s'est affiché et l'utilisateur a transmis le rapport.
+- **Constat (rapport du téléphone)** : samsung SM-S931U, Android 15 (API 35), arm64-v8a, OpenGL ES 3.2, Vulkan 1.3.0, GPU Adreno 830. **Le rapport de plantage (ADR-029) fonctionne** et **la carte OpenGL ES (ADR-028) démarre** : MapLibre s'initialise, la `MapLibreGLSurfaceView` est créée, la première image est dessinée. Le plantage arrive ensuite, aux premières requêtes de tuiles (`https://tiles.toolmap.local/osm/...`), sur un fil « OkHttp Dispatcher » : `PatternSyntaxException: Syntax error in regexp pattern near index 12 \{\$([^}]+)}` dans l'initialisation statique de `TileUrlBuilder` (`TileUrlBuilder.kt:125`), appelée par `TileInterceptor.intercept`, donc `ExceptionInInitializerError` puis `NoClassDefFoundError`. Une exception non rattrapée sur un fil d'OkHttp tue le processus.
+- **Cause** : sur Android, `Regex` passe par le moteur ICU, qui refuse une `}` littérale non échappée hors d'une classe ; le JDK l'accepte. Les tests JVM et Robolectric (moteur du JDK) ne pouvaient pas le voir. Le défaut datait de P1.3 (`6ed01a6`, construction des URL) et de P4 (`3e69edf`, assistant) ; il restait caché derrière les plantages précédents (`setOkHttpClient`, puis Vulkan).
+- **Réalisé** :
+  - Toutes les expressions régulières du code principal relues (`:core`, `:data`, `:p2p`, `:app`, une quarantaine) : **trois** défectueuses, toutes de la même forme, corrigées en échappant toutes les accolades : `TileUrlBuilder.PLACEHOLDER` (la cause du plantage), `SourceDraft.PLACEHOLDER` et `SourceDraft.PARAM_REF` (l'assistant d'ajout de carte aurait planté au premier modèle d'URL saisi). Les autres (classes, quantificateurs `{n,m}`, `\p{L}`, `[$]`, `&`, `-` en fin de classe) suivent la grammaire d'ICU.
+  - **`RegexPortabilityTest`** (`:core`) : lit les littéraux passés à `Regex(...)`, `Pattern.compile(...)` et `.toRegex()` dans les sources principales de tous les modules (chaînes brutes et échappées décodées comme par le compilateur, gabarits remplacés par un mot) et refuse ce qu'ICU peut refuser : accolade non échappée hors quantificateur (même dans une classe, par prudence) et `--` dans une classe (différence d'ensembles pour ICU). `core/build.gradle.kts` lui donne les dossiers `src/main` de tous les modules (`main.sources`), déclarés en entrées de la tâche de test.
+  - Convention ajoutée dans `CLAUDE.md` (accolades toujours échappées) ; `PLAN.md` : ligne P1.1, stratégie de test, risque « moteur d'expressions régulières du JDK plus permissif ».
+  - Vérifié en passant : `:core` (module JVM, hors d'Android Lint) n'utilise aucune API Java 9+ absente des anciens Android (`readAllBytes`, `List.of`, `Path.of`, `HexFormat`...).
+- **Décisions (ADR)** : aucune (correction et convention de code).
+- **Tests / vérifications** :
+  - `RegexPortabilityTest` **sur l'ancien code** (`git stash` des corrections) : en échec, exactement les trois expressions (`SourceDraft.kt:205`, `SourceDraft.kt:206`, `TileUrlBuilder.kt:125`) ; sur le code corrigé : vert (3 tests).
+  - `./gradlew spotlessApply :core:test --tests 'fr.toolmap.core.RegexPortabilityTest' --tests 'fr.toolmap.core.tiles.*' --tests 'fr.toolmap.core.wizard.*'` : vert.
+  - `./gradlew spotlessApply check assembleDebug` : **EXIT=0**, 942 tests, 0 échec (`:core` 571, `:data` 226, `:p2p` 9, `:app` 136). Lint : 0 erreur, 25 avertissements (inchangé). APK debug construit (99,4 Mo).
+- **Problèmes / dette technique** : une exception imprévue dans un intercepteur OkHttp tue toujours le processus (choix conservé : le rapport de plantage la montre au lieu d'une carte vide sans explication). Aucun test ne fait tourner le vrai moteur ICU (ICU4J n'a pas de moteur d'expressions régulières) : `RegexPortabilityTest` est un contrôle de grammaire plus strict qu'ICU, pas une exécution.
+- **Prochaine étape recommandée** : l'utilisateur installe l'APK de la CI de ce commit. Si la carte s'affiche : vérifier les tuiles OSM, puis IGN (P1.1 / P1.4), et consigner le téléphone (samsung SM-S931U, Android 15). S'il plante encore : copier le rapport affiché et le transmettre.
+
+---
+
+## 2026-10-03 — Session 3 (suite 18) — [P1.1] Toujours un plantage au lancement : carte en OpenGL ES, rapport de plantage sur le téléphone
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `b356488`.
+- **Objectif** : retour de l'utilisateur sur l'APK de `b356488` : « Still crashing on start ». Pas de journal possible de son côté.
+- **Réalisé** :
+  - **Démarrage parcouru sur toutes les versions d'Android** : `AppStartupTest` lancé sur les API 26, 28, 29, 30, 31, 33, 34 et 35 : vert sur toutes (le dernier SDK de la série échoue dans Robolectric lui-même, `FileSystemAlreadyExistsException` en copiant ses polices quand plusieurs SDK s'enchaînent dans une JVM ; vert seul). Le côté Java/Kotlin du lancement n'a donc pas de plantage propre à une version ; le test garde les API 26 (minSdk) et 35.
+  - **Carte en OpenGL ES (ADR-028)** : `org.maplibre.gl:android-sdk` 13.x est la version Vulkan seulement ; c'est la cause la plus probable qui reste (plantage natif à la création de la carte, premier écran, invisible pour le code Java et pour les tests JVM). Catalogue passé à `org.maplibre.gl:android-sdk-opengl` 13.6.1 (même API Java ; le manifeste de cette AAR ne demande aucune fonctionnalité graphique).
+  - **Rapport de plantage sur le téléphone (ADR-029)** : `CrashReporter` (gestionnaire d'exceptions installé en premier dans `attachBaseContext` ; plantages natifs relus au démarrage suivant dans `ApplicationExitInfo`, Android 11+, avec les chaînes lisibles du *tombstone*) et `CrashActivity` (processus `:crash`, vues Android simples, boutons Copier / Partager / Relancer). Le rapport donne la version, le commit (`BuildConfig.GIT_SHA`, rempli par `GITHUB_SHA` en CI), le téléphone, Android/API, les ABI, OpenGL ES, Vulkan, la cause, la trace et la fin du journal de l'application. Un rapport non lu fait sauter l'initialisation de MapLibre et passe avant la carte. Logique pure dans `:core` (`fr.toolmap.core.crash`).
+  - `ToolMapApp` : client OkHttp injecté en `dagger.Lazy`, initialisation de MapLibre dans `ensureMapLibre()` (idempotente, rappelée par `MainActivity`).
+- **Décisions (ADR)** : ADR-028 (MapLibre OpenGL ES), ADR-029 (rapport de plantage affiché sur le téléphone).
+- **Tests / vérifications** :
+  - `AppStartupTest` sur les API 26, 28, 29, 30, 31, 33, 34 (vert) puis 35 (échec Robolectric décrit plus haut) ; puis `@Config(sdk = [26, 35])` : vert.
+  - Nouveaux tests : `CrashReportTest` (`:core`, 7), `CrashReporterTest` (4 : exception non rattrapée → rapport + écran ouvert + fin du processus ; rapport montré une fois puis gardé ; rien sans plantage ; plantage natif lu dans `ApplicationExitInfo` avec son *tombstone*, ignoré s'il précède l'installation, pas rapporté deux fois), `CrashActivityTest` (5 : affichage, Copier, Partager, Relancer, pas de rapport), `AppStartupTest` +1 (un rapport non lu passe avant la carte, aucune `MapView` construite).
+  - `./gradlew spotlessApply check assembleDebug` : **EXIT=0**, 939 tests, 0 échec (`:core` 568, `:data` 226, `:p2p` 9, `:app` 136). Lint : 0 erreur, 25 avertissements (+3 `LogNotTimber` sur les `Log` de `CrashReporter`, comme le reste du code). APK debug construit (99,4 Mo) ; `aapt2 dump badging` : plus aucune exigence Vulkan, `CrashActivity` dans le processus `:crash`.
+- **Problèmes / dette technique** : toujours **aucune vérification sur téléphone** ; si l'APK plante encore, le rapport doit maintenant s'afficher (Java : tout de suite ; natif : au lancement suivant, Android 11+). Avant Android 11, un plantage natif n'est pas rapporté.
+- **Prochaine étape recommandée** : l'utilisateur installe l'APK de la CI de ce commit. S'il s'ouvre : vérifier l'affichage de la carte et consigner le modèle et la version d'Android. S'il plante : relancer l'application une fois, copier le rapport affiché et le transmettre ; corriger d'après lui.
+
+---
+
+## 2026-10-03 — Session 3 (suite 17) — [P1.1] Plantage immédiat au lancement
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `4feb3bf` (P10, fusionné dans `main` par la PR #1).
+- **Objectif** : premier retour de l'utilisateur sur téléphone : « l'APK plante au démarrage, aucun message, rien ne s'affiche ».
+- **Réalisé** :
+  - **Cause trouvée et reproduite** : `ToolMapApp.onCreate` appelait `HttpRequestUtil.setOkHttpClient(...)` **avant** `MapLibre.getInstance(this)`. `setOkHttpClient` charge `HttpRequestImpl`, dont l'initialiseur statique lit le contexte de MapLibre (`HttpIdentifier.getIdentifier` → `MapLibre.validateMapLibre`) et lève `MapLibreConfigurationException` tant que MapLibre n'est pas initialisé → `ExceptionInInitializerError` dans `Application.onCreate`, donc processus tué avant toute fenêtre, sur tous les téléphones. Le défaut date du spike P1.1 (`ae589b9`) : **aucun APK produit depuis n'a pu s'ouvrir**. Correction : `MapLibre.getInstance` d'abord, puis le client OkHttp (toujours avant la première `MapView`).
+  - **`AppStartupTest`** (nouveau, `:app`, Robolectric SDK 35) : démarre la vraie `ToolMapApp` (graphe Hilt complet, MapLibre, crochet de restauration) et `MainActivity` jusqu'à l'écran carte, et vérifie qu'une `MapView` est dans la hiérarchie. Les méthodes natives de MapLibre deviennent des no-op grâce à `instrumentedPackages = ["org.maplibre.android"]` (la JVM ne peut pas charger `libmaplibre.so`) : tout ce que le code Java/Kotlin fait au lancement est couvert, pas le rendu natif.
+  - Pistes écartées avant de trouver : appels d'API Java/Android au-delà de minSdk 26 (script d'analyse des références du dex de l'APK contre `api-versions.xml` : les seuls appels de notre code au-dessus de 26 sont protégés par `SDK_INT`), bibliothèques natives (présentes pour les 3 architectures, alignées 16 Ko, dépendances système seulement), ressource `builtin-sources.aqx` (bien dans l'APK), `@HiltViewModel` (présent sur les 14 modèles de vue), migrations Room (version 1).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `AppStartupTest` **échoue sur le code d'avant** (`MapLibreConfigurationException` à `ToolMapApp.onCreate`, vérifié en remettant l'ancien `ToolMapApp.kt`) et passe avec la correction.
+  - Un premier essai en SDK 36 échoue dans Robolectric lui-même (`FileDescriptor` interne inaccessible sur ce JDK 21) : le test est en SDK 35 comme les autres tests Robolectric du projet.
+  - `./gradlew spotlessApply check assembleDebug` : **EXIT=0**, 920 tests, 0 échec (`:core` 561, `:data` 226, `:p2p` 9, `:app` 124 ; +1). Lint : 0 erreur, 22 avertissements (inchangé). APK debug construit.
+- **Problèmes / dette technique** : le rendu de la carte n'est toujours pas vérifié sur téléphone. **Risque relevé** : `org.maplibre.gl:android-sdk` 13.6.1 est la version **Vulkan seulement** (manifeste de l'AAR : Vulkan 1.0 requis ; `RenderingEngine` refuse tout autre moteur) ; un téléphone sans pilote Vulkan correct planterait à l'affichage de la carte. Repli prêt : `org.maplibre.gl:android-sdk-opengl` (même API Java, OpenGL ES), à décider par un ADR si cela se produit. Les écrans autres que la carte ne sont pas parcourus par le test de démarrage.
+- **Prochaine étape recommandée** : l'utilisateur installe l'APK de la CI de ce commit et confirme que l'application s'ouvre et affiche la carte (modèle du téléphone et version d'Android à consigner). S'il plante encore à l'apparition de la carte : passer à `android-sdk-opengl`. Ensuite, les listes « à vérifier sur téléphone » de `PLAN.md`.
+- **Complément (même session, après le push de `806ffb3`)** :
+  - **CI de `806ffb3` rouge** (run 37105965383) : `BackupViewModelTest › confirming unpacks the backup aside and waits for the restart` → `NoSuchElementException` (liste des messages vide). Ni l'application ni la correction n'y sont pour rien : **course dans le test**. Le collecteur des messages tourne sur `Dispatchers.Unconfined` et le modèle de vue reprend sur le fil d'E/S ; la reprise du collecteur est mise en file derrière la coroutine du modèle de vue, qui remet `busy` à `null` avant. Le fil du test pouvait donc voir « au repos » et lire `messages.last()` avant l'ajout, dans une `ArrayList` partagée entre deux fils. Correction : attente explicite du message (comme les autres tests de la classe) et `CopyOnWriteArrayList`.
+  - **Nouvelle règle (demande de l'utilisateur)** : `CLAUDE.md`, point 7 du protocole. Toute session compile l'APK, attend la CI verte du commit poussé (corrige si rouge) et **donne à l'utilisateur le lien de téléchargement de l'artefact `toolmap-debug-apk`**.
+  - Vérifications : `./gradlew spotlessApply check assembleDebug` **EXIT=0** (920 tests, 0 échec ; lint 0 erreur, 22 avertissements) ; `BackupViewModelTest` relancé 5 fois avec `--rerun` : 5 × vert.
+
+---
+
+## 2026-10-02 — Session 3 (suite 16) — [P10.1][P10.2][P10.3] Finitions : batterie, accessibilité, publication, aide
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `087b164` (P9.6). La CI du commit P9.6 (run 37050994924) était en cours au moment d'écrire ; son résultat est relevé dans l'entrée suivante.
+- **Objectif** : terminer la feuille de route avec ce qui se vérifie sans téléphone : un audit de la consommation, l'accessibilité des écrans, la chaîne de publication et une page d'aide, en corrigeant les défauts que l'audit révèle.
+- **Réalisé** :
+  - **P10.1 — batterie et performances** : audit statique de tous les consommateurs (GPS de la carte, de la pastille d'altitude, du guidage, de l'enregistrement, des alertes, du partage ; baromètre ; trois services de premier plan et leurs verrous de réveil ; WorkManager ; P2P) dans `docs/specs/battery-and-performance.md`, avec le protocole de mesure `adb` (`batterystats`, `gfxinfo`, `meminfo`) et six scénarios à faire par l'utilisateur. **Deux défauts trouvés et corrigés** : (1) les trois services prenaient un verrou de réveil de 24 h sans jamais le reprendre une fois expiré (l'objet existait, il n'était plus tenu) → `ServiceWakeLock`, qui reprend le verrou à chaque changement d'état ; (2) **`TrackDisplay` gardait la géométrie d'une trace par son seul identifiant** : après un enregistrement, une inversion, une simplification ou une correction d'altitude, la carte dessinait toujours la ligne du premier chargement jusqu'au redémarrage → `TrackRepository.pointsRevision` (compteur de réécritures de points en mémoire) et cache valable seulement pour la révision lue. Coût connu et consigné : pendant un enregistrement long, la trace en cours est maintenant resimplifiée à chaque écriture groupée (10 positions ou 15 s).
+  - **P10.2 — accessibilité** : cibles tactiles qui suivent le mode (48 dp, 64 dp avec gants : `minTouchTarget()` et `minimumInteractiveComponentSize`) pour la boussole, les trois boutons flottants de la carte, les pastilles de couleur des traces et du partage, les lignes de la bibliothèque et la pastille d'altitude ; descriptions manquantes ajoutées (boussole, bouton d'échange de fond qui n'était qu'une flèche « ⇄ », pastilles de couleur numérotées avec leur état sélectionné, rôle de bouton et libellé d'action de la pastille d'altitude) ; régions « live » : une alerte d'écart ou un SOS est annoncé par TalkBack sans qu'on le cherche.
+  - **P10.3 — publication** : build de release (clé lue dans l'environnement, non signé sans clé ; architectures `arm64-v8a`, `armeabi-v7a`, `x86_64` ; R8 en option `-Ptoolmap.minify=true` ; `versionCode` passé par le workflow), workflow `.github/workflows/release.yml` (manuel ou étiquette `v*` : APK, AAB, fichier de correspondance R8, signature si les secrets existent), écran **« Aide et à propos »** (prise en main, vie privée dont le STUN de Google, limites du partage et du GPS, crédits des données, licences des bibliothèques), `docs/specs/release.md`, README remis à jour (il disait encore « phase P0 »), `CLAUDE.md` (deux lignes de plus dans le tableau des documents).
+- **Décisions (ADR)** : ADR-027 (clé par l'environnement, trois architectures, R8 désactivé par défaut, licence laissée à l'auteur).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` : **EXIT=0**, 919 tests, 0 échec (`:core` 561, `:data` 226, `:p2p` 9, `:app` 123 ; +5 par rapport à la suite 15 : 1 dans `:data` (la ligne affichée suit une trace qui grandit ou change — **il a échoué avant la correction**, ce qui a révélé le défaut du cache), 2 `ServiceWakeLockTest`, 2 `ThirdPartyTest`). Lint : 0 erreur, 22 avertissements (les 22 `LogNotTimber`, inchangé). APK debug construit.
+  - `./gradlew assembleRelease bundleRelease` (non réduit) : **EXIT=0**, APK 82,3 MB, AAB 42,5 MB (le debug de la CI faisait 114,9 MB avant le filtre d'architectures). `./gradlew assembleRelease -Ptoolmap.minify=true` : **EXIT=0**, APK 70,7 MB, aucun avertissement R8 sur des classes manquantes ; `mapping.txt` montre `org.webrtc.PeerConnectionFactory`, `org.webrtc.DataChannel`, `org.maplibre.android.maps.NativeMapView` et `fr.toolmap.ToolMapApp` non renommés (les règles des bibliothèques jouent). Non lancé sur un téléphone.
+  - `ThirdPartyTest` lit le vrai `gradle/libs.versions.toml` : toute bibliothèque ajoutée au catalogue sans licence déclarée dans `ThirdParty.kt` fait échouer la batterie.
+  - Le lint a signalé une chaîne devenue inutile (`tracks_style_color`) : supprimée.
+  - **Une première batterie a échoué** sur `TracksViewModelTest › exporting to the cache writes a GPX file that reads back` (3 traces attendues, 0 obtenues ; elle avait passé au run précédent). Cause trouvée : le flux `library` combine quatre flux de tables Room indépendants et peut montrer les nouvelles traces un instant avant les nouveaux dossiers ; le test choisissait les dossiers d'un instantané incomplet. Le test attend maintenant l'import entier (traces, dossiers, waypoints) ; 4 exécutions réelles (`--rerun`) puis la batterie complète sont vertes. L'écran peut donc montrer une bibliothèque incomplète quelques millisecondes après un import (corrigée par l'émission suivante) : accepté, une lecture unique en transaction serait la correction propre si cela se voit sur le téléphone.
+- **Problèmes / dette technique** : **aucune mesure de consommation, de fluidité ni de mémoire n'existe** ; TalkBack, police maximale, mode gants et thème sombre ne sont pas vérifiés ; le workflow de release n'a pas été exécuté ; R8 n'a pas tourné sur un téléphone ; pas de traduction anglaise (l'interface n'existe qu'en français ; le sélecteur de langue du P9.7 reste reporté) ; alertes de proximité en veille à 2 s même loin du lieu (intervalle adaptatif écarté faute de mesure, voir le document de batterie) ; la pastille d'altitude garde le GPS à 2 s carte affichée ; la licence du code, la clé de publication et le nom de paquet définitif sont à l'utilisateur.
+- **Prochaine étape recommandée** : **bilan à l'utilisateur** (fin des travaux demandés). Ensuite, par ordre de valeur : installer l'APK de la CI et dérouler les listes « à vérifier sur téléphone » de `PLAN.md` (P1 à P10), puis les scénarios A–F de `battery-and-performance.md`, puis essayer le build réduit (`-Ptoolmap.minify=true`).
+
+---
+
+## 2026-10-02 — Session 3 (suite 15) — [P9.6] Sauvegarde et restauration
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `2f7a31f` (P9.5, altimètre barométrique)
+- **Objectif** : permettre à l'utilisateur d'emporter ses données (changement de téléphone, réinstallation) dans un seul fichier zip, et de les remettre sans jamais risquer de casser celles qui sont là si l'archive est mauvaise.
+- **Réalisé** :
+  - **`:core`** (`fr.toolmap.core.backup`) : `BackupModel` — rubriques (`BackupArea` : base, réglages, alertes, état, cartes importées, espaces de travail, mises en page, cartes hors ligne), liste blanche de chemins (`BackupPaths`), manifeste (`BackupManifest` : format, application, date, rubriques couvertes, fichiers avec taille et SHA-256, lu et écrit en JSON, clés inconnues ignorées, version plus récente refusée), `RestoreReport`.
+  - **`:data`** (`fr.toolmap.data.backup`) : `BackupLocations` (où vit chaque rubrique) et `BackupHooks` (replier le journal, geler les écritures) ; `BackupService` — `create` (manifeste d'abord, puis deux passes : somme de contrôle, contenu revérifié ; document de destination supprimé si ça échoue), `inspect` (aperçu : lit seulement le manifeste), `stage` (lecture en flux vers `restore-pending/` avec toutes les vérifications, marqueur `restore.json` en dernier), `pending`, `discardPending`, `report`, `clearReport`, `tilesBytes` ; `PendingRestore.apply` — remplacement par rubrique couverte, anciennes données mises de côté, retour exact en arrière si une étape échoue, rapport.
+  - **`:app`** : `BackupViewModel` et `BackupScreen` (réglages › « Sauvegarde et restauration » : créer une sauvegarde avec option des cartes hors ligne et sa taille, ouvrir une sauvegarde, aperçu et confirmation, bouton « Redémarrer maintenant », rapport montré une fois), `RoomDatabaseFreezer` (repli du journal puis transaction d'écriture gardée ouverte pendant la copie), `BackupModule` (Hilt), `ToolMapApp.attachBaseContext` (applique une restauration préparée avant toute lecture de fichier), règles d'extraction Android (`data_extraction_rules.xml` et `backup_rules.xml` : ni cloud, ni clé du partage ni enregistrement en cours vers un autre appareil), ~45 chaînes françaises.
+  - **Docs** : `docs/specs/backup-format.md` (nouveau, ajouté au tableau de `CLAUDE.md`), ADR-026, ligne P9.6 de `PLAN.md`.
+- **Décisions (ADR)** : ADR-026 (zip à manifeste en premier, liste blanche de chemins, remplacement par rubrique couverte, restauration préparée à côté puis appliquée au démarrage suivant, jamais à chaud).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` : **EXIT=0**, 914 tests, 0 échec (`:core` 561, `:data` 225, `:p2p` 9, `:app` 119 ; +37 par rapport à la suite 14 : 8 dans `:core`, 17 dans `:data`, 12 dans `:app`). Lint : 0 erreur, **22** avertissements (les 22 `LogNotTimber` ; l'avertissement `DataExtractionRules` a disparu, 23 → 22). APK debug construit.
+  - Tests ciblés pendant le développement : `./gradlew spotlessApply :core:test --tests 'fr.toolmap.core.backup.*' :data:testDebugUnitTest --tests 'fr.toolmap.data.backup.*' :app:testDebugUnitTest --tests 'fr.toolmap.backup.*'`.
+  - `BackupServiceTest` couvre : contenu de l'archive et manifeste en premier, clé du partage et enregistrement jamais inclus, cartes hors ligne seulement sur demande, aller-retour exact (base, réglages, cartes importées…), rubrique vide qui remplace, aperçu sans extraction, progression, fichier qui n'est pas une sauvegarde, somme de contrôle fausse, entrée trop grande / non listée / dupliquée / manquante, `../` et chemins interdits (`zip-slip`), version plus récente, fichier modifié pendant l'écriture, échec à mi-chemin de l'application avec retour exact (comparaison de tout l'arbre avant/après), préparation inachevée jetée, place insuffisante. `BackupViewModelTest` (avec le vrai `BackupService` sur dossiers temporaires) : création, aperçu, confirmation, annulation, archive corrompue (zip fabriqué dont la somme ne correspond pas), rapport montré une fois.
+  - Erreurs trouvées avant le commit : (1) un test de fichier corrompu qui tronquait la fin de l'archive n'en était pas un pour un lecteur séquentiel (le répertoire central ne sert pas) ; un second essai par modification d'octets n'était pas déterministe → zip fabriqué avec `ZipOutputStream` (somme du manifeste ≠ contenu) ; (2) un nom de fichier non ASCII échoue dans cet environnement (locale C) → noms ASCII dans les tests de système de fichiers ; (3) le test de retour en arrière comparait un état qui contenait désormais `restore-report.json` → écarté de la comparaison ; (4) **lint** : 10 avertissements `PluralsCandidate` (« %d fichiers ») → chaînes sans nombre + `plurals` pour le décompte de l'aperçu, formulations « nombre de fichiers : %d » pour les messages ; l'avertissement `DataExtractionRules` ne disparaît qu'avec `fullBackupContent` en plus → `backup_rules.xml`.
+- **Problèmes / dette technique** : **ni le sélecteur de documents, ni le redémarrage du processus, ni la restauration d'une vraie base ou de cartes hors ligne volumineuses n'ont pu être exécutés** (pas d'émulateur) : P9.6 reste 🔄. À vérifier sur téléphone : créer une sauvegarde, la rouvrir, restaurer sur le même téléphone puis sur un autre, « Redémarrer maintenant » (sur certains appareils le lancement d'une activité juste avant la fin du processus peut être retardé : la restauration s'applique alors au démarrage suivant, ce que l'écran dit), cohérence de la base copiée pendant un enregistrement, durée avec des cartes hors ligne. Pas de chiffrement de l'archive (le fichier contient des traces : l'écran le dit), pas de sauvegarde automatique, pas de fusion (remplacer seulement), l'identité de partage n'est volontairement pas sauvegardée (il faut ré-appairer), un enregistrement en cours est arrêté par le redémarrage, une sauvegarde faite pendant un téléchargement de zone peut échouer (« changé pendant la sauvegarde ») et se refait.
+- **Prochaine étape recommandée** : P10 (finitions : consommation et batterie des surveillances GPS/alertes/altimètre, accessibilité, thème sombre et usage avec des gants, ABI et taille de l'APK, signature de publication, page « À propos » et aide avec les limites du partage, éventuellement traduction anglaise), puis **bilan final à l'utilisateur** : seul moment où l'on revient vers lui.
+
+---
+
+## 2026-10-02 — Session 3 (suite 14) — [P9.5] Altimètre barométrique auto-calibré
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `9dd71f9` (P9.4, alertes et suivi de trace)
+- **Objectif** : donner une altitude précise et stable en mêlant le baromètre du téléphone (exact en relatif, dérivant avec la météo) au relief et au GPS (absolus mais imprécis), et que tout ce qui utilise la position (enregistrement, navigation, partage, alertes) voie la même altitude.
+- **Réalisé** :
+  - **`:core`** (`fr.toolmap.core.altitude`) : `Atmosphere` (altitude ↔ pression, pression au niveau de la mer à partir d'une altitude connue, sensibilité en hPa par mètre) ; `BarometricAltimeter` (filtre de Kalman sur la pression au niveau de la mer ; références `TERRAIN` / `GPS_MSL` / `GPS_UNKNOWN_DATUM` / `MANUAL` ; valeurs aberrantes rejetées puis, après 5 de suite, nouveau départ ; une référence par source toutes les 30 s ; pression lissée et périmée au bout de 30 s) ; `AltitudeSelector` (GPS / baromètre / automatique avec seuil de 30 m d'incertitude). `Fix` gagne `verticalAccuracyMeters` et `eleIsMsl`.
+  - **`:data`** (`fr.toolmap.data.altitude`) : `PressureSource` (+ `NoPressureSource`), `TerrainElevation` et `TerrariumElevation` (relief des tuiles Terrarium, 4 tuiles décodées gardées), `AltitudeService` (capteur compté par référence et suivi du réglage, calage par le GPS au-dessus du niveau de la mer, demandes de relief à la première position précise puis toutes les 5 min ou 500 m, nouvel essai après échec, calage manuel, `AltitudeStatus` pour la pastille, `enrich(fix)`).
+  - **`:app`** : `AndroidPressureSource` (`TYPE_PRESSURE`, une mesure par seconde demandée, désinscrit à l'annulation), `AltitudeAwareLocationSource` (décorateur de `LocationSource`, branché dans `RecordingModule`) et `AltitudeController` (suit la position pour la pastille), `AltitudeModule` (Hilt), `Location.toFix()` (altitude au-dessus du niveau de la mer sur Android 14+, précision verticale), pastille d'altitude sous les coordonnées (`MapOverlays`), `AltitudeDialog` (calage manuel en m ou ft), `MapController.locationOn`, suivi de la position seulement écran allumé (`repeatOnLifecycle`), 10 chaînes françaises.
+- **Décisions (ADR)** : ADR-025.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` : **EXIT=0**, 877 tests, 0 échec (`:core` 553, `:data` 208, `:p2p` 9, `:app` 107 ; +46 par rapport à la suite 13 : 21 dans `:core` (4 atmosphère, 14 filtre, 3 choix), 15 dans `:data` (3 relief, 12 service), 10 dans `:app` (4 décorateur et contrôleur, 2 capteur, 4 position)). Lint : 0 erreur, 23 avertissements (inchangé : 22 `LogNotTimber` et 1 `DataExtractionRules`). APK debug construit.
+  - Tests ciblés pendant le développement : `./gradlew spotlessApply :core:test --tests 'fr.toolmap.core.altitude.*' :data:testDebugUnitTest --tests 'fr.toolmap.data.altitude.*'` (36 tests, 0 échec) puis `:app:testDebugUnitTest --tests 'fr.toolmap.altitude.*' --tests 'fr.toolmap.record.LocationToFixTest'` (10 tests, 0 échec).
+  - Le test « la météo change pendant 6 h » montre ce que le suivi apporte : à 1000 m immobile, avec la pression au niveau de la mer qui baisse de 1 hPa par heure, l'erreur reste sous 8 m avec des références du GPS toutes les minutes, contre plus de 40 m sans.
+  - Erreurs trouvées par les tests avant le commit : (1) une méthode de test dont le corps `runBlocking { … }` finit par une valeur n'est pas `void` pour JUnit 4 (`InvalidTestClassError`) → `runBlocking<Unit>` ; (2) un test Robolectric sans `application = Application::class` démarre `ToolMapApp` et sa configuration de MapLibre échoue ; (3) `ShadowSensorManager.createSensorEvent` n'existe plus en Robolectric 4.17 → le `SensorEvent` est construit par réflexion ; (4) le test de limitation par source voulait une mesure de pression fraîche avant la référence à +31 s (une pression de plus de 30 s est périmée, c'est voulu).
+  - **Correction de la suite 13** : elle écrit « 5 d'état » pour les tests de `AlertState` ; il y en a **6** (11 + 22 + 6 + 3 = 42).
+- **Problèmes / dette technique** : **ni le capteur, ni la pastille, ni le calage manuel n'ont pu être exécutés** (pas d'émulateur) : P9.5 reste 🔄. Pas de modèle de géoïde : avant Android 14 le GPS n'est qu'un indice vague, et c'est le relief qui cale (hors ligne et sans tuile du relief, le baromètre reste non calé et le mode automatique affiche le GPS tel quel). L'état du filtre n'est pas enregistré. Le relief Terrarium peut être faux de dizaines de mètres sur une falaise. La pastille garde le GPS allumé écran allumé tant que la position est affichée (consommation à mesurer en P10.1). Les points déjà enregistrés ne sont pas corrigés après coup.
+- **Prochaine étape recommandée** : P9.6 (sauvegarde et restauration : base des traces, sources, réglages, `alerts.json`, MBTiles en option ; `SettingsStore.reload()` et `AlertStateStore.reload()` existent), puis P10.
+
+---
+
+## 2026-10-02 — Session 3 (suite 13) — [P9.4] Alertes de proximité et suivi de trace
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `d7624b0` (P9.1, recherche de lieux)
+- **Objectif** : prévenir quand on arrive près d'un waypoint surveillé, et suivre une trace ou un itinéraire avec une alerte quand on s'en écarte, y compris écran éteint.
+- **Réalisé** :
+  - **`:core`** (`fr.toolmap.core.alert`) : `TrackFollower` (projection d'une position sur une ligne, distance parcourue, sens inverse, indice de progression pour les aller-retours et les boucles) ; `AlertEngine` (règles : proximité, écart, retour, arrivée) ; `AlertState` + `AlertStateCodec` (ligne suivie et waypoints surveillés, tolérant) ; `AlertGeoJson.circles` (disque du rayon).
+  - **`:data`** : `AlertStateStore` (`filesDir/alerts.json`, atomique, `reload()` pour la restauration de P9.6).
+  - **`:app`** : `AlertController` (un par processus : relit l'état, écoute le GPS toutes les 2 s tant que quelque chose est surveillé, oublie les éléments supprimés), `AlertService` (service de premier plan `location`, verrou de réveil, « Tout arrêter »), `AndroidAlertNotifier` (notification, vibration et son joués selon les réglages ; canal muet), `AlertTexts`, `FollowHud` (bandeau de suivi + dernière alerte), `WatchDialog` (rayon 25 m à 1 km ou celui des réglages), `AlertLayers` (disque orange pointillé sur la carte), boutons « Suivre » / « Ne plus suivre » / « Alerte de proximité » dans la fiche d'un élément de la carte et « Suivre cette trace » dans le détail d'une trace ; permission `VIBRATE`, service déclaré ; 40 chaînes françaises.
+- **Décisions (ADR)** : ADR-024.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` : **EXIT=0**, 831 tests, 0 échec (`:core` 532, `:data` 193, `:p2p` 9, `:app` 97 ; +65 par rapport à la suite 12 : 42 dans `:core` dont 11 de projection, 22 du moteur, 5 d'état et 3 de GeoJSON ; 5 dans `:data` ; 18 dans `:app`). Lint : 0 erreur, 23 avertissements (21 → 23 : deux `LogNotTimber` de plus dans `MapController`, comme les 18 déjà tolérés ; le reste inchangé : 1 `DataExtractionRules`). APK debug construit (≈ 114 Mo).
+  - Quatre bugs trouvés par les tests avant le commit : (1) l'indice de progression ramenait la position sur le segment *précédent* en marche avant (distance d'écart gonflée de 5 m à 80 m, progression qui stagne) → les candidats voisins du même tronçon sont écartés, seuls comptent ceux d'un autre tronçon ; (2) une boucle « arrivait » dès la première position (le point le plus proche était sa fin) → sans progression connue l'indice est le départ ; (3) et (4) un instantané de la bibliothèque sans le waypoint ou la trace tout juste créés effaçait l'alerte aussitôt posée → seuls les éléments vus disparaître sont oubliés (et, à la première lecture, ceux de l'état sauvegardé avant le démarrage).
+  - Les tests du contrôleur attendent l'état « waypoints résolus » (`AlertUi.places`) avant d'envoyer des positions : sans cela, la première position pouvait arriver avant que le contrôleur connaisse le waypoint et celui-ci était amorcé « dedans » en silence.
+- **Problèmes / dette technique** : **rien de l'écran, du service, de la notification, de la vibration ni du son n'a pu être exécuté** (pas d'émulateur) : P9.4 reste 🔄. Alertes impossibles sans position GPS ; un système qui refuse de démarrer le service depuis l'arrière-plan laisse l'alerte active seulement application affichée ; consommation à mesurer en P10.1 ; pas de surbrillance de la ligne suivie ; l'état (`alerts.json`) est à inclure dans la sauvegarde de P9.6.
+- **Prochaine étape recommandée** : P9.5 (altimètre barométrique), puis P9.6 (sauvegarde et restauration, avec `alerts.json`), puis P10.
+
+---
+
+## 2026-10-02 — Session 3 (suite 12) — [P9.1] Recherche de lieux (IGN, Nominatim, éléments personnels)
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `4cf56ba` (P9.2, P9.3, P9.7)
+- **Objectif** : retrouver un lieu par son nom en France et dans le monde, retrouver ses traces, itinéraires et waypoints, et aller à une position tapée, sans jamais envoyer de requête en mode hors ligne ni pendant la frappe.
+- **Réalisé** :
+  - **`:core`** (`fr.toolmap.core.search`) : `SearchResult` / `SearchSource` / `LibraryKind` ; `GeocodeParsers` (IGN Géoplateforme `poi` et `address`, Nominatim `jsonv2`, lecture tolérante) ; `LocalSearch` + `SearchText` (sans casse ni accents, élision) ; `CoordinateQuery` (position tapée) ; `SearchMerge` (fusion sans doublons).
+  - **`:data`** : `Geocoder` (interface) et `GeocoderClient` (trois requêtes indépendantes, espacement Nominatim ≥ 1,1 s, User-Agent identifiant, annulable, réponse limitée à 1 Mo).
+  - **`:app`** : `SearchViewModel`, `SearchScreen` (résultats locaux au fil de la frappe, en ligne à la validation, mentions de sources, pannes par service, menu voir / aller vers / enregistrer comme waypoint, distance au centre de la carte), `SearchModule`, entrée « Rechercher un lieu… » du menu de la carte, 26 chaînes françaises.
+- **Décisions (ADR)** : ADR-023.
+- **Tests / vérifications** :
+  - Réponses réelles relevées par `curl` depuis la sandbox le 2026-10-02 (IGN `index=poi` → « le Grand Veymont » sommet, `index=address` → adresses, Nominatim → le sommet, 0 résultat pour une chaîne absurde) : elles servent de modèles aux tests des parseurs. Constat : sans `index`, l'IGN ne renvoie que des adresses ; `index=address,poi` a été refusé (connexion coupée) d'où deux requêtes.
+  - `./gradlew spotlessApply check assembleDebug` : **1re passe en échec**, Android Lint (`StateFlowValueCalledInComposition`, `MainActivity.kt` : lecture de `viewModel.state.value.camera` dans la composition pour passer le centre de la carte à l'écran de recherche). Correction : le centre est transmis à `SearchViewModel.open(lat, lon)` à l'ouverture et exposé par `SearchViewModel.center` (le paramètre `center` de `SearchScreen` disparaît ; la distance n'est pas écrite tant que le centre est inconnu). **2e passe : EXIT=0**, 766 tests, 0 échec (`:core` 490, `:data` 188, `:p2p` 9, `:app` 79 ; +36 par rapport à la suite 11 : 19 dans `:core`, 10 dans `:data`, 7 dans `:app`), lint : 0 erreur, 21 avertissements (inchangé : 20 `LogNotTimber` + 1 `DataExtractionRules`), APK debug construit.
+- **Problèmes / dette technique** : voir ADR-023 (pas de marqueur de résultat sur la carte, pas d'historique ni de recherche par catégorie, catégories OSM en anglais, pas de cache). **Le comportement réel du clavier, de l'écran et du réseau sur téléphone n'a pas pu être vérifié** : P9.1 reste 🔄.
+- **Prochaine étape recommandée** : P9.4 (alertes de proximité et suivi de trace avec alerte d'écart), puis P9.5 (altimètre barométrique), P9.6 (sauvegarde et restauration), puis P10.
+
+---
+
+## 2026-10-02 — Session 3 (suite 11) — [P9.2, P9.3, P9.7] Mesure, formats de coordonnées, grille d'écran, réglages
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `cfa9c3e` (P8)
+- **Objectif** : première moitié de P9 (parité AlpineQuest complémentaire) : ce qui change l'affichage partout (réglages, unités, formats de coordonnées), la grille sur la carte et l'outil de mesure. Recherche, alertes, altimètre et sauvegarde suivent dans les entrées suivantes.
+- **Réalisé** :
+  - **`:core`** : `CoordinateSystem` (DD, DDM, DMS, UTM, MGRS, Lambert 93) ; `CoordinateFormat.format` ; `GridReference` (lecture de références UTM, MGRS, Lambert 93, branchée dans `CoordinateParser`, erreur typée `GRID`) ; `Mgrs.toLonLat` ; `ScreenGrid` (plan de grille WGS84 / UTM / MGRS / Lambert 93 pour une emprise, pas 1-2-5, lignes échantillonnées) ; `ScaleBar` et `TrackFormat` en unités impériales (ft, mi, mph, ac) et `TrackFormat.area` ; `AppSettings` + `AppSettingsCodec` ; `Measure` (longueur, périmètre, aire exacte sur l'ellipsoïde, caps) et `MeasureGeoJson`.
+  - **`:data`** : `SettingsStore` (`filesDir/settings.json`, écriture atomique, `StateFlow`).
+  - **`:app`** : `Formats` / `LocalFormats` / `LocalAppSettings` ; `SettingsScreen` (thème, couleurs dynamiques, mode gants, écran allumé, unités, coordonnées avec exemple en direct, grille, altitude, alertes) ; thème clair / sombre / système avec barres système réalignées ; `GridLayers` et `MeasureLayers` (+ `MapController.showGrid` / `showMeasure`) ; `MeasureViewModel` et `MeasureBar` ; pastille du centre dans le format choisi + « Grille … · pas » + avertissements (pôles, trop large, hors Lambert 93) ; échelle en unités choisies ; formats appliqués aux 35 endroits qui écrivaient une distance, une altitude ou une vitesse (traces, enregistrement, cible, profil, fiches, partage) ; saisie de waypoint dans le format choisi avec boutons UTM / MGRS / Lambert 93 ; menu de la carte : « Mesurer distance et surface » et « Réglages… ».
+- **Décisions (ADR)** : ADR-022 (réglages en JSON atomique, `Formats` comme seul point d'écriture des nombres, lecture de références de grille, grille courbe échantillonnée, aire exacte sur l'ellipsoïde, mesure exclusive avec dessin et impression, mode gants).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` → **BUILD SUCCESSFUL**. `:core` **471 tests** (436 avant, +35 : `GridReferenceTest`, `ScreenGridTest`, `AppSettingsTest`, `MeasureTest` 7, `MeasureGeoJsonTest`), `:data` **178** (173 avant, +5 : `SettingsStoreTest`), `:p2p` 9, `:app` **72** (66 avant, +6 : `MeasureViewModelTest`) ; 0 échec, 0 ignoré. Total **730**.
+  - Contrôles de fond en JVM : références MGRS / UTM / Lambert 93 issues de PROJ lues et écrites à l'identique sur 10 lieux (hémisphère sud et antimeridien compris) ; lignes de grille droites dans leur système (écart ≤ 0,1 m) et couvrant la région ; avertissements pôles, trop large, hors France ; aire contre une intégrale de surface indépendante sur l'ellipsoïde (1e-9 en relatif) et contre un carré UTM corrigé du facteur d'échelle ; orientation du polygone et antimeridien ; fichier de réglages abîmé, vide ou d'une version plus récente → valeurs par défaut ; `MeasureViewModel` (points ignorés tant que l'outil est fermé, chiffres en phase avec les points, annuler / rétablir, ajout après annulation à la fin, garder comme itinéraire et comme trace, un seul point refusé).
+  - Android Lint : 0 erreur, **21 avertissements** (17 avant : +4 `Log.e` des calques de mesure et de grille dans `MapController`, même avertissement `LogNotTimber` que les autres).
+  - Services de géocodage sondés par `curl` (pour l'entrée suivante) : IGN Géoplateforme et Nominatim répondent depuis la sandbox.
+- **Problèmes / dette technique** :
+  - **Rien de l'interface n'a pu être exécuté** : P9.2, P9.3 et P9.7 restent 🔄 (rendu et gestes de la mesure, grille sur la carte, thème, mode gants, écran allumé, lisibilité des barres système forcées).
+  - Les réglages d'altitude et d'alertes sont déjà enregistrés mais sans effet avant P9.4 / P9.5 ; le bouton « Sauvegarde et restauration… » n'apparaît qu'avec P9.6.
+  - **La langue n'est pas réglable** : l'interface n'existe qu'en français (≈ 700 chaînes). Une traduction anglaise est envisagée en P10 ; sans elle le sélecteur n'aurait qu'un choix.
+  - Pas d'étiquette de texte sur la grille (pas de polices dans le style de base, ADR-018) ; la grille se recalcule à la fin du mouvement ; les sommets de la mesure ne se déplacent pas ; l'emprise dessinée de P4.4 reste reportée.
+- **Prochaine étape recommandée** : P9.1 (recherche : IGN Géoplateforme, Nominatim, éléments personnels, saut vers des coordonnées), puis P9.4 (alertes et suivi de trace), P9.5 (altimètre barométrique), P9.6 (sauvegarde et restauration), puis P10.
+
+---
+
+## 2026-10-02 — Session 3 (suite 10) — [P8.1, P8.2, P8.3, P8.4, P8.5, P8.6, P8.7, P8.8] Partage de position pair-à-pair
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `236d9c2` (P7)
+- **Objectif** : nouveauté n° 1 : partager sa position avec un groupe de 2 à ~10 téléphones, sans serveur, par QR code ou lien, écran éteint ; un nouvel arrivant ne s'appaire qu'une fois, les autres liaisons se négocient d'elles-mêmes.
+- **Réalisé** :
+  - **`:core`** (`fr.toolmap.core.p2p`, Kotlin pur) : `Base45`, `PairingCodec` (charge binaire, deflate, genres OFFER / ANSWER / MESH_OFFER, lien base64 URL-safe, péremption à 10 min, élagage des candidats), `Sdp` (reconstruction depuis un gabarit), `GroupCrypto` (AES-256-GCM, HKDF-SHA256), `Wire` (11 types de messages dont `TRAIL` et `KICK`), `MeshNode` (maillage, inondation TTL 4, déduplication, pings, perte, réessais exponentiels, retrait avec nouvelle clé), `ShareCadence`, `ShareModels` (réglages et groupe sauvegardés), `ShareGeoJson` (carte), `Transport` (interfaces `MeshLink`, `PairingTransport`, `TransportFactory`).
+  - **`:p2p`** (bibliothèque Android) : `WebRtcLinks` (deux canaux prénégociés, ICE non progressif, STUN activable) et `WebRtcTransportFactory`, `QrCodes` (ZXing : encodage, décodage de la plaque de luminance), `ShareStore` (`p2p/share.json`, écriture atomique).
+  - **`:app`** : `ShareController` (singleton), `ShareService` (premier plan `location`, verrou de réveil, notification SOS à haute priorité), `ShareViewModel`, `ShareScreen` (profil, groupe, invitation et réponse en QR et lien, scan CameraX, coller un lien, cadence, STUN, membres, messages, SOS, quitter), `QrScanner`, `QrImage`, `ShareLayers` (disques et traînées sur la carte, appui = fiche), `MemberDialog`, `SosAlertDialog` (par-dessus tous les écrans), `ShareHud`, `ShareModule` (Hilt), lien `toolmap://pair` dans le manifeste, entrée « Partage de position… » du menu de la carte, ~100 chaînes françaises.
+  - Dépendances : `stream-webrtc-android` 1.3.10, `zxing-core` 3.5.4, CameraX 1.6.2.
+- **Décisions (ADR)** : ADR-021 (protocole pur dans `:core` derrière une interface de transport, WebRTC dans `:p2p`, maillage par signalisation relayée, chiffrement de groupe + `KICK`, contrôleur testé avec un réseau simulé, service seulement pendant le partage). `docs/specs/p2p-sharing.md` mis à jour (§11 « Réalisation » et écarts : lien en base64 URL-safe, MESH_OFFER, KICK, reconnexion par nouvelle offre).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` → **BUILD SUCCESSFUL** (deuxième passage ; le premier avait échoué sur une erreur de lint, voir plus bas). `:core` **436 tests** (376 avant, +60 : `Base45Test` 3, `PairingCodecTest` 9, `SdpTest` 4, `GroupCryptoTest` 4, `WireTest` 9, `MeshNodeTest` 16, `ShareCadenceTest` 5, `ShareModelsTest` 5, `ShareGeoJsonTest` 5), `:data` **173** (inchangé), `:p2p` **9** (`QrCodesTest` 5, `ShareStoreTest` 4), `:app` **66** (49 avant, +17 : `ShareControllerTest`) ; 0 échec, 0 ignoré. Total 684.
+  - Réseau simulé (`MeshNodeTest`) : formation du maillage par `SIGNAL` relayé avec un seul appairage par arrivant, inondation et déduplication, TTL, perte puis rétablissement d'une liaison, rejeu de la traînée, retrait avec nouvelle clé : l'exclu apprend qu'il est dehors par `KICK`.
+  - Codec : un code réel passe par l'image QR (ZXing) et revient identique, version ≤ 15, y compris très chargé en candidats, image inversée, pas de ligne plus large que l'image ; codes corrompus, périmés ou du futur refusés.
+  - `ShareControllerTest` (faux transport + **vrai** nœud pair relié par des trames) : groupe créé et sauvegardé, invitation qui se relit à l'identique (QR et lien) puis réponse qui ouvre la liaison, invitation sans réseau, rejoindre par un code (groupe créé depuis l'offre), premier appairage qui échoue sans laisser de groupe, codes abîmés / périmés / du futur / hors de propos / d'un autre groupe, invitation qui expire seule, cadence (intervalle, déplacement, envoi forcé), arrêt du GPS et GPS en panne, textes dans les deux sens, SOS reçu (reste jusqu'à « Vu », disparaît sans répétition) et SOS envoyé (répété puis arrêté), quitter, être retiré, retrait avec nouvelle clé sauvegardée, redémarrage (groupe et réglages).
+  - Android Lint : 0 erreur, **17 avertissements** (15 avant : +2 `Log.e` du calque de partage dans `MapController`, même avertissement `LogNotTimber` que les autres). **Incident** : la première batterie a échoué sur une erreur de lint `LocalContextGetResourceValueCall` (`context.getString` dans `ShareScreen`) → `LocalResources.current`.
+  - APK debug : **113 Mo** (65 Mo avant) : les bibliothèques natives de WebRTC pour toutes les ABI pèsent ≈ 48 Mo ; filtrage des ABI et réduction prévus en P10.
+  - Tests relus avant la batterie : trois tests trop faibles (premier appairage qui échoue, SOS envoyé, clé changée) ont été renforcés (le faux transport peut maintenant échouer, le pair enregistre les SOS et l'exclusion).
+- **Problèmes / dette technique** :
+  - **Rien de ce qui touche à WebRTC, à la caméra, à l'écran ou au service n'a pu être exécuté** (pas d'émulateur, pas de second téléphone) : P8.1, P8.3, P8.4, P8.6, P8.7, P8.8 restent 🔄 ; seuls P8.2 (codec) et P8.5 (protocole et chiffrement) sont ✅. Risques à lever sur appareil : SDP reconstruite depuis le gabarit acceptée par libwebrtc, module audio par défaut de `PeerConnectionFactory` sans audio utilisé, candidats mDNS ignorés, IPv6 limité, lisibilité des QR de version 12-15 sur de vrais écrans, CGNAT symétrique (limite connue), consommation écran éteint.
+  - Le partage **ne survit pas à une mort du processus** : le groupe revient avec sa clé mais sans liaison et sans partage ; un membre qui ne fait que regarder n'a pas de service de premier plan (la permission de position est exigée par le type `location`) ; les SOS ne sont alors reçus qu'application ouverte.
+  - Tout membre peut retirer n'importe quel membre (pas d'administrateur) ; l'exclu n'est prévenu que si celui qui le retire ou un voisin a une liaison directe avec lui.
+  - Pas d'étiquette de texte ni de cercle de précision sur la carte (pas de polices dans le style de base) ; pas de distance ni de cap dans la liste des membres (seulement « Aller vers ») ; l'état d'un membre perdu montre l'âge de sa dernière position, pas « déconnecté depuis HH:MM » ; reconnexion par nouvelle offre relayée, pas par redémarrage ICE.
+  - Pas de transport alternatif (P8.9 reste 💤). Dette inchangée : `insecure`, `usesCleartextTraffic`, cache MapLibre après modification d'une URL, accessibilité, couleur GPX non écrite, pas de glisser des sommets, pas de boussole, emprise dessinée de P4.4.
+- **Prochaine étape recommandée** : **P9** (recherche, mesure, formats de coordonnées, alertes, altimètre barométrique, sauvegarde et restauration, paramètres), puis P10 (filtrage des ABI et poids de l'APK, performance, accessibilité, signature de publication, aide, bilan final). Côté utilisateur : installer l'APK de la CI et dérouler la liste P8 sur deux téléphones (même Wi-Fi puis réseaux différents) : créer un groupe, scanner le QR, scanner la réponse, voir les positions, envoyer un message et un SOS, retirer un membre, ouvrir un lien `toolmap://pair` reçu par message, éteindre l'écran ; puis un troisième téléphone pour le maillage.
+
+---
+
+## 2026-10-02 — Session 3 (suite 9) — [P7.1, P7.2, P7.3, P7.4, P7.5, P7.6, P3.4] Export PDF à l'échelle
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `fc2d58c` (P6)
+- **Objectif** : nouveauté n° 4 : imprimer une zone comme une vraie carte papier, à l'échelle exacte (1:25 000, 1:50 000…), avec habillage vectoriel, grille, atlas multipage, mémoire bornée et enregistrement par le sélecteur de fichiers.
+- **Réalisé** :
+  - **`:core`** : maths d'impression (`PrintMath`, `FrameProjection`, `PrintLayers` : zoom de tuiles, emprise, avertissement de suréchantillonnage, plages de zoom des calques comparées au zoom équivalent fractionnaire), `PrintPlan` / `PrintPlanner` (pages, tuiles, taille estimée, problèmes bloquants et avertissements), `PrintRaster` (bandes de 512 lignes, recouvrement de 2 lignes), `PageComposer` (titre, échelle, barre graphique, nord + déclinaison + convergence, grille étiquetée, traces, waypoints, légende, cartouche avec attributions, coins, mini-carte), `GridPlanner`, `Atlas` (grille de pages, pages le long d'une trace, assemblage), `PrintExporter`, `PdfWriter` (PDF 1.4 maison : Helvetica, JPEG, `MediaBox` réelle), projections `Utm` / `Lambert93` / `Mgrs`, `ScaleBar.cameraZoomFor`, `PrintViewport` (taille du cadre à l'écran, zoom d'ajustement), `PrintFormat.fileName`, `RasterAdjust.colorMatrix`.
+  - **`:data`** : `HttpPrintTileFetcher` (stockage d'abord, réseau seulement si la source n'a pas de politique restrictive), `AndroidBandRenderer` (`Bitmap` / `Canvas`, opacité, matrice de couleur, 6 fils, hachures des tuiles indisponibles), `PrintTemplateStore` (modèles), `ZoneDownloader.missing` / `runTiles` (comptage et téléchargement des tuiles manquantes), `TrackDisplay.printItems` (traces, itinéraires et waypoints visibles, largeurs en mm papier).
+  - **`:app`** : `PrintViewModel` (plan en direct après 250 ms, comptage des tuiles manquantes, export, annulation avec suppression du fichier à moitié écrit, aperçu `PdfRenderer`), `PrintFrameOverlay` + `PrintHud` (cadre à la taille réelle au sol, « Ajuster le zoom »), `PrintPanel` (papier, échelle, qualité, grille, atlas, habillage, titre, modèles, résumé, avertissements), dialogues de fin et d'aperçu, ouvrir / partager, entrée « Imprimer » du menu de la carte, ~105 chaînes françaises.
+- **Décisions (ADR)** : ADR-020 (écrivain PDF maison en JPEG plutôt que `PdfDocument`, projections de grille maison **à la place de proj4j** — remplace cette clause d'ADR-005 —, bandes de 512 lignes, lecture des tuiles stockées d'abord, impression toujours nord en haut, export dans la portée du `ViewModel`).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` → **BUILD SUCCESSFUL** ; `:core` **376 tests** (287 avant, +89 : `PrintMathTest` 15, `PrintPlanTest` 14, `PrintPlannerTest` 12, `GridAtlasTest` 14, `PrintExportTest` 6, `PrintViewportTest` 4, `PrintFormatTest` 3, `PdfWriterTest` 10, `ProjectionsTest` 7, `RasterAdjustTest` 4), `:data` **173** (161 avant, +12 : `PrintDataTest` 8, `AndroidBandRendererTest` 2, `PrintExportAndroidTest` 2), `:app` **49** (40 avant, +9 : `PrintViewModelTest`) ; 0 échec, 0 ignoré. APK debug produit (65 Mo).
+  - Géométrie : les points du cadre se retrouvent à ≤ 0,09 mm d'un calcul Web Mercator indépendant ; un segment de 10 km mesure 200 mm à 1:50 000 (`PrintMathTest`) ; UTM et Lambert 93 concordent avec PROJ au millimètre (`ProjectionsTest`), MGRS avec la bibliothèque de référence.
+  - PDF : `core/build/print-samples/scale-1-50000.pdf` (tuiles de synthèse) et `data/build/print-samples/android-a4.pdf` / `android-atlas.pdf` (vraies images JPEG composées par `AndroidBandRenderer` sous Robolectric en **graphismes natifs**) relus avec poppler : A4 paysage 841,89 × 595,276 pt, 1 page ; atlas de 13 pages. Les graphismes natifs de Robolectric fonctionnent dans le bac à sable : pixels, JPEG et hachures sont donc vérifiés en JVM.
+  - Android Lint : 0 erreur ; 15 avertissements (les mêmes que la session précédente, aucun nouveau). Deux erreurs `NonObservableLocale` de `PrintPanel` (formatage avec `Locale.getDefault()` dans un composable) corrigées en passant les nombres à `stringResource` (`%1$.2f`), plus un `UseKtx`, une chaîne inutilisée et des `PluralsCandidate` reformulés.
+  - Incident de test : `TracksViewModelTest` échouait dans la batterie complète (`Dispatchers.Main is used concurrently with setting it`) parce que le `ViewModel` d'impression de `PrintViewModelTest` laissait vivre ses collecteurs sur le répartiteur principal ; `tearDown` annule maintenant `viewModelScope` avant `resetMain()` → batterie complète verte.
+- **Problèmes / dette technique** :
+  - **Rien de ce qui touche à l'écran ou à Android n'a pu être exécuté** (pas d'émulateur) : P7.2, P7.3 et P7.6 restent 🔄. **Le critère « A3 à 300 dpi sans OutOfMemory » de P7.3 n'est pas vérifié** (mémoire bornée par bande, durée inconnue) et **le critère global « 10 km = 200 mm ± 0,5 % sur le papier » n'est vérifié que sur le PDF, pas sur une impression réelle**. À vérifier sur téléphone : ouverture du mode impression (menu), le cadre à l'écran à l'échelle choisie et son accord avec la carte, « Ajuster le zoom », panneau (défilement, clavier, champs numériques), enregistrement par le sélecteur de fichiers, ouverture et partage du PDF, aperçu `PdfRenderer`, modèles, atlas (zone visible et trace), export A3 à 300 dpi (durée, mémoire, poids), impression « taille réelle » mesurée à la règle.
+  - L'export n'est pas un service de premier plan : Android peut tuer le processus pendant un export long. Pas de renvoi de numéro de page sur les bords des pages d'atlas ; échelle de la page d'assemblage non arrondie (« 1:98 503 ») ; textes de la grille WGS84 français dans `:core` ; JPEG seul (qualité ≈ 88) ; tuiles manquantes d'un calque **superposé** comptées mais non hachurées ; une tuile qui n'existe pas côté serveur est comptée « manquante » avant l'export ; emprise du atlas en grille = région visible réduite de 5 % (pas d'emprises dessinées sur la carte vivante).
+  - Dette inchangée : `insecure`, `usesCleartextTraffic`, cache MapLibre après modification d'une URL, accessibilité, pas d'étiquettes de texte sur la carte, couleur GPX non écrite, pas de glisser des sommets, pas de boussole, emprise dessinée de P4.4.
+- **Prochaine étape recommandée** : **P8** (partage de position pair-à-pair, `docs/specs/p2p-sharing.md` : codec de QR, maillage WebRTC, chiffrement AES-GCM, partage en service de premier plan), puis P9 et P10. Côté utilisateur : installer l'APK de la CI et dérouler les listes « à vérifier sur téléphone » des entrées P1 à P7.
+
+## 2026-10-02 — Session 3 (suite 8) — [P6.1, P6.2, P6.3, P6.4] Dessin, édition, enregistreur GPS, waypoints et cible
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `7c9c76a` (P5, poussé, CI verte)
+- **Objectif** : parité n° 4, partie « créer, éditer, enregistrer » : dessiner et corriger des tracés au doigt, outils sur les traces, enregistreur GPS qui ne perd rien, waypoints posés sur la carte et cible à rejoindre.
+- **Réalisé** :
+  - **`:core`** : `PolylineEditor` (ajout, déplacement, suppression, insertion de milieu, main levée, inverser, simplifier, rogner, couper ; annuler / rétablir borné par le nombre de points), `TrackOps` (inverser, couper, fusionner, rogner, simplifier), `EditorGeoJson` (ligne et poignées de l'éditeur, interprétation d'un appui), `RecorderCore` + `RecorderProfile` + `RecordingSession` (enregistreur pur), `CoordinateParser` (DD / DDM / DMS, virgule ou point) et formats DDM / DMS, `Navigation` (distance, cap, arrivée à 15 m), `WaypointSymbols` (12 symboles Garmin, couleur du marqueur), `Geodesy.bearing`.
+  - **`:data`** : `TrackRepository` (`createTrack`, `appendPoints` qui ne ré-encode que le dernier bloc, `finishTrack`, `createRoute`, `replaceRoutePoints`, `createWaypoint`, `updateWaypoint`, `describe`, `reverseTrack`, `simplifyTrack`, `mergeTracks`), `RecordingSessionStore` (fichier de session atomique).
+  - **`:app`** : `DrawViewModel` + `DrawBar` / `SegmentChooser` / `FreehandLayer` ; couches `EditLayers` et `NavLayers` ; `RecordingController` + `RecordingService` (premier plan `location`, verrou de réveil, notification Pause / Arrêter, `START_STICKY`) + `RecordingViewModel` + panneau et dialogues (démarrage, reprise après plantage) ; `NavigationViewModel` + `TargetHud` ; `WaypointDialog` ; menu de la carte (dessiner une trace, un itinéraire, ajouter un waypoint, enregistrer), appui long = waypoint, feuille d'un élément avec « Modifier » et « Aller vers ce point », outils dans l'écran de statistiques (modifier, inverser, simplifier, fusionner, décrire) ; manifeste (`FOREGROUND_SERVICE_LOCATION`, `WAKE_LOCK`, service).
+- **Décisions (ADR)** : ADR-019 (enregistreur en trois couches et lots, reprise par fichier de session sans migration, GPS seul, édition au réticule plutôt que glisser, modèle d'historique borné, symboles Garmin, cible sans boussole).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` → **BUILD SUCCESSFUL** (2 min 42 s) ; `:core` **287 tests** (241 avant, +46 : `EditingTest` 15, `CoordinateParserTest`, `NavigationTest`, `RecorderCoreTest`, `RecorderProfileTest`, `EditorGeoJsonTest`), `:data` **161** (148 avant, +13 : `TrackCreationTest`), `:app` **40** (19 avant, +21 : `DrawViewModelTest` 10, `RecordingControllerTest` 6, `TracksViewModelTest` +5) ; 0 échec, 0 ignoré. APK debug produit (65 Mo).
+  - `RecordingControllerTest` simule le GPS (flux piloté à la main) sur une vraie base Room (Robolectric) : écriture par lots (6 points en base sur 7, le dernier à l'arrêt), pause → deux segments et lot écrit à la pause, « plantage » (abandon du contrôleur sans arrêt) → reprise depuis le fichier de session, le trou n'est pas relié, garder sans continuer, session vers une trace supprimée ignorée, GPS absent signalé sans fermer l'enregistrement.
+  - Android Lint : 0 erreur ; 4 avertissements nouveaux (`InlinedApi` du type de service `location`, 2 `PluralsCandidate`, `UseKtx`) **corrigés** avant le push ; restent les 15 antérieurs (`LogNotTimber`, `DataExtractionRules`).
+  - Premier essai de compilation de `:app` après le câblage : sans erreur ; le seul accroc de la session a été d'oublier d'adapter l'appelant de `TappedItemSheet` pendant le câblage (corrigé avant la compilation).
+- **Problèmes / dette technique** :
+  - **Aucun écran, geste, service ni GPS réel n'a pu être exécuté** (pas d'émulateur). **Le critère de P6.3 (« 2 h d'enregistrement écran éteint sans trou ») n'est pas vérifié** : P6.1 à P6.4 restent 🔄. À vérifier sur téléphone : dessin (appui, poignées, réticule « Ajouter ici / Déplacer ici », main levée), outils, feuille « Modifier », dialogue waypoint (appui long, formats de coordonnées, symboles), bandeau de cible, démarrage de l'enregistrement (permissions position et notification), notification Pause / Arrêter, écran éteint pendant 2 h avec et sans économiseur de batterie, « forcer l'arrêt » puis reprise.
+  - Pas de glisser-déposer des sommets ; la flèche de la cible suppose la carte orientée vers la direction de marche (pas de capteur de boussole) ; l'emprise de téléchargement dessinée (P4.4) reste reportée ; pas d'étiquettes de texte sur la carte (pas de polices) ; les couches de traces ne sont pas dans la pile de calques ; `insecure`, `usesCleartextTraffic`, accessibilité : dette inchangée.
+  - Les traces, itinéraires et waypoints créés à la main sont à la racine de la bibliothèque (pas de choix de dossier).
+- **Prochaine étape recommandée** : **P7** (export PDF à l'échelle, `docs/specs/print-pdf.md` : maths d'échelle dans `:core`, compositeur qui respecte les plages de zoom des calques, mise en page type QGIS).
+
+## 2026-10-02 — Session 3 (suite 7) — [P5.1, P5.2, P5.3, P5.4, P5.5] Traces GPX : modèle, formats, base, statistiques, profil, affichage
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `3e69edf` (P4, poussé) ; le cœur de P5 (`:core`) était déjà commité en `4982778`
+- **Objectif** : parité n° 4 (créer, éditer, voir, enregistrer des GPX) pour la partie « voir et conserver » : lire et écrire GPX / KML / KMZ / GeoJSON sans perte, garder une bibliothèque, l'afficher sur la carte, calculer les statistiques et le profil.
+- **Réalisé** :
+  - **`:core` (`fr.toolmap.core.track`, `.elevation`, `.xml`)** : `TrackDocument` (modèle neutre), `GpxReader` / `GpxWriter` (1.0 et 1.1, extensions conservées en `RawXml`), `KmlReader` (KML, KMZ, `gx:Track`, styles, dossiers), `GeoJsonReader`, `TrackImporter` (détection par le contenu), `PointCodec` (blocs compacts), `TrackStatsCalculator`, `ElevationProfile`, `TrackPath`, `PathSimplifier`, `TrackGeoJson`, `TrackFormat`, `PngDecoder` + `TerrariumTile`.
+  - **`:data`** : Room (`TrackDatabase`, 5 entités, schéma exporté), `TrackRepository` (import transactionnel, relecture, export fusionnant les espaces de noms, édition, visibilité, suppression, `replaceSegments`, `completeElevation`), `TrackDisplay` (GeoJSON du visible hors du fil principal, cache de géométrie simplifiée), `ElevationCompleter` + `SourceElevationTiles` (tuiles Terrarium par le client de la carte).
+  - **`:app`** : `TrackOverlay` (sources et couches GeoJSON : contour, plein, pointillés, flèches, points, curseur), `MapController` (affichage, curseur, cadrage, appui sur un élément), bibliothèque (`TracksScreen` : arbre de dossiers, cases de visibilité, menu renommer / style / exporter / partager / supprimer), statistiques (`TrackDetailScreen` : tableau de valeurs, profil `ElevationProfileView` coloré par pente avec curseur, complétion des altitudes, « Télécharger autour de cette trace »), feuille de détail à l'appui sur la carte, import par le sélecteur ou par « Ouvrir avec » / « Partager » (filtres `.gpx`, `.kml`, `.kmz`, `.geojson` et types MIME ; le contenu décide entre trace et carte `.aqx`), export par SAF et partage par `FileProvider`. `MapViewModel.pendingZone` factorise la préparation d'un téléchargement.
+- **Décisions (ADR)** : ADR-018 (modèle neutre, blocs de 2 000 points, XML non modélisé conservé, un dossier racine par import, affichage GeoJSON simplifié, pas d'étiquettes de texte, import par le contenu).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` → **BUILD SUCCESSFUL** (3 min 2 s, avec reconstruction de Room/KSP) ; `:core` **241 tests** (178 avant, +63), `:data` **148** (130 avant, +18 : `TrackRepositoryTest` 13, `ElevationCompleterTest` 5), `:app` **19** (11 avant, +8 : `TracksViewModelTest`) ; 0 échec, 0 ignoré. APK debug produit (64 Mo).
+  - Android Lint : 0 erreur ; 11 avertissements, tous antérieurs (`LogNotTimber`, `DataExtractionRules`) ; les 11 nouveaux (`PluralsCandidate`, `UseKtx`, `AutoboxingStateCreation`) ont été corrigés avant le push.
+  - Fichiers **réels** utilisés par les tests : 4 GPX (Mojstrovka, Cerknicko jezero, Korita–Zbevnica en 1.0, Garmin Connect avec `gpxtpx`) et 5 KML (`fixtures/gpx`, `fixtures/kml`, origines et licences dans leur `README.md`). Constats réels : des `<trk>` vides (ignorés avec `EMPTY_ITEM_DROPPED`), des dates à 7 décimales et en 1901 (lues sans erreur), des flottants Garmin élargis en doubles (le codec arrondit à ses unités, test à tolérance).
+  - Parcours complet en JVM : fichier → `TrackImporter` → Room → `TrackRepository.document` → `GpxWriter` → `GpxReader`, sur les 4 GPX et sur le KML à dossiers imbriqués ; extensions Garmin identiques après le tour ; ordre des éléments conservé ; deux imports qui utilisent le même préfixe pour deux espaces de noms exportent un fichier valide.
+- **Problèmes / dette technique** :
+  - **Aucun écran n'a pu être exécuté** (pas d'émulateur) : bibliothèque, statistiques, profil, couches de la carte, appui sur un élément, flèches de sens, sélecteurs SAF, « Ouvrir avec », « Partager » sont à vérifier sur téléphone. Le critère « 50 000 points sans saccade » ne l'est pas non plus (seule la construction du GeoJSON est mesurée).
+  - **Pas d'étiquettes de texte** sur la carte : le style de base n'a pas de polices (`glyphs`) ; à traiter avec des polices embarquées (P9/P10).
+  - La bibliothèque ne garde pas les métadonnées du document (auteur, mots-clés, copyright) ; la **couleur n'est pas écrite** dans le GPX exporté ; `speed`, `course` et `email` de GPX 1.0 et l'e-mail / le lien de l'auteur 1.1 sont ignorés (avec `TrackIssue`).
+  - Les couches de traces ne sont pas dans la pile de calques : elles sont toujours au-dessus des rasters et sous la position.
+  - Les arguments de `uses-cleartext-traffic`, l'accessibilité, `insecure`, le cache mémoire MapLibre après modification d'une adresse : dette inchangée (voir suite 6).
+- **Prochaine étape recommandée** : **P6** (outils de dessin et d'édition de traces, waypoints posés sur la carte, enregistreur GPS en service de premier plan qui **ajoute des blocs** à une trace, emprise du téléchargement dessinée ; reprendre l'emprise de l'assistant, reportée de P4.4).
+
+## 2026-10-02 — Session 3 (suite 6) — [P4.1, P4.2, P4.3, P4.4, P4.5, P4.6] Assistant d'ajout de carte
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `3580163` (P3, déjà poussé avec P2 ; le run CI 7 a été annulé par le push de P3 à cause de la règle de concurrence, le run 8 couvre P2 et P3)
+- **Objectif** : livrer la nouveauté N2 : ajouter n'importe quelle carte (XYZ, WMTS, WMS) sans écrire de XML, avec détection de clé, test d'une tuile et export AQX.
+- **Réalisé** :
+  - **`:core` (`fr.toolmap.core.wizard`)** : `ApiKeyExtractor`, lecture SAX des documents GetCapabilities (`OgcXml`, DOCTYPE neutralisé, ENTITY refusée), `WmtsCapabilities` + `WmtsSourceBuilder` (KVP et REST, jeux de matrices Web-Mercator seulement), `WmsCapabilities` + `WmsSourceBuilder` (EPSG:3857), `CapabilitiesReader` / `CapabilitiesUrl` / `ImageSniffer`, `SourceDraft` (brouillon textuel, 12 erreurs et 3 avertissements typés, conversion de et vers `TileSource`), `PreviewTile` (tuile d'aperçu).
+  - **`:data` (`fr.toolmap.data.wizard`)** : `CapabilitiesFetcher` (erreurs typées, 25 Mo max), `TileProbe` (vraie `TileInterceptor` avec magasin et compteurs jetables, 12 verdicts, secrets masqués), `RequestSettings`.
+  - **`:app`** : `SourceWizardViewModel` + écran en 6 étapes (type, adresse, accès, zooms, test, enregistrement), bouton « Nouvelle carte… » et icône de modification dans la boîte « Ajouter une carte », export AQX vers un fichier (clés masquées par défaut), purge des tuiles quand l'adresse d'une carte existante change. `app/lint.xml` (mots français et tirets), `usesCleartextTraffic="true"`.
+- **Décisions (ADR)** : ADR-017 (lecture SAX, WMTS Web-Mercator seulement, clés en `<param>` et export masqué, trafic en clair autorisé avec avertissement, `insecure` enregistré mais non appliqué).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` → **BUILD SUCCESSFUL** (29 s en incrémental) ; `:core` **178 tests** (137 avant), `:data` **130** (111 avant), `:app` **11** (nouveau, Robolectric) ; 0 échec ; Android Lint : 0 erreur, 8 avertissements (les mêmes qu'avant P4).
+  - **Réseau réel** (test temporaire, supprimé ensuite, rien de commité) : `GetCapabilities` en direct de `https://data.geopf.fr/wmts` → 720 couches, 678 utilisables, 57 jeux de matrices, lecture en 0,24 s ; la sonde sur les sources construites : Plan IGN v2 (z12) 200 `image/png`, Orthophotos 200 `image/jpeg`, **Pentes : connexion coupée après 12 s à z12 sur la tuile de Paris** (z6 et z10 : 200 ; z14 : 404 XML, vérifié aussi avec `curl`) donc verdict `NETWORK`, c'est un comportement du serveur et non un défaut de l'assistant ; clé erronée sur `data.geopf.fr/private/wmts` → **401** → `KEY_OR_REFERER`, clé masquée (`apikey=***`) ; clé de la fixture `ign_scan_ws` + Referer → **200** `image/jpeg`.
+  - Corrections de chiffres passés : `LayerZoomTest` compte **7** tests (le journal « suite 5 » et PLAN P3.1 disaient 6) ; ADR-017 annonce 71 tests ajoutés (41 + 19 + 11).
+- **Problèmes / dette technique** :
+  - **Aucun écran de l'assistant n'a pu être exécuté** (pas d'émulateur) : saisie, enchaînement, aperçu de l'image, sélecteur de fichier d'export à vérifier sur téléphone (P4.1 à P4.6 restent 🔄).
+  - `insecure` (certificats non vérifiés) est **enregistré et exporté mais pas appliqué** à OkHttp ; à faire avec un serveur HTTPS auto-signé de test.
+  - L'emprise dessinée sur la carte (P4.4) est reportée à P6 (outils de dessin).
+  - Modifier l'adresse d'une carte laisse le cache de tuiles en mémoire de MapLibre périmé jusqu'au prochain déplacement.
+  - `usesCleartextTraffic="true"` s'applique à toute l'application, pas seulement aux cartes.
+  - Accessibilité de l'assistant non examinée (P10). Calque WMTS : `overlay` vaut faux par défaut, l'utilisateur le bascule.
+  - La tuile d'aperçu par défaut (Paris, z12) peut tomber hors couverture d'une couche régionale ; le bouton « utiliser la vue de la carte » permet de la déplacer.
+- **Prochaine étape recommandée** : **P5** (Room, import / export GPX 1.0 et 1.1, KML, GeoJSON, affichage des traces et waypoints sur la carte, statistiques, profil d'altitude ; brancher « télécharger autour de cette trace » sur le formulaire de téléchargement).
+
+---
+
+## 2026-10-02 — Session 3 (suite 5) — [P3.1, P3.2, P3.3, P3.4] Plages de zoom par calque, barres de zoom, espaces de travail
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `d5da0f4`
+- **Objectif** : livrer la nouveauté N3 : chaque calque a sa plage de zoom, réglée au doigt, mémorisée, regroupée en espaces de travail dont le préréglage « IGN Topo 8–16, Plan 1–7, Pentes ».
+- **Réalisé** :
+  - **P3.1** (`:core`) : `LayerZoom` (traduction plage affichée inclusive → `minzoom` / `maxzoom` MapLibre ; test d'activité à un zoom fractionnaire), `LayerStack.setZoomRange` (bornes ramenées à 0..20, min > max remonte le max), `StackToStyle` pose `minZoom` / `maxZoom`, `StyleApplier.applyZoomRange` les applique (une borne absente revient à 0 / 24). Le diff de style traite un changement de plage comme une simple mise à jour du calque.
+  - **P3.2** : `ZoomBar` (`:core`, géométrie pure : zoom sous le doigt, poignée la plus proche, poignées qui ne se croisent pas, extrémité = « sans limite ») et `ZoomRangeBar` (`:app`, Canvas : segment coloré, deux poignées, curseur vertical au zoom courant, grisé quand le calque est inactif au zoom courant) intégrée à chaque ligne de la feuille « Calques » avec résumé (« Visible aux zooms 8 à 16 ») et bouton « Sans limite ». Valeurs persistées avec la pile (`WorkState`).
+  - **P3.3** : `Workspace` / `WorkspaceLayer` / `WorkspaceCodec` (`:core`), `Workspaces.ignTopoPlanSlopes` (Plan v2 1–7, SCAN 25 8–16, Pentes 1–16 à 50 %), `WorkspaceStore` (`:data`, un JSON par espace, écriture atomique, fichier abîmé ignoré), boîte « Espaces de travail » (appliquer, supprimer, enregistrer la pile actuelle). Les cartes absentes sont ignorées et signalées.
+  - **P3.4 (partie téléchargement)** : `ZoomLimit` dans `ZoneRequest` (compatible avec les anciens fichiers de job), prise en compte dans `plan()` / `run()`, case « Respecter les plages de zoom des calques » du formulaire (cochée par défaut quand un calque visible a une plage).
+- **Décisions (ADR)** : ADR-016 (sémantique des plages et formule `min − 1` / `max`, qui **corrige l'ancienne note de P3.1** dans PLAN.md).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` → **BUILD SUCCESSFUL** ; `:core` **137 tests** (118 avant), `:data` **111 tests** (103 avant), 0 échec ; Android Lint : 0 erreur, 8 avertissements (les mêmes que pour P2).
+  - Tests ajoutés : `LayerZoomTest` 6 (dont le critère de P3.3 : à chaque quart de zoom de 1 à 17, exactement un fond parmi Plan / Topo, Pentes toujours visibles, Topo dès 8,0, Plan en dessous, donc pas de trou à 7,5 ; accord des deux règles de visibilité), `ZoomBarTest` 5, `WorkspaceTest` 5, `ZoneRequestTest` +2, `WorkspaceStoreTest` 6, `ZoneDownloaderTest` +2.
+- **Problèmes / dette technique** :
+  - **Aucun de ces écrans n'a pu être exécuté** (pas d'émulateur) : le geste de la barre de zoom, le rendu du curseur et la bascule de calques à l'écran sont à vérifier sur téléphone (P3.1 à P3.4 restent 🔄).
+  - La **valeur** du décalage de zoom (ADR-011) reste une hypothèse : si le rapport du spike la corrige, les plages affichées seront décalées de la même quantité tant que `ZoomMapping` n'est pas ajusté.
+  - « IGN Topo » du préréglage est interprété comme **IGN SCAN 25** (la source IGN « Cartes » est un composite multi-échelles). Le préréglage est modifiable à l'écran, mais si l'intention était une autre source, il faut le dire.
+  - Accessibilité de la barre de zoom limitée à une description et un état (pas d'actions « + / − » pour TalkBack) : à reprendre en P10.
+  - La barre de zoom va de 0 à 20 : au-delà de 20 (zoom caméra max 22) un calque ne peut pas être limité par le haut.
+  - Le compositeur PDF (P7) devra lire les mêmes `displayMinZoom` / `displayMaxZoom` (reste de P3.4).
+- **Prochaine étape recommandée** : **P4** (assistant d'ajout de carte : URL ou GetCapabilities WMTS, détection de clé API, en-têtes, plages de zoom, test d'une tuile, sauvegarde et export AQX).
+
+---
+
+## 2026-10-02 — Session 3 (suite 4) — [P2.1, P2.2, P2.3, P2.4, P2.5] Hors ligne : MBTiles, cache, couverture, téléchargement de zone, stockage
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `d1de9db`
+- **Objectif** : livrer toute la phase P2 (parité AlpineQuest n° 3, tuiles locales / hors ligne) en suivant le mandat « de point P en point P » : code, batterie de tests, documentation, push.
+- **Réalisé** :
+  - **P2.1 — MBTiles** (`:data`) : `MbTilesFile` (un fichier SQLite par source, schéma MBTiles standard avec lignes TMS, table annexe `tm_tile_info` pour la date de téléchargement, WAL, métadonnées, `coverage()`, purge par zone ou par date, compactage, fichier corrompu mis de côté en `.corrupt`) et `MbTilesStore` (implémente `TileStore`, un fichier par source dans `filesDir/tiles/`, noms assainis, id réel conservé dans la métadonnée `toolmap-source-id`). `UpdateDelay` (`<n>D/W/M/Y`, 0 / absent / illisible = jamais périmée) et expiration dans `TileInterceptor` (tuile périmée retéléchargée, mais servie telle quelle si le réseau échoue ou en mode hors ligne).
+  - **P2.2 — cache automatique** : toute tuile téléchargée par l'intercepteur est stockée ; `OfflineFlowTest` rejoue « zone vue en ligne puis mode avion ».
+  - **P2.3 — hors ligne et couverture** : mode hors ligne = 404 immédiat pour toute tuile absente, aucune requête réseau ; `CoverageInterceptor` (second hôte factice `coverage.toolmap.local`) fabrique des tuiles de couverture (`SolidPng`, plein / partiel) ; `StyleApplier.setCoverage` et entrée de menu « Afficher la couverture hors ligne ».
+  - **P2.4 — téléchargement de zone** : `:core` `TilePlanner` (rectangle, polygone, corridor autour d'une polyligne, dénombrement et garde-fou), `ZoneRequest`/`ZoneJob`, `TileMath.mercatorX/Y` ; `:data` `ZoneDownloader` (même client HTTP que la carte, reprise = sauter les tuiles stockées, interruption après 25 échecs consécutifs, 2 nouvelles tentatives), `BulkPolicy` (OSM / OpenTopoMap plafonnés), `ZoneJobStore` (un JSON par job) ; `:app` `ZoneDownloadWorker` (WorkManager, service de premier plan `dataSync`, notification de progression), `DownloadScheduler`, `DownloadViewModel`, `DownloadScreen` (formulaire avec estimation du nombre de tuiles et de la taille, liste des jobs avec pause / reprise / suppression), menu « Télécharger la zone affichée… » et « Téléchargements ».
+  - **P2.5 — stockage** : `StorageManager` (usage par source, purge totale / par zone / par ancienneté, export `.mbtiles`, import en deux temps `stage()` → `commit()` avec validation : SQLite valide, raster PNG / JPEG / WebP, non vide, 4 Go max ; chemin rapide par renommage quand la source est neuve, sinon fusion par lots ; création d'une **carte locale** ; suppression d'une carte locale), `StorageViewModel` et `StorageScreen` (sélecteurs de fichiers SAF, confirmations, boîte d'import avec choix « nouvelle carte locale » ou « ajouter à … »), entrée de menu « Stockage hors ligne ». Convention `offline://stored-tiles` pour les cartes sans serveur (ADR-014).
+- **Décisions (ADR)** : ADR-013 (tests Robolectric du stockage), ADR-014 (carte locale `offline://stored-tiles`), ADR-015 (téléchargement par le même client, WorkManager sans `hilt-work`, politique gros volumes). Spec `docs/specs/aqx-format.md` mise à jour (`offline://stored-tiles`, sémantique de `update-delay`).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` → **BUILD SUCCESSFUL** (ktlint + Android Lint + tests + APK debug). `:core` **118 tests** (91 avant), `:data` **103 tests** (37 avant), 0 échec, 0 ignoré ; `:app` sans test unitaire (UI : téléphone).
+  - Tests ajoutés cette session : `MbTilesFileTest` 17, `MbTilesStoreTest` 9, `OfflineFlowTest` 3, `TileInterceptorTest` 20 (dont 5 d'expiration et 1 de carte locale), `ZoneDownloaderTest` 13, `ZoneJobStoreTest` 4, `StorageManagerTest` 14, `TilePlannerTest` 13, `ZoneRequestTest` 4, `UpdateDelayTest` 3, `SolidPngTest` 3, `LocalOnlyTest` 4.
+  - Android Lint : 1 erreur réelle corrigée (`Context.getString` dans une composition de `DownloadScreen` → `LocalResources`) ; 3 chaînes « %d + mot » reformulées. Il reste 8 avertissements sans gravité : `Log` au lieu de Timber (7, Timber n'est pas une dépendance) et `DataExtractionRules` (sauvegarde déjà désactivée).
+  - Bogue trouvé par les tests de cette session : `deleteOlderThan` aurait effacé les tuiles de date inconnue (valeur −1 < date limite), donc tout paquet importé ; corrigé (`stored_at >= 0`) et couvert par un test.
+- **Problèmes / dette technique** :
+  - **Rien de P2 n'a pu être exécuté sur appareil** (ni MapLibre, ni WorkManager réel, ni notification, ni sélecteur de fichiers) : P2.1 à P2.5 restent 🔄. À vérifier sur téléphone : zone affichée en ligne puis mode avion, superposition de couverture, téléchargement de zone avec notification (et reprise après fermeture), export puis import d'un `.mbtiles`, ouverture du fichier exporté dans QGIS.
+  - « Télécharger autour d'une trace » (corridor) : le planificateur et le downloader le gèrent (testé), mais le bouton attend le modèle GPX de **P5**.
+  - La couverture affichée n'est pas rafraîchie après une purge tant que MapLibre garde ses tuiles de couverture en mémoire.
+  - Import par chemin rapide : un `.mbtiles` tiers sans index unique sur `tiles` mais avec des doublons serait considéré comme corrompu à l'ouverture (mis de côté en `.corrupt`) ; cas rare, non traité.
+  - Les hypothèses de P1 (offset de zoom 256/512, affichage des couches) attendent toujours le rapport du spike.
+- **Prochaine étape recommandée** : **P3** (plages de zoom par calque : traduction `displayMinZoom` / `displayMaxZoom` en `minzoom` / `maxzoom` MapLibre, barres de zoom, préréglages IGN Topo 8–16 / Plan 1–7 / Pentes 1–16, respect des plages par le téléchargement). Dès que l'utilisateur renvoie le rapport du spike et la check-list P1 + P2, passer les tâches 🔄 à ✅ ou corriger.
+
+---
+
+## 2026-10-02 — Session 3 (suite 3) — [P1.5, P1.6, P1.7] Écran carte, pile de calques, import AQX
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `7a1545f`
+- **Objectif** : livrer la partie « application » de P1 : écran carte utilisable, pile de calques éditable, import de fichiers `.aqx`, le tout dans le prolongement de l'intercepteur de tuiles (P1.1).
+- **Réalisé** :
+  - `:core` (testé en JVM) : `ScaleBar` (valeurs 1-2-5 dérivées de la taille d'un dp au sol, caméra à tuiles de 512), `ZoomMapping` (zoom affiché = caméra + 1, **non vérifié** tant que le rapport du spike n'est pas revenu), `CoordinateFormat` (degrés décimaux), `LayerConfig` / `LayerStack` (ajout, suppression, déplacement, visibilité, opacité, réglages de couleur, remplacement du fond), `StyleDiff` + `StackToStyle` (diff pur entre la pile voulue et l'état appliqué), `WorkState` (pile + caméra + fonds récents + mode hors ligne, JSON), `AqxWriter` (export AQX, forme `<zoom-levels>`, CDATA).
+  - `:data` : `SourceRepository` (sources intégrées + importées dans `filesDir/sources/`, aperçu, politique de doublons, export) et `WorkStateStore` (écriture atomique de `workstate.json`), cf. ADR-012.
+  - `:app` : `MapScreen` (carte MapLibre dans `AndroidView`, pastille de coordonnées, viseur central, barre d'échelle, boussole cliquable, attribution des calques visibles, bouton de position à trois états libre / suivi / suivi + cap avec demande de permission, bascule rapide de fond, menu avec import, mode hors ligne et diagnostic), `MapController` (seul point de contact avec MapLibre), `StyleApplier` (applique le diff au `Style`), `LayersSheet` (feuille « Calques » : fonds, ajout, ordre, visibilité, curseurs d'opacité / contraste / luminosité / saturation), `ImportDialog`, `UriReader`, filtres d'intent `VIEW` / `SEND` pour `.aqx` dans le manifeste, permissions de localisation. `MainActivity` réécrite (écran carte par défaut, spike accessible depuis le menu « Diagnostic des tuiles »).
+- **Décisions (ADR)** : aucune nouvelle (ADR-010 à 012 couvrent OkHttp 4.12, MapView direct, persistance sans Room).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply check assembleDebug` → **BUILD SUCCESSFUL** ; `:core` **91 tests**, `:data` **37 tests**, 0 échec ; `:app` n'a pas de test unitaire (UI et MapLibre : vérification sur téléphone).
+  - Android Lint a d'abord échoué sur 2 erreurs réelles, corrigées : `Context.getString` dans une composition (remplacé par `LocalResources`) et `StateFlow.value` lu en composition dans `MainActivity` (remplacé par `collectAsStateWithLifecycle`). Deux chaînes avec « %d » + mots (« carte(s) ») reformulées ; chaîne inutilisée supprimée.
+  - Première compilation : `material-icons-core` manquait (ajouté au catalogue), et `setLocationMode` entrait en collision avec le setter de la propriété `locationMode` (fonction renommée `applyLocationMode`).
+- **Problèmes / dette technique** :
+  - **Rien de l'écran carte n'a pu être exécuté ici** (pas d'émulateur) : P1.5, P1.6 et P1.7 restent 🔄 jusqu'à vérification sur téléphone (carte affichée, IGN Pentes à 50 % sur IGN SCAN 25, import de la fixture, GPS).
+  - La correspondance du zoom caméra / zoom de tuile (`ZoomMapping`, offset 1.0) et la traduction de P3.1 restent des hypothèses.
+  - Le glisser-déposer des calques n'existe pas (boutons monter / descendre).
+  - `Log` d'Android utilisé à la place de Timber (avertissement lint seulement ; Timber n'est pas une dépendance du projet).
+- **Prochaine étape recommandée** : **P2** (stockage MBTiles, cache automatique, mode hors ligne, téléchargement de zone). Dès que l'utilisateur renvoie le rapport du spike et la check-list de P1 (carte affichée, SCAN 25, pentes à 50 %, import de la fixture, GPS), passer P1.1, P1.4, P1.5, P1.6, P1.7 à ✅ ou corriger.
+
+---
+
+## 2026-10-02 — Session 3 (suite 2) — [P1.4] Fin du catalogue de sources intégrées
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `ae589b9`
+- **Objectif** : terminer le contenu de P1.4 pendant que la CI construit l'APK du spike.
+- **Réalisé** :
+  - `builtin-sources.aqx` : ajout d'**OpenTopoMap** (serveurs a/b/c en rotation, 2 connexions max, User-Agent ToolMap), **IGN Plan v2** et **IGN Photographies aériennes** (WMTS public, sans clé ni Referer), **Terrarium** (type `dem`, altitudes ; masqué du sélecteur, réservé à l'ombrage et aux profils). Le catalogue compte maintenant 8 sources dont 1 calque (`ign-pentes`).
+  - `SpikeScreen` : le filtre qui masque Terrarium comparait le type en majuscules alors que le parseur le met en minuscules (`"dem"`) ; corrigé avant qu'il ne serve. Rangée de fonds de carte défilante horizontalement.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply :core:test` → **53 tests** `:core`, 0 échec (`BuiltinSourcesTest` passe de 5 à 8 : liste exacte des ids, rotation a/b/c d'OpenTopoMap, couches IGN publiques sans clé ni Referer).
+  - `./gradlew spotlessApply check assembleDebug` → **BUILD SUCCESSFUL en 20 s** (APK 62 Mo).
+  - Récupération réseau d'une tuile par source à son `preview-location` (script Python qui lit la ressource, substitue `{$x}{$y}{$z}{$param:…}` et appelle `curl` avec User-Agent et Referer déclarés) : `osm` 200 `image/png`, `ign-maps` 200 `image/jpeg`, `ign-scan25` 200 `image/jpeg`, `ign-pentes` 200 `image/png`, `opentopomap` 200 `image/png`, `ign-plan` 200 `image/png`, `ign-ortho` 200 `image/jpeg`, `terrarium` 200 `image/png`.
+- **Problèmes / dette technique** :
+  - P1.4 reste 🔄 : le critère dit « affiche une tuile » ; le téléchargement est vérifié, **l'affichage ne l'est pas** (dépend du spike P1.1 sur téléphone).
+  - Aucune des sources n'a été testée à des zooms hors de leur plage nominale ; les plages (`z=`) viennent des documentations des services et pourront être ajustées à l'usage.
+  - Les conditions d'usage d'OpenTopoMap et d'OSM limitent le volume : le téléchargement massif de zones (P2.3) devra refuser ou limiter ces sources.
+- **Prochaine étape recommandée** : voir l'entrée précédente (test du spike par l'utilisateur) ; puis **P1.5** (écran carte : gestes, GPS, boussole, échelle, coordonnées, attribution). Si le rapport du spike montre un problème d'intercepteur ou de zoom, le traiter avant P1.5.
+
+---
+
+## 2026-10-02 — Session 3 (suite) — [P1.1, P1.4] Intercepteur de tuiles, spike MapLibre et premières sources intégrées
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `6ed01a6`
+- **Objectif** : étape 3 du plan P1 (« Lance la phase P1 ») : tout ce qui est nécessaire au spike P1.1 pour que l'utilisateur teste l'affichage de tuiles IGN via l'intercepteur sur son téléphone. **P1.1 reste 🔄 : le critère (tuiles SCAN 25 affichées sur téléphone) n'est pas vérifié.**
+- **Réalisé** :
+  - **`:data`** (`fr.toolmap.data.tiles`) : `TileStore` + `InMemoryTileStore` ; `TileStats` (compteurs observables, histogramme des `z` demandés, dernier code HTTP / erreur / URL avec secrets masqués, `report()` texte) ; `TileHost` (hôte factice `tiles.toolmap.local`) ; `OfflineMode` ; `TileInterceptor` (intercepteur d'application OkHttp) : sert depuis le store sans réseau, 404 immédiat hors ligne, construit l'URL réelle via `TileUrlBuilder`, ajoute Referer / User-Agent / en-têtes / cookie, limite les téléchargements simultanés par source à `max-threads`, ne stocke que `image/*` ou `application/octet-stream`, réponses synthétiques 400 (URL mal formée), 404 (source inconnue, zoom hors niveaux, miss hors ligne, tuile vide), 502 (gabarit invalide, en-tête illégal, réponse non image), 504 (erreur réseau) ; les erreurs HTTP du serveur (403, 404…) passent telles quelles et ne sont pas stockées. User-Agent par défaut `ToolMap/0.1 (+https://github.com/JRRocks/ToolMap)` (exigé par la politique des tuiles OSM).
+  - **`:core`** : ressource `builtin-sources.aqx` + `BuiltinSources.load()` : OSM, IGN MAPS, IGN SCAN 25 (clé publique `ign_scan_ws` en `<param>`), IGN Pentes montagne (calque, 50 %, zooms 1–16). **P1.4 partiel (4 sources sur 7)**. Chaque source est testée : parse sans avertissement, URL construite à son `preview-location` sans placeholder résiduel, copyright présent.
+  - **`:app`** : `TileModule` (Hilt : catalogue, store mémoire, stats, mode hors ligne, `OkHttpClient` avec l'intercepteur) ; `ToolMapApp` installe le client via `HttpRequestUtil.setOkHttpClient` **avant** toute `MapView`, puis `MapLibre.getInstance` et cache ambiant à 0 ; `SpikeScreen` (bouton « Diagnostic carte (spike P1.1) » sur l'écran d'accueil) : `MapView` dans `AndroidView` avec cycle de vie, choix du fond (SCAN 25 / MAPS / OSM), calque Pentes à 50 %, interrupteur hors ligne, ligne « zoom caméra / zoom de la dernière tuile », rapport copiable (bouton « Copier le rapport ») et remise à zéro des compteurs. Manifeste : `INTERNET`, `ACCESS_NETWORK_STATE`. Chaînes en français dans `strings.xml`.
+  - Catalogue de versions : MapLibre 13.6.1, OkHttp 4.12.0, coroutines 1.11.0, lifecycle 2.11.0.
+- **Décisions (ADR)** : **ADR-010** (OkHttp 4.12.0, remplace la recommandation 5.5.0 de la session 2), **ADR-011** (`MapView` dans `AndroidView`, correspondance de zoom caméra / tuile à confirmer), **ADR-012** (persistance P1 sans Room).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply :core:test :data:testDebugUnitTest` → BUILD SUCCESSFUL en 33 s : `:core` **50 tests** (dont `BuiltinSourcesTest` 5), `:data` **23 tests** (`TileInterceptorTest` 14 avec `MockWebServer`, dont l'en-tête Referer/UA/cookie, le service depuis le store sans réseau, le 404 hors ligne, la rotation des serveurs et la limite `max-threads` ; `TileStoreAndStatsTest` 9), 0 échec.
+  - `./gradlew spotlessApply check assembleDebug` (après écriture du code `:app`) → **BUILD SUCCESSFUL en 1 min 38 s** (ktlint, lint de `:app`/`:data`/`:p2p`, tests, `app-debug.apk`).
+  - APK produit : `app/build/outputs/apk/debug/app-debug.apk`, **62 Mo** (bibliothèques natives MapLibre pour toutes les ABI ; filtrage des ABI prévu en P10).
+  - Signatures MapLibre utilisées (`HttpRequestUtil.setOkHttpClient(Call.Factory)`, `OfflineManager.setMaximumAmbientCacheSize`, `TileSet`, `RasterSource`, `RasterLayer`, `Style.Builder.fromJson`, écouteurs de caméra) vérifiées avec `javap` sur l'AAR 13.6.1.
+- **Problèmes / dette technique** :
+  - **Non vérifié** : tout ce qui touche MapLibre à l'exécution (aucun émulateur ici) : que l'intercepteur reçoive bien les requêtes de tuiles de MapLibre, que les tuiles s'affichent, que `setMaximumAmbientCacheSize(0)` soit accepté, que les plages `minZoom`/`maxZoom` du `TileSet` se comportent comme prévu (valeurs AQX passées telles quelles dans le spike). Le **rapport copiable** du spike sert à lever ces incertitudes. Si l'intercepteur n'est jamais appelé : ADR de repli (moteur raster Compose Canvas) avant de continuer.
+  - Toujours en attente côté utilisateur : confirmation que l'APK de P0 s'installe et affiche « ToolMap ».
+  - Le store du spike est en mémoire (perdu à la fermeture) ; MBTiles = P2.1.
+  - `LevelDef.insecure`, `clearColor` et les niveaux virtuels ne sont pas pris en compte par l'intercepteur.
+  - Connexions coupées par intermittence vers le WMTS privé IGN depuis ce bac à sable (l'intercepteur les traduit en 504) : à surveiller sur téléphone.
+  - La note de P3.1 (`maxzoom = max + 1`) est marquée **non vérifiée** dans PLAN.md : elle dépend de la mesure caméra / tuile.
+- **Prochaine étape recommandée** : **l'utilisateur** installe l'APK de la CI (artefact `toolmap-debug-apk`), ouvre « Diagnostic carte (spike P1.1) », vérifie que la carte IGN SCAN 25 s'affiche autour de Grenoble, zoome à plusieurs niveaux (surtout entre le zoom caméra 11 et 12), active la superposition Pentes et copie le rapport pour me le renvoyer. En attendant : **P1.4** (OpenTopoMap, IGN Plan v2, IGN Ortho, Terrarium) puis **P1.5** (écran carte).
+
+---
+
+## 2026-10-02 — Session 3 — [P1.2, P1.3] Parseur AQX, maths de tuiles et construction des URL
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `b1eb818`
+- **Objectif** : lancer la phase P1 (demande de l'utilisateur : « Lance la phase P1 »). Un plan P1 a été rédigé (ordre : P1.2 → P1.3 → P1.1 → P1.4 → P1.5 → P1.6 → P1.7, les tâches pures et vérifiables en JVM d'abord). Cette session réalise les deux premières étapes, 100 % dans `:core`.
+- **Réalisé** :
+  - **P1.2** : modèle `TileSource` / `LevelDef` / `ClearColor` / `ZoomSet` (`fr.toolmap.core.source`, `fr.toolmap.core.geo`) et `AqxParser` (`fr.toolmap.core.aqx`) : formes `<level><zoom-values>`, `<zoom-levels z="">` et ancien `<zoom-level>`, `type` en attribut ou en élément (insensible à la casse), CDATA, plusieurs serveurs et plusieurs niveaux, `<param>`, projections non Mercator marquées « non supportées », balises inconnues et `<variable>`/`<expression>` en avertissements, DOCTYPE/entités refusés (XXE), taille maximale 5 M caractères. Détails et hypothèses : `docs/specs/aqx-format.md` (section « Notes d'implémentation »).
+  - **P1.3** : `TileMath` (`quadKey`, `tmsY`, `tileAt`, `boundsLonLat`, `boundsMercator`, `metersPerPixel`) et `TileUrlBuilder` (`{$x} {$y} {$!y} {$z} {$q} {$bbox} {$ibbox} {$param:k}`, `bbox` en EPSG:4326 ou 3857, rotation des serveurs par compteur atomique, erreur explicite sur placeholder inconnu ou `param` manquant).
+  - `core/build.gradle.kts` : propriété système `fixtures.dir` pour que les tests lisent `fixtures/` à la racine du dépôt.
+- **Décisions (ADR)** : aucun ADR écrit cette session. Décisions de conception prises dans le plan P1 et à consigner en ADR **au moment où elles sont mises en œuvre** (étape P1.1) : **OkHttp 4.12.0** (version dont dépend MapLibre 13.6.1, pas 5.5.0 comme recommandé dans l'entrée de la session 2 : cette recommandation est **remplacée**), `MapView` MapLibre dans `AndroidView` (pas `maplibre-compose`), persistance sans Room en P1 (sources intégrées en ressource `.aqx`, sources importées en fichiers `.aqx`).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply :core:test` : 1er essai → échec ktlint (`max-line-length`, `AqxParserTest.kt`) ; 2e essai → **42 tests, 5 échecs** (voir « Problèmes ») ; 3e essai → **BUILD SUCCESSFUL, 45 tests, 0 échec** : `AqxParserTest` 14, `TileUrlBuilderTest` 13, `TileMathTest` 11, `ZoomSetTest` 5, `AppInfoTest` 2.
+  - `./gradlew check assembleDebug` → **BUILD SUCCESSFUL en 44 s** (149 tâches : spotlessCheck, lint, tests, APK `app-debug.apk` 11,97 Mo).
+  - Critère de P1.2 vérifié par test : la fixture `fixtures/aqx/IGN_Topo_zoom_test.aqx` donne 2 sources, `IGN_MAPS` zooms 1–18 (contigus), `IGN_SCAN25TOUR` zooms 6–14, Referer `https://data.geopf.fr/`, gabarit d'URL exact, aucun avertissement.
+  - Critère de P1.3 vérifié par test : quadkey de référence Bing (`3/5` au zoom 3 → `213`), TMS, bbox en degrés et en mètres, URL IGN de la fixture à `14/8460/5950` identique à celle testée en curl en session 1, locale FRANCE sans effet sur le séparateur décimal.
+  - `tileAt` et les bornes de tuile recoupés par un calcul Python indépendant (mêmes valeurs jusqu'à la 15e décimale pour la ligne 5950).
+  - Miroir Maven (ADR-009), HTTP 200 : `okhttp-4.12.0.jar`, `mockwebserver-4.12.0.jar`, `org.maplibre.gl:android-sdk:13.6.1` (AAR). `kotlinx-coroutines-android` stable 1.11.0 ; `kotlinx-serialization-json` : la dernière version listée est `1.12.0-RC` (choisir une stable à l'étape P1.1). Le jar `-sources` de MapLibre n'existe pas (404) : lire les signatures dans l'AAR (`javap`).
+- **Problèmes / dette technique** :
+  - **Erreur de ma part n°1 (BOM)** : le caractère BOM de `removePrefix(...)` avait été perdu à l'écriture du fichier (chaîne vide), et le test « byte order mark is tolerated » ne contenait pas de BOM : il passait **à vide**. Les 3 tests sur la fixture (UTF-8 avec BOM, CRLF) l'ont révélé. Corrigé avec `0xFEFF.toChar()` dans le code et le test, plus une assertion qui vérifie que l'entrée du test commence bien par un BOM.
+  - **Erreur de ma part n°2 (tuile de référence)** : j'avais supposé que la tuile `14/8460/5950` (celle testée en curl) contenait le `preview-location` `5.90,44.80`. Faux : elle est à ≈ 44,11° N ; la tuile de ce point est `14/8460/5906`. Le code était juste, le test faux. Ajout de `TileMath.tileAt` (utile à P1.4 pour tester chaque `preview-location`) et de tests de recoupement. Corrigé aussi dans la spec.
+  - `{$ibbox}` interprété comme bbox arrondie à l'entier : **hypothèse** non confirmée. `{$serverpart}` non géré (exception explicite).
+  - **Non vérifié / toujours en attente** : confirmation par l'utilisateur que l'APK de P0 s'installe et affiche « ToolMap » ; rien de la phase P1 n'est encore visible sur téléphone (P1.2 et P1.3 sont de la logique pure).
+  - Point à mesurer par le spike P1.1 : correspondance entre le zoom de la caméra MapLibre (tuiles de 512 px) et le `z` des tuiles de 256 px demandées (décalage de 1 attendu). Elle conditionne la traduction `minzoom`/`maxzoom` de **P3.1**, dont la note actuelle (`maxzoom = max + 1`) n'est pas encore vérifiée.
+- **Prochaine étape recommandée** : **P1.1** (spike) : ajouter au catalogue `org.maplibre.gl:android-sdk` 13.6.1, `okhttp` 4.12.0 (+ `mockwebserver` 4.12.0 en test), coroutines ; écrire `TileStore` (mémoire) et `TileInterceptor` dans `:data` avec tests `MockWebServer` ; installer le client via `HttpRequestUtil.setOkHttpClient` dans `ToolMapApp` ; écran de diagnostic avec rapport copiable ; ADR-010 à 012. Pousser, puis **demander à l'utilisateur d'installer l'APK de la CI** (confirmer aussi l'écran « ToolMap » de P0) et de renvoyer le rapport du spike. Enchaîner ensuite sur P1.4 (sources intégrées, test de chaque `preview-location` avec `tileAt`).
+
+## 2026-10-01 — Session 2 — [P0.1, P0.2, P0.3, P0.4] Fondations : projet Gradle, hook cloud, CI, style
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9`, parti de `d5955b9`
+- **Objectif** : lancer la phase P0 (demande de l'utilisateur : « Lance la phase P0 »).
+- **Réalisé** :
+  - **P0.1** : projet Gradle 4 modules (`:core` JVM pur, `:data` et `:p2p` bibliothèques Android vides, `:app` Compose + Hilt), catalogue `gradle/libs.versions.toml`, wrapper Gradle 9.6.0 (SHA-256 verrouillé), écran d'accueil « ToolMap » (nom lu dans `AppInfo` de `:core`, thème Material 3 clair/sombre/dynamique), icône adaptative. Un test JVM (`AppInfoTest`, 2 tests) valide la chaîne de test de `:core`.
+  - **P0.2** : `scripts/install-android-sdk.sh` (idempotent), `.claude/hooks/session-start.sh` + `.claude/settings.json`, script d'init Gradle `scripts/gradle-init/cloud-mirror.init.gradle` (miroir Maven Central).
+  - **P0.3** : `.github/workflows/ci.yml` (`./gradlew check assembleDebug`, artefact APK), `.github/dependabot.yml`, keystore debug fixe `app/debug.keystore` (signature stable des APK). **Vérifiée sur GitHub** : voir « Tests / vérifications ».
+  - **P0.4** : Spotless 8.10.3 + ktlint 1.8.0 (`.editorconfig`, `build.gradle.kts` racine) ; code existant formaté par `spotlessApply`.
+- **Décisions (ADR)** : ADR-007 (AGP 9.4 / Gradle 9.6 / Kotlin 2.4 / API 37), ADR-008 (Spotless + ktlint, detekt reporté), ADR-009 (SDK par hook, miroir Maven Central, keystore debug fixe).
+- **Tests / vérifications** :
+  - `CLAUDE_CODE_REMOTE=true ./.claude/hooks/session-start.sh` : 1re exécution 28 s (SDK installé), 2e exécution 0,9 s ; sans `CLAUDE_CODE_REMOTE` : sans effet.
+  - `./gradlew check assembleDebug` → **BUILD SUCCESSFUL en 1 min 38 s** (149 tâches : spotlessCheck, lint, tests, assemblage). `:core:test` : `AppInfoTest` 2 tests, 0 échec.
+  - APK `app-debug.apk` (11,9 Mo) : `aapt2 dump badging` → package `fr.toolmap`, minSdk 26, targetSdk 36, compileSdk 37, activité `fr.toolmap.MainActivity` ; `apksigner verify --print-certs` → signé `CN=ToolMap Debug`, SHA-256 `e4e1cfd2…c3eea9` = empreinte de `app/debug.keystore`.
+  - **CI GitHub** : push `0ae8c79` → run n°1 (https://github.com/JRRocks/ToolMap/actions/runs/36888191083) **vert en 5 min 45 s** : installation du SDK par `scripts/install-android-sdk.sh` OK, `./gradlew check assembleDebug` OK, artefact `toolmap-debug-apk` 11,5 Mo publié (l'étape « Upload reports », réservée aux échecs, a été ignorée).
+  - Lint : 0 erreur ; 2 avertissements dans `:app` (`OldTargetApi` : targetSdk 36 < 37 voulu, voir ADR-007 ; `DataExtractionRules` : `allowBackup` sans `dataExtractionRules`, à traiter en P10).
+- **Problèmes / dette technique** :
+  - Maven Central renvoie des `429` sur rafale : 1er build échoué, puis un 2e arrêté à la main (backoff trop long avec `max.tentatives=8`). Résolu par le miroir (ADR-009). Autre échec du 1er vrai build : `Theme.Material.DayNight.NoActionBar` n'est pas un style public → `Light`/`NoActionBar` + `values-night`.
+  - `./gradlew testDebugUnitTest` seul **ne lance pas** les tests de `:core` (pas de variante debug) : utiliser `check` ou `:core:test`.
+  - Spotless n'applique pas le réglage `.editorconfig` de la règle `chain-method-continuation` : contourné par `editorConfigOverride` (ADR-008).
+  - **Non vérifié** : lancement réel de l'APK sur téléphone (pas d'émulateur) ; comportement du hook au démarrage d'une nouvelle session cloud (il n'est actif que s'il est présent sur la branche de la session ou sur la branche par défaut).
+  - Suivi : rouvrir detekt quand la 2.0 sera stable ; versions des actions GitHub (`checkout@v4`, `setup-java@v4`, `setup-gradle@v4`, `upload-artifact@v4`) choisies sans pouvoir interroger les dernières versions : Dependabot les mettra à jour.
+- **Prochaine étape recommandée** : (1) demander à l'utilisateur de télécharger l'artefact `toolmap-debug-apk` (onglet Actions de GitHub), de l'installer et de confirmer qu'il affiche « ToolMap » (critère restant de P0.1 et P0.3) ; (2) **P1.1** : spike MapLibre + `TileInterceptor` (ajouter `org.maplibre.gl:android-sdk` 13.6.1 et OkHttp 5.5.0 au catalogue, afficher une tuile IGN SCAN 25 via l'hôte factice, ADR-002 à confirmer ou à remplacer) ; (3) **P1.2** : parseur AQX dans `:core`, testé sur `fixtures/aqx/IGN_Topo_zoom_test.aqx`.
+
+## 2026-10-01 — Session 1 — [Planification] Plan initial et infrastructure de suivi
+- **Branche / commit** : `ccr-e59b55ac-kt4qb9` (parti de `3aac3a5` « Initial commit »)
+- **Objectif** : rédiger le plan complet de recréation d'AlpineQuest et mettre en place le suivi pour les futures sessions. Pas de code applicatif.
+- **Réalisé** :
+  - Étude du site officiel AlpineQuest (fonctionnalités, aide « maps », « placemarks », spécification AQX).
+  - Questions posées à l'utilisateur, réponses : **Android natif Kotlin** ; partage de position **100 % P2P strict par QR code**.
+  - Création de `CLAUDE.md` (protocole de journal obligatoire), `docs/PLAN.md` (phases P0 à P10, tâches à ID avec critères d'acceptation), `docs/DECISIONS.md` (ADR-001 à 006), `docs/specs/aqx-format.md`, `docs/specs/p2p-sharing.md`, `docs/specs/print-pdf.md`, fixture `fixtures/aqx/IGN_Topo_zoom_test.aqx`, README mis à jour.
+- **Décisions (ADR)** : ADR-001 (Kotlin + Compose), ADR-002 (MapLibre + intercepteur OkHttp), ADR-003 (MBTiles par source), ADR-004 (P2P WebRTC + QR, pas de TURN), ADR-005 (Web Mercator seul en v1), ADR-006 (langues).
+- **Tests / vérifications** :
+  - Environnement : JDK 21 et Gradle 8.14.3 présents ; `dl.google.com`, `maven.google.com`, Maven Central et `plugins.gradle.org` joignables (HTTP 200), donc le SDK Android est installable par hook (P0.2). SDK Android absent, pas d'émulateur.
+  - Tuile IGN SCAN25TOUR via `data.geopf.fr/private/wmts?apikey=ign_scan_ws` (z14, x8460, y5950) → HTTP 200 `image/jpeg`, même sans Referer. WMTS public `GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN` → HTTP 200 `image/png`.
+  - Valeurs de référence de `print-pdf.md` recalculées par script (1:25 000/300 dpi → z16, 1:50 000 → z15, 1:100 000 → z14 à 45° N).
+  - `diff` fixture/fichier fourni : identiques.
+- **Problèmes / dette technique** :
+  - ADR-002 reste à valider par le spike P1.1 (interception OkHttp des tuiles MapLibre).
+  - Placeholder AQX `{$serverpart}` et support des `<expression>` à confirmer sur des fichiers réels.
+  - Licence du projet non choisie (P10.3).
+- **Prochaine étape recommandée** : **P0.1** (squelette Gradle multi-modules), puis **P0.2** (hook SessionStart d'installation du SDK Android) et **P0.3** (CI avec APK en artefact). Enchaîner ensuite sur P1.1 (spike MapLibre) et P1.2 (parseur AQX testé sur la fixture).

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+<Document>
+  <name>Sortie test</name>
+  <description>Fichier de test écrit à la main (structure de Google Earth)</description>
+  <Style id="red-line">
+    <LineStyle><color>ff0000ff</color><width>5</width></LineStyle>
+  </Style>
+  <Style id="blue-line">
+    <LineStyle><color>80ff0000</color><width>2.5</width></LineStyle>
+  </Style>
+  <StyleMap id="map-line">
+    <Pair><key>normal</key><styleUrl>#blue-line</styleUrl></Pair>
+    <Pair><key>highlight</key><styleUrl>#red-line</styleUrl></Pair>
+  </StyleMap>
+  <Folder>
+    <name>Jour 1</name>
+    <Folder>
+      <name>Points</name>
+      <Placemark>
+        <name>Refuge</name>
+        <TimeStamp><when>2026-07-14T08:30:00Z</when></TimeStamp>
+        <Point><coordinates>6.8652,45.8326,3613</coordinates></Point>
+      </Placemark>
+    </Folder>
+    <Placemark>
+      <name>Montée</name>
+      <description><![CDATA[<b>Raide</b> & longue]]></description>
+      <styleUrl>#red-line</styleUrl>
+      <LineString><coordinates>6.86,45.83,1000 6.87,45.84,1200 6.88,45.85,1500</coordinates></LineString>
+    </Placemark>
+    <Placemark>
+      <name>Variante</name>
+      <styleUrl>#map-line</styleUrl>
+      <LineString><coordinates>6.86,45.83 6.865,45.835</coordinates></LineString>
+    </Placemark>
+  </Folder>
+  <Placemark>
+    <name>Enregistrement GPS</name>
+    <gx:Track>
+      <when>2026-07-14T09:00:00Z</when>
+      <when>2026-07-14T09:00:10Z</when>
+      <when>2026-07-14T09:00:20Z</when>
+      <gx:coord>6.8600 45.8300 1000</gx:coord>
+      <gx:coord>6.8601 45.8301 1002</gx:coord>
+      <gx:coord>6.8602 45.8302 1004</gx:coord>
+    </gx:Track>
+  </Placemark>
+</Document>
+</kml>

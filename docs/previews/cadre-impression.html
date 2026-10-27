@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadre d'impression</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:16px;background:#fff;color:#222}
+.row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:720px}
+.cap{font-size:13px;color:#555;margin:6px 0 0}.cap b{color:#111;font-weight:500}
+</style>
+</head>
+<body>
+<h2 style="font-size:16px;font-weight:500">Aperçu : écran de placement du cadre d'impression (montré le 2026-10-26, en attente de validation)</h2>
+<div class="row">
+<div><div id="ph0"></div><p class="cap"><b>Actuel</b> : boîtes, crédits, barre, boutons et 3 alertes de 2 lignes</p></div>
+<div><div id="ph1"></div><p class="cap"><b>Variante A</b> : format seul en haut, Annuler / Suivant en bas ; alertes sur l'écran suivant</p></div>
+<div><div id="ph2"></div><p class="cap"><b>Variante B</b> : comme A, plus une ligne repliée « 3 cartes non imprimées », détail au toucher</p></div>
+</div>
+<p class="cap" style="max-width:720px">Dans les deux variantes, une alerte SOS d'un membre du groupe resterait affichée.</p>
+<script>
+const W=210,H=455;
+const T=(x,y,s,o={})=>`<text x="${x}" y="${y}" font-size="${o.size||11}" fill="${o.fill||'#e8eaed'}" text-anchor="${o.a||'start'}" font-weight="${o.b?500:400}" font-family="sans-serif">${s}</text>`;
+const panel=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7" fill="#20242b" fill-opacity="0.9"/>`;
+function map(){let s=`<rect width="${W}" height="${H}" fill="#d9e3bf"/>`;
+for(let i=0;i<9;i++){const y=20+i*52;s+=`<path d="M0 ${y} C60 ${y-14} 120 ${y+18} ${W} ${y-6}" stroke="#b9a27a" stroke-width="0.8" fill="none" opacity="0.7"/>`}
+s+=`<path d="M150 0 C140 120 120 220 95 ${H}" stroke="#7fb3d5" stroke-width="3" fill="none"/>`;
+for(let x=18;x<W;x+=46)s+=`<line x1="${x}" y1="0" x2="${x+6}" y2="${H}" stroke="#4f5f68" stroke-width="0.7" opacity="0.7"/>`;
+for(let y=30;y<H;y+=46)s+=`<line x1="0" y1="${y}" x2="${W}" y2="${y+3}" stroke="#4f5f68" stroke-width="0.7" opacity="0.7"/>`;
+s+=`<line x1="118" y1="0" x2="118" y2="${H}" stroke="#1c2429" stroke-width="2.4"/>`;return s}
+function frame(fy){const fx=34,fw=150,fh=84;return `<path d="M0 0H${W}V${H}H0Z M${fx} ${fy}v${fh}h${fw}v${-fh}Z" fill="#000" fill-opacity="0.35" fill-rule="evenodd"/><rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" fill="none" stroke="#a8c7fa" stroke-width="1.6"/><line x1="${fx+fw/2-5}" y1="${fy+fh/2}" x2="${fx+fw/2+5}" y2="${fy+fh/2}" stroke="#a8c7fa"/><line x1="${fx+fw/2}" y1="${fy+fh/2-5}" x2="${fx+fw/2}" y2="${fy+fh/2+5}" stroke="#a8c7fa"/>`+T(fx+30,fy+14,'31T GL',{fill:'#263238',b:1})+T(fx+100,fy+14,'32T KR',{fill:'#263238',b:1})}
+function chips(y){let s='';[['A4',8,44],['Paysage',56,68],['1:25 000',128,70]].forEach(([t,x,w])=>{s+=`<rect x="${x+6}" y="${y}" width="${w}" height="22" rx="5" fill="none" stroke="#8e9099" stroke-width="0.8"/>`+T(x+12,y+15,t)+`<path d="M${x+w-6} ${y+9}l4 5l4-5z" fill="#e8eaed"/>`});return s}
+function bottom(){return `<rect x="0" y="${H-64}" width="${W}" height="64" rx="10" fill="#1b1f26"/>`+T(10,H-48,'Glissez le cadre pour le placer ;')+T(10,H-35,'la carte se déplace autour.')+`<rect x="10" y="${H-26}" width="90" height="20" rx="10" fill="none" stroke="#8e9099"/>`+T(55,H-12,'Annuler',{a:'middle'})+`<rect x="110" y="${H-26}" width="90" height="20" rx="10" fill="#a8c7fa"/>`+T(155,H-12,'Suivant',{a:'middle',fill:'#0b1d36',b:1})}
+function phone(id,mode){let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;border-radius:14px;border:0.5px solid #bbb" role="img" aria-label="${id}">`+map();
+if(mode===0){s+=frame(222)+`<circle cx="105" cy="264" r="6" fill="none" stroke="#fff" stroke-width="2"/>`;
+s+=panel(8,10,118,44)+T(14,24,'31T GL 33796 43221')+T(14,37,'Grille MGRS 31T · 5 km')+T(14,50,'Convergence 2°08′ E');
+s+=panel(8,58,118,22)+T(14,73,'1:154 400   14/19');
+s+=panel(6,86,198,130)+chips(92)+T(105,128,'6,6 km × 3,7 km sur le terrain',{a:'middle'});
+const wl=['OpenStreetMap : hors de sa plage','de zoom à cette échelle, non imprimé.','OpenTopoMap : hors de sa plage de','zoom à cette échelle, non imprimé.','IGN Photographies aériennes : hors de','sa plage de zoom, non imprimé.'];wl.forEach((t,i)=>s+=T(12,142+i*12,t,{fill:'#ff8a3d'}));
+s+=panel(6,318,160,30)+T(10,330,'(c) OpenStreetMap contributors ·')+T(10,343,'OpenTopoMap (CC-BY-SA) · IGN');
+['⇄','+','−'].forEach((t,i)=>{s+=`<rect x="176" y="${300+i*30}" width="26" height="26" rx="7" fill="#a8c7fa"/>`+T(189,318+i*30,t,{a:'middle',fill:'#0b1d36',size:14})});
+s+=`<rect x="6" y="358" width="112" height="28" rx="14" fill="#20242b" fill-opacity="0.9"/><path d="M16 380l7-10l7 10z" fill="#a8c7fa"/><rect x="42" y="366" width="10" height="14" fill="#e8eaed"/><path d="M70 366v14M70 366h9l-2 4l2 4h-9" stroke="#e8eaed" fill="none" stroke-width="1.6"/><circle cx="101" cy="372" r="6" fill="none" stroke="#e8eaed" stroke-width="1.6"/>`}
+else{s+=frame(200);s+=panel(6,10,198,mode===1?34:62)+chips(16);
+if(mode===2){s+=T(12,54,'6,6 × 3,7 km')+T(86,54,'⚠ 3 cartes non imprimées',{fill:'#ff8a3d'})+`<path d="M196 49l-3 4l-3-4" stroke="#ff8a3d" fill="none"/>`}}
+s+=bottom()+'</svg>';document.getElementById(id).innerHTML=s}
+phone('ph0',0);phone('ph1',1);phone('ph2',2);
+</script>
+</body>
+</html>
