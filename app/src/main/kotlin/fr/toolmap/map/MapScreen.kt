@@ -175,7 +175,7 @@ import fr.toolmap.record.RecordingRecoveryDialog
 import fr.toolmap.record.RecordingViewModel
 import fr.toolmap.record.SatelliteCount
 import fr.toolmap.record.labelRes
-import fr.toolmap.share.MemberDialog
+import fr.toolmap.share.MemberSheet
 import fr.toolmap.share.ShareHud
 import fr.toolmap.share.ShareViewModel
 import fr.toolmap.share.serverUp
@@ -1937,7 +1937,7 @@ fun MapScreen(
                 share.select(null)
             } else {
                 val fix = member.fix
-                MemberDialog(
+                MemberSheet(
                     member = member,
                     state = PeerState.of(member, System.currentTimeMillis(), serverUp(shareUi)),
                     onShowOnMap =

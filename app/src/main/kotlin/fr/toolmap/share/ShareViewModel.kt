@@ -111,6 +111,8 @@ class ShareViewModel
 
         fun clearJoined() = controller.clearJoined()
 
+        fun markMessagesRead() = controller.markMessagesRead()
+
         /** The phone settings that stop the sharing, read now (P21.5 o, c). */
         fun recheckPhone(): List<ShareAlert> = controller.recheckPhone()
 

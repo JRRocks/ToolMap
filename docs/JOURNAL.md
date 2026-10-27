@@ -20,6 +20,24 @@
 
 ---
 
+## 2026-10-27 — Session 67 (suite) — [P29.8] Partage de position en « Cordée » : votre ligne en tête
+- **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
+- **Objectif** : coder la variante B · Cordée du partage de position, choisie par l'utilisateur le 2026-10-27 (« P29.8 (Partage) : B · Cordée ») : votre ligne en tête, avec le jeton que voient les autres à côté de l'interrupteur qui l'envoie ; une seule action pleine ; le SOS à une place fixe ; la fiche d'un membre et l'invitation en feuilles.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/design-08-partage.html`, variante B · Cordée, validée le 2026-10-27.
+  - `ShareScreen` réécrit en pages : principale (`MainPage`), « Ce que les autres voient », « Réglages du partage », « Messages ». Hors groupe : votre ligne (jeton, nom, « Ce que les autres voient »), « Aucun groupe », « Créer un groupe et inviter », « Rejoindre un groupe » en deux boutons. En groupe : sous-titre de la barre = pastille de la carte, votre ligne (texte qui ouvre votre fiche, interrupteur à part), ligne rouge « Arrêter le SOS » pendant le vôtre, alertes, membres en lignes de 64 dp avec un bouton carte, ligne « Messages » (dernier message, non-lus), « Inviter » flottant ; SOS en icône dans la barre ; ⋮ : Scanner un code, Coller un lien, Réglages du partage, Aide, Quitter le groupe.
+  - `ShareController` : nom envoyé (`ShareUi.myName`) et compteur des messages non lus (`markMessagesRead`).
+  - `MemberSheet` remplace le dialogue d'un membre (aussi sur la carte) : quatre chiffres, position, trois tuiles, « Retirer du groupe » dans le ⋮ avec confirmation ; `CodeSheet` remplace le dialogue de l'invitation (QR d'abord, « Envoyer le lien par message » plein, « Fermer »).
+  - L'aide du partage reprend la phrase sur l'écran éteint ; neuf chaînes devenues inutiles retirées.
+  - ADR-081 ; `docs/specs/ui-index.md` §7 (SHARE).
+  - Comparaison : `docs/previews/design-08-partage-rendu.html` (le QR des rendus code une adresse factice, jamais une invitation).
+- **Décisions (ADR)** : ADR-081.
+- **Tests / vérifications** :
+  - `ShareSamples` (le groupe de l'aperçu) ; `ShareScreensTest` (6 : hors groupe, ⋮ hors groupe, en groupe avec bouton carte et non-lus, SOS et ⋮ en groupe, fiche d'un membre avec confirmation du retrait, votre fiche sans « Aller vers » ni ⋮) ; `ShareControllerTest` : les messages des autres comptent comme non lus jusqu'à l'ouverture de leur page ; `ShareRenderTest` (7 rendus).
+  - `./gradlew spotlessApply check assembleDebug --max-workers=2` : BUILD SUCCESSFUL en 4 min 5 s, version 0.4.93 → **0.4.94**, `ToolMap-debug-0.4.94.apk`. Tests : core 878, data 311, p2p 29 (2 ignorés), app 394 (58 ignorés, dont les rendus), 0 échec ; lint : 0 erreur, app 66 avertissements et 1 indication.
+- **Problèmes / dette technique** : capture de l'émulateur à faire sur le poste Windows ; l'écran en groupe reste à voir sur deux téléphones ; le dialogue « SOS de … » reçu est inchangé (coordonnées en décimal).
+- **Prochaine étape recommandée** : P29.9 (Réglages, C · Loupe).
+
 ## 2026-10-27 — Session 67 (suite) — [P29.7] Téléchargements et stockage en « Poids » : la zone pesée d'abord
 - **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
 - **Objectif** : coder la variante B · Poids de la sélection de zone, des Téléchargements et du Stockage, choisie par l'utilisateur le 2026-10-27 (« P29.7 (Téléchargements) : B · Poids ») : répondre d'un coup d'œil à « combien pèse cette zone, et reste-t-il de la place ? », mettre la tâche en cours en premier, ouvrir le Stockage sur la place du téléphone.

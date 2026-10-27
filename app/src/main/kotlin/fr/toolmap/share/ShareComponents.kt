@@ -6,23 +6,37 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,8 +60,12 @@ import fr.toolmap.core.p2p.MemberStatus
 import fr.toolmap.core.p2p.MemberView
 import fr.toolmap.core.p2p.PeerState
 import fr.toolmap.core.track.TrackFormat
+import fr.toolmap.map.ActionTile
+import fr.toolmap.map.ActionTiles
+import fr.toolmap.maps.MapsIcons
 import fr.toolmap.p2p.QrCodes
 import fr.toolmap.p2p.QrMatrix
+import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.TextButton
 import java.util.Locale
@@ -158,32 +176,15 @@ fun ageText(
         .getRelativeTimeSpanString(timeMs, nowMs.coerceAtLeast(timeMs), DateUtils.SECOND_IN_MILLIS)
         .toString()
 
-/** The facts about a member's last position, one per line, only those that are known. */
+/**
+ * The sheet of a member (P29.8, « Cordée »), as the sheet of a waypoint: its token, name and state, four figures
+ * (altitude, speed, battery, accuracy), its position in the chosen format, then the tiles « Voir sur la carte » ·
+ * « Aller vers ce membre » · « Enregistrer sa trace »; « Retirer du groupe » is in the ⋮ of the head, with a
+ * confirmation. Your own sheet has neither « Aller vers ce membre » nor ⋮.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun memberFacts(
-    member: MemberView,
-    state: PeerState,
-): List<String> {
-    val fmt = LocalFormats.current
-    val fix = member.fix
-    val lines = ArrayList<String>()
-    lines += peerStateLabel(state)
-    if (fix == null) {
-        lines += stringResource(R.string.share_no_position)
-        return lines
-    }
-    lines += stringResource(R.string.share_last_position, ageText(fix.timeSec * MS_PER_S))
-    lines += fmt.position(fix.lat, fix.lon).text
-    fix.accuracyM?.let { lines += stringResource(R.string.share_accuracy, it) }
-    fix.altM?.let { lines += stringResource(R.string.share_altitude, it) }
-    fix.speedMs?.let { lines += stringResource(R.string.share_speed, fmt.speed(it)) }
-    fix.battery?.let { lines += stringResource(R.string.share_battery, it) }
-    return lines
-}
-
-/** What can be done with a member: look at it on the map, walk to it, keep its trail, remove it. */
-@Composable
-fun MemberDialog(
+fun MemberSheet(
     member: MemberView,
     state: PeerState,
     onShowOnMap: (() -> Unit)?,
@@ -192,38 +193,138 @@ fun MemberDialog(
     onRemove: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                MemberBadge(member.name, member.color, picture = member.picture)
-                Text(member.name, modifier = Modifier.weight(1f))
+    val fmt = LocalFormats.current
+    val fix = member.fix
+    var menu by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp)) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MemberBadge(member.name, member.color, size = 48.dp, picture = member.picture)
+                Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                    Text(
+                        if (member.isSelf) stringResource(R.string.share_self, member.name) else member.name,
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        listOfNotNull(peerStateLabel(state), fix?.let { ageText(it.timeSec * MS_PER_S) })
+                            .joinToString(" · "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = muted,
+                    )
+                }
                 PeerStatusIcon(state)
+                if (!member.isSelf) {
+                    Box {
+                        IconButton(onClick = { menu = true }) {
+                            Icon(
+                                Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.share_member_menu, member.name),
+                            )
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(stringResource(R.string.share_remove), color = MaterialTheme.colorScheme.error)
+                                },
+                                onClick = {
+                                    menu = false
+                                    confirmRemove = true
+                                },
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(Modifier.width(12.dp))
+                }
             }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (line in memberFacts(member, state)) Text(line)
-                Column(modifier = Modifier.padding(top = 8.dp)) {
-                    if (onShowOnMap != null) {
-                        TextButton(onClick = onShowOnMap) { Text(stringResource(R.string.share_show_on_map)) }
-                    }
-                    if (onGoTo != null) {
-                        TextButton(onClick = onGoTo) { Text(stringResource(R.string.share_go_to)) }
-                    }
-                    TextButton(onClick = onSaveTrail, enabled = member.trail.size >= 2) {
-                        Text(stringResource(R.string.share_save_trail))
-                    }
-                    if (!member.isSelf) {
-                        TextButton(onClick = onRemove) {
-                            Text(stringResource(R.string.share_remove), color = MaterialTheme.colorScheme.error)
+            val figures =
+                listOfNotNull(
+                    fix?.altM?.let {
+                        stringResource(R.string.share_fig_altitude_value, it) to
+                            R.string.share_fig_altitude
+                    },
+                    fix?.speedMs?.let { fmt.speed(it) to R.string.share_fig_speed },
+                    fix?.battery?.let {
+                        stringResource(R.string.share_fig_battery_value, it) to
+                            R.string.share_fig_battery
+                    },
+                    fix?.accuracyM?.let {
+                        stringResource(R.string.share_fig_accuracy_value, it) to R.string.share_fig_accuracy
+                    },
+                )
+            if (figures.isNotEmpty()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    for ((value, label) in figures) {
+                        Column {
+                            Text(value, style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(label), style = MaterialTheme.typography.bodySmall, color = muted)
                         }
                     }
                 }
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
-    )
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 40.dp).padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(SettingsIcons.Place, contentDescription = null, tint = muted)
+                Text(
+                    fix?.let { fmt.position(it.lat, it.lon).text } ?: stringResource(R.string.share_no_position),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(start = 20.dp),
+                )
+            }
+            Box(Modifier.padding(top = 8.dp)) {
+                ActionTiles {
+                    ActionTile(
+                        MapsIcons.Map,
+                        stringResource(R.string.share_show_on_map),
+                        enabled = onShowOnMap != null,
+                    ) {
+                        onShowOnMap?.invoke()
+                    }
+                    if (!member.isSelf) {
+                        ActionTile(
+                            SettingsIcons.NearMe,
+                            stringResource(R.string.share_go_to),
+                            enabled = onGoTo != null,
+                        ) {
+                            onGoTo?.invoke()
+                        }
+                    }
+                    ActionTile(
+                        MapsIcons.Download,
+                        stringResource(R.string.share_save_trail),
+                        enabled = member.trail.size >= 2,
+                        onClick = onSaveTrail,
+                    )
+                }
+            }
+        }
+    }
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text(stringResource(R.string.share_remove_title, member.name)) },
+            text = { Text(stringResource(R.string.share_remove_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRemove = false
+                    onRemove()
+                }) { Text(stringResource(R.string.share_remove), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
 }
 
 /** An SOS that was just received: it comes back for nothing until acknowledged. */

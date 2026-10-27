@@ -1166,3 +1166,30 @@
   cartes cochées ne se voient qu'en résumé tant que la ligne « Cartes » est repliée ; pendant la sélection, le menu,
   les traces et la position ne s'ouvrent pas (il faut sortir du mode).
 - **Alternatives rejetées** : variantes A, C, D et E de l'aperçu.
+
+## ADR-081 — Partage en « Cordée » : votre ligne en tête, Inviter flottant, SOS dans la barre, fiche et invitation en feuilles
+- **Date / statut** : 2026-10-27 — Accepté (P29.8 ; aperçu `docs/previews/design-08-partage.html`, variante B ·
+  Cordée, choisie par l'utilisateur le 2026-10-27). Garde ADR-071 (cartes d'alerte du partage, leur bouton plein
+  étant l'exception validée), ADR-050 (jetons) et le protocole du partage (ADR-004, ADR-021, ADR-033).
+- **Contexte** : audit de P29.8 : une dizaine de blocs de même poids en groupe, quatre boutons pleins, un SOS sans
+  place fixe ni forme propre, la même action sous des libellés différents selon l'état, des lignes de membres de
+  36 dp, une fiche de membre en dialogue qui couvre la carte et retire sans confirmation, une invitation qui dit
+  « Annuler » alors que le code reste valable 7 jours, des résumés de réglages qui ne disent pas l'état réel.
+- **Décision** :
+  1. Votre ligne en tête : hors groupe, votre jeton et votre nom (celui que les autres voient, `ShareUi.myName`)
+     ouvrent la page « Ce que les autres voient » ; en groupe, le texte ouvre votre fiche, l'interrupteur à part
+     envoie ou non. Hors groupe : état vide « Aucun groupe », « Créer un groupe et inviter », « Rejoindre un
+     groupe » en deux boutons côte à côte.
+  2. En groupe : alertes sous votre ligne ; membres en lignes de 64 dp avec un bouton carte chacun ; ligne
+     « Messages » avec le dernier message et le nombre de non-lus (`ShareController.markMessagesRead`, compteur des
+     messages des autres reçus depuis la dernière ouverture), qui ouvre la page des messages (50 derniers, heure) ;
+     « Inviter » en bouton flottant, seule action pleine.
+  3. Le SOS passe en icône dans la barre (« Envoyer un SOS », même dialogue) ; pendant le vôtre, une ligne rouge en
+     tête porte « Arrêter le SOS ». Scanner, coller, réglages du partage (une page), aide et quitter vont dans le ⋮ ;
+     la phrase sur l'écran éteint passe dans l'aide.
+  4. Fiche d'un membre en feuille (`MemberSheet`, depuis la liste et la carte) : quatre chiffres, position au format
+     choisi, tuiles Voir sur la carte · Aller vers ce membre · Enregistrer sa trace, « Retirer du groupe » dans le ⋮
+     avec confirmation ; invitation en feuille (`CodeSheet`) avec « Fermer ».
+- **Conséquences** : ce qu'on vient vérifier tient en haut sans défiler ; le SOS est loin du pouce (le dialogue évite
+  l'envoi par erreur) ; scanner, coller et les réglages demandent un toucher de plus ; Messages s'ouvre à part.
+- **Alternatives rejetées** : variantes A, C, D et E de l'aperçu.

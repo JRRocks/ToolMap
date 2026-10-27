@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -16,15 +17,21 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -32,16 +39,22 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -67,22 +80,32 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.p2p.MemberPalette
+import fr.toolmap.core.p2p.MemberStatus
 import fr.toolmap.core.p2p.MemberView
 import fr.toolmap.core.p2p.PeerState
 import fr.toolmap.core.p2p.RelayConfig
 import fr.toolmap.core.p2p.ShareCadence
+import fr.toolmap.draw.RouteIcons
 import fr.toolmap.map.MenuIcons
+import fr.toolmap.maps.MapsIcons
+import fr.toolmap.settings.SettingsIcons
+import fr.toolmap.ui.GroupBlock
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.rememberNotificationAsk
 import fr.toolmap.ui.screenInsets
@@ -93,6 +116,9 @@ import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 private fun problemText(problem: ShareProblem): Int =
     when (problem) {
@@ -105,7 +131,16 @@ private fun problemText(problem: ShareProblem): Int =
         ShareProblem.PAIRING_TIMEOUT -> R.string.share_problem_timeout
     }
 
-/** The sharing screen: group, profile, invitation and scanning, members, texts and SOS. */
+/** The pages of the sharing screen (P29.8): the main one, and those its lines and its ⋮ open. */
+private enum class SharePage { MAIN, PROFILE, SETTINGS, MESSAGES }
+
+/**
+ * The sharing screen in « Cordée » (P29.8): your line first, your token as the others see it beside the switch that
+ * sends it (out of a group, the page « Ce que les autres voient »); the alert just under it; the others with their
+ * state and a map button each; the line « Messages » with the last one and the unread count; « Inviter » floating, the
+ * one filled action. The SOS is in the bar; scanning, pasting, the settings, the help and leaving are in its ⋮. The
+ * invitation and the sheet of a member are sheets.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShareScreen(
@@ -119,12 +154,16 @@ fun ShareScreen(
     val resources = LocalResources.current
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var page by rememberSaveable { mutableStateOf(SharePage.MAIN) }
     var scanning by rememberSaveable { mutableStateOf(false) }
     var pasting by rememberSaveable { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
     var sosDialog by remember { mutableStateOf(false) }
     var openMember by remember { mutableStateOf<Long?>(null) }
     var showIntro by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = page != SharePage.MAIN) { page = SharePage.MAIN }
+    // Leaving the group closes its pages.
+    LaunchedEffect(ui.inGroup) { if (!ui.inGroup && page == SharePage.MESSAGES) page = SharePage.MAIN }
 
     val permissions =
         remember {
@@ -165,99 +204,66 @@ fun ShareScreen(
             vm.clearJoined()
         }
     }
+    val toggle = { on: Boolean ->
+        if (!on) {
+            vm.stopSharing()
+        } else if (hasFineLocation(context)) {
+            startSharing()
+        } else {
+            permissionLauncher.launch(permissions)
+        }
+    }
 
-    Scaffold(
-        modifier = Modifier.windowInsetsPadding(screenInsets()),
-        topBar = {
-            ToolMapTopBar(
-                title = stringResource(R.string.share_title),
+    when (page) {
+        SharePage.MAIN -> {
+            MainPage(
+                ui = ui,
+                snackbar = snackbar,
                 onBack = onBack,
-                actions = {
-                    IconButton(onClick = { showIntro = true }) {
-                        Icon(MenuIcons.Help, contentDescription = stringResource(R.string.menu_help))
-                    }
-                },
+                onToggle = toggle,
+                onSos = { sosDialog = true },
+                onStopSos = vm::stopSos,
+                onInvite = vm::invite,
+                onScan = { scanning = true },
+                onPaste = { pasting = true },
+                onSettings = { page = SharePage.SETTINGS },
+                onHelp = { showIntro = true },
+                onLeave = { confirmLeave = true },
+                onProfile = { page = SharePage.PROFILE },
+                onMessages = { page = SharePage.MESSAGES },
+                onOpenMember = { openMember = it.id },
+                onShowOnMap = onShowOnMap,
+                onAlertBack = { vm.recheckPhone() },
             )
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        Column(
-            modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            // What the user came for first (start, join; then in a group: send, see the others, SOS), the settings
-            // after, folded.
-            if (!ui.inGroup) {
-                Text(
-                    stringResource(R.string.share_start_hint),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                // One filled button for what comes first, outlined ones with their icon for joining (P29.0).
-                Button(onClick = vm::invite, modifier = Modifier.fillMaxWidth().heightIn(min = MAIN_BUTTON_HEIGHT)) {
-                    Text(stringResource(R.string.share_create), style = MaterialTheme.typography.titleSmall)
-                }
-                JoinButton(MenuIcons.QrCodeScanner, stringResource(R.string.share_join_scan)) { scanning = true }
-                JoinButton(MenuIcons.Link, stringResource(R.string.share_join_paste)) { pasting = true }
-                SettingsGroup(
-                    { ProfileCard(ui, vm) },
-                    { MapDisplayCard(ui, vm) },
-                    { ServerCard(ui, vm) },
-                )
-            } else {
-                SharingCard(
-                    ui = ui,
-                    vm = vm,
-                    onToggle = { on ->
-                        if (!on) {
-                            vm.stopSharing()
-                        } else if (hasFineLocation(context)) {
-                            startSharing()
-                        } else {
-                            permissionLauncher.launch(permissions)
-                        }
-                    },
-                )
-                if (ui.gpsUnavailable) {
-                    Text(stringResource(R.string.share_gps_unavailable), color = MaterialTheme.colorScheme.error)
-                }
-                ShareAlertCards(ui.alerts, onBack = { vm.recheckPhone() })
-                MembersCard(ui, onOpen = { openMember = it.id })
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    Button(onClick = vm::invite, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.share_invite))
-                    }
-                    OutlinedButton(onClick = { scanning = true }, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.share_scan))
-                    }
-                }
-                TextButton(onClick = { pasting = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.share_join_paste))
-                }
-                if (ui.ownSos) {
-                    Button(
-                        onClick = vm::stopSos,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(SOS_RED)),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(stringResource(R.string.share_sos_stop)) }
+        }
+
+        SharePage.PROFILE -> {
+            SubPage(stringResource(R.string.share_profile_title), onBack = { page = SharePage.MAIN }) {
+                ProfileEditor(ui, vm)
+            }
+        }
+
+        SharePage.SETTINGS -> {
+            SubPage(stringResource(R.string.share_settings_caption), onBack = { page = SharePage.MAIN }) {
+                // The four rows of the settings in a group; out of one, your look is your line of the main page.
+                if (ui.inGroup) {
+                    GroupBlock(
+                        rows =
+                            listOf(
+                                { SendSettingsCard(ui, vm) },
+                                { ProfileCard(ui, vm) },
+                                { MapDisplayCard(ui, vm) },
+                                { ServerCard(ui, vm) },
+                            ),
+                    )
                 } else {
-                    Button(
-                        onClick = { sosDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(SOS_RED)),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(stringResource(R.string.share_sos_send)) }
-                }
-                MessagesCard(ui, onSend = vm::sendText)
-                SettingsGroup(
-                    { SendSettingsCard(ui, vm) },
-                    { ProfileCard(ui, vm) },
-                    { MapDisplayCard(ui, vm) },
-                    { ServerCard(ui, vm) },
-                )
-                OutlinedButton(onClick = { confirmLeave = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.share_leave), color = MaterialTheme.colorScheme.error)
+                    GroupBlock(rows = listOf({ MapDisplayCard(ui, vm) }, { ServerCard(ui, vm) }))
                 }
             }
+        }
+
+        SharePage.MESSAGES -> {
+            MessagesPage(ui, onBack = { page = SharePage.MAIN }, onSend = vm::sendText, onRead = vm::markMessagesRead)
         }
     }
 
@@ -306,7 +312,7 @@ fun ShareScreen(
         )
     }
     ui.invitation?.let { code ->
-        CodeDialog(
+        CodeSheet(
             title = stringResource(R.string.share_invitation_title),
             hint =
                 stringResource(
@@ -319,7 +325,7 @@ fun ShareScreen(
         )
     }
     ui.answer?.let { code ->
-        CodeDialog(
+        CodeSheet(
             title = stringResource(R.string.share_answer_title),
             hint = stringResource(R.string.share_answer_hint),
             code = code,
@@ -394,7 +400,7 @@ fun ShareScreen(
             openMember = null
         } else {
             val fix = member.fix
-            MemberDialog(
+            MemberSheet(
                 member = member,
                 state = PeerState.of(member, nowMs(), serverUp(ui)),
                 onShowOnMap = fix?.let { f -> { onShowOnMap(f.lat, f.lon) } },
@@ -413,42 +419,554 @@ fun ShareScreen(
     }
 }
 
+/** What the main page asks the screen to do. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun MainPage(
+    ui: ShareUi,
+    snackbar: SnackbarHostState,
+    onBack: () -> Unit,
+    onToggle: (Boolean) -> Unit,
+    onSos: () -> Unit,
+    onStopSos: () -> Unit,
+    onInvite: () -> Unit,
+    onScan: () -> Unit,
+    onPaste: () -> Unit,
+    onSettings: () -> Unit,
+    onHelp: () -> Unit,
+    onLeave: () -> Unit,
+    onProfile: () -> Unit,
+    onMessages: () -> Unit,
+    onOpenMember: (MemberView) -> Unit,
+    onShowOnMap: (lat: Double, lon: Double) -> Unit,
+    onAlertBack: () -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    Scaffold(
+        modifier = Modifier.windowInsetsPadding(screenInsets()),
+        topBar = {
+            ToolMapTopBar(
+                title = stringResource(R.string.share_title),
+                subtitle = if (ui.inGroup) hudText(ui) else null,
+                onBack = onBack,
+                actions = {
+                    if (ui.inGroup && !ui.ownSos) {
+                        IconButton(onClick = onSos) {
+                            Icon(
+                                ShareIcons.EmergencyShare,
+                                contentDescription = stringResource(R.string.share_sos_send_title),
+                            )
+                        }
+                    }
+                    Box {
+                        IconButton(onClick = { menu = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.share_more))
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            @Composable
+                            fun item(
+                                label: Int,
+                                icon: ImageVector?,
+                                color: Color = Color.Unspecified,
+                                action: () -> Unit,
+                            ) = DropdownMenuItem(
+                                text = { Text(stringResource(label), color = color) },
+                                leadingIcon = icon?.let { { Icon(it, contentDescription = null) } },
+                                onClick = {
+                                    menu = false
+                                    action()
+                                },
+                            )
+                            if (ui.inGroup) {
+                                item(R.string.share_scan, MenuIcons.QrCodeScanner, action = onScan)
+                                item(R.string.share_paste, MenuIcons.Link, action = onPaste)
+                            }
+                            item(R.string.share_settings_caption, SettingsIcons.Dashboard, action = onSettings)
+                            item(R.string.share_help, MenuIcons.Help, action = onHelp)
+                            if (ui.inGroup) {
+                                item(R.string.share_leave, null, MaterialTheme.colorScheme.error, onLeave)
+                            }
+                        }
+                    }
+                },
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbar) },
+        floatingActionButton = {
+            if (ui.inGroup) {
+                ExtendedFloatingActionButton(
+                    onClick = onInvite,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    icon = { Icon(ShareIcons.PersonAdd, contentDescription = null) },
+                    text = { Text(stringResource(R.string.share_invite)) },
+                )
+            }
+        },
+    ) { padding ->
+        Column(
+            modifier =
+                Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (ui.ownSos) OwnSosLine(onStopSos)
+            if (!ui.inGroup) {
+                GroupBlock(rows = listOf({ SelfLookLine(ui, onProfile) }))
+                NoGroup()
+                Button(onClick = onInvite, modifier = Modifier.fillMaxWidth().heightIn(min = MAIN_BUTTON_HEIGHT)) {
+                    Icon(ShareIcons.GroupAdd, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(stringResource(R.string.share_create), style = MaterialTheme.typography.titleSmall)
+                }
+                Column {
+                    Text(
+                        stringResource(R.string.share_join_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 8.dp),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        JoinButton(MenuIcons.QrCodeScanner, stringResource(R.string.share_scan), onScan)
+                        JoinButton(MenuIcons.Link, stringResource(R.string.share_paste), onPaste)
+                    }
+                }
+            } else {
+                val now = nowMs()
+                val up = serverUp(ui)
+                GroupBlock(
+                    rows =
+                        listOf({
+                            SelfSendLine(ui, now, up, onOpen = { ui.self?.let(onOpenMember) }, onToggle = onToggle)
+                        }),
+                )
+                if (ui.gpsUnavailable) {
+                    Text(stringResource(R.string.share_gps_unavailable), color = MaterialTheme.colorScheme.error)
+                }
+                ShareAlertCards(ui.alerts, onBack = onAlertBack)
+                Column {
+                    Row(
+                        Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        Text(
+                            stringResource(R.string.share_members),
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (ui.onServer) {
+                            Text(
+                                serverStateLabel(ui.server),
+                                style = MaterialTheme.typography.bodySmall,
+                                color =
+                                    if (up) {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    } else {
+                                        MaterialTheme.colorScheme.error
+                                    },
+                            )
+                        }
+                    }
+                    if (ui.others.isEmpty()) {
+                        Text(
+                            stringResource(R.string.share_no_members),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                        )
+                    } else {
+                        GroupBlock(
+                            rows =
+                                ui.others.map { member ->
+                                    {
+                                        MemberLine(
+                                            member,
+                                            PeerState.of(member, now, up),
+                                            onOpen = { onOpenMember(member) },
+                                            onShowOnMap = member.fix?.let { f -> { onShowOnMap(f.lat, f.lon) } },
+                                        )
+                                    }
+                                },
+                        )
+                    }
+                }
+                GroupBlock(rows = listOf({ MessagesLine(ui, onMessages) }))
+            }
+        }
+    }
+}
+
+/** « Partage actif · 1 connecté(s) » or « Groupe · 3 membre(s) »: the words of the strip on the map. */
+@Composable
+private fun hudText(ui: ShareUi): String =
+    if (ui.sharing) {
+        stringResource(R.string.share_hud_sharing, ui.others.count { it.status == MemberStatus.DIRECT })
+    } else {
+        stringResource(R.string.share_hud_watching, ui.others.size)
+    }
+
+/** Your own SOS going: a red line at the top of the page, with « Arrêter le SOS ». */
+@Composable
+private fun OwnSosLine(onStop: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(ShareIcons.EmergencyShare, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+        Text(
+            stringResource(R.string.share_sos_ongoing),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.weight(1f).padding(start = 12.dp),
+        )
+        TextButton(
+            onClick = onStop,
+            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+        ) { Text(stringResource(R.string.share_sos_stop)) }
+    }
+}
+
+/** Out of a group: your token and name as the others will see them; the line opens « Ce que les autres voient ». */
+@Composable
+private fun SelfLookLine(
+    ui: ShareUi,
+    onOpen: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 72.dp)
+            .clickable(onClick = onOpen)
+            .padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MemberBadge(ui.myName, ui.settings.look(), size = 48.dp, picture = ui.settings.pictureBytes())
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+            Text(ui.myName, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                stringResource(R.string.share_profile_title),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(RouteIcons.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * In a group: your token, « Partager ma position » and « Pixel 7 (vous) · En ligne »; the text opens your sheet, the
+ * switch apart sends or not (two elements for TalkBack).
+ */
+@Composable
+private fun SelfSendLine(
+    ui: ShareUi,
+    now: Long,
+    up: Boolean,
+    onOpen: () -> Unit,
+    onToggle: (Boolean) -> Unit,
+) {
+    val self = ui.self
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(end = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            Modifier
+                .weight(1f)
+                .heightIn(min = 72.dp)
+                .clickable(enabled = self != null, onClick = onOpen)
+                .padding(start = 16.dp, top = 4.dp, bottom = 4.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MemberBadge(ui.myName, ui.settings.look(), size = 48.dp, picture = ui.settings.pictureBytes())
+            Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                Text(stringResource(R.string.share_sharing), style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(R.string.share_self, ui.myName) + " · " +
+                        if (ui.sharing && self != null) {
+                            peerStateLabel(PeerState.of(self, now, up))
+                        } else {
+                            stringResource(R.string.share_self_silent)
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Box(Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
+        Spacer(Modifier.width(12.dp))
+        Switch(checked = ui.sharing, onCheckedChange = onToggle)
+    }
+}
+
+/** « Aucun groupe »: an empty state that says what a group is for. */
+@Composable
+private fun NoGroup() {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 4.dp, start = 8.dp, end = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.toolMap.tile),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                ShareIcons.Groups,
+                contentDescription = null,
+                tint = MaterialTheme.toolMap.onTile,
+                modifier = Modifier.size(32.dp),
+            )
+        }
+        Text(
+            stringResource(R.string.share_no_group),
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        Text(
+            stringResource(R.string.share_start_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/** A member of the group: token, name, state and age, its state icon, and a button that shows it on the map. */
+@Composable
+private fun MemberLine(
+    member: MemberView,
+    state: PeerState,
+    onOpen: () -> Unit,
+    onShowOnMap: (() -> Unit)?,
+) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            Modifier
+                .weight(1f)
+                .heightIn(min = 64.dp)
+                .clickable(onClick = onOpen)
+                .padding(start = 16.dp, top = 6.dp, bottom = 6.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MemberBadge(member.name, member.color, size = 40.dp, picture = member.picture)
+            Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                Text(member.name, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    listOfNotNull(peerStateLabel(state), member.fix?.let { ageText(it.timeSec * MS_PER_S) })
+                        .joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            PeerStatusIcon(state)
+        }
+        IconButton(onClick = { onShowOnMap?.invoke() }, enabled = onShowOnMap != null) {
+            Icon(
+                MapsIcons.Map,
+                contentDescription = stringResource(R.string.share_member_map, member.name),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(4.dp))
+    }
+}
+
+/** « Messages »: the last one on one line and the count of the unread, opening their page. */
+@Composable
+private fun MessagesLine(
+    ui: ShareUi,
+    onOpen: () -> Unit,
+) {
+    val last = ui.messages.lastOrNull()
+    val unreadText =
+        if (ui.unread > 0) pluralStringResource(R.plurals.share_messages_unread, ui.unread, ui.unread) else null
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .clickable(onClick = onOpen)
+            .semantics(mergeDescendants = true) {}
+            .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(ShareIcons.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.weight(1f).padding(start = 20.dp)) {
+            Text(stringResource(R.string.share_messages), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                if (last == null) {
+                    stringResource(R.string.share_messages_none)
+                } else {
+                    stringResource(R.string.share_messages_last, messageAuthor(last), last.text)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (unreadText != null) {
+            Text(
+                "${ui.unread}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+                textAlign = TextAlign.Center,
+                modifier =
+                    Modifier
+                        .padding(start = 8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .widthIn(min = 20.dp)
+                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                        .clearAndSetSemantics { contentDescription = unreadText },
+            )
+        }
+        Icon(RouteIcons.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun messageAuthor(message: ShareMessage): String =
+    if (message.mine) stringResource(R.string.share_message_mine) else message.name
+
+/** A page opened from the main one: the bar with its arrow back, the content in a scrolling column. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SubPage(
+    title: String,
+    onBack: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Scaffold(
+        modifier = Modifier.windowInsetsPadding(screenInsets()),
+        topBar = { ToolMapTopBar(title = title, onBack = onBack) },
+    ) { padding ->
+        Column(
+            modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content,
+        )
+    }
+}
+
+/** The page of the messages: the last 50 with their time, then the field and « Envoyer ». */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MessagesPage(
+    ui: ShareUi,
+    onBack: () -> Unit,
+    onSend: (String) -> Unit,
+    onRead: () -> Unit,
+) {
+    // Open, the page reads what comes in.
+    LaunchedEffect(ui.messages.size) { onRead() }
+    val time = remember { DateTimeFormatter.ofPattern("HH:mm") }
+    Scaffold(
+        modifier = Modifier.windowInsetsPadding(screenInsets()),
+        topBar = { ToolMapTopBar(title = stringResource(R.string.share_messages), onBack = onBack) },
+        bottomBar = {
+            var draft by rememberSaveable { mutableStateOf("") }
+            Row(
+                Modifier.fillMaxWidth().imePadding().padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it.take(MAX_DRAFT) },
+                    placeholder = { Text(stringResource(R.string.share_message_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Button(
+                    onClick = {
+                        onSend(draft)
+                        draft = ""
+                    },
+                    enabled = draft.isNotBlank(),
+                ) { Text(stringResource(R.string.share_message_send)) }
+            }
+        },
+    ) { padding ->
+        Column(
+            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            val shown = ui.messages.takeLast(VISIBLE_MESSAGES)
+            if (shown.isEmpty()) {
+                Text(
+                    stringResource(R.string.share_messages_none),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            for (message in shown) {
+                Column {
+                    Text(
+                        messageAuthor(message) + " · " +
+                            time.format(Instant.ofEpochMilli(message.timeMs).atZone(ZoneId.systemDefault())),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(message.text, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+    }
+}
+
 private fun hasFineLocation(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
         PackageManager.PERMISSION_GRANTED
 
-@OptIn(ExperimentalLayoutApi::class)
+/** « Ce que les autres voient », folded in the settings of a group. */
 @Composable
 private fun ProfileCard(
     ui: ShareUi,
     vm: ShareViewModel,
 ) {
-    FoldCard(
-        title = stringResource(R.string.share_profile_title),
-        summary = ui.settings.name.ifBlank { stringResource(R.string.share_name_hint) },
-    ) {
-        var name by remember(ui.settings.name) { mutableStateOf(ui.settings.name) }
-        OutlinedTextField(
-            value = name,
-            onValueChange = {
-                name = it
-                vm.updateSettings { s -> s.copy(name = it) }
-            },
-            label = { Text(stringResource(R.string.share_name)) },
-            placeholder = { Text(stringResource(R.string.share_name_hint)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        MemberLookPicker(
-            name = name.ifBlank { "?" },
-            icon = ui.settings.icon,
-            argb = ui.settings.colorArgb(),
-            picture = ui.settings.pictureBytes(),
-            onIcon = { id -> vm.updateSettings { it.copy(icon = id) } },
-            onColor = { c -> vm.updateSettings { it.copy(color = c) } },
-            onPicture = { bytes -> vm.updateSettings { it.withPicture(bytes) } },
-        )
+    FoldCard(title = stringResource(R.string.share_profile_title), summary = ui.myName) {
+        ProfileEditor(ui, vm)
     }
+}
+
+/** The name the others see, the 15 tokens, the picture and the colour (its page out of a group, P29.8). */
+@Composable
+private fun ProfileEditor(
+    ui: ShareUi,
+    vm: ShareViewModel,
+) {
+    var name by remember(ui.settings.name) { mutableStateOf(ui.settings.name) }
+    OutlinedTextField(
+        value = name,
+        onValueChange = {
+            name = it
+            vm.updateSettings { s -> s.copy(name = it) }
+        },
+        label = { Text(stringResource(R.string.share_name)) },
+        placeholder = { Text(stringResource(R.string.share_name_hint)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    MemberLookPicker(
+        name = name.ifBlank { ui.myName.ifBlank { "?" } },
+        icon = ui.settings.icon,
+        argb = ui.settings.colorArgb(),
+        picture = ui.settings.pictureBytes(),
+        onIcon = { id -> vm.updateSettings { it.copy(icon = id) } },
+        onColor = { c -> vm.updateSettings { it.copy(color = c) } },
+        onPicture = { bytes -> vm.updateSettings { it.withPicture(bytes) } },
+    )
 }
 
 /** What this device draws of the others: their path, or only where they are now. */
@@ -475,23 +993,6 @@ private fun MapDisplayCard(
             checked = ui.settings.showTrails,
             onCheckedChange = { on -> vm.updateSettings { it.copy(showTrails = on) } },
         )
-    }
-}
-
-@Composable
-private fun SharingCard(
-    ui: ShareUi,
-    vm: ShareViewModel,
-    onToggle: (Boolean) -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.share_sharing), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(R.string.share_sharing_hint), style = MaterialTheme.typography.bodySmall)
-            }
-            Switch(checked = ui.sharing, onCheckedChange = onToggle)
-        }
     }
 }
 
@@ -535,42 +1036,21 @@ private fun SendSettingsCard(
     }
 }
 
-/** « Rejoindre : … »: an outlined button with its icon, as high as the button that creates a group. */
+/** « Scanner un code », « Coller un lien »: two outlined buttons with their icon, side by side. */
 @Composable
-private fun JoinButton(
+private fun RowScope.JoinButton(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
 ) {
-    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = MAIN_BUTTON_HEIGHT)) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(10.dp))
-        Text(label, style = MaterialTheme.typography.titleSmall)
-    }
-}
-
-/**
- * « Réglages du partage », a petrol caption over the settings, which make one white list with lines between them
- * (P29.0, « Crête »), after the actions.
- */
-@Composable
-private fun SettingsGroup(vararg rows: @Composable () -> Unit) {
-    Text(
-        stringResource(R.string.share_settings_caption),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 2.dp, top = 10.dp),
-    )
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.toolMap.panel),
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp),
     ) {
-        rows.forEachIndexed { index, row ->
-            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            row()
-        }
+        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, maxLines = 1)
     }
 }
 
@@ -670,58 +1150,6 @@ private fun nowMs(): Long {
     return now
 }
 
-@Composable
-private fun MembersCard(
-    ui: ShareUi,
-    onOpen: (MemberView) -> Unit,
-) {
-    val now = nowMs()
-    val up = serverUp(ui)
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.share_members), style = MaterialTheme.typography.titleMedium)
-            if (ui.onServer) {
-                Text(
-                    stringResource(R.string.share_server_line, serverStateLabel(ui.server)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color =
-                        if (up) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
-                )
-            }
-            if (ui.others.isEmpty()) Text(stringResource(R.string.share_no_members))
-            for (m in ui.members) {
-                val state = PeerState.of(m, now, up)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth().clickable { onOpen(m) },
-                ) {
-                    MemberBadge(m.name, m.color, picture = m.picture)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            if (m.isSelf) stringResource(R.string.share_self, m.name) else m.name,
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                        Text(
-                            peerStateLabel(state) +
-                                if (m.isSelf) {
-                                    " · " +
-                                        stringResource(
-                                            if (ui.sharing) R.string.share_self_sending else R.string.share_self_silent,
-                                        )
-                                } else {
-                                    m.fix?.let { " · " + ageText(it.timeSec * MS_PER_S) }.orEmpty()
-                                },
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    PeerStatusIcon(state)
-                }
-            }
-        }
-    }
-}
-
 /** The coordination server: where new groups are made, with its address and key when the user brings their own. */
 @Composable
 private fun ServerCard(
@@ -803,45 +1231,13 @@ private fun save(
     }
 }
 
+/**
+ * A code to show, in a sheet (P29.8): the QR first, what it does, « Envoyer le lien par message » across the sheet and
+ * « Fermer » (an invitation of the server stays valid 7 days: closing does not cancel it).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MessagesCard(
-    ui: ShareUi,
-    onSend: (String) -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.share_messages), style = MaterialTheme.typography.titleMedium)
-            for (message in ui.messages.takeLast(VISIBLE_MESSAGES)) {
-                Text(
-                    (if (message.mine) stringResource(R.string.share_message_mine) else message.name) + " : " +
-                        message.text,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            var draft by rememberSaveable { mutableStateOf("") }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = draft,
-                    onValueChange = { draft = it.take(MAX_DRAFT) },
-                    placeholder = { Text(stringResource(R.string.share_message_hint)) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-                Button(
-                    onClick = {
-                        onSend(draft)
-                        draft = ""
-                    },
-                    enabled = draft.isNotBlank(),
-                ) { Text(stringResource(R.string.share_message_send)) }
-            }
-        }
-    }
-}
-
-/** A code to show, with the link to send by message instead. */
-@Composable
-private fun CodeDialog(
+internal fun CodeSheet(
     title: String,
     hint: String,
     code: ShareCode,
@@ -851,29 +1247,56 @@ private fun CodeDialog(
 ) {
     val context = LocalContext.current
     val shareTitle = stringResource(R.string.share_link_chooser)
-    AlertDialog(
-        onDismissRequest = onClose,
-        title = { Text(title) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-            ) {
-                Text(hint)
-                QrImage(code.qrText, modifier = Modifier.fillMaxWidth())
-                if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                TextButton(onClick = {
+    ModalBottomSheet(onDismissRequest = onClose) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            )
+            QrImage(code.qrText, modifier = Modifier.padding(vertical = 16.dp).size(QR_SIZE))
+            if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp))
+            Text(
+                hint,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Button(
+                onClick = {
                     val send =
                         Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, code.link)
                     context.startActivity(Intent.createChooser(send, shareTitle))
-                }) { Text(stringResource(R.string.share_send_link)) }
+                },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp, top = 16.dp)
+                        .heightIn(min = 48.dp),
+            ) {
+                Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.share_send_link))
             }
-        },
-        confirmButton = {
-            if (primary != null) TextButton(onClick = primary.second) { Text(primary.first) }
-        },
-        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } },
-    )
+            if (primary != null) {
+                OutlinedButton(
+                    onClick = primary.second,
+                    modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 8.dp),
+                ) { Text(primary.first) }
+            }
+            TextButton(onClick = onClose, modifier = Modifier.padding(top = 4.dp).heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.action_close))
+            }
+        }
+    }
 }
 
 /** The camera with a QR code reader (full screen); asks for the camera permission first. */
@@ -998,7 +1421,8 @@ private const val SOS_RED = 0xFFD32F2F
 private val MAIN_BUTTON_HEIGHT = 52.dp
 private const val MS_PER_S = 1000L
 private const val SECONDS_PER_MINUTE = 60
-private const val VISIBLE_MESSAGES = 8
+private const val VISIBLE_MESSAGES = 50
+private val QR_SIZE = 192.dp
 private const val MAX_DRAFT = 200
 
 private const val CLOCK_REFRESH_MS = 15_000L

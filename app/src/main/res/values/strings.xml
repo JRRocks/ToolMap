@@ -841,7 +841,7 @@
   <string name="pdf_grid_heading">QUADRILLAGE</string>
   <!-- P8 : partage de position pair-à-pair -->
   <string name="share_title">Partage de position</string>
-  <string name="share_intro">Partagez votre position avec votre groupe. Un serveur de coordination (Firebase) fait passer les messages entre les téléphones, mais il ne voit que des données chiffrées : la clé du groupe reste dans les téléphones. On rejoint un groupe avec un code (QR code ou lien).</string>
+  <string name="share_intro">Partagez votre position avec votre groupe. Un serveur de coordination (Firebase) fait passer les messages entre les téléphones, mais il ne voit que des données chiffrées : la clé du groupe reste dans les téléphones. On rejoint un groupe avec un code (QR code ou lien). Votre position part aussi écran éteint, tant que la notification du partage est là.</string>
   <string name="share_profile_title">Ce que les autres voient</string>
   <string name="share_name">Votre nom</string>
   <string name="share_name_hint">Nom du téléphone par défaut</string>
@@ -876,16 +876,37 @@
   <string name="share_show_trails_off">La carte ne montre que la position actuelle de chaque membre.</string>
   <string name="share_start_hint">Créez un groupe et invitez les autres par un code, ou rejoignez celui d\'un autre.</string>
   <string name="share_create">Créer un groupe et inviter</string>
-  <string name="share_join_scan">Rejoindre : scanner un code</string>
-  <string name="share_join_paste">Rejoindre : coller un lien</string>
   <string name="share_settings_caption">Réglages du partage</string>
+  <string name="share_join_title">Rejoindre un groupe</string>
+  <string name="share_no_group">Aucun groupe</string>
+  <string name="share_paste">Coller un lien</string>
+  <string name="share_help">Aide</string>
+  <string name="share_more">Plus d\'options du partage</string>
+  <string name="share_sos_ongoing">Votre SOS est envoyé au groupe</string>
+  <string name="share_messages_last">%1$s : %2$s</string>
+  <string name="share_messages_none">Aucun message pour l\'instant.</string>
+  <plurals name="share_messages_unread">
+    <item quantity="one">%d message non lu</item>
+    <item quantity="many">%d messages non lus</item>
+    <item quantity="other">%d messages non lus</item>
+  </plurals>
+  <string name="share_member_map">Voir %1$s sur la carte</string>
+  <string name="share_member_menu">Actions sur %1$s</string>
+  <string name="share_remove_title">Retirer « %1$s » du groupe ?</string>
+  <string name="share_remove_text">Il ne reçoit plus rien ; pour revenir, il lui faudra une nouvelle invitation.</string>
+  <string name="share_fig_altitude">Altitude</string>
+  <string name="share_fig_speed">Vitesse</string>
+  <string name="share_fig_battery">Batterie</string>
+  <string name="share_fig_accuracy">Précision</string>
+  <string name="share_fig_altitude_value">%1$d m</string>
+  <string name="share_fig_battery_value">%1$d\u00A0%%</string>
+  <string name="share_fig_accuracy_value">±%1$d m</string>
   <string name="share_invite">Inviter</string>
   <string name="share_scan">Scanner un code</string>
   <string name="share_leave">Quitter le groupe</string>
   <string name="share_leave_title">Quitter le groupe ?</string>
   <string name="share_leave_text">Les autres sont prévenus et vous n\'apparaissez plus sur leur carte. Pour revenir, il faudra une nouvelle invitation.</string>
   <string name="share_sharing">Partager ma position</string>
-  <string name="share_sharing_hint">Avec l\'écran éteint aussi (notification permanente).</string>
   <string name="share_gps_unavailable">Le GPS n\'a pas pu démarrer : le partage est arrêté.</string>
   <!-- Alerts of the sharing (P21.5 o, c): variant B of docs/previews/p21-alertes.html, validated on 2026-10-24. -->
   <string name="share_alert_location_title">Localisation coupée</string>
@@ -921,7 +942,6 @@
   <string name="share_members">Membres</string>
   <string name="share_no_members">Personne d\'autre pour l\'instant. Invitez quelqu\'un avec un code.</string>
   <string name="share_self">%1$s (vous)</string>
-  <string name="share_self_sending">Position envoyée</string>
   <string name="share_self_silent">Position non partagée</string>
   <!-- Peer and server states (P13) -->
   <string name="share_peer_online">En ligne</string>
@@ -934,7 +954,6 @@
   <string name="share_server_online">Serveur joignable</string>
   <string name="share_server_unreachable">Serveur injoignable (réseau coupé ?)</string>
   <string name="share_server_refused">Serveur refusé : adresse ou clé invalide, ou accès anonyme désactivé</string>
-  <string name="share_server_line">Serveur : %1$s</string>
   <string name="share_server_title">Serveur de coordination</string>
   <string name="share_server_text">Les groupes créés ici passent par ce serveur Firebase. Ceux qui rejoignent un groupe utilisent le serveur de l\'invitation, sans rien configurer.</string>
   <string name="share_server_builtin">Serveur intégré à l\'application.</string>
@@ -952,10 +971,6 @@
   <string name="share_status_left">Parti</string>
   <string name="share_no_position">Pas encore de position reçue</string>
   <string name="share_last_position">Position d\'il y a : %1$s</string>
-  <string name="share_accuracy">Précision : ±%1$d m</string>
-  <string name="share_altitude">Altitude : %1$d m</string>
-  <string name="share_speed">Vitesse : %1$s</string>
-  <string name="share_battery">Batterie : %1$d %%</string>
   <string name="share_show_on_map">Voir sur la carte</string>
   <string name="share_go_to">Aller vers ce membre</string>
   <string name="share_save_trail">Enregistrer sa trace</string>

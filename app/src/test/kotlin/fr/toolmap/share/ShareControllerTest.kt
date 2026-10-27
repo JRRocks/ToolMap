@@ -553,6 +553,10 @@ class ShareControllerTest {
             assertFalse(last.mine)
             assertEquals("Bob", last.name)
             assertEquals("Ok, j'arrive", last.text)
+            // Only the others' messages are counted unread, until their page is open (P29.8).
+            assertEquals(1, c.state.value.unread)
+            c.markMessagesRead()
+            assertEquals(0, c.state.value.unread)
         }
 
     @Test

@@ -129,6 +129,10 @@ data class ShareUi(
     val serverForNewGroups: RelayConfig? = null,
     /** [serverForNewGroups] comes from the build, not from the user. */
     val serverIsBuiltIn: Boolean = false,
+    /** The name the others see: the one chosen, else the phone's (P29.8: the line « vous » shows it). */
+    val myName: String = "",
+    /** Messages of the others received since the page of the messages was last open (P29.8). */
+    val unread: Int = 0,
 ) {
     val self: MemberView? get() = members.firstOrNull { it.isSelf }
     val others: List<MemberView> get() = members.filter { !it.isSelf }
@@ -174,6 +178,9 @@ class ShareController(
     private var loaded = false
     private val sosAlerts = LinkedHashMap<Long, SosAlert>()
     private val messages = ArrayList<ShareMessage>()
+
+    /** Messages of the others received since their page was last open (P29.8). */
+    private var unreadCount = 0
 
     /** The status of each member at the last [refresh], to log the changes. */
     private val lastStatus = HashMap<Long, MemberStatus>()
@@ -286,6 +293,7 @@ class ShareController(
                 EventLog.event("share.text.in", "member" to MeshNode.hex(member), "chars" to text.length)
                 synchronized(messages) {
                     messages += ShareMessage(member, name, text, clockMs(), mine = false)
+                    unreadCount++
                     while (messages.size > MAX_MESSAGES) messages.removeAt(0)
                 }
                 refresh()
@@ -546,6 +554,12 @@ class ShareController(
     fun clearProblem() = mutableState.update { it.copy(problem = null) }
 
     fun clearJoined() = mutableState.update { it.copy(justJoined = null) }
+
+    /** The page of the messages is open: every message received so far is read. */
+    fun markMessagesRead() {
+        synchronized(messages) { unreadCount = 0 }
+        refresh()
+    }
 
     fun clearExcluded() = mutableState.update { it.copy(excluded = false) }
 
@@ -823,7 +837,10 @@ class ShareController(
         group = null
         lastSent = null
         synchronized(sosAlerts) { sosAlerts.clear() }
-        synchronized(messages) { messages.clear() }
+        synchronized(messages) {
+            messages.clear()
+            unreadCount = 0
+        }
         save()
         mutableState.update {
             ShareUi(settings = settings, excluded = it.excluded)
@@ -849,6 +866,8 @@ class ShareController(
                 server = relay?.state ?: ServerState.NONE,
                 serverForNewGroups = serverForNewGroups(),
                 serverIsBuiltIn = settings.server == null && serverForNewGroups() != null,
+                myName = displayName(),
+                unread = synchronized(messages) { unreadCount },
             )
         }
     }
