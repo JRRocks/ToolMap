@@ -51,7 +51,11 @@ class NavigationBackTest {
         rule.onNodeWithText("Sauvegarde et restauration…").performScrollTo().performClick()
         rule.onAllNodesWithText("Sauvegarde et restauration").assertCountEquals(1)
         pressBack()
+        // Back on the page of « Stockage » it was opened from (P29.9), then on the list.
         rule.onAllNodesWithText("Réglages").assertCountEquals(1)
+        rule.onAllNodesWithText("Sauvegarde et restauration…").assertCountEquals(1)
+        pressBack()
+        rule.onAllNodesWithText("Rechercher un réglage").assertCountEquals(1)
         pressBack()
         assertMapShown()
     }
@@ -100,7 +104,7 @@ class NavigationBackTest {
     }
 
     @Test
-    fun `back in an open settings category folds it before leaving the settings`() {
+    fun `back on the page of a settings category goes back to the list before leaving the settings`() {
         openMenu()
         rule.onNodeWithText("Réglages…").performScrollTo().performClick()
         rule.onNodeWithText("Stockage et sauvegarde").performScrollTo().performClick()

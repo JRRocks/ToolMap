@@ -182,15 +182,6 @@ object SettingsIcons {
         )
     }
 
-    val ViewQuilt: ImageVector by lazy {
-        icon(
-            "ViewQuilt",
-            listOf(
-                "M21 5v6.5H9.33V5H21zm-6.33 14v-6.5H9.33V19h5.34zm1-6.5V19H21v-6.5h-5.33zM8.33 19V5H3v14h5.33z",
-            ),
-        )
-    }
-
     val ZoomIn: ImageVector by lazy {
         icon(
             "ZoomIn",
@@ -549,6 +540,126 @@ object SettingsIcons {
             "Height",
             listOf(
                 "M13 6.99h3L12 3 8 6.99h3v10.02H8L12 21l4-3.99h-3z",
+            ),
+        )
+    }
+
+    /** « Boutons + et − à gauche » (P29.9). */
+    val AlignHorizontalLeft: ImageVector by lazy {
+        icon(
+            "AlignHorizontalLeft",
+            listOf(
+                "M4 22H2V2h2v20zM22 7H6v3h16V7zm-6 7H6v3h10v-3z",
+            ),
+        )
+    }
+
+    /** « Pas du zoom » (P29.9). */
+    val LinearScale: ImageVector by lazy {
+        icon(
+            "LinearScale",
+            listOf(
+                "M19.5 9.5c-1.03 0-1.9.62-2.29 1.5h-2.92c-.39-.88-1.26-1.5-2.29-1.5s-1.9.62-2.29 1.5H6.79c-.39-.88-1.26-1.5-2.29-1.5C3.12 9.5 2 10.62 2 12s1.12 2.5 2.5 2.5c1.03 0 1.9-.62 2.29-1.5h2.92c.39.88 1.26 1.5 2.29 1.5s1.9-.62 2.29-1.5h2.92c.39.88 1.26 1.5 2.29 1.5 1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5z",
+            ),
+        )
+    }
+
+    /** « Densité des grilles » (P29.9). */
+    val Grid4x4: ImageVector by lazy {
+        icon(
+            "Grid4x4",
+            listOf(
+                "M22 7V5h-3V2h-2v3h-4V2h-2v3H7V2H5v3H2v2h3v4H2v2h3v4H2v2h3v3h2v-3h4v3h2v-3h4v3h2v-3h3v-2h-3v-4h3v-2h-3V7h3zM7 7h4v4H7V7zm0 10v-4h4v4H7zm10 0h-4v-4h4v4zm0-6h-4V7h4v4z",
+            ),
+        )
+    }
+
+    /** « Traits des grilles » (P29.9). */
+    val LineStyle: ImageVector by lazy {
+        icon(
+            "LineStyle",
+            listOf(
+                "M3 16h5v-2H3v2zm6.5 0h5v-2h-5v2zm6.5 0h5v-2h-5v2zM3 20h2v-2H3v2zm4 0h2v-2H7v2zm4 0h2v-2h-2v2zm4 0h2v-2h-2v2zm4 0h2v-2h-2v2zM3 12h8v-2H3v2zm10 0h8v-2h-8v2zM3 4v4h18V4H3z",
+            ),
+        )
+    }
+
+    /** « Taille des boîtes » (P29.9). */
+    val PhotoSizeSelectSmall: ImageVector by lazy {
+        icon(
+            "PhotoSizeSelectSmall",
+            listOf(
+                "M23 15h-2v2h2v-2zm0-4h-2v2h2v-2zm0 8h-2v2c1 0 2-1 2-2zM15 3h-2v2h2V3zm8 4h-2v2h2V7zm-2-4v2h2c0-1-1-2-2-2zM3 21h8v-6H1v4c0 1.1.9 2 2 2zM3 7H1v2h2V7zm12 12h-2v2h2v-2zm4-16h-2v2h2V3zm0 16h-2v2h2v-2zM3 3C2 3 1 4 1 5h2V3zm0 8H1v2h2v-2zm8-8H9v2h2V3zM7 3H5v2h2V3z",
+            ),
+        )
+    }
+
+    /** « Fond des boîtes » (P29.9). */
+    val Opacity: ImageVector by lazy {
+        icon(
+            "Opacity",
+            listOf(
+                "M17.66 8L12 2.35 6.34 8C4.78 9.56 4 11.64 4 13.64s.78 4.11 2.34 5.67 3.61 2.35 5.66 2.35 4.1-.79 5.66-2.35S20 15.64 20 13.64 19.22 9.56 17.66 8zM6 14c.01-2 .62-3.27 1.76-4.4L12 5.27l4.24 4.38C17.38 10.77 17.99 12 18 14H6z",
+            ),
+        )
+    }
+
+    /** « Flèches de sens » (P29.9). */
+    val ArrowRightAlt: ImageVector by lazy {
+        icon(
+            "ArrowRightAlt",
+            listOf(
+                "M16.01 11H4v2h12.01v3L20 12l-3.99-4z",
+            ),
+        )
+    }
+
+    /** « Liseré autour des traces » (P29.9). */
+    val BorderOuter: ImageVector by lazy {
+        icon(
+            "BorderOuter",
+            listOf(
+                "M13 7h-2v2h2V7zm0 4h-2v2h2v-2zm4 0h-2v2h2v-2zM3 3v18h18V3H3zm16 16H5V5h14v14zm-6-4h-2v2h2v-2zm-4-4H7v2h2v-2z",
+            ),
+        )
+    }
+
+    /** « Alerte d'écart de trace » (P29.9). */
+    val WrongLocation: ImageVector by lazy {
+        icon(
+            "WrongLocation",
+            listOf(
+                "M14 10V3.26c-.65-.17-1.32-.26-2-.26-4.2 0-8 3.22-8 8.2 0 3.32 2.67 7.25 8 11.8 5.33-4.55 8-8.48 8-11.8 0-.41-.04-.81-.09-1.2H14zm-2 3c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM22.54 2.88l-1.42-1.42L19 3.59l-2.12-2.13-1.42 1.42L17.59 5l-2.13 2.12 1.42 1.42L19 6.41l2.12 2.13 1.42-1.42L20.41 5z",
+            ),
+        )
+    }
+
+    /** « Contenu » de la sauvegarde (P29.9). */
+    val FolderZip: ImageVector by lazy {
+        icon(
+            "FolderZip",
+            listOf(
+                "M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-2 6h-2v2h2v2h-2v2h-2v-2h2v-2h-2v-2h2v-2h-2V8h2v2h2v2z",
+            ),
+        )
+    }
+
+    /** « Inclure les cartes hors ligne » (P29.9). */
+    val OfflinePin: ImageVector by lazy {
+        icon(
+            "OfflinePin",
+            listOf(
+                "M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm5 16H7v-2h10v2zm-6.7-4L7 10.7l1.4-1.4 1.9 1.9 5.3-5.3L17 7.3 10.3 14z",
+            ),
+        )
+    }
+
+    /** Le segment « Restaurer » (P29.9). */
+    val SettingsBackupRestore: ImageVector by lazy {
+        icon(
+            "SettingsBackupRestore",
+            listOf(
+                "M14 12c0-1.1-.9-2-2-2s-2 .9-2 2 .9 2 2 2 2-.9 2-2zm-2-9c-4.97 0-9 4.03-9 9H0l4 4 4-4H5c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.51 0-2.91-.49-4.06-1.3l-1.42 1.44C8.04 20.3 9.94 21 12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9z",
             ),
         )
     }

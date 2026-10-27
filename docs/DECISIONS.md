@@ -1193,3 +1193,52 @@
 - **Conséquences** : ce qu'on vient vérifier tient en haut sans défiler ; le SOS est loin du pouce (le dialogue évite
   l'envoi par erreur) ; scanner, coller et les réglages demandent un toucher de plus ; Messages s'ouvre à part.
 - **Alternatives rejetées** : variantes A, C, D et E de l'aperçu.
+
+## ADR-082 — Réglages en « Loupe » : une recherche sur les vrais réglages, des pages à onglets, la Sauvegarde en deux segments
+- **Date / statut** : 2026-10-27 — Accepté (P29.9 ; aperçu `docs/previews/design-09-reglages.html`, variante C ·
+  Loupe, choisie par l'utilisateur le 2026-10-27). **Remplace** le point 2 de ADR-038 (catégories repliables dans
+  une seule colonne) ; les onglets écartés par ADR-036 et ADR-038 sont repris à la demande de l'utilisateur. Garde
+  ADR-038 §1 (une seule entrée, Menu ▸ « Réglages… »), ADR-039 (une commande par réglage : la recherche est une vue
+  filtrée des mêmes lignes) et ADR-036 §3 (une icône Material par réglage).
+- **Contexte** : audit de P29.9 : neuf catégories muettes et pas de recherche ; une catégorie ouverte qui ressemble
+  à ses lignes ; une fenêtre pour chaque choix, même entre deux options, et cinq dialogues doubles ; des aides qui
+  redisent le libellé ; des cases à cocher alors que le style Crête a des interrupteurs ; « Rétablir » sans retour ;
+  dans la Sauvegarde, deux boutons pleins et la restauration en attente en bas.
+- **Décision** :
+  1. Liste : un champ « Rechercher un réglage » au-dessus des neuf catégories. La recherche (`SettingsSearch`,
+     `:core`) lit les titres, les explications et les noms des options, sans casse ni accents, chaque mot tapé
+     devant y être, un « s » ou un « x » final de mot (4 lettres et plus) n'étant pas exigé. Les résultats : les
+     catégories dont le nom contient les mots (2e ligne « Catégorie »), puis les réglages eux-mêmes, utilisables sur
+     place, la catégorie en tête de leur 2e ligne et les mots trouvés en gras. Sans résultat : « Aucun réglage ne
+     contient ce mot. » et « Effacer la recherche ».
+  2. Chaque réglage est une `SettingEntry` (mots cherchés + ligne), construite par catégorie (`SettingsEntries.kt`) :
+     la même ligne sert sur la page et dans les résultats.
+  3. Catégorie : une page, avec des onglets Material à défilement dans le bandeau pétrole (noms courts : Unités,
+     Affichage, Carte, Grille, Repères, Position, Enregistreur, Alertes, Stockage), sans glissement latéral (les
+     curseurs) ; la loupe de la barre revient à la recherche ; le ⋮ garde « Rétablir les réglages par défaut ».
+     Retour : la page, puis la recherche, puis l'écran. La page ouverte et la recherche sont gardées dans
+     `SettingsViewModel` : Retour depuis la Sauvegarde ou le Multi-zoom revient sur la page d'où on vient ;
+     « Réglages… » du menu rouvre toujours la liste (`openList`).
+  4. Socle commun : interrupteurs Crête ; « Apparence des menus » éclatée (« Fond opaque des menus » dans Affichage,
+     « Boutons + et − à gauche » dans Carte sous « Afficher les boutons + et − ») ; dialogues doubles remplacés par des
+     lignes (boutons et pas du zoom, densité et traits des grilles, taille et fond des boîtes, flèches et liseré des
+     traces) ; choix de 2 ou 3 options en boutons segmentés pleine largeur, sans coche, le nom complet du choix en
+     2e ligne quand il dit plus ; curseurs dans la ligne (Rayon par défaut, Écart toléré, Zooms manquants, comme Mode
+     nuit) ; aides qui redisaient le libellé retirées ; note « Tuiles partagées » en légende sous « Cartes
+     multi-zoom… » ; icônes des lignes en gris, celles des catégories en couleur primaire ; « Alerte d'écart de
+     trace » prend `wrong_location`. Gardent leur dialogue : formats de position, résolution, grille, appui long,
+     ouvrir les positions avec, altitude, cap actuel, sans données BRouter, couleurs, emplacement de stockage.
+  5. « Rétablir » s'applique, puis une barre « Réglages par défaut rétablis » propose « Annuler », qui remet les
+     réglages d'avant.
+  6. Sauvegarde (`BackupPage`) : un segmenté « Sauvegarder » | « Restaurer », une action principale par segment ;
+     le compte rendu (« Masquer ») et la progression au-dessus, le segmenté grisé pendant un travail. Sauvegarder :
+     une phrase, un groupe Contenu + « Inclure les cartes hors ligne », ce qui n'est pas sauvegardé, puis « Créer une
+     sauvegarde… » (tonal si une restauration attend). Restaurer : la carte « Restauration prête » en tête
+     (« Redémarrer maintenant », seul bouton plein, et « Annuler »), le texte, « Choisir une sauvegarde… » (en contour
+     si une restauration attend, plein sinon). Une restauration en attente ouvre l'écran sur « Restaurer ».
+- **Conséquences** : un réglage se retrouve sans savoir où il est rangé ; une catégorie voisine est à un toucher ;
+  9 onglets défilent, la moitié hors de vue ; les noms courts sont nouveaux ; chaque nouvelle ligne de réglage doit
+  être une `SettingEntry` pour être trouvée. Tests : `SettingsSearchTest` (`:core`), `SettingsScreenTest`,
+  `BackupPageTest`, `NavigationBackTest` (Retour de la Sauvegarde sur la page « Stockage ») ; rendus
+  `SettingsRenderTest`.
+- **Alternatives rejetées** : variantes A, B, D et E de l'aperçu.

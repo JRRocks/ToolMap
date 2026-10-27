@@ -20,6 +20,25 @@
 
 ---
 
+## 2026-10-27 — Session 67 (suite) — [P29.9] Réglages en « Loupe » : chercher un réglage sans savoir où il est rangé
+- **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
+- **Objectif** : coder la variante C · Loupe des Réglages et de la Sauvegarde, choisie par l'utilisateur le 2026-10-27 (« P29.9 (Réglages) : C · Loupe ») : un champ de recherche dont les résultats sont les vrais réglages, des pages de catégorie à onglets, le socle commun (interrupteurs, segmentés, curseurs dans la ligne, « Rétablir » avec « Annuler ») et la Sauvegarde en deux segments.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/design-09-reglages.html`, variante C · Loupe, validée le 2026-10-27.
+  - `SettingsSearch` (`:core`) : mots tapés pliés (casse, accents), « s » ou « x » final non exigé, tous les mots exigés, places des mots pour le gras.
+  - Réglages découpés : `SettingsEntries.kt` (catégories `SettingsCategory`, chaque réglage une `SettingEntry` : ses mots et sa ligne), `SettingsRows.kt` (lignes : interrupteur, segmenté, curseur, dialogue, couleur, BRouter, stockage), `SettingsLabels.kt` (noms complets et noms courts des options), `SettingsScreen.kt` (liste avec recherche, résultats, page à onglets, ⋮ « Rétablir » puis « Annuler »).
+  - La page ouverte et la recherche sont gardées dans `SettingsViewModel` : Retour depuis la Sauvegarde revient sur la page « Stockage » ; « Réglages… » du menu rouvre la liste (`openList`).
+  - Socle : dialogues doubles remplacés par des lignes, « Boutons + et − à gauche » passé dans Carte, aides redondantes retirées, légende des tuiles partagées, icônes grises, `wrong_location` pour l'écart de trace, 11 icônes ajoutées, `ViewQuilt` retirée.
+  - `BackupScreen` : page sans état `BackupPage` ; segmenté Sauvegarder | Restaurer, progression et compte rendu (« Masquer ») au-dessus, groupe Contenu + cartes hors ligne, « Créer une sauvegarde… » tonal si une restauration attend ; carte « Restauration prête » en tête du segment Restaurer.
+  - Une quarantaine de chaînes ajoutées, seize retirées ; ADR-082 (remplace ADR-038 §2) ; `docs/specs/ui-index.md` §8, M5, SETTINGS, BACKUP.
+  - Comparaison : `docs/previews/design-09-reglages-rendu.html`. La variante C ne dessine pas le segment Restaurer avec une restauration en attente : il est codé selon ses notes et le socle (carte de la variante E), son rendu est mis à côté de l'écran actuel.
+- **Décisions (ADR)** : ADR-082.
+- **Tests / vérifications** :
+  - `SettingsSearchTest` (6, `:core`) ; `SettingsScreenTest` (12 : liste, page et onglets, « cap » et son classement, résultat utilisable sur place, explications et options sans accents, aucun résultat, Retour, loupe, interrupteur, curseur conditionnel, Rétablir et Annuler, lien vers la Sauvegarde) remplace `SettingsCategoriesTest` ; `BackupPageTest` (5) ; `NavigationBackTest` (Retour de la Sauvegarde sur la page « Stockage », puis la liste) ; `SettingsRenderTest` (7 rendus).
+  - `./gradlew spotlessApply check assembleDebug --max-workers=2` : BUILD SUCCESSFUL (4 min 24 s) en 0.4.95 ; lint signalait 3 nouveautés (ordre du paramètre `modifier` de `SettingRow`, 5 aides retirées de l'écran restées dans `strings.xml`), corrigées ; rebuild BUILD SUCCESSFUL en 2 min 44 s, version **0.4.96**, `ToolMap-debug-0.4.96.apk`. Tests : core 884, data 311, p2p 29 (2 ignorés), app 414 (63 ignorés, dont les rendus), 0 échec ; lint : 0 erreur, app 63 avertissements (66 avant) et 1 indication.
+- **Problèmes / dette technique** : capture de l'émulateur à faire sur le poste Windows ; dans les rendus Robolectric, l'heure de la restauration s'écrit à l'anglaise (« 4:40 PM »), le téléphone l'écrit en français.
+- **Prochaine étape recommandée** : P29.10 (Outils, A · Équerre).
+
 ## 2026-10-27 — Session 67 (suite) — [P29.8] Partage de position en « Cordée » : votre ligne en tête
 - **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
 - **Objectif** : coder la variante B · Cordée du partage de position, choisie par l'utilisateur le 2026-10-27 (« P29.8 (Partage) : B · Cordée ») : votre ligne en tête, avec le jeton que voient les autres à côté de l'interrupteur qui l'envoie ; une seule action pleine ; le SOS à une place fixe ; la fiche d'un membre et l'invitation en feuilles.

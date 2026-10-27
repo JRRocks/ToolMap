@@ -1148,14 +1148,16 @@
   <string name="about_licenses_text">ToolMap est construit sur ces logiciels libres :</string>
   <string name="backup_title">Sauvegarde et restauration</string>
   <string name="backup_save_title">Sauvegarder</string>
-  <string name="backup_save_text">Enregistre dans un fichier .zip vos traces, itinéraires et waypoints, vos cartes importées, vos réglages, vos alertes, vos espaces de travail et vos mises en page d\'impression. Gardez-le hors du téléphone (ordinateur, cloud) : il vous sert si vous changez de téléphone ou réinstallez l\'application.</string>
   <string name="backup_include_tiles">Inclure les cartes hors ligne</string>
   <string name="backup_include_tiles_hint">Occupent %1$s ; la sauvegarde sera longue et volumineuse</string>
   <string name="backup_save_button">Créer une sauvegarde…</string>
+  <string name="backup_save_short">Un fichier .zip à garder hors du téléphone (ordinateur, cloud) : il sert si vous changez de téléphone ou réinstallez l\'application.</string>
+  <string name="backup_content">Contenu</string>
+  <string name="backup_content_list">Traces, itinéraires, waypoints, réglages, alertes, cartes importées, espaces de travail, mises en page</string>
+  <string name="backup_not_saved_short">Pas sauvegardés : le partage de position (à refaire sur le nouveau téléphone), l\'enregistrement en cours, les téléchargements en attente.</string>
   <string name="backup_restore_title">Restaurer</string>
   <string name="backup_restore_text">Choisissez un fichier créé par ToolMap. Il est vérifié en entier avant tout changement ; il remplace ensuite vos données actuelles au prochain démarrage de l\'application.</string>
   <string name="backup_restore_button">Choisir une sauvegarde…</string>
-  <string name="backup_not_saved">Ne sont pas sauvegardés : le partage de position (clés et appairages : à refaire sur le nouveau téléphone), l\'enregistrement en cours, les téléchargements en attente et les cartes hors ligne sauf si vous le demandez.</string>
   <string name="backup_busy_creating">Création de la sauvegarde…</string>
   <string name="backup_busy_checking">Lecture de la sauvegarde…</string>
   <string name="backup_busy_unpacking">Vérification et préparation de la restauration…</string>
@@ -1180,7 +1182,7 @@
   <string name="backup_pending_cancel">Annuler</string>
   <string name="backup_report_ok">Restauration réussie : sauvegarde du %1$s.</string>
   <string name="backup_report_failed">La restauration a échoué : vos données n\'ont pas été modifiées.</string>
-  <string name="backup_report_dismiss">OK</string>
+  <string name="backup_report_dismiss">Masquer</string>
   <string name="backup_area_database">Traces, itinéraires et waypoints</string>
   <string name="backup_area_settings">Réglages</string>
   <string name="backup_area_alerts">Alertes et suivi de trace</string>
@@ -1525,18 +1527,8 @@
   <string name="settings_sharpness_enlarged_hint">Un pixel des tuiles sur %1$s pixels de l\'écran : textes plus gros, moins de tuiles, image moins nette.</string>
   <string name="settings_sharpness_android">Taille Android ×%1$s</string>
   <string name="settings_sharpness_android_hint">Comme les versions précédentes de ToolMap : un pixel des tuiles par point Android, textes les plus gros, image la moins nette.</string>
-  <string name="settings_overscaling_off">Zooms manquants : non complétés</string>
-  <plurals name="settings_overscaling">
-    <item quantity="one">Zooms manquants : complétés sur %1$d niveau</item>
-    <item quantity="other">Zooms manquants : complétés sur %1$d niveaux</item>
-  </plurals>
-  <plurals name="settings_overscaling_hint">
-    <item quantity="one">Une carte n\'affiche jamais de vide. Au-dessous de son premier zoom, ses tuiles sont réduites, jusqu\'au nombre de niveaux choisi (4 tuiles par niveau). Au-delà de son dernier zoom, ou dans un trou de sa liste de zooms, la tuile la plus proche est agrandie (jusqu\'à %1$d niveau). C\'est le réglage map.scales.default_overscaling_levels d\'AlpineQuest. À 0, rien n\'est complété.</item>
-    <item quantity="other">Une carte n\'affiche jamais de vide. Au-dessous de son premier zoom, ses tuiles sont réduites, jusqu\'au nombre de niveaux choisi (4 tuiles par niveau). Au-delà de son dernier zoom, ou dans un trou de sa liste de zooms, la tuile la plus proche est agrandie (jusqu\'à %1$d niveaux). C\'est le réglage map.scales.default_overscaling_levels d\'AlpineQuest. À 0, rien n\'est complété.</item>
-  </plurals>
   <string name="settings_multizoom">Cartes multi-zoom…</string>
   <string name="settings_multizoom_hint">Choisir quelle carte afficher selon le zoom, ou garder les tuiles d\'un seul zoom (par exemple l\'IGN au 1:25 000 à tous les zooms).</string>
-  <string name="settings_shared_tiles">Tuiles partagées : les cartes qui utilisent le même serveur, même décrites par des fichiers .aqx différents, lisent et enregistrent les mêmes tuiles. Rien n\'est téléchargé deux fois.</string>
   <string name="am_group_multizoom">Cartes multi-zoom</string>
   <string name="am_new_multizoom">Nouvelle carte multi-zoom</string>
   <string name="am_edit_zooms">Modifier les zooms</string>
@@ -1601,6 +1593,51 @@
   <string name="settings_reset">Rétablir les réglages par défaut</string>
   <string name="settings_none">Aucun</string>
   <string name="settings_done">Terminé</string>
+  <!-- P29.9 « Loupe »: search, tabs, short names of the segments. -->
+  <string name="settings_tab_units">Unités</string>
+  <string name="settings_tab_display">Affichage</string>
+  <string name="settings_tab_canvas">Carte</string>
+  <string name="settings_tab_overlay">Grille</string>
+  <string name="settings_tab_placemarks">Repères</string>
+  <string name="settings_tab_positioning">Position</string>
+  <string name="settings_tab_recorder">Enregistreur</string>
+  <string name="settings_tab_alerts">Alertes</string>
+  <string name="settings_tab_data">Stockage</string>
+  <string name="settings_search">Rechercher un réglage</string>
+  <string name="settings_search_clear">Effacer la recherche</string>
+  <string name="settings_search_empty">Aucun réglage ne contient ce mot.</string>
+  <string name="settings_search_category">Catégorie</string>
+  <string name="settings_reset_done">Réglages par défaut rétablis</string>
+  <string name="settings_short_metric">Métrique</string>
+  <string name="settings_short_imperial">Impériale</string>
+  <string name="settings_short_degrees">Degrés</string>
+  <string name="settings_short_mils">Mils OTAN</string>
+  <string name="settings_short_gradians">Grades</string>
+  <string name="settings_short_percent">Pourcents</string>
+  <string name="settings_short_hpa">hPa</string>
+  <string name="settings_short_mmhg">mmHg</string>
+  <string name="settings_short_inhg">inHg</string>
+  <string name="settings_short_north_true">Géographique</string>
+  <string name="settings_short_north_magnetic">Magnétique</string>
+  <string name="settings_short_north_grid">Grille</string>
+  <string name="settings_short_theme_system">Système</string>
+  <string name="settings_short_zoom_half">½ niveau</string>
+  <string name="settings_short_zoom_one">1 niveau</string>
+  <string name="settings_short_zoom_two">2 niveaux</string>
+  <string name="settings_short_grid_fine">Serrée</string>
+  <string name="settings_short_grid_coarse">Large</string>
+  <string name="settings_short_grid_solid">Pleins</string>
+  <string name="settings_short_course_arrow">Flèche</string>
+  <string name="settings_grid_density">Densité des grilles</string>
+  <string name="settings_grid_lines">Traits des grilles</string>
+  <string name="settings_overscaling_none">Non complétés</string>
+  <plurals name="settings_overscaling_levels">
+    <item quantity="one">Complétés sur %1$d niveau</item>
+    <item quantity="many">Complétés sur %1$d niveaux</item>
+    <item quantity="other">Complétés sur %1$d niveaux</item>
+  </plurals>
+  <string name="settings_overscaling_help">Au-delà de ses zooms, une carte réduit ou agrandit ses tuiles au lieu de laisser du vide. À 0, rien n\'est complété.</string>
+  <string name="settings_shared_tiles_note">Les cartes d\'un même serveur partagent leurs tuiles : rien n\'est téléchargé deux fois.</string>
 
   <string name="settings_secondary_coordinates">Format de position secondaire</string>
   <string name="settings_distance_unit">Unité de distance</string>
@@ -1643,22 +1680,17 @@
   <string name="settings_hide_nav_bar">Masquer la barre de navigation</string>
   <string name="settings_hide_nav_bar_hint">Aussi les touches logicielles, en plein écran sur la carte.</string>
   <string name="settings_lock_screen">Afficher par-dessus l\'écran verrouillé</string>
-  <string name="settings_lock_screen_hint">Pas besoin de déverrouiller le téléphone pour utiliser l\'application.</string>
-  <string name="settings_keep_screen_on_hint">Ne jamais éteindre l\'écran quand la carte est affichée.</string>
   <string name="settings_confirm_exit">Confirmer la sortie</string>
-  <string name="settings_confirm_exit_hint">Demander avant de quitter l\'application.</string>
   <string name="settings_exit_title">Quitter ToolMap ?</string>
   <string name="settings_exit_confirm">Quitter</string>
   <string name="menu_exit">Quitter</string>
 
   <string name="settings_map_resolution">Résolution d\'affichage de la carte</string>
   <string name="settings_map_resolution_hint">Taille d\'affichage de la carte à l\'écran.</string>
-  <string name="settings_menus">Apparence des menus</string>
-  <string name="settings_menus_opaque">Fond opaque</string>
+  <string name="settings_menus_opaque">Fond opaque des menus</string>
   <string name="settings_menus_opaque_hint">Les menus ne laissent pas voir la carte.</string>
   <string name="settings_menus_left">Boutons + et − à gauche</string>
   <string name="settings_menus_left_hint">Pour un gaucher : les boutons de zoom passent à gauche.</string>
-  <string name="settings_info_boxes">Style des boîtes d\'information</string>
   <string name="settings_info_size">Taille des boîtes</string>
   <string name="settings_info_size_small">Petite</string>
   <string name="settings_info_size_normal">Normale</string>
@@ -1667,13 +1699,11 @@
   <string name="settings_info_bg_transparent">Transparent</string>
   <string name="settings_info_bg_translucent">Translucide</string>
   <string name="settings_info_bg_opaque">Opaque</string>
-  <string name="settings_zoom_controls">Commandes de zoom</string>
   <string name="settings_zoom_buttons">Afficher les boutons + et −</string>
   <string name="settings_zoom_step">Pas du zoom</string>
   <string name="settings_zoom_step_half">Un demi-niveau</string>
   <string name="settings_zoom_step_one">Un niveau</string>
   <string name="settings_zoom_step_two">Deux niveaux</string>
-  <string name="settings_grid_style">Densité et style des grilles</string>
   <string name="settings_grid_fine">Serrée (moitié de l\'espacement)</string>
   <string name="settings_grid_normal">Normale</string>
   <string name="settings_grid_coarse">Large (double)</string>
@@ -1687,7 +1717,6 @@
   <string name="settings_long_measure">Mesurer depuis ce point</string>
   <string name="settings_long_target">Définir comme cible</string>
   <string name="settings_pinch">Zoom au pincement</string>
-  <string name="settings_pinch_hint">Zoomer et dézoomer en pinçant la carte avec deux doigts.</string>
   <string name="settings_rotation">Rotation manuelle de la carte</string>
   <string name="settings_rotation_hint">Tourner la carte en tournant deux doigts.</string>
   <string name="settings_perspective">Vue en perspective</string>
@@ -1704,7 +1733,6 @@
   <string name="settings_default_color_hint">Couleur des nouveaux repères et traces.</string>
   <string name="settings_target_color">Couleur de la cible</string>
   <string name="settings_target_color_hint">Couleur du repère visé.</string>
-  <string name="settings_track_style">Style des traces</string>
   <string name="settings_track_arrows">Flèches de sens</string>
   <string name="settings_track_contour">Liseré autour des traces</string>
   <string name="settings_borders">Bordures des repères</string>
@@ -1712,7 +1740,6 @@
   <string name="settings_labels">Noms sur la carte</string>
   <string name="settings_labels_hint">Le nom des waypoints et des membres du partage, à côté de leur repère.</string>
   <string name="settings_shadows">Ombres des repères</string>
-  <string name="settings_shadows_hint">Une ombre douce sous les repères.</string>
   <string name="settings_track_arrows_hint">Sur toutes les traces, sauf celles qui les cachent.</string>
 
   <string name="settings_course">Affichage du cap GNSS</string>
@@ -1739,11 +1766,6 @@
   <string name="settings_dashboard">Mode tableau de bord</string>
   <string name="settings_dashboard_hint">L\'enregistrement s\'arrête et reprend avec l\'application.</string>
 
-  <string name="settings_menus_translucent">Fond translucide</string>
-  <string name="settings_menus_buttons_left">Boutons à gauche</string>
-  <string name="settings_menus_buttons_right">Boutons à droite</string>
-  <string name="settings_zoom_shown">Boutons affichés</string>
-  <string name="settings_zoom_hidden">Boutons masqués</string>
   <string name="settings_heading">Affichage du cap actuel</string>
   <string name="settings_heading_none">Aucun</string>
   <string name="settings_heading_number">Valeur seulement</string>

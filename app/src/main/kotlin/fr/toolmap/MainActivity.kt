@@ -374,7 +374,10 @@ class MainActivity : ComponentActivity() {
                                     share = shareViewModel,
                                     onOpenShare = { open(Screen.SHARE) },
                                     measure = measureViewModel,
-                                    onOpenSettings = { open(Screen.SETTINGS) },
+                                    onOpenSettings = {
+                                        settingsViewModel.openList()
+                                        open(Screen.SETTINGS)
+                                    },
                                     onOpenAbout = { section ->
                                         helpSection = section
                                         open(Screen.ABOUT)
