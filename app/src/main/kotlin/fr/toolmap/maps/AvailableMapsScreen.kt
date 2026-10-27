@@ -81,6 +81,7 @@ import fr.toolmap.download.formatBytes
 import fr.toolmap.draw.RouteIcons
 import fr.toolmap.map.MapViewModel
 import fr.toolmap.ui.ToolMapTopBar
+import fr.toolmap.ui.groupedShape
 import fr.toolmap.ui.screenInsets
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
@@ -459,25 +460,6 @@ private fun GroupHeader(
     }
 }
 
-/**
- * Where a row stands in its group, for the white block the rows of a group make together (P29.0, « Crête »): rounded
- * at the top of the first row and the bottom of the last, a thin line between two rows.
- */
-private fun groupedShape(
-    first: Boolean,
-    last: Boolean,
-    radius: Dp,
-): Shape =
-    RoundedCornerShape(
-        topStart = if (first) radius else 0.dp,
-        topEnd = if (first) radius else 0.dp,
-        bottomStart = if (last) radius else 0.dp,
-        bottomEnd = if (last) radius else 0.dp,
-    )
-
-/** The corner of the white block of a group: the theme's medium shape. */
-private val GROUP_RADIUS = 14.dp
-
 /** The title of a section of the catalogue, also searched (F5). */
 private fun groupTitle(kind: GroupKind): Int =
     when (kind) {
@@ -553,7 +535,7 @@ private fun MapCard(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(groupedShape(first, last, GROUP_RADIUS))
+                .clip(groupedShape(first, last))
                 .background(MaterialTheme.toolMap.panel),
     ) {
         if (!first) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

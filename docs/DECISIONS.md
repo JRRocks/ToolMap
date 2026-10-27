@@ -1024,3 +1024,44 @@
   panneau), ce que l'utilisateur a accepté en choisissant C ; le glisser-déposer est du code maison (pas de liste
   paresseuse : la pile est courte).
 - **Alternatives rejetées** : variantes A Rangement, B Planche, D Classeur, E Étagement de l'aperçu.
+
+## ADR-077 — « Traces et waypoints » : liste et détail en « Topo », fiche en « Repère », « Waypoint ici » en un appui
+- **Date / statut** : 2026-10-27 — Accepté (P29.4 ; aperçu `docs/previews/design-04-traces.html`, choix de
+  l'utilisateur le 2026-10-27 : **A · Topo** pour le panneau du drapeau, l'écran Traces et le détail d'une trace,
+  **B · Repère** pour la fiche d'un élément touché et le waypoint en un appui). **Revient** sur l'habitude
+  d'AlpineQuest reprise jusqu'ici (« Waypoint ici » ouvrait toujours le dialogue) ; complète ADR-043 et ADR-060 (le
+  panneau du drapeau garde sa place et ses fonctions) et ADR-056 (la marque de carte d'un waypoint est sa pastille de
+  catégorie, partout).
+- **Contexte** : audit de P29.4 : l'écran Traces vide n'enseignait rien ; un même appui ouvrait le détail d'une trace
+  mais ne faisait que cadrer la carte sur un itinéraire ou un waypoint ; une case anonyme disait la visibilité ; un point
+  rouge fixe marquait tous les waypoints ; le détail empilait 14 lignes de même poids et 10 boutons pleine largeur, le
+  profil sans axe ni légende ; la fiche mettait sept commandes au même rang ; poser un waypoint demandait toujours un
+  dialogue.
+- **Décision** :
+  1. Panneau (A) : libellés en verbe (« Dessiner une trace », « Dessiner un itinéraire », « Liste des traces et
+     waypoints »), champ « Lieu, trace ou waypoint », KMZ cité ; mêmes commandes.
+  2. « Waypoint ici » (B) enregistre aussitôt « Waypoint N » au centre, avec l'altitude du relief (3 s d'attente au
+     plus) et le symbole du dernier waypoint créé (le drapeau rouge sinon) (`TracksViewModel.quickWaypoint`) ; la
+     snackbar « « Waypoint N » enregistré · 442 m » propose « Modifier », qui ouvre le dialogue. L'appui long sur la carte
+     et « Ajouter un waypoint » du point central gardent le dialogue : ils visent un point précis, souvent à nommer.
+  3. Liste (A) : un bloc blanc groupé ; chaque ligne s'ouvre sur la marque de l'élément sur la carte ; un œil de 48 dp
+     (rôle interrupteur) remplace la case et se grise quand un dossier parent masque l'élément ; le mot du type quitte
+     la ligne (TalkBack le lit encore) ; un itinéraire ou un waypoint ouvre la carte **avec sa fiche** ; le ⋮ d'un
+     waypoint gagne « Modifier… » ; la bibliothèque vide enseigne (import, dessin).
+  4. Détail (A) : quatre chiffres clés et le profil (axe, légende des pentes, description TalkBack) d'emblée ; un seul
+     bouton plein (Afficher sur la carte) ; « Tous les chiffres » replié ; outils en lignes groupées Préparer · Sur le
+     terrain · Modifier ; Renommer, Style, Décrire, Déplacer, Exporter, Supprimer dans le ⋮ de la barre, Partager en
+     icône.
+  5. Fiche (B) : une action mise en avant (Aller vers ce point, sous une lecture en grand de la distance et du cap ;
+     Suivre cette trace, sous son petit profil ; Suivre cet itinéraire), deux tuiles, Partager · Exporter · Masquer ·
+     Supprimer dans son ⋮. Les tuiles d'une trace (Statistiques, Modifier le tracé) et d'un itinéraire (Modifier le
+     tracé, Convertir en trace), que l'aperçu ne dessinait pas, reprennent les commandes restantes de la fiche actuelle.
+  6. Dialogue (A, que « Modifier » de B ouvre) : bloc position sur la couleur des tuiles, icône Material « terrain » ;
+     le sélecteur de symbole s'ouvre sur la catégorie du symbole actuel, rangées de 48 dp, libellés en 12 sp.
+- **Conséquences** : poser un waypoint, aller vers un point, suivre une trace : un appui chacun ; un appui malheureux
+  sur « Waypoint ici » pose un waypoint (il se supprime depuis le ⋮ de sa fiche) ; « Y aller » à la création passe par
+  la fiche ou par « Définir comme cible » du point central ; les composants de liste groupée (`ui/Grouped.kt`) servent
+  aux étapes suivantes.
+- **Alternatives rejetées** : A seule (le dialogue à chaque waypoint, sept commandes au même rang dans la fiche), B
+  seule (bloc du centre, éléments proches et tri par proximité : non retenus pour le panneau et la liste), C Registre,
+  D Volet, E Carnet.

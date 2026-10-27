@@ -17,7 +17,7 @@ import org.robolectric.annotation.Config
 
 /**
  * The tracks and waypoints panel of the flag (P14.3): each row runs its command, and drawing and waypoints are off
- * while a track is being drawn, as they were in the main menu.
+ * while a track is being drawn, as they were in the main menu. Since P29.4 (« Topo ») the commands say what they do.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
@@ -34,11 +34,11 @@ class TracksMenuPanelTest {
                 true
         })
         rule.onNodeWithText("Waypoint ici").performClick()
-        rule.onNodeWithText("Trace").performClick()
-        rule.onNodeWithText("Itinéraire").performClick()
-        rule.onNodeWithText("Rechercher un lieu, des coordonnées").performClick()
+        rule.onNodeWithText("Dessiner une trace").performClick()
+        rule.onNodeWithText("Dessiner un itinéraire").performClick()
+        rule.onNodeWithText("Lieu, trace ou waypoint").performClick()
         rule.onNodeWithText("Importer un fichier…").performClick()
-        rule.onNodeWithText("Explorer les traces et waypoints").performClick()
+        rule.onNodeWithText("Liste des traces et waypoints").performClick()
         assertEquals(
             listOf(
                 MenuAction.WAYPOINT,
@@ -55,11 +55,11 @@ class TracksMenuPanelTest {
     @Test
     fun `drawing and waypoints are off while a track is drawn, search and explorer stay on`() {
         setContent(drawAllowed = false, waypointAllowed = false, onAction = {}, onExplorer = {})
-        rule.onNodeWithText("Trace").assertIsNotEnabled()
-        rule.onNodeWithText("Itinéraire").assertIsNotEnabled()
+        rule.onNodeWithText("Dessiner une trace").assertIsNotEnabled()
+        rule.onNodeWithText("Dessiner un itinéraire").assertIsNotEnabled()
         rule.onNodeWithText("Waypoint ici").assertIsNotEnabled()
-        rule.onNodeWithText("Rechercher un lieu, des coordonnées").assertIsEnabled()
-        rule.onNodeWithText("Explorer les traces et waypoints").assertIsEnabled()
+        rule.onNodeWithText("Lieu, trace ou waypoint").assertIsEnabled()
+        rule.onNodeWithText("Liste des traces et waypoints").assertIsEnabled()
     }
 
     @Test
@@ -74,6 +74,7 @@ class TracksMenuPanelTest {
             onShowAll = { shown += it },
         )
         rule.onNodeWithText("1 trace · 2 itinéraires · 12 waypoints").assertExists()
+        rule.onNodeWithText("GPX, KML, KMZ, GeoJSON").assertExists()
         rule.onNodeWithText("Tout afficher sur la carte").performClick()
         assertEquals(listOf(false), shown)
     }

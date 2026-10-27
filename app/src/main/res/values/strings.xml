@@ -338,9 +338,11 @@
   <string name="bar_position">Position</string>
 
   <string name="tracks_title">Traces et waypoints</string>
-  <string name="tracks_explore">Explorer les traces et waypoints</string>
+  <string name="tracks_explore">Liste des traces et waypoints</string>
   <string name="tracks_import">Importer</string>
-  <string name="tracks_empty">Aucune trace. Importez un fichier GPX, KML, KMZ ou GeoJSON : depuis ce bouton, ou en l\'ouvrant avec ToolMap depuis une autre application.</string>
+  <string name="tracks_empty_title">Vos traces et waypoints s\'afficheront ici</string>
+  <string name="tracks_empty_text">Importez un fichier GPX, KML, KMZ ou GeoJSON, ou ouvrez-le avec ToolMap depuis une autre application. Vous pouvez aussi dessiner une trace sur la carte.</string>
+  <string name="tracks_empty_draw">Dessiner une trace sur la carte</string>
   <string name="tracks_unnamed">Sans nom</string>
   <string name="tracks_waypoint">Waypoint</string>
   <string name="tracks_gone">Cette trace n\'existe plus.</string>
@@ -349,8 +351,6 @@
     <item quantity="many">Dossier · %d éléments</item>
     <item quantity="other">Dossier · %d éléments</item>
   </plurals>
-  <string name="tracks_kind_track">Trace</string>
-  <string name="tracks_kind_route">Itinéraire</string>
   <string name="tracks_find">Rechercher</string>
   <string name="tracks_search_hint">Rechercher par nom</string>
   <string name="tracks_search_clear">Effacer la recherche</string>
@@ -442,7 +442,7 @@
   <string name="tracks_cursor_on_map">Voir ce point sur la carte</string>
 
   <string name="tracks_elevation_missing">Points sans altitude : %1$d.</string>
-  <string name="tracks_elevation_complete">Compléter avec les données de terrain</string>
+  <string name="tracks_elevation_complete">Compléter les altitudes</string>
   <string name="tracks_elevation_done">Altitudes ajoutées — points complétés : %1$d</string>
   <string name="tracks_elevation_partial">Altitudes ajoutées (points complétés : %1$d), mais des données de terrain manquent (hors ligne ?) : réessayez en ligne.</string>
   <string name="tracks_elevation_none">Aucune altitude n\'a pu être ajoutée (hors ligne ou données indisponibles).</string>
@@ -587,7 +587,6 @@
   <string name="settings_routing_all_by_hand">Passer tout l\'itinéraire en dessin à la main</string>
   <string name="settings_routing_all_by_hand_detail">Comme sur une feuille blanche, jusqu\'à rallumer « Suivre les chemins ».</string>
 
-  <string name="tracks_tools">Outils</string>
   <string name="tracks_edit">Modifier le tracé</string>
   <string name="tracks_reverse">Inverser le sens</string>
   <string name="tracks_simplify">Simplifier…</string>
@@ -602,7 +601,6 @@
   <string name="tracks_edit_waypoint">Modifier</string>
   <string name="tracks_edit_path">Modifier le tracé</string>
   <string name="tracks_go_to">Aller vers ce point</string>
-  <string name="tracks_sheet_from_here">Depuis votre position</string>
 
   <string name="record_pause">Pause</string>
   <string name="record_resume">Reprendre</string>
@@ -1278,7 +1276,7 @@
   <string name="follow_gps_failed">Le GPS n\'a pas pu être démarré : aucune alerte ne peut être donnée.</string>
   <string name="follow_dismiss">Compris</string>
   <string name="tracks_follow">Suivre</string>
-  <string name="tracks_follow_this">Suivre cette trace (alerte d\'écart)</string>
+  <string name="tracks_follow_this">Suivre cette trace</string>
   <string name="tracks_unfollow">Ne plus suivre</string>
   <string name="tracks_watch">Alerte de proximité</string>
   <string name="tracks_watch_on">Alerte à %1$s</string>
@@ -1710,10 +1708,10 @@
   <string name="exit_following_left">%1$s · %2$s restants</string>
   <string name="exit_stop_one">Pour l\'arrêter plus tard, touchez « %1$s » dans sa notification, ou rouvrez ToolMap.</string>
   <string name="exit_stop_many">Pour les arrêter plus tard, touchez leurs boutons « Arrêter » dans la notification de ToolMap, ou rouvrez ToolMap.</string>
-  <string name="tracks_search">Rechercher un lieu, des coordonnées</string>
+  <string name="tracks_search">Lieu, trace ou waypoint</string>
   <string name="tracks_tile_waypoint">Waypoint ici</string>
-  <string name="tracks_tile_track">Trace</string>
-  <string name="tracks_tile_route">Itinéraire</string>
+  <string name="tracks_tile_track">Dessiner une trace</string>
+  <string name="tracks_tile_route">Dessiner un itinéraire</string>
   <string name="tracks_counts">%1$s · %2$s · %3$s</string>
   <string name="tracks_none_tracks">aucune trace</string>
   <string name="tracks_none_routes">aucun itinéraire</string>
@@ -1731,7 +1729,37 @@
     <item quantity="other">%d waypoints</item>
   </plurals>
   <string name="tracks_import_file">Importer un fichier…</string>
-  <string name="tracks_import_sub">GPX, KML, GeoJSON</string>
+  <string name="tracks_import_sub">GPX, KML, KMZ, GeoJSON</string>
+  <!-- P29.4 « Traces » : liste et détail en « Topo » (A), fiche et waypoint en un appui en « Repère » (B) -->
+  <string name="tracks_kind_track">Trace</string>
+  <string name="tracks_kind_route">Itinéraire</string>
+  <string name="tracks_row_description">%1$s, %2$s, %3$s</string>
+  <string name="tracks_row_hidden_by_folder">masqué avec son dossier</string>
+  <string name="tracks_edit_waypoint_menu">Modifier…</string>
+  <string name="tracks_detail_subtitle">Trace · %1$s</string>
+  <string name="tracks_stat_ascent_short">Dénivelé +</string>
+  <string name="tracks_stat_descent_short">Dénivelé −</string>
+  <string name="tracks_stat_walk_short">Temps estimé</string>
+  <string name="tracks_all_figures">Tous les chiffres</string>
+  <string name="tracks_all_figures_sub">Altitudes, durées, vitesses, début, fin, points</string>
+  <string name="tracks_group_prepare">Préparer</string>
+  <string name="tracks_group_field">Sur le terrain</string>
+  <string name="tracks_group_edit">Modifier</string>
+  <string name="tracks_follow_this_sub">Alerte d\'écart</string>
+  <string name="tracks_reverse_ask">La trace sera parcourue dans l\'autre sens ; ses heures seront effacées.</string>
+  <string name="tracks_profile_description">Profil d\'altitude de %1$s à %2$s sur %3$s, coloré selon la pente</string>
+  <string name="tracks_slope_flat">&lt; 3 %</string>
+  <string name="tracks_slope_gentle">3–8 %</string>
+  <string name="tracks_slope_moderate">8–15 %</string>
+  <string name="tracks_slope_steep">15–25 %</string>
+  <string name="tracks_slope_very_steep">≥ 25 %</string>
+  <string name="tracks_sheet_bearing">cap %1$s %2$s</string>
+  <string name="tracks_sheet_from_position">depuis votre position</string>
+  <string name="tracks_sheet_reading">%1$s, cap %2$s %3$s, depuis votre position</string>
+  <string name="tracks_follow_route">Suivre cet itinéraire</string>
+  <string name="tracks_sheet_profile">Profil d\'altitude de la trace</string>
+  <string name="waypoint_quick_saved">« %1$s » enregistré · %2$s</string>
+  <string name="waypoint_quick_saved_bare">« %1$s » enregistré</string>
   <string name="tracks_show_all">Tout afficher sur la carte</string>
   <string name="point_share_short">Partager</string>
   <string name="point_copied">Coordonnées copiées</string>

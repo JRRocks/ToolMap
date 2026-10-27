@@ -1056,8 +1056,28 @@ fun MapScreen(
             }
 
             MenuAction.WAYPOINT -> {
+                // « Waypoint ici » records at once (P29.4, « Repère »); its message opens the dialog to change it.
                 val c = controller.liveCamera
-                waypointDraft = WaypointDraft(null, c.lat to c.lon)
+                val prefix = resources.getString(R.string.waypoint_default_prefix)
+                val next = WaypointNames.nextNumber(library?.waypoints.orEmpty().map { it.name }, prefix)
+                val name = resources.getString(R.string.waypoint_default_name, prefix, next)
+                scope.launch {
+                    val made = tracks.quickWaypoint(c.lat, c.lon, name)
+                    val text =
+                        made.waypoint.ele?.let {
+                            resources.getString(R.string.waypoint_quick_saved, name, formats.elevation(it))
+                        }
+                            ?: resources.getString(R.string.waypoint_quick_saved_bare, name)
+                    val answer =
+                        snackbar.showSnackbar(
+                            text,
+                            actionLabel = resources.getString(R.string.tracks_edit_waypoint),
+                            duration = SnackbarDuration.Long,
+                        )
+                    if (answer == SnackbarResult.ActionPerformed) {
+                        waypointDraft = WaypointDraft(made.id to made.waypoint, made.waypoint.lat to made.waypoint.lon)
+                    }
+                }
             }
 
             MenuAction.SHARE -> {
@@ -1791,6 +1811,7 @@ fun MapScreen(
                     }
                 },
                 onDismiss = { tracks.onMapTap(null) },
+                profileOf = tracks::profileOf,
             )
         }
         if (showAltitude) {

@@ -319,6 +319,27 @@ class TracksViewModelTest {
     }
 
     @Test
+    fun `Waypoint ici records at once, with the terrain altitude and the symbol of the last waypoint`() {
+        // No waypoint yet: the default flag.
+        val first = runBlocking { vm.quickWaypoint(45.5, 6.5, "Waypoint 1") }
+        assertEquals("Waypoint", first.waypoint.sym)
+        assertEquals(500.0, first.waypoint.ele)
+        assertEquals("Waypoint 1", runBlocking { vm.waypoint(first.id)!!.name })
+        // The symbol of the last waypoint created is taken again.
+        vm.saveWaypoint(null, Waypoint(45.6, 6.6, name = "Fort", sym = "Castle"))
+        eventually("castle created") { vm.library.value?.waypoints?.size == 2 }
+        val second = runBlocking { vm.quickWaypoint(45.7, 6.7, "Waypoint 2") }
+        assertEquals("Castle", second.waypoint.sym)
+    }
+
+    @Test
+    fun `the small profile of a track's sheet is read from its points`() {
+        val id = lineTrack("Profil", 30)
+        assertNotNull(runBlocking { vm.profileOf(id) })
+        assertNull(runBlocking { vm.profileOf(9999) })
+    }
+
+    @Test
     fun `a description is stored and can be cleared`() {
         val id = lineTrack("Décrite", 3)
         vm.describe(ItemRef(ItemKind.TRACK, id), "Belle sortie")

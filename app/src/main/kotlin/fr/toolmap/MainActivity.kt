@@ -502,6 +502,20 @@ class MainActivity : ComponentActivity() {
                                                     tracksViewModel.fitMapTo(request)
                                                     toMap()
                                                 },
+                                                onOpenOnMap = { ref, request ->
+                                                    tracksViewModel.fitMapTo(request)
+                                                    tracksViewModel.onMapTap(ref)
+                                                    toMap()
+                                                },
+                                                onDrawTrack = {
+                                                    drawViewModel.startNewTrack()
+                                                    toMap()
+                                                },
+                                                mapCenter = { viewModel.state.value.camera.let { it.lat to it.lon } },
+                                                onGoTo = { w ->
+                                                    navigationViewModel.setTarget(NavTarget(w.lat, w.lon, w.name))
+                                                    toMap()
+                                                },
                                             )
                                         }
 

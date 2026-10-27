@@ -19,6 +19,7 @@ import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.core.track.TrackStats
 import fr.toolmap.core.track.TrackStatsCalculator
 import fr.toolmap.core.track.Waypoint
+import fr.toolmap.core.track.WaypointSymbols
 import fr.toolmap.data.elevation.ElevationCompleter
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.data.tracks.DisplayData
@@ -49,6 +50,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.IOException
 import javax.inject.Inject
@@ -61,6 +63,12 @@ class TrackDetail(
     val path: TrackPath,
     /** Points without an elevation: the "complete from terrain data" button is offered when positive. */
     val missingElevation: Int,
+)
+
+/** A waypoint just recorded by « Waypoint ici », with the id that « Modifier » opens. */
+data class QuickWaypoint(
+    val id: Long,
+    val waypoint: Waypoint,
 )
 
 /** A box on the map the map screen should fit once it is shown. */
@@ -324,6 +332,29 @@ class TracksViewModel
             lon: Double,
         ): Double? = completer.fill(listOf(listOf(TrackPoint(lat, lon)))).segments[0][0].ele
 
+        /**
+         * « Waypoint ici » in one tap (P29.4, « Repère »): the waypoint is recorded at once at [lat], [lon] under
+         * [name], with the ground altitude when the terrain answers within a short while, and the symbol of the last
+         * waypoint created (the default flag otherwise). The map screen then offers « Modifier ».
+         */
+        suspend fun quickWaypoint(
+            lat: Double,
+            lon: Double,
+            name: String,
+        ): QuickWaypoint {
+            val symbol = library.value?.waypoints?.maxByOrNull { it.createdAt }?.sym
+            val ele = withTimeoutOrNull(QUICK_ELEVATION_MILLIS) { terrainElevation(lat, lon) }
+            val waypoint = Waypoint(lat, lon, ele = ele, name = name, sym = WaypointSymbols.canonical(symbol))
+            val id = withContext(Dispatchers.IO) { repository.createWaypoint(waypoint) }
+            return QuickWaypoint(id, waypoint)
+        }
+
+        /** The elevation profile of a track for the small one of its sheet; `null` without enough altitudes. */
+        suspend fun profileOf(trackId: Long): ElevationProfile? =
+            withContext(Dispatchers.Default) {
+                repository.loadTrack(trackId)?.let { ElevationProfile.build(TrackPath(it.segments)) }
+            }
+
         /** Creates a waypoint ([id] `null`) or rewrites an existing one. */
         fun saveWaypoint(
             id: Long?,
@@ -445,6 +476,9 @@ class TracksViewModel
 
         private companion object {
             const val CREATOR = "ToolMap"
+
+            /** How long « Waypoint ici » waits for the terrain before it records the waypoint without altitude. */
+            const val QUICK_ELEVATION_MILLIS = 3_000L
             const val CORRIDOR_TOLERANCE_METERS = 25.0
         }
     }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -20,9 +21,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -35,7 +37,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,19 +65,28 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
+import fr.toolmap.core.route.SavedRouteInfo
 import fr.toolmap.core.settings.LibraryViewSettings
 import fr.toolmap.core.track.LibraryFilter
 import fr.toolmap.core.track.LibraryKey
@@ -84,6 +94,11 @@ import fr.toolmap.core.track.LibraryKind
 import fr.toolmap.core.track.LibraryOrder
 import fr.toolmap.core.track.LibrarySort
 import fr.toolmap.core.track.PathStyle
+import fr.toolmap.core.track.TrackFormat
+import fr.toolmap.core.track.TrackJson
+import fr.toolmap.core.track.TrackPoint
+import fr.toolmap.core.track.Waypoint
+import fr.toolmap.core.track.WaypointSymbols
 import fr.toolmap.data.tracks.FolderEntity
 import fr.toolmap.data.tracks.ItemKind
 import fr.toolmap.data.tracks.ItemRef
@@ -93,11 +108,18 @@ import fr.toolmap.data.tracks.TrackLibrary
 import fr.toolmap.data.tracks.TrackSelection
 import fr.toolmap.data.tracks.WaypointEntity
 import fr.toolmap.map.MenuIcons
+import fr.toolmap.map.libraryCounts
 import fr.toolmap.maps.MapsIcons
+import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.ToolMapTopBar
+import fr.toolmap.ui.groupedShape
+import fr.toolmap.ui.theme.Button
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.minTouchTarget
+import fr.toolmap.ui.theme.toolMap
+import fr.toolmap.waypoints.WaypointDialog
+import fr.toolmap.waypoints.WaypointIconBadge
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -115,6 +137,8 @@ private sealed interface LibraryRow {
         override val depth: Int,
         val itemCount: Int,
         val expanded: Boolean,
+        /** False when a folder above hides it, whatever its own eye says. */
+        val parentsShown: Boolean = true,
     ) : LibraryRow {
         override val key get() = "f${folder.id}"
     }
@@ -187,7 +211,7 @@ private fun rows(
                 lib.tracks.count { it.folderId in inside } + lib.routes.count { it.folderId in inside } +
                     lib.waypoints.count { it.folderId in inside }
             val open = f.id in expanded
-            out += LibraryRow.Folder(f, depth, count, open)
+            out += LibraryRow.Folder(f, depth, count, open, lib.isShown(f.parentId, true))
             if (open) visit(f.id, depth + 1)
         }
         out += itemRows(lib, depth, view, "") { it == parent }
@@ -279,7 +303,7 @@ private sealed interface Dialog {
 }
 
 /** The top of the library and every folder that can take what is moved, in tree order. */
-private fun moveTargets(
+internal fun moveTargets(
     lib: TrackLibrary,
     movedFolder: Long?,
     current: Long?,
@@ -302,7 +326,11 @@ private fun moveTargets(
     return out
 }
 
-/** The library: every imported or recorded track, route and waypoint, in the folders they came in. */
+/**
+ * The library: every imported or recorded track, route and waypoint, in the folders they came in. Since P29.4
+ * (« Topo ») the rows make one white block, each opens on the mark the item has on the map, an eye shows or hides it,
+ * and a route or a waypoint opens the map with its sheet, as a track opens its detail.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TracksScreen(
@@ -311,6 +339,14 @@ fun TracksScreen(
     onImport: () -> Unit,
     onOpenDetail: (Long) -> Unit,
     onShowOnMap: (MapRequest) -> Unit,
+    /** A route or a waypoint touched: the map framed on it, with its sheet open. */
+    onOpenOnMap: (ItemRef, MapRequest) -> Unit = { _, request -> onShowOnMap(request) },
+    /** « Dessiner une trace sur la carte » of the empty library. */
+    onDrawTrack: () -> Unit = {},
+    /** Where the map is looking, for « Déplacer au centre de la carte » of « Modifier… ». */
+    mapCenter: () -> Pair<Double, Double> = { 0.0 to 0.0 },
+    /** « Y aller » of « Modifier… »: the waypoint becomes the target, on the map. */
+    onGoTo: (Waypoint) -> Unit = {},
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -333,6 +369,8 @@ fun TracksScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var selected by remember { mutableStateOf(emptySet<ItemRef>()) }
     val selecting = selected.isNotEmpty()
+    // « Modifier… » of a waypoint: the dialog of the map, over the list.
+    var editing by remember { mutableStateOf<Pair<Long, Waypoint>?>(null) }
 
     LaunchedEffect(vm) {
         vm.messages.collect { snackbar.showSnackbar(resources.getString(it.resId, *it.args.toTypedArray())) }
@@ -396,9 +434,14 @@ fun TracksScreen(
                     onDelete = { dialog = Dialog.DeleteMany(selected.toList()) },
                 )
             } else {
+                val lib = library
                 ToolMapTopBar(
                     title = stringResource(R.string.tracks_title),
                     onBack = onBack,
+                    subtitle =
+                        lib?.takeIf { !it.isEmpty }?.let {
+                            libraryCounts(it.tracks.size, it.routes.size, it.waypoints.size)
+                        },
                     actions = {
                         IconButton(onClick = {
                             searchOpen = !searchOpen
@@ -419,25 +462,19 @@ fun TracksScreen(
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             val lib = library
             if (searchOpen) SearchField(query) { query = it }
-            if (lib != null && !lib.isEmpty) {
+            if (lib != null && lib.isEmpty) {
+                if (!searchOpen) EmptyLibrary(onImport = onImport, onDrawTrack = onDrawTrack)
+            } else if (lib != null) {
                 ViewChips(view, onSort = vm::setLibrarySort, onFilter = vm::setLibraryFilter)
-            }
-            if (!selecting) {
-                TextButton(
-                    onClick = { dialog = Dialog.NewFolder(null) },
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(stringResource(R.string.tracks_new_folder), modifier = Modifier.padding(start = 6.dp))
+                if (!selecting) {
+                    TextButton(
+                        onClick = { dialog = Dialog.NewFolder(null) },
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.tracks_new_folder), modifier = Modifier.padding(start = 6.dp))
+                    }
                 }
-            }
-            if (lib == null || lib.isEmpty) {
-                Text(
-                    stringResource(R.string.tracks_empty),
-                    modifier = Modifier.padding(24.dp),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            } else {
                 val list = remember(lib, expanded, view, query) { rows(lib, expanded, view, query) }
                 if (list.isEmpty()) {
                     Text(
@@ -450,25 +487,64 @@ fun TracksScreen(
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
-                LazyColumn(Modifier.fillMaxSize(), state = listState) {
-                    items(list, key = { it.key }) { row ->
-                        LibraryRowView(
-                            row = row,
-                            vm = vm,
-                            selection = if (selecting) selected else null,
-                            onSelect = { ref -> selected = if (ref in selected) selected - ref else selected + ref },
-                            onToggleFolder = vm::toggleFolder,
-                            onOpenDetail = onOpenDetail,
-                            onShowOnMap = onShowOnMap,
-                            onDialog = { dialog = it },
-                            onExport = export,
-                            onShare = share,
-                        )
-                        HorizontalDivider()
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    state = listState,
+                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 16.dp),
+                ) {
+                    itemsIndexed(list, key = { _, row -> row.key }) { index, row ->
+                        // One white block for the whole list, a thin line between two rows (P29.0).
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(groupedShape(first = index == 0, last = index == list.lastIndex))
+                                .background(MaterialTheme.toolMap.panel),
+                        ) {
+                            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            LibraryRowView(
+                                row = row,
+                                vm = vm,
+                                selection = if (selecting) selected else null,
+                                onSelect = { ref ->
+                                    selected = if (ref in selected) selected - ref else selected + ref
+                                },
+                                onToggleFolder = vm::toggleFolder,
+                                onOpenDetail = onOpenDetail,
+                                onShowOnMap = onShowOnMap,
+                                onOpenOnMap = onOpenOnMap,
+                                onEditWaypoint = { id ->
+                                    scope.launch { vm.waypoint(id)?.let { editing = id to it } }
+                                },
+                                onDialog = { dialog = it },
+                                onExport = export,
+                                onShare = share,
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+
+    editing?.let { (id, waypoint) ->
+        val unnamed = stringResource(R.string.tracks_unnamed)
+        WaypointDialog(
+            initial = waypoint,
+            start = waypoint.lat to waypoint.lon,
+            defaultName = waypoint.name ?: unnamed,
+            center = mapCenter,
+            terrainElevation = vm::terrainElevation,
+            onSave = {
+                editing = null
+                vm.saveWaypoint(id, it)
+            },
+            onSaveAndGo = {
+                editing = null
+                vm.saveWaypoint(id, it)
+                onGoTo(it)
+            },
+            onDismiss = { editing = null },
+        )
     }
 
     dialog?.let { d ->
@@ -743,7 +819,7 @@ private fun filterLabel(filter: LibraryFilter): Int =
 
 /**
  * One line. In the selection mode ([selection] not `null`) a tap picks or drops an item, and the items show a ring in
- * place of their colour dot, without their box and their menu; a long press starts that mode (F7).
+ * place of their mark, without their eye and their menu; a long press starts that mode (F7).
  */
 @Composable
 private fun LibraryRowView(
@@ -754,6 +830,8 @@ private fun LibraryRowView(
     onToggleFolder: (Long) -> Unit,
     onOpenDetail: (Long) -> Unit,
     onShowOnMap: (MapRequest) -> Unit,
+    onOpenOnMap: (ItemRef, MapRequest) -> Unit,
+    onEditWaypoint: (Long) -> Unit,
     onDialog: (Dialog) -> Unit,
     onExport: (TrackSelection, String?) -> Unit,
     onShare: (TrackSelection, String?) -> Unit,
@@ -766,33 +844,46 @@ private fun LibraryRowView(
     val background = if (picked) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
 
     Row(
-        modifier = Modifier.fillMaxWidth().background(background).padding(start = indent, end = 4.dp),
+        modifier = Modifier.fillMaxWidth().background(background).padding(start = indent),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when (row) {
             is LibraryRow.Folder -> {
                 val f = row.folder
-                Icon(
-                    if (row.expanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-                Column(
+                Row(
                     Modifier
                         .weight(1f)
                         .clickable { onToggleFolder(f.id) }
-                        .heightIn(min = minTouchTarget())
-                        .padding(horizontal = 8.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.Center,
+                        .heightIn(min = ROW_MIN_HEIGHT)
+                        .padding(start = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(f.name, style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        pluralStringResource(R.plurals.tracks_folder_items, row.itemCount, row.itemCount),
-                        style = MaterialTheme.typography.bodySmall,
+                    val arrow =
+                        if (row.expanded) {
+                            Icons.Filled.KeyboardArrowDown
+                        } else {
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight
+                        }
+                    Icon(
+                        arrow,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp),
                     )
+                    Box(Modifier.size(width = 36.dp, height = 24.dp), contentAlignment = Alignment.Center) {
+                        Icon(TracksIcons.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                    Column(Modifier.padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp)) {
+                        Text(f.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                        Text(
+                            pluralStringResource(R.plurals.tracks_folder_items, row.itemCount, row.itemCount),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 if (!selecting) {
-                    Checkbox(checked = f.visible, onCheckedChange = { vm.setFolderVisible(f.id, it) })
+                    EyeButton(f.visible, hiddenAbove = !row.parentsShown) { vm.setFolderVisible(f.id, it) }
                     val folderSelection = TrackSelection(folderIds = listOf(f.id))
                     ItemMenu(
                         menu,
@@ -813,7 +904,8 @@ private fun LibraryRowView(
                 val t = row.track
                 val ref = row.ref
                 ItemColumn(
-                    color = Color(t.colorArgb),
+                    mark = { LineMark(MenuIcons.Polyline, Color(t.colorArgb)) },
+                    kind = stringResource(R.string.tracks_kind_track),
                     title = t.name ?: unnamed,
                     subtitle = itemSubtitle(row),
                     dim = !row.shown,
@@ -823,7 +915,7 @@ private fun LibraryRowView(
                     modifier = Modifier.weight(1f),
                 )
                 if (!selecting) {
-                    Checkbox(checked = t.visible, onCheckedChange = { vm.setVisible(ref, it) })
+                    EyeButton(t.visible, hiddenAbove = t.visible && !row.shown) { vm.setVisible(ref, it) }
                     ItemMenu(
                         menu,
                         { menu = it },
@@ -849,17 +941,18 @@ private fun LibraryRowView(
                 val ref = row.ref
                 val fit = MapRequest(r.minLat, r.minLon, r.maxLat, r.maxLon)
                 ItemColumn(
-                    color = Color(r.colorArgb),
+                    mark = { LineMark(MenuIcons.Directions, Color(r.colorArgb)) },
+                    kind = stringResource(R.string.tracks_kind_route),
                     title = r.name ?: unnamed,
                     subtitle = itemSubtitle(row),
                     dim = !row.shown,
                     selected = selection?.let { ref in it },
-                    onClick = { if (selecting) onSelect(ref) else onShowOnMap(fit) },
+                    onClick = { if (selecting) onSelect(ref) else onOpenOnMap(ref, fit) },
                     onLongClick = { onSelect(ref) },
                     modifier = Modifier.weight(1f),
                 )
                 if (!selecting) {
-                    Checkbox(checked = r.visible, onCheckedChange = { vm.setVisible(ref, it) })
+                    EyeButton(r.visible, hiddenAbove = r.visible && !row.shown) { vm.setVisible(ref, it) }
                     ItemMenu(
                         menu,
                         { menu = it },
@@ -883,21 +976,23 @@ private fun LibraryRowView(
                 val ref = row.ref
                 val fit = MapRequest(w.lat, w.lon, w.lat, w.lon)
                 ItemColumn(
-                    color = Color(WAYPOINT_COLOR),
+                    mark = { WaypointIconBadge(WaypointSymbols.iconOf(w.sym), MARK_SIZE) },
+                    kind = stringResource(R.string.tracks_waypoint),
                     title = w.name ?: unnamed,
                     subtitle = itemSubtitle(row),
                     dim = !row.shown,
                     selected = selection?.let { ref in it },
-                    onClick = { if (selecting) onSelect(ref) else onShowOnMap(fit) },
+                    onClick = { if (selecting) onSelect(ref) else onOpenOnMap(ref, fit) },
                     onLongClick = { onSelect(ref) },
                     modifier = Modifier.weight(1f),
                 )
                 if (!selecting) {
-                    Checkbox(checked = w.visible, onCheckedChange = { vm.setVisible(ref, it) })
+                    EyeButton(w.visible, hiddenAbove = w.visible && !row.shown) { vm.setVisible(ref, it) }
                     ItemMenu(
                         menu,
                         { menu = it },
                         listOf(
+                            R.string.tracks_edit_waypoint_menu to { onEditWaypoint(w.id) },
                             R.string.tracks_show_on_map to { onShowOnMap(fit) },
                             R.string.tracks_rename to { onDialog(Dialog.Rename(ref, null, w.name.orEmpty())) },
                             R.string.tracks_move to
@@ -922,7 +1017,11 @@ private fun ItemMenu(
 ) {
     Box {
         IconButton(onClick = { setExpanded(true) }) {
-            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.menu))
+            Icon(
+                Icons.Filled.MoreVert,
+                contentDescription = stringResource(R.string.menu),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { setExpanded(false) }) {
             entries.forEach { (label, action) ->
@@ -938,10 +1037,67 @@ private fun ItemMenu(
     }
 }
 
-/** Title and subtitle of an item, after its colour dot; [selected] not `null` shows the ring of the selection mode. */
+/**
+ * Shows or hides one item or folder on the map: an eye of 48 dp that TalkBack reads « Afficher sur la carte, activé ».
+ * [hiddenAbove]: its own eye is open but a folder above hides it, so the eye is grey.
+ */
+@Composable
+private fun EyeButton(
+    visible: Boolean,
+    hiddenAbove: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    val label =
+        stringResource(R.string.tracks_show_on_map).let {
+            if (hiddenAbove) it + ", " + stringResource(R.string.tracks_row_hidden_by_folder) else it
+        }
+    Box(
+        Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .toggleable(value = visible, role = Role.Switch, onValueChange = onChange)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (visible) MapsIcons.Visibility else MapsIcons.VisibilityOff,
+            contentDescription = null,
+            tint =
+                if (visible && !hiddenAbove) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+/**
+ * The mark of a track or a route on the map: its icon in the colour of its line. At night a pale halo keeps the dark
+ * colours of the palette readable on the dark panel.
+ */
+@Composable
+private fun LineMark(
+    icon: ImageVector,
+    color: Color,
+) {
+    Box(contentAlignment = Alignment.Center) {
+        if (MaterialTheme.colorScheme.background.luminance() < NIGHT_LUMINANCE) {
+            Icon(icon, contentDescription = null, tint = HALO, modifier = Modifier.size(LINE_MARK_SIZE + 3.dp))
+        }
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(LINE_MARK_SIZE))
+    }
+}
+
+/**
+ * The mark of an item, its title on two lines at most and its figures. The kind (« Trace », « Waypoint ») is no longer
+ * written, the mark says it; TalkBack still reads it. [selected] not `null` shows the ring of the selection mode.
+ */
 @Composable
 private fun ItemColumn(
-    color: Color,
+    mark: @Composable () -> Unit,
+    kind: String,
     title: String,
     subtitle: String,
     dim: Boolean,
@@ -950,6 +1106,7 @@ private fun ItemColumn(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val spoken = stringResource(R.string.tracks_row_description, kind, title, subtitle)
     Row(
         modifier =
             modifier
@@ -957,59 +1114,121 @@ private fun ItemColumn(
                     onClick = onClick,
                     onLongClick = onLongClick,
                     onLongClickLabel = stringResource(R.string.tracks_select),
-                ).semantics { if (selected != null) this.selected = selected }
-                .heightIn(min = minTouchTarget())
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                ).semantics(mergeDescendants = true) {
+                    contentDescription = spoken
+                    if (selected != null) this.selected = selected
+                }.heightIn(min = ROW_MIN_HEIGHT)
+                .padding(start = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        when (selected) {
-            null -> {
-                Box(Modifier.size(14.dp).background(color, CircleShape))
-            }
+        val alpha = if (dim) DIM_ALPHA else 1f
+        Box(Modifier.size(40.dp).alpha(if (selected == null) alpha else 1f), contentAlignment = Alignment.Center) {
+            when (selected) {
+                null -> {
+                    mark()
+                }
 
-            true -> {
-                Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            }
+                true -> {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                }
 
-            false -> {
-                Icon(MenuIcons.RadioUnchecked, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+                false -> {
+                    Icon(MenuIcons.RadioUnchecked, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+                }
             }
         }
-        Column {
-            val alpha = if (dim) DIM_ALPHA else 1f
+        Column(Modifier.padding(start = 10.dp, end = 4.dp, top = 7.dp, bottom = 7.dp).alpha(alpha)) {
             Text(
                 title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
 
-/** « Trace · 11.9 km · 18 oct. », « Waypoint · 2 130 m · 15 oct. » (F7): the kind, the length or height, the date. */
+/**
+ * « 11,9 km · ↑ 905 m · 18 oct. » for a track, « 9,37 km · 3 h 05 · 23 oct. » for a route, « 330 m · 18 oct. » for a
+ * waypoint: the length (and the climb, the time) or the height, then the date; a line only wraps at a « · ».
+ */
 @Composable
 private fun itemSubtitle(row: LibraryRow.Item): String {
     val fmt = LocalFormats.current
     val key = row.orderKey
     val parts = ArrayList<String>()
-    parts +=
-        stringResource(
-            when (row) {
-                is LibraryRow.Track -> R.string.tracks_kind_track
-                is LibraryRow.Route -> R.string.tracks_kind_route
-                is LibraryRow.Waypoint -> R.string.tracks_waypoint
-            },
-        )
     key.distanceMeters?.let { parts += fmt.distance(it) }
-    (row as? LibraryRow.Waypoint)?.waypoint?.ele?.let { parts += fmt.elevation(it) }
+    when (row) {
+        is LibraryRow.Track -> {
+            row.track.ascentMeters?.let { parts += "↑ " + fmt.elevation(it) }
+        }
+
+        is LibraryRow.Route -> {
+            val r = row.route
+            val time =
+                remember(r.pointsJson, r.extrasJson) {
+                    r.extrasJson?.let {
+                        SavedRouteInfo
+                            .of(
+                                TrackJson.decodeWaypoints(r.pointsJson).map { TrackPoint(it.lat, it.lon, it.ele) },
+                                TrackJson.decodeExtras(it),
+                            ).summary
+                    }
+                }
+            time?.durationMillis?.let { parts += (if (time.durationIsMinimum) "≥ " else "") + TrackFormat.duration(it) }
+        }
+
+        is LibraryRow.Waypoint -> {
+            row.waypoint.ele?.let { parts += fmt.elevation(it) }
+        }
+    }
     parts += shortDate(key.timeMillis)
-    return parts.joinToString(" · ")
+    return parts.joinToString(" · ") { it.replace(' ', '\u00A0') }
+}
+
+/**
+ * The empty library teaches what goes in it (P29.4): a mark, what will be here, the ways to fill it, and the import
+ * as its one filled button. « Nouveau dossier » waits for a first item.
+ */
+@Composable
+private fun EmptyLibrary(
+    onImport: () -> Unit,
+    onDrawTrack: () -> Unit,
+) {
+    val tm = MaterialTheme.toolMap
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(Modifier.size(64.dp).clip(CircleShape).background(tm.tile), contentAlignment = Alignment.Center) {
+            Icon(SettingsIcons.Route, contentDescription = null, tint = tm.onTile, modifier = Modifier.size(32.dp))
+        }
+        Text(
+            stringResource(R.string.tracks_empty_title),
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+        Text(
+            stringResource(R.string.tracks_empty_text),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        Button(onClick = onImport, modifier = Modifier.padding(top = 24.dp)) {
+            Icon(MenuIcons.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(stringResource(R.string.tracks_import_file), modifier = Modifier.padding(start = 8.dp))
+        }
+        TextButton(onClick = onDrawTrack, modifier = Modifier.padding(top = 4.dp)) {
+            Text(stringResource(R.string.tracks_empty_draw))
+        }
+    }
 }
 
 /** « 18 oct. », with the year when it is not this one. */
@@ -1024,7 +1243,11 @@ private val DAY_MONTH_YEAR = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.FR
 
 private const val INDENT_DP = 20
 private const val DIM_ALPHA = 0.45f
-private const val WAYPOINT_COLOR = 0xFFE53935
+private val ROW_MIN_HEIGHT = 56.dp
+private val MARK_SIZE = 32.dp
+private val LINE_MARK_SIZE = 26.dp
+private val HALO = Color.White.copy(alpha = 0.55f)
+private const val NIGHT_LUMINANCE = 0.5f
 
 /** No folder is the current one: the items to move come from several. */
 private const val SEVERAL_FOLDERS = -1L

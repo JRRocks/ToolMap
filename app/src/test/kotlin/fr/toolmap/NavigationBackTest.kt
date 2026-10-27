@@ -133,7 +133,7 @@ class NavigationBackTest {
     @Test
     fun `back while drawing asks before losing the points`() {
         rule.onNodeWithContentDescription("Traces et waypoints").performClick()
-        rule.onNodeWithText("Trace").performClick()
+        rule.onNodeWithText("Dessiner une trace").performClick()
         rule.onNodeWithText("Ajouter ici").performClick()
         pressBack()
         assertFalse(rule.activity.isFinishing, "Back left the app while drawing")

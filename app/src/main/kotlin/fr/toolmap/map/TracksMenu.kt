@@ -40,8 +40,10 @@ data class TracksMenuState(
 /*
  * The tracks and waypoints panel, opened from the flag of the bar (P14.3, ADR-043), as the placemark panel of AlpineQuest.
  * Since P14.10: the search first, as a field; then three tiles for what is created at the centre (a waypoint, a track, a
- * route, each with its own icon); then the explorer with what the library holds, the import of a file and the switch
- * that shows or hides everything. A command closes the panel; the switch does not. The « ? » opens the help.
+ * route, each with its own icon); then the list with what the library holds, the import of a file and the switch
+ * that shows or hides everything. A command closes the panel; the switch does not. The « ? » opens the help. Since
+ * P29.4 (« Topo ») the commands say what they do (« Dessiner une trace », « Liste des traces et waypoints »), and
+ * « Waypoint ici » records the waypoint at once (« Repère »: the map screen offers « Modifier » in its message).
  */
 @Composable
 fun TracksMenuPanel(
@@ -77,13 +79,7 @@ fun TracksMenuPanel(
         MenuRow(
             stringResource(R.string.tracks_explore),
             icon = Icons.AutoMirrored.Filled.List,
-            subtitle =
-                stringResource(
-                    R.string.tracks_counts,
-                    countText(R.plurals.tracks_count_tracks, R.string.tracks_none_tracks, state.tracks),
-                    countText(R.plurals.tracks_count_routes, R.string.tracks_none_routes, state.routes),
-                    countText(R.plurals.tracks_count_waypoints, R.string.tracks_none_waypoints, state.waypoints),
-                ),
+            subtitle = libraryCounts(state.tracks, state.routes, state.waypoints),
             trailing = { PanelChevron() },
         ) {
             onExplorer()
@@ -125,6 +121,20 @@ private fun SearchField(onClick: () -> Unit) {
         }
     }
 }
+
+/** « 3 traces · 1 itinéraire · aucun waypoint »: what the library holds, in the panel and the bar of the list. */
+@Composable
+fun libraryCounts(
+    tracks: Int,
+    routes: Int,
+    waypoints: Int,
+): String =
+    stringResource(
+        R.string.tracks_counts,
+        countText(R.plurals.tracks_count_tracks, R.string.tracks_none_tracks, tracks),
+        countText(R.plurals.tracks_count_routes, R.string.tracks_none_routes, routes),
+        countText(R.plurals.tracks_count_waypoints, R.string.tracks_none_waypoints, waypoints),
+    )
 
 /**
  * "aucune trace" rather than "0 traces" or "0 trace": French counts 0 as singular, an

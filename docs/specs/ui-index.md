@@ -128,18 +128,17 @@ Depuis P29.1 (variante E « Pastilles » de `docs/previews/design-01-carte.html`
 
 ### 2.4 Fiche d'un élément touché (`tracks/TappedItemSheet.kt`)
 
+Depuis P29.4 (variante « B · Repère », `docs/previews/design-04-traces.html`, ADR-077) : une seule action mise en avant par fiche, deux tuiles, le reste dans le ⋮ de l'en-tête.
+
 | Bouton | Statut |
 |---|---|
-| Détails (trace) → TRACK_DETAIL | ✅ |
-| Masquer de la carte | ✅ |
-| Modifier le tracé (trace, itinéraire) → mode dessin | ✅ |
-| Modifier le waypoint | ✅ |
-| Dialogue « Nouveau waypoint » / « Modifier » (`waypoints/WaypointDialog.kt`, allégé en P14.9) : pastille du symbole (disque de la couleur de catégorie, glyphe blanc, petit crayon) à gauche du **Nom** → sélecteur « Symbole » : champ de recherche, 16 catégories repliables (nombre d'icônes), 313 icônes ; l'icône choisie est celle de la carte (ADR-056). Nouveau waypoint : nom prérempli « Waypoint N » (N = plus grand numéro existant + 1, `WaypointNames`), sélectionné, clavier ouvert. Une ligne de **coordonnées** (lecture) avec le bouton de format (DD, DM, DMS, UTM, MGRS, L93 ▾ : menu des six formats, réécrit la position) et une ligne d'**altitude** : lue sur le relief (Terrarium) pour un nouveau waypoint (« 442 m · relief », « Altitude… » pendant la lecture, « Altitude inconnue » hors ligne). Le crayon ouvre la saisie libre des coordonnées (tous formats, messages d'erreur) et de l'altitude ; en modification seulement, « Déplacer au centre de la carte ». « + Ajouter une description » ouvre le champ (ouvert d'office s'il y a une description). Actions : Annuler · **Y aller** (tonal : enregistre et définit la cible) · **Enregistrer** (plein) | ✅ (P16.6, P14.9) |
-| Aller vers | ✅ |
-| Suivre / Ne plus suivre (alerte d'écart) | ✅ |
-| Alerte de proximité (waypoint) | ✅ |
-| Supprimer (confirmation « Supprimer « nom » ? Cette action est définitive. »), Partager (GPX de l'élément seul, sélecteur d'Android), Exporter (le GPX dans un fichier : sélecteur de fichiers d'Android, nom proposé d'après l'élément ; « Fichier GPX écrit ») ; deuxième rangée en 4 tuiles Partager · Exporter · Masquer · Supprimer | ✅ (P18.2, session 41) ; Exporter `[F8]` variante A (P14.6, session 49) |
-| Présentation (P18.2) : en tête, l'icône du waypoint (pastille de sa catégorie) ou un disque de trace / d'itinéraire, le nom et une ligne de chiffres (altitude · coordonnées ; longueur, ↑, ↓) ; le commentaire et la description ; bloc teinté « DEPUIS VOTRE POSITION : 3.90 km · cap 146° SE » quand la position en temps réel est active ; commandes en tuiles (style des panneaux, ADR-060) : waypoint = Aller vers ce point · Alerte de proximité · Modifier, puis Partager · Masquer · Supprimer ; trace = Statistiques · Suivre · Modifier le tracé, puis les trois mêmes ; itinéraire = Suivre · Modifier le tracé (rouvre les étapes et les profils) · Convertir en trace, chiffres « km · ↑ · ↓ · durée · profil » (P19, session 45) | ✅ |
+| En-tête : icône du waypoint (pastille de sa catégorie, 40 dp) ou disque de trace / d'itinéraire, nom (2 lignes au plus), ligne de chiffres (altitude · coordonnées ; longueur, ↑, ↓ ; itinéraire « km · ↑ · ↓ · durée · profil »), ⋮ à droite ; puis le commentaire et la description | ✅ (P29.4) |
+| ⋮ de la fiche : Partager (GPX de l'élément seul) · Exporter (fichier GPX, « Fichier GPX écrit », `[F8]`) · Masquer · Supprimer (confirmation « Supprimer « nom » ? Cette action est définitive. ») | ✅ (P29.4) |
+| Waypoint : lecture en grand « 3,90 km », flèche tournée vers le point (cap), « cap 146° SE », puis « depuis votre position » (seulement quand la position est connue ; TalkBack lit une phrase) ; bouton plein **Aller vers ce point** (icône near_me) ; tuiles Alerte de proximité (« Alerte à 200 m » quand elle est posée) · Modifier | ✅ (P29.4) |
+| Trace : petit profil d'altitude coloré selon la pente (sans curseur) ; bouton plein **Suivre cette trace** (tonal « Ne plus suivre » quand elle est suivie) ; tuiles Statistiques (→ détail, §6.2) · Modifier le tracé | ✅ (P29.4) |
+| Itinéraire : bouton plein **Suivre cet itinéraire** (tonal « Ne plus suivre ») ; tuiles Modifier le tracé (rouvre les étapes et les profils) · Convertir en trace | ✅ (P29.4) |
+| Un glissement vers le bas, un appui hors de la fiche ou Retour la ferme | ✅ |
+| Dialogue « Nouveau waypoint » / « Modifier le waypoint » (`waypoints/WaypointDialog.kt`, allégé en P14.9) : pastille du symbole (disque de la couleur de catégorie, glyphe blanc, petit crayon) à gauche du **Nom** → sélecteur « Symbole » : champ de recherche, 16 catégories repliables (nombre d'icônes), 313 icônes, **ouvert sur la catégorie du symbole actuel, dépliée**, rangées de 48 dp, libellés en 12 sp (P29.4) ; l'icône choisie est celle de la carte (ADR-056). Nouveau waypoint : nom prérempli « Waypoint N » (N = plus grand numéro existant + 1, `WaypointNames`), sélectionné, clavier ouvert. Bloc position sur la couleur des tuiles (P29.4) : une ligne de **coordonnées** (lecture) avec le bouton de format (DD, DM, DMS, UTM, MGRS, L93 ▾ : menu des six formats, réécrit la position) et une ligne d'**altitude** (icône Material « terrain » depuis P29.4) : lue sur le relief (Terrarium) pour un nouveau waypoint (« 442 m · relief », « Altitude… » pendant la lecture, « Altitude inconnue » hors ligne). Le crayon ouvre la saisie libre des coordonnées (tous formats, messages d'erreur) et de l'altitude ; en modification seulement, « Déplacer au centre de la carte ». « + Ajouter une description » ouvre le champ (ouvert d'office s'il y a une description). Actions : Annuler · **Y aller** (tonal : enregistre et définit la cible) · **Enregistrer** (plein). S'ouvre depuis l'appui long sur la carte, « Ajouter un waypoint » du point central, « Modifier » de la fiche et de la snackbar de « Waypoint ici », « Modifier… » du ⋮ d'un waypoint dans la liste | ✅ (P16.6, P14.9, P29.4) |
 
 ## 3. Menu principal (logo)
 
@@ -234,12 +233,15 @@ Depuis P29.3 (2026-10-27, variante C · Strates, ADR-076), la pile est le conten
 
 ### 6.0 Panneau du drapeau (`map/TracksMenu.kt`, `TracksMenuPanel`)
 
+Depuis P29.4 (variante « A · Topo » pour le panneau, la liste et le détail ; « B · Repère » pour « Waypoint ici », ADR-077) : les commandes portent un verbe.
+
 | Entrée | Statut |
 |---|---|
-| Champ « Rechercher un lieu, des coordonnées » → recherche | ✅ (P14.10) |
-| Tuiles Waypoint ici (grisée pendant le dessin) · Trace · Itinéraire (grisées pendant le dessin et la mesure), chacune avec son icône | ✅ (P14.10) |
-| Explorer les traces et waypoints (« 1 trace · aucun itinéraire · 12 waypoints » ; zéro s'écrit « aucun », P18.5) → écran Traces (6.1) | ✅ (P14.10) |
-| Importer un fichier… (« GPX, KML, GeoJSON ») → sélecteur de fichiers, comme l'import de l'écran Traces | ✅ (P14.10) |
+| Champ « Lieu, trace ou waypoint » → recherche (lieux, coordonnées et vos éléments) | ✅ (P14.10 ; libellé P29.4) |
+| Tuiles Waypoint ici (grisée pendant le dessin) · Dessiner une trace · Dessiner un itinéraire (grisées pendant le dessin et la mesure), chacune avec son icône | ✅ (P14.10 ; libellés P29.4) |
+| **Waypoint ici** enregistre aussitôt « Waypoint N » au centre de la carte, avec l'altitude du relief (attente de 3 s au plus, sinon sans altitude) et le symbole du dernier waypoint créé (sinon le drapeau rouge) ; snackbar « « Waypoint 1 » enregistré · 442 m » avec **Modifier**, qui ouvre le dialogue (§2.4). L'appui long sur la carte et « Ajouter un waypoint » du point central gardent le dialogue | ✅ (P29.4) |
+| Liste des traces et waypoints (« 1 trace · aucun itinéraire · 12 waypoints » ; zéro s'écrit « aucun », P18.5) → écran Traces (6.1) | ✅ (P14.10 ; libellé P29.4) |
+| Importer un fichier… (« GPX, KML, KMZ, GeoJSON ») → sélecteur de fichiers, comme l'import de l'écran Traces | ✅ (P14.10 ; KMZ cité en P29.4) |
 | Tout afficher sur la carte : interrupteur ; éteint, il masque dossiers, traces, itinéraires et waypoints ; allumé, il les remontre tous | ✅ (P14.10) |
 | « ? » de l'en-tête → ABOUT à la section « Traces et waypoints », surlignée 1,6 s | ✅ `[R5]` (session 49) |
 | Touche Retour : ferme le panneau | ✅ |
@@ -248,33 +250,37 @@ Depuis P29.3 (2026-10-27, variante C · Strates, ADR-076), la pile est le conten
 
 | Entrée | Statut |
 |---|---|
-| Importer (barre) | ✅ |
-| Case de visibilité par ligne et par dossier | ✅ |
+| Barre : titre, décompte en sous-titre (« 3 traces · 1 itinéraire · 5 waypoints », P29.4), loupe, Importer | ✅ |
+| Lignes en un seul bloc blanc à coins arrondis sur le gris de l'écran, fines lignes entre deux lignes (P29.0, P29.4) | ✅ (P29.4) |
+| Ligne d'un élément : la **marque de la carte** (pastille de catégorie d'un waypoint ; icône de trace ou d'itinéraire dans la couleur de sa ligne, halo clair la nuit), le nom sur 2 lignes au plus, les chiffres sans le mot du type (« 11,9 km · ↑ 905 m · 18 oct. », « 9,37 km · 3 h 05 · 23 oct. », « 330 m · 18 oct. » ; TalkBack lit encore le type), un **œil** de 48 dp lu « Afficher sur la carte, activé », un ⋮ ; un élément masqué est atténué, œil barré ; l'œil se grise quand un dossier parent est masqué | ✅ (P29.4) |
+| Ligne d'un dossier : flèche, icône dossier, nom, « Dossier · 5 éléments », œil, ⋮ | ✅ (P29.4) |
+| Appui : une trace ouvre son détail (6.2) ; un itinéraire ou un waypoint ouvre la carte cadrée sur lui, **avec sa fiche** (§2.4) | ✅ (P29.4) |
 | ⋮ dossier : Renommer · Nouveau sous-dossier · Déplacer vers… · Exporter · Partager · Supprimer | ✅ (P16.5) |
 | ⋮ trace : Statistiques · Afficher sur la carte · Renommer · Déplacer vers… · Style · Exporter · Partager · Supprimer | ✅ |
 | ⋮ itinéraire : Afficher · Renommer · Déplacer vers… · Style · Exporter · Partager · Supprimer | ✅ |
-| ⋮ waypoint : Afficher · Renommer · Déplacer vers… · Exporter · Partager · Supprimer | ✅ ; ⚠️ pas « Modifier » (symbole, coordonnées) ici, seulement depuis la carte |
-| Nouveau dossier (haut de l'écran) ; Déplacer vers… (haut de la bibliothèque ou un dossier ; un dossier ne peut aller ni dans lui-même ni dans ses sous-dossiers) | ✅ (P16.5, ADR-055) |
+| ⋮ waypoint : **Modifier…** (dialogue du waypoint, « Déplacer au centre de la carte » vise le centre de la carte) · Afficher · Renommer · Déplacer vers… · Exporter · Partager · Supprimer | ✅ (Modifier… en P29.4) |
+| Nouveau dossier (haut de l'écran, masqué quand la bibliothèque est vide) ; Déplacer vers… (haut de la bibliothèque ou un dossier ; un dossier ne peut aller ni dans lui-même ni dans ses sous-dossiers) | ✅ (P16.5, ADR-055) |
+| Bibliothèque vide : icône route dans un disque de 64 dp, « Vos traces et waypoints s'afficheront ici », « Importez un fichier GPX, KML, KMZ ou GeoJSON, ou ouvrez-le avec ToolMap depuis une autre application. Vous pouvez aussi dessiner une trace sur la carte. », bouton plein « Importer un fichier… », bouton texte « Dessiner une trace sur la carte » (→ carte en mode dessin) | ✅ (P29.4) |
 | Puces sous la barre : tri « Date ↓ » (menu : Date (récent d'abord) · Nom · Distance) puis filtre Tout · Traces · Itinéraires · Waypoints ; tri et filtre gardés d'une ouverture à l'autre (`AppSettings.library`) ; les dossiers restent en tête | ✅ `[F7]` (P14.7, session 49) |
 | Loupe de la barre : « Rechercher par nom » (tous les mots, sans casse ni accents) ; avec un texte, liste à plat de tout ce qui correspond, dossiers compris | ✅ `[F7]` |
 | Appui long sur un élément : sélection multiple ; barre « N sélectionnés » avec ✕, Afficher / masquer sur la carte, Déplacer vers…, Exporter en un seul GPX… (« Sélection »), Supprimer (confirmation « Supprimer N éléments ? ») ; Retour ou ✕ quittent la sélection | ✅ `[F7]` |
 | Dossiers ouverts et position de la liste gardés au retour d'un détail et quand on ferme puis rouvre l'explorateur, tant que l'application tourne ; tout est replié au lancement suivant (`TracksViewModel.expandedFolders`, `libraryScroll`) | ✅ (P14.11, session 49) |
 | Pas de bande vide sous la barre du haut (barre d'état comptée une seule fois : `consumeWindowInsets`) ; de même dans le détail d'une trace et Cartes hors ligne | ✅ (P14.11) |
-| Sous-titre d'une ligne : « Trace · 8.64 km · 21 oct. », « Itinéraire · … », « Waypoint · 1520 m · … » ; dossier : « Dossier · 5 éléments » | ✅ (P14.7) |
-| Nouvelle trace / nouvel itinéraire / nouveau waypoint depuis la liste | 🕳️ (seulement depuis la carte) |
+| Nouvelle trace / nouvel itinéraire / nouveau waypoint depuis la liste | 🕳️ (seulement depuis la carte ; « Dessiner une trace sur la carte » quand elle est vide) |
 
 ### 6.2 Détail d'une trace (`tracks/TrackDetailScreen.kt`)
 
 | Entrée | Statut |
 |---|---|
-| Statistiques, profil, curseur relayé à la carte | ✅ |
-| Compléter les altitudes (Terrarium) | ✅ |
-| Afficher sur la carte · Partager | ✅ |
-| Outils : Suivre cette trace · Modifier le tracé · Inverser · Simplifier · Fusionner · Décrire | ✅ |
-| Télécharger autour de cette trace (rayon) → DOWNLOADS | ✅ |
-| Imprimer le long de cette trace… (« Un PDF de plusieurs pages à l'échelle, qui suivent la trace ») → T3b | ✅ `[F9]` (P14.6, session 49) |
-| Lignes Début et Fin au format « 22 oct. 2026 à 17:02 » (français, quelle que soit la langue du téléphone) ; ligne Points « 358 · 1 segment » (« 3 segments ») | ✅ (P14.11) |
-| Exporter, Renommer, Supprimer | ⚠️ seulement depuis la liste |
+| Barre : nom, sous-titre « Trace · 21 oct. 2026 » (jour de la marche, sinon de l'ajout), Partager (icône), ⋮ : Renommer · Style de la ligne · Décrire · Déplacer vers… · Exporter en GPX… · Supprimer (confirmation, puis retour à la liste) | ✅ (P29.4) |
+| Quatre chiffres clés : Distance · Dénivelé + · Dénivelé − · Temps estimé (sans altitudes : Distance · Temps estimé) | ✅ (P29.4) |
+| « Profil d'altitude » et, sur la même ligne, la lecture du curseur (« 3,20 km · 612 m · pente 18 % » ; sans curseur « De 278 m à 1 020 m ») ; profil coloré selon la pente, axe « 0 … 8,64 km », légende des cinq couleurs (< 3 %, 3–8 %, 8–15 %, 15–25 %, ≥ 25 %) ; TalkBack lit « Profil d'altitude de … à … sur … » ; curseur au toucher et au glisser relayé à la carte ; « Voir ce point sur la carte » (bouton texte, quand le curseur est posé) ; « Cette trace n'a pas assez d'altitudes pour tracer un profil. » sinon | ✅ (P29.4) |
+| Un seul bouton plein : Afficher sur la carte | ✅ (P29.4) |
+| « Tous les chiffres » (Altitudes, durées, vitesses, début, fin, points), replié : un appui déplie les 14 lignes (Début et Fin au format « 22 oct. 2026 à 17:02 », Points « 358 · 1 segment ») | ✅ (P29.4) |
+| Groupe « Préparer » : Télécharger autour de cette trace (rayon 500 m à 5 km) → DOWNLOADS ; Imprimer le long de cette trace… (« Un PDF de plusieurs pages à l'échelle, qui suivent la trace ») → T3b `[F9]` | ✅ (P29.4) |
+| Groupe « Sur le terrain » : Suivre cette trace (« Alerte d'écart ») | ✅ (P29.4) |
+| Groupe « Modifier » : Compléter les altitudes (« Points sans altitude : 12. », seulement quand il en manque) · Modifier le tracé · Inverser le sens (confirmation « La trace sera parcourue dans l'autre sens ; ses heures seront effacées. ») · Simplifier… (1 à 25 m) · Fusionner avec une autre trace… | ✅ (P29.4) |
+| États « Cette trace n'existe plus. » et chargement | ✅ |
 
 ## 7. Autres écrans
 

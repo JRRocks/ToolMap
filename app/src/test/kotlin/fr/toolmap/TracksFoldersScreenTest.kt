@@ -35,8 +35,14 @@ class TracksFoldersScreenTest {
 
     @Test
     fun `a new folder shows in the library and offers to move to the top or into a sub-folder`() {
+        // « Nouveau dossier » waits for a first item (P29.4): « Waypoint ici » records one at once.
         rule.onNodeWithContentDescription("Traces et waypoints").performClick()
-        rule.onNodeWithText("Explorer les traces et waypoints").performClick()
+        rule.onNodeWithText("Waypoint ici").performClick()
+        rule.waitUntil(10_000) {
+            rule.onAllNodesWithText("enregistré", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithContentDescription("Traces et waypoints").performClick()
+        rule.onNodeWithText("Liste des traces et waypoints").performClick()
         rule.onNodeWithText("Nouveau dossier").performClick()
         rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("Randos")
         rule.onNodeWithText("OK").performClick()

@@ -157,7 +157,7 @@ class MainMenuPanelTest {
             rule.onAllNodesWithText("Dessiner une trace").assertCountEquals(0)
             rule.onAllNodesWithText("Trace").assertCountEquals(0)
             rule.onAllNodesWithText("Waypoint ici").assertCountEquals(0)
-            rule.onAllNodesWithText("Rechercher un lieu, des coordonnées").assertCountEquals(0)
+            rule.onAllNodesWithText("Lieu, trace ou waypoint").assertCountEquals(0)
             rule.onAllNodesWithText("Télécharger la zone affichée…").assertCountEquals(0)
         }
     }

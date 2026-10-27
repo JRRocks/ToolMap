@@ -1,37 +1,53 @@
 package fr.toolmap.tracks
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.alert.AlertUi
 import fr.toolmap.core.alert.FollowKind
+import fr.toolmap.core.geo.Guidance
 import fr.toolmap.core.geo.NavTarget
 import fr.toolmap.core.geo.Navigation
 import fr.toolmap.core.route.SavedRouteInfo
+import fr.toolmap.core.track.ElevationProfile
 import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.core.track.TrackJson
 import fr.toolmap.core.track.TrackPoint
@@ -44,16 +60,19 @@ import fr.toolmap.map.ActionTile
 import fr.toolmap.map.ActionTiles
 import fr.toolmap.map.MenuIcons
 import fr.toolmap.map.PANEL_INSET
-import fr.toolmap.map.StateCard
 import fr.toolmap.map.StateIcon
 import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.LocalAppSettings
 import fr.toolmap.ui.LocalFormats
+import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.FilledTonalButton
 import fr.toolmap.waypoints.WaypointIconBadge
 
 /**
- * What the user tapped on the map: its icon, name and figures, how far it is from the position when the position is
- * on, and its commands as tiles, in the style of the panels of the bar (P14.10). « Supprimer » asks first.
+ * What the user tapped on the map: its icon, name and figures, and what can be done with it. Since P29.4 (« Repère »)
+ * the sheet puts one action forward: « Aller vers ce point » for a waypoint, under a large reading of its distance and
+ * bearing from the position (when the position is known), « Suivre » for a track (under its small profile) or a route;
+ * two tiles follow, and « Partager », « Exporter », « Masquer » and « Supprimer » (which asks first) go into its ⋮.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,15 +96,18 @@ fun TappedItemSheet(
     onDismiss: () -> Unit,
     /** « Convertir en trace » of a route, with the name shown in the message. */
     onConvert: (ItemRef, String) -> Unit = { _, _ -> },
+    /** The profile of a track, for the small one of its sheet. */
+    profileOf: suspend (Long) -> ElevationProfile? = { null },
 ) {
     val fmt = LocalFormats.current
     val unnamed = stringResource(R.string.tracks_unnamed)
     var askDelete by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
     val name: String?
     val figures = ArrayList<String>()
     val notes = ArrayList<String>()
     var leading: @Composable () -> Unit = { StateIcon(MenuIcons.Polyline) }
-    var away: String? = null
+    var guide: Guidance? = null
     when (ref.kind) {
         ItemKind.TRACK -> {
             val t = library.tracks.firstOrNull { it.id == ref.id } ?: return
@@ -125,25 +147,20 @@ fun TappedItemSheet(
             figures += fmt.position(w.lat, w.lon).text
             w.cmt?.takeIf { it.isNotBlank() }?.let { notes += it }
             w.desc?.takeIf { it.isNotBlank() && it != w.cmt }?.let { notes += it }
-            if (from != null) {
-                val g = Navigation.guide(from.first, from.second, NavTarget(w.lat, w.lon))
-                away =
-                    stringResource(
-                        R.string.target_distance_bearing,
-                        fmt.distance(g.distanceMeters),
-                        fmt.bearing(g.bearingDegrees),
-                        Navigation.compassPoint(g.bearingDegrees),
-                    )
-            }
+            if (from != null) guide = Navigation.guide(from.first, from.second, NavTarget(w.lat, w.lon))
         }
     }
+    val followed =
+        alerts.follow?.let { f ->
+            f.id == ref.id && (f.kind == FollowKind.TRACK) == (ref.kind == ItemKind.TRACK)
+        } == true
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = PANEL_INSET + 4.dp, vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(start = PANEL_INSET + 4.dp, end = 4.dp, top = 2.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 leading()
@@ -161,6 +178,31 @@ fun TappedItemSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Box {
+                    IconButton(onClick = { menu = true }) {
+                        Icon(
+                            Icons.Filled.MoreVert,
+                            contentDescription = stringResource(R.string.menu),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        listOf<Pair<Int, () -> Unit>>(
+                            R.string.tracks_share to { onShare(ref, name) },
+                            R.string.tracks_sheet_export to { onExport(ref, name) },
+                            R.string.tracks_map_card_hide to { onHide(ref) },
+                            R.string.tracks_delete to { askDelete = true },
+                        ).forEach { (label, action) ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(label)) },
+                                onClick = {
+                                    menu = false
+                                    action()
+                                },
+                            )
+                        }
+                    }
+                }
             }
             notes.forEach {
                 Text(
@@ -169,61 +211,58 @@ fun TappedItemSheet(
                     modifier = Modifier.padding(horizontal = PANEL_INSET + 4.dp),
                 )
             }
-            away?.let {
-                StateCard(
-                    title = it,
-                    overline = stringResource(R.string.tracks_sheet_from_here),
-                    leading = { StateIcon(MenuIcons.MyLocation) },
-                )
-            }
-            if (ref.kind == ItemKind.WAYPOINT) {
-                val watch = alerts.watches.firstOrNull { it.waypointId == ref.id }
-                ActionTiles {
-                    ActionTile(MenuIcons.Directions, stringResource(R.string.tracks_go_to)) { onGoTo(ref) }
-                    ActionTile(
-                        MenuIcons.Bell,
-                        if (watch == null) {
-                            stringResource(R.string.tracks_watch)
-                        } else {
-                            val radius = watch.radiusMeters ?: LocalAppSettings.current.alerts.proximityRadiusMeters
-                            stringResource(R.string.tracks_watch_on, fmt.distance(radius.toDouble()))
-                        },
-                    ) { onWatch(ref) }
-                    ActionTile(Icons.Filled.Edit, stringResource(R.string.tracks_edit_waypoint)) { onEdit(ref) }
+            when (ref.kind) {
+                ItemKind.WAYPOINT -> {
+                    guide?.let { BearingReading(it) }
+                    PrimaryAction(
+                        icon = SettingsIcons.NearMe,
+                        label = stringResource(R.string.tracks_go_to),
+                        tonal = false,
+                    ) { onGoTo(ref) }
+                    val watch = alerts.watches.firstOrNull { it.waypointId == ref.id }
+                    ActionTiles {
+                        ActionTile(
+                            MenuIcons.Bell,
+                            if (watch == null) {
+                                stringResource(R.string.tracks_watch)
+                            } else {
+                                val radius = watch.radiusMeters ?: LocalAppSettings.current.alerts.proximityRadiusMeters
+                                stringResource(R.string.tracks_watch_on, fmt.distance(radius.toDouble()))
+                            },
+                        ) { onWatch(ref) }
+                        ActionTile(Icons.Filled.Edit, stringResource(R.string.tracks_edit_waypoint)) { onEdit(ref) }
+                    }
                 }
-            } else {
-                val followed =
-                    alerts.follow?.let { f ->
-                        f.id == ref.id && (f.kind == FollowKind.TRACK) == (ref.kind == ItemKind.TRACK)
-                    } == true
-                ActionTiles {
-                    if (ref.kind == ItemKind.TRACK) {
+
+                ItemKind.TRACK -> {
+                    var profile by remember(ref) { mutableStateOf<ElevationProfile?>(null) }
+                    LaunchedEffect(ref) { profile = profileOf(ref.id) }
+                    profile?.let {
+                        MiniProfile(
+                            it,
+                            Modifier
+                                .padding(horizontal = PANEL_INSET + 4.dp, vertical = 4.dp)
+                                .semantics(mergeDescendants = true) {},
+                        )
+                    }
+                    FollowAction(followed, stringResource(R.string.tracks_follow_this), ref, onFollow, onStopFollowing)
+                    ActionTiles {
                         ActionTile(MenuIcons.Gauge, stringResource(R.string.tracks_map_card_details)) {
                             onDetails(ref.id)
                         }
+                        ActionTile(Icons.Filled.Edit, stringResource(R.string.tracks_edit_path)) { onEdit(ref) }
                     }
-                    if (followed) {
-                        ActionTile(
-                            MenuIcons.Polyline,
-                            stringResource(R.string.tracks_unfollow),
-                            onClick = onStopFollowing,
-                        )
-                    } else {
-                        ActionTile(MenuIcons.Polyline, stringResource(R.string.tracks_follow)) { onFollow(ref) }
-                    }
-                    ActionTile(Icons.Filled.Edit, stringResource(R.string.tracks_edit_path)) { onEdit(ref) }
-                    if (ref.kind == ItemKind.ROUTE) {
+                }
+
+                ItemKind.ROUTE -> {
+                    FollowAction(followed, stringResource(R.string.tracks_follow_route), ref, onFollow, onStopFollowing)
+                    ActionTiles {
+                        ActionTile(Icons.Filled.Edit, stringResource(R.string.tracks_edit_path)) { onEdit(ref) }
                         ActionTile(SettingsIcons.Timeline, stringResource(R.string.route_convert_track)) {
                             onConvert(ref, name ?: unnamed)
                         }
                     }
                 }
-            }
-            ActionTiles {
-                ActionTile(Icons.Filled.Share, stringResource(R.string.tracks_share)) { onShare(ref, name) }
-                ActionTile(MenuIcons.FileSave, stringResource(R.string.tracks_sheet_export)) { onExport(ref, name) }
-                ActionTile(MenuIcons.VisibilityOff, stringResource(R.string.tracks_map_card_hide)) { onHide(ref) }
-                ActionTile(Icons.Filled.Delete, stringResource(R.string.tracks_delete)) { askDelete = true }
             }
         }
     }
@@ -238,5 +277,84 @@ fun TappedItemSheet(
             },
             onDismiss = { askDelete = false },
         )
+    }
+}
+
+/**
+ * « 3,90 km ↘ cap 146° SE », large, « depuis votre position » under it: the arrow turns to the bearing of the item, so
+ * that the sheet answers « c'est où, par rapport à moi ? ». TalkBack reads it as one sentence.
+ */
+@Composable
+private fun BearingReading(guide: Guidance) {
+    val fmt = LocalFormats.current
+    val distance = fmt.distance(guide.distanceMeters)
+    val bearing = fmt.bearing(guide.bearingDegrees)
+    val compass = Navigation.compassPoint(guide.bearingDegrees)
+    val spoken = stringResource(R.string.tracks_sheet_reading, distance, bearing, compass)
+    Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken }) {
+        Row(
+            Modifier.padding(start = PANEL_INSET + 4.dp, end = PANEL_INSET + 4.dp, top = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(distance, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Medium)
+            Icon(
+                TracksIcons.Arrow,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp).rotate(guide.bearingDegrees.toFloat()),
+            )
+            Text(
+                stringResource(R.string.tracks_sheet_bearing, bearing, compass),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+        Text(
+            stringResource(R.string.tracks_sheet_from_position),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = PANEL_INSET + 4.dp, bottom = 12.dp),
+        )
+    }
+}
+
+/** « Suivre cette trace » (filled), or « Ne plus suivre » (tonal) while it is followed. */
+@Composable
+private fun FollowAction(
+    followed: Boolean,
+    label: String,
+    ref: ItemRef,
+    onFollow: (ItemRef) -> Unit,
+    onStopFollowing: () -> Unit,
+) {
+    if (followed) {
+        PrimaryAction(
+            SettingsIcons.Route,
+            stringResource(R.string.tracks_unfollow),
+            tonal = true,
+            onClick = onStopFollowing,
+        )
+    } else {
+        PrimaryAction(SettingsIcons.Route, label, tonal = false) { onFollow(ref) }
+    }
+}
+
+/** The one action the sheet puts forward, the width of the sheet. */
+@Composable
+private fun PrimaryAction(
+    icon: ImageVector,
+    label: String,
+    tonal: Boolean,
+    onClick: () -> Unit,
+) {
+    val modifier = Modifier.fillMaxWidth().padding(horizontal = PANEL_INSET, vertical = 4.dp).heightIn(min = 48.dp)
+    val content: @Composable RowScope.() -> Unit = {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Text(label, modifier = Modifier.padding(start = 8.dp))
+    }
+    if (tonal) {
+        FilledTonalButton(onClick = onClick, modifier = modifier, content = content)
+    } else {
+        Button(onClick = onClick, modifier = modifier, content = content)
     }
 }

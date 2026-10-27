@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import fr.toolmap.alert.AlertUi
@@ -34,8 +35,9 @@ import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 
 /**
- * The sheet of a saved route (P19.6, screen 6 of `docs/previews/p19-routing.html`): tiles in 3 + 3 with « Convertir
- * en trace », and the line « km · ↑ · ↓ · durée · profil » read from the plan kept in the GPX extensions.
+ * The sheet of a saved route (P19.6, screen 6 of `docs/previews/p19-routing.html`): the line « km · ↑ · ↓ · durée ·
+ * profil » read from the plan kept in the GPX extensions. Since P29.4 (« Repère ») « Suivre cet itinéraire » is its one
+ * filled action, « Modifier le tracé » and « Convertir en trace » its tiles, and the rest is in its ⋮.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
@@ -131,14 +133,22 @@ class RouteSheetTest {
     }
 
     @Test
-    fun `the tiles go 3 + 3, and « Convertir en trace » converts this route`() {
+    fun `one filled action and two tiles, and « Convertir en trace » converts this route`() {
         val converted = ArrayList<Pair<ItemRef, String>>()
         show(route(plan.geometry, null)) { ref, label -> converted += ref to label }
-        listOf("Suivre", "Modifier le tracé", "Convertir en trace", "Partager", "Masquer", "Supprimer").forEach {
+        listOf("Suivre cet itinéraire", "Modifier le tracé", "Convertir en trace").forEach {
             rule.onNodeWithText(it).assertExists()
         }
         rule.onAllNodesWithText("Statistiques").assertCountEquals(0)
         rule.onNodeWithText("Convertir en trace").performClick()
         assertEquals(listOf(ItemRef(ItemKind.ROUTE, 7) to "Col du Granier"), converted)
+    }
+
+    @Test
+    fun `sharing, export, hiding and deletion are in the menu of the sheet`() {
+        show(route(plan.geometry, null))
+        rule.onAllNodesWithText("Partager").assertCountEquals(0)
+        rule.onNodeWithContentDescription("Menu").performClick()
+        listOf("Partager", "Exporter", "Masquer", "Supprimer").forEach { rule.onNodeWithText(it).assertExists() }
     }
 }

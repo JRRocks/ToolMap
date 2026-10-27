@@ -42,7 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextRange
@@ -57,10 +57,12 @@ import fr.toolmap.core.geo.CoordinateSystem
 import fr.toolmap.core.geo.ParsedCoordinate
 import fr.toolmap.core.track.Waypoint
 import fr.toolmap.core.track.WaypointSymbols
+import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.Button
 import fr.toolmap.ui.theme.FilledTonalButton
 import fr.toolmap.ui.theme.TextButton
+import fr.toolmap.ui.theme.toolMap
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -86,6 +88,9 @@ internal val FORMATS =
         Triple(CoordinateSystem.MGRS, R.string.waypoint_format_mgrs, R.string.waypoint_format_mgrs),
         Triple(CoordinateSystem.LAMBERT93, R.string.waypoint_format_lambert, R.string.waypoint_format_short_lambert),
     )
+
+/** Below this background luminance the theme is the night one. */
+private const val NIGHT_LUMINANCE = 0.5f
 
 /** Waits this long after the last keystroke in the coordinates before asking the terrain for an altitude. */
 private const val TERRAIN_DEBOUNCE_MILLIS = 400L
@@ -189,6 +194,7 @@ fun WaypointDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = dialogColor(),
         title = {
             Text(stringResource(if (creating) R.string.waypoint_title_new else R.string.waypoint_title_edit))
         },
@@ -331,6 +337,18 @@ fun WaypointDialog(
     )
 }
 
+/**
+ * White by day, as the dialogs of the « Crête » previews, so that the position block in the colour of the tiles stands
+ * out (P29.4); the theme's dialog colour by night.
+ */
+@Composable
+private fun dialogColor() =
+    if (MaterialTheme.colorScheme.background.luminance() < NIGHT_LUMINANCE) {
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    } else {
+        MaterialTheme.toolMap.panel
+    }
+
 /** The symbol as it looks on the map, with a small pencil: touching it opens the picker. */
 @Composable
 private fun SymbolButton(
@@ -348,7 +366,7 @@ private fun SymbolButton(
                     .align(Alignment.BottomEnd)
                     .size(18.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surface),
+                    .background(dialogColor()),
             contentAlignment = Alignment.Center,
         ) {
             Icon(Icons.Filled.Edit, contentDescription = label, modifier = Modifier.size(12.dp))
@@ -356,7 +374,10 @@ private fun SymbolButton(
     }
 }
 
-/** The position on one line, its altitude on the next, and the pencil that opens both for typing. */
+/**
+ * The position on one line, its altitude on the next, and the pencil that opens both for typing. Since P29.4 the block
+ * takes the colour of the tiles and the altitude the Material « terrain » icon, not the summit of the waypoints.
+ */
 @Composable
 private fun PositionSummary(
     coordinates: String,
@@ -369,7 +390,7 @@ private fun PositionSummary(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.07f))
+                .background(MaterialTheme.toolMap.tile)
                 .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -385,7 +406,7 @@ private fun PositionSummary(
             format()
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(painterResource(R.drawable.ic_wp_peak), contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(SettingsIcons.Terrain, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(
                 altitude,

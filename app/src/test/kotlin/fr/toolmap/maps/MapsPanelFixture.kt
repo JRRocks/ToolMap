@@ -16,6 +16,7 @@ import fr.toolmap.data.workspaces.WorkspaceStore
 import fr.toolmap.download.ZoneEstimator
 import fr.toolmap.map.MapViewModel
 import fr.toolmap.record.GnssSatellites
+import fr.toolmap.testing.stopTurningLooper
 import okhttp3.OkHttpClient
 import org.robolectric.RuntimeEnvironment
 import java.io.File
@@ -86,6 +87,9 @@ class MapsPanelFixture {
         }
 
     fun close() {
+        // The view models write their files on Dispatchers.IO (a favourite deleted): they stop before the folder goes.
+        maps.stopTurningLooper()
+        vm.stopTurningLooper()
         store.close()
         root.deleteRecursively()
     }

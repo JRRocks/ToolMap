@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -70,7 +71,8 @@ fun WaypointIconBadge(
 
 /**
  * Picks the icon of a waypoint among every icon of AlpineQuest's categories (P16.6): categories fold and unfold, and
- * the search field filters on the label (a search unfolds every category that has a match).
+ * the search field filters on the label (a search unfolds every category that has a match). Since P29.4 it opens on
+ * the category of the current symbol, unfolded, and its rows are 48 dp high.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -80,7 +82,26 @@ fun WaypointIconPicker(
     onDismiss: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    val unfolded = remember { mutableStateListOf<String>() }
+    val current =
+        remember(selectedId) {
+            WaypointCatalog.CATEGORIES.indexOfFirst { c ->
+                c.icons.any {
+                    it.id ==
+                        selectedId
+                }
+            }
+        }
+    val unfolded =
+        remember {
+            mutableStateListOf<String>().apply {
+                if (current >=
+                    0
+                ) {
+                    add(WaypointCatalog.CATEGORIES[current].id)
+                }
+            }
+        }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = current.coerceAtLeast(0))
     val labels = WaypointIconRes.labels.mapValues { stringResource(it.value) }
     val needle = query.trim().lowercase()
     val groups =
@@ -106,7 +127,7 @@ fun WaypointIconPicker(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (groups.isEmpty()) Text(stringResource(R.string.waypoint_icon_no_result))
-                LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                LazyColumn(modifier = Modifier.heightIn(max = 420.dp), state = listState) {
                     items(groups, key = { it.first.id }) { (category, icons) ->
                         val open = needle.isNotEmpty() || category.id in unfolded
                         Row(
@@ -122,7 +143,7 @@ fun WaypointIconPicker(
                                         } else {
                                             unfolded.add(category.id)
                                         }
-                                    }.padding(vertical = 10.dp),
+                                    }.heightIn(min = 48.dp),
                         ) {
                             Box(Modifier.size(12.dp).background(Color(category.colorArgb), CircleShape))
                             Text(
@@ -164,7 +185,7 @@ fun WaypointIconPicker(
                                         WaypointIconBadge(icon, 36.dp)
                                         Text(
                                             labels[icon.id] ?: icon.key,
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = MaterialTheme.typography.labelMedium,
                                             textAlign = TextAlign.Center,
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis,
