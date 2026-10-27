@@ -70,6 +70,19 @@ class MultiZoomViewModelTest {
     }
 
     @Test
+    fun `Combler makes a band over the zooms left, with the map of the band below`() {
+        vm.startNew("Trou")
+        vm.setRange(0, 0, 11)
+        vm.addBand()
+        vm.setRange(1, 15, 16)
+        vm.setMap(1, "ign-scan25")
+        assertTrue(DraftIssue.Kind.GAP in editor.issues.map { it.kind })
+        assertEquals(2, vm.fillGap(12, 14))
+        assertEquals(ZoomBand(12, 14, "osm"), editor.draft.bands[2])
+        assertFalse(DraftIssue.Kind.GAP in editor.issues.map { it.kind })
+    }
+
+    @Test
     fun `bands are added after the last one and an overlap blocks saving`() {
         vm.startNew("Bandes")
         vm.setRange(0, 0, 11)

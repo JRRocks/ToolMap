@@ -104,6 +104,7 @@ import fr.toolmap.wizard.SourceWizardScreen
 import fr.toolmap.wizard.SourceWizardViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /** The app's screens; swapped in place over the map, kept in a back stack (no navigation library, RS1). */
@@ -244,6 +245,25 @@ class MainActivity : ComponentActivity() {
                         val picker =
                             rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                                 if (uri != null) scope.launch(Dispatchers.IO) { readForImport(uri, tracksOnly = false) }
+                            }
+                        // « Importer un fichier (.aqx, .mbtiles) » of « Cartes disponibles » (P29.6): one picker, a
+                        // package goes to the storage screen, which asks where it goes; anything else is tried as a map.
+                        val mapPicker =
+                            rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                                if (uri != null) {
+                                    scope.launch {
+                                        val mbTiles =
+                                            withContext(Dispatchers.IO) { UriReader.isMbTiles(this@MainActivity, uri) }
+                                        if (mbTiles) {
+                                            storageViewModel.stage(uri)
+                                            open(Screen.STORAGE)
+                                        } else {
+                                            mapsViewModel.close()
+                                            toMap()
+                                            withContext(Dispatchers.IO) { readForImport(uri, tracksOnly = false) }
+                                        }
+                                    }
+                                }
                             }
                         val trackPicker =
                             rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -427,9 +447,16 @@ class MainActivity : ComponentActivity() {
                                                     } else {
                                                         viewModel.addLayer(id)
                                                     }
-                                                    viewModel.notify(R.string.mz_shown, repository.find(id)?.name ?: id)
-                                                    mapsViewModel.close()
-                                                    toMap()
+                                                    val name = repository.find(id)?.name ?: id
+                                                    if (multiZoomEditorOnly) {
+                                                        // Saved from « Cartes disponibles »: back there, as the wizard.
+                                                        mapsViewModel.notice(getString(R.string.am_shown, name))
+                                                        back()
+                                                    } else {
+                                                        viewModel.notify(R.string.mz_shown, name)
+                                                        mapsViewModel.close()
+                                                        toMap()
+                                                    }
                                                 },
                                             )
                                         }
@@ -476,15 +503,6 @@ class MainActivity : ComponentActivity() {
                                                         viewModel.notify(R.string.wizard_saved, name)
                                                     }
                                                     back()
-                                                },
-                                                onImportAqx = {
-                                                    mapsViewModel.close()
-                                                    toMap()
-                                                    picker.launch(arrayOf("*/*"))
-                                                },
-                                                onImportMbTiles = {
-                                                    storageViewModel.refresh()
-                                                    stack = BackStack.replace(stack, Screen.STORAGE, Screen.MAP)
                                                 },
                                             )
                                         }
@@ -568,11 +586,7 @@ class MainActivity : ComponentActivity() {
                                                     AvailableMapsActions(
                                                         onBack = ::back,
                                                         onOpenWizard = { sourceId -> openWizard(sourceId) },
-                                                        onImport = {
-                                                            mapsViewModel.close()
-                                                            toMap()
-                                                            picker.launch(arrayOf("*/*"))
-                                                        },
+                                                        onImport = { mapPicker.launch(arrayOf("*/*")) },
                                                         onOpenStorage = {
                                                             storageViewModel.refresh()
                                                             open(Screen.STORAGE)
@@ -589,6 +603,10 @@ class MainActivity : ComponentActivity() {
                                                         onSaveZone = { id ->
                                                             mapsViewModel.askSaveArea(only = id)
                                                             toMap()
+                                                        },
+                                                        onNewMap = { kind ->
+                                                            openWizard(null)
+                                                            wizardViewModel.chooseKind(kind)
                                                         },
                                                     ),
                                             )

@@ -53,6 +53,29 @@ object UriReader {
         return UriBytes(buffer.toByteArray(), displayName(context, uri))
     }
 
+    /**
+     * Whether the document is an MBTiles package (P29.6, one picker for both imports): by the extension of its name, or
+     * else by the header of an SQLite file. Reads the disk: off the main thread.
+     */
+    fun isMbTiles(
+        context: Context,
+        uri: Uri,
+    ): Boolean {
+        if (displayName(context, uri)?.endsWith(MBTILES_EXTENSION, ignoreCase = true) == true) return true
+        return runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                val head = ByteArray(SQLITE_HEADER.size)
+                var filled = 0
+                while (filled < head.size) {
+                    val read = input.read(head, filled, head.size - filled)
+                    if (read < 0) break
+                    filled += read
+                }
+                filled == head.size && head.contentEquals(SQLITE_HEADER)
+            }
+        }.getOrNull() == true
+    }
+
     private fun displayName(
         context: Context,
         uri: Uri,
@@ -62,6 +85,11 @@ object UriReader {
                 if (cursor.moveToFirst()) cursor.getString(0) else null
             }
         }.getOrNull() ?: uri.lastPathSegment
+
+    private const val MBTILES_EXTENSION = ".mbtiles"
+
+    /** The first 16 bytes of every SQLite database file. */
+    private val SQLITE_HEADER = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
 
     private const val CHUNK = 16 * 1024
     private const val BYTES_PER_MB = 1_000_000

@@ -34,6 +34,8 @@ import fr.toolmap.download.ZoneEstimator
 import fr.toolmap.download.ZoneQueue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +44,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -246,6 +249,24 @@ class MapsViewModel
                 .filter { entry -> repository.alreadyHave(entry.source) != null }
                 .map { entry -> entry.source.id }
                 .toSet()
+
+        /** The maps of the online catalogue whose name holds every word of [query] (P29.6). */
+        fun catalogMatches(query: String): List<CatalogEntry> =
+            onlineCatalog.flatMap { it.entries }.filter { MapCatalog.matches(it.source.name, query) }
+
+        // A channel, not a shared flow: the message is sent while « Cartes disponibles » is not composed (the
+        // multi-zoom editor is in front) and must wait for it.
+        private val noticeChannel = Channel<String>(Channel.BUFFERED)
+
+        /**
+         * Messages for « Cartes disponibles » from the screens it opens (a multi-zoom map saved and shown, P29.6),
+         * shown when it is back in front.
+         */
+        val notices: Flow<String> = noticeChannel.receiveAsFlow()
+
+        fun notice(text: String) {
+            noticeChannel.trySend(text)
+        }
 
         /** Adds a map of the online catalogue, with the API keys the user gave for it. */
         fun addFromCatalog(

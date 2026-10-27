@@ -108,13 +108,14 @@ class SourceWizardViewModelTest {
     }
 
     @Test
-    fun `steps follow one another and back stops at the first one`() {
+    fun `steps follow one another from the address and back stops at it`() {
         vm.start(null, null)
-        assertEquals(WizardStep.TYPE, vm.state.value.step)
-        vm.back()
-        assertEquals(WizardStep.TYPE, vm.state.value.step)
-        vm.chooseKind(WizardKind.XYZ)
         assertEquals(WizardStep.ADDRESS, vm.state.value.step)
+        vm.back()
+        assertEquals(WizardStep.ADDRESS, vm.state.value.step)
+        vm.chooseKind(WizardKind.WMTS)
+        assertEquals(WizardStep.ADDRESS to WizardKind.WMTS, vm.state.value.step to vm.state.value.kind)
+        vm.chooseKind(WizardKind.XYZ)
         vm.setUrls(tileTemplate())
         listOf(WizardStep.ACCESS, WizardStep.ZOOMS, WizardStep.TEST, WizardStep.SAVE).forEach {
             vm.next()
@@ -124,6 +125,31 @@ class SourceWizardViewModelTest {
         assertEquals(WizardStep.SAVE, vm.state.value.step)
         vm.back()
         assertEquals(WizardStep.TEST, vm.state.value.step)
+    }
+
+    @Test
+    fun `the furthest step reached is kept, a modification reaches every step at once`() {
+        fillXyz()
+        vm.next()
+        vm.next()
+        assertEquals(WizardStep.ZOOMS, vm.state.value.reached)
+        // Back to the address from its stop: the steps done stay done.
+        vm.goTo(WizardStep.ADDRESS)
+        assertEquals(WizardStep.ADDRESS to WizardStep.ZOOMS, vm.state.value.step to vm.state.value.reached)
+        vm.start("osm", null)
+        assertEquals(WizardStep.ADDRESS, vm.state.value.reached)
+        fillXyz(name = "Perso")
+        val saved = assertNotNull(vm.save())
+        vm.start(saved, null)
+        assertEquals(WizardStep.ADDRESS to WizardStep.SAVE, vm.state.value.step to vm.state.value.reached)
+    }
+
+    @Test
+    fun `a stop touched from the address moves the api key as Suivant does`() {
+        fillXyz(url = tileTemplate("?apikey=sekret1234"))
+        vm.goTo(WizardStep.ZOOMS)
+        assertEquals(listOf("apikey"), vm.state.value.keysMoved)
+        assertFalse(DraftIssue.KEY_IN_URL in vm.state.value.issues)
     }
 
     @Test

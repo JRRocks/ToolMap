@@ -49,9 +49,9 @@ Depuis P29.0 (2026-10-26), le « Fermer » écrit en haut à gauche des 13 écra
 |---|---|---|---|---|
 | MAP | démarrage | — | ferme l'app (avec confirmation si le réglage est actif) | ✅ |
 | AVAILABLE | panneau Cartes ▸ Cartes disponibles | écran d'origine (pile de retour) | écran d'origine | ✅ `[N1]` corrigé (P14.1) |
-| WIZARD | Cartes disponibles ▸ Ajouter ; « Modifier / Copier » | écran d'origine | géré (`BackHandler` : étape précédente) | ✅ |
+| WIZARD | Cartes disponibles ▸ Ajouter une carte ▸ XYZ / WMTS / WMS ; « Modifier / Copier » | écran d'origine | géré (`BackHandler` : étape précédente ; à l'Adresse, ferme) | ✅ |
 | MULTI_ZOOM | Cartes disponibles (éditeur seul : Annuler / Retour reviennent au catalogue) ; Réglages ▸ Carte (liste ; Retour dans l'éditeur revient à la liste) | écran d'origine | écran d'origine | ✅ `[N1]` corrigé (P14.1) |
-| STORAGE | panneau Cartes ▸ Options ; jauge ; assistant (fichier MBTiles : remplace l'assistant) | écran d'origine (Cartes disponibles si ouvert de là ; depuis le panneau Cartes : la carte, panneau rouvert, P18.7) | écran d'origine | ✅ `[N1]` `[N2]` corrigés (P14.1) |
+| STORAGE | panneau Cartes ▸ Options ; Cartes disponibles ▸ ⋮ ▸ Stockage hors ligne… ; Ajouter une carte ▸ Importer un fichier (paquet MBTiles, P29.6) | écran d'origine (Cartes disponibles si ouvert de là ; depuis le panneau Cartes : la carte, panneau rouvert, P18.7) | écran d'origine | ✅ `[N1]` `[N2]` corrigés (P14.1) |
 | DOWNLOADS | panneau Cartes ▸ Options ; détail d'une trace | écran d'origine (détail de la trace si ouvert de là ; depuis le panneau Cartes : la carte, panneau rouvert, P18.7) | écran d'origine | ✅ `[N1]` `[N9]` corrigés (P14.1) |
 | TRACKS | barre du bas (drapeau) ; import d'un fichier | écran d'origine | écran d'origine | ✅ `[N1]` corrigé (P14.1) |
 | TRACK_DETAIL | Traces ▸ Statistiques ; fiche d'une trace sur la carte | écran d'origine | écran d'origine | ✅ `[N1]` corrigé (P14.1) |
@@ -221,18 +221,21 @@ Depuis P29.3 (2026-10-27, variante C · Strates, ADR-076), la pile est le conten
 
 ### 5.3 Écran « Cartes disponibles » (`maps/AvailableMapsScreen.kt`)
 
+Depuis P29.6 (2026-10-27, variante B · Bascule de `docs/previews/design-06-cartes-disponibles.html`, ADR-079) : deux segments, la radio du fond et les interrupteurs des calques ; rendu comparé dans `docs/previews/design-06-cartes-disponibles-rendu.html`.
+
 | Entrée | Statut |
 |---|---|
-| Jauge de stockage + « Gérer » → STORAGE | ✅ ; le retour de STORAGE revient au catalogue (`[N2]` corrigé) |
-| Champ « Rechercher une carte » en tête : nom et titre du groupe, sans casse ni accents ; « Aucune carte ne correspond à « … ». » ; les groupes trouvés restent dépliés | ✅ `[F5]` (P14.6, session 49) |
-| Groupes repliables (OSM, IGN, Mes cartes, Locales, Autres) | ✅ |
-| ⋮ Afficher comme fond · Ajouter comme calque · Ne plus afficher | ✅ |
-| ⋮ Modifier (importée) / Copier (fournie) → WIZARD | ✅ |
-| ⋮ Créer une carte multi-zoom à partir de celle-ci | ✅ |
-| ⋮ Supprimer (cartes importées) ; ⋮ Masquer de la liste (cartes fournies) : la carte quitte le catalogue, les favoris et l'affichage (« Cartes indisponibles ignorées ») ; puce « N cartes masquées · Afficher » : les montre en grisé, « Masquée · ⋮ Remettre dans la liste » | ✅ `[F3]` (P14.4, session 49, ADR-067) ; la liste suit la sauvegarde (réglages) |
-| ⋮ Télécharger une zone… (retour à la carte, « Sélectionner et enregistrer une zone » avec cette seule carte cochée) · Vider les tuiles stockées (avec la taille ; seulement si la carte en a) · Exporter en .aqx… (la carte seule ; les clés d'une carte ajoutée sont retirées, comme dans l'assistant) | ✅ `[F4]` (P14.6, session 49) |
-| Ajouter : Nouvelle carte… · Nouvelle carte multi-zoom · Importer `.aqx` · Catalogue en ligne… | ✅ |
-| Catalogue en ligne (`maps/OnlineCatalogScreen.kt`, ADR-054) : 25 cartes par fournisseur, « Ajouter » / « Ajoutée », clé demandée pour Ordnance Survey ; Retour revient à Cartes disponibles | ✅ (P16.4) |
+| Barre : titre et état « Fond : IGN Cartes · 1 calque » (fond le plus bas de la pile, nombre des autres cartes de la pile) ; loupe ; ⋮ | ✅ (P29.6) |
+| Segments « Fonds de carte » et « Calques ». Fonds : une radio par fond, cochée pour le fond le plus bas ; toucher la ligne le remplace (`replaceBase`). Calques : les calques et les fonds affichés au-dessus du fond, un interrupteur chacun (allumé : dans la pile) ; toucher la ligne ajoute (`addLayer`) ou retire (`hideSource`). « Carte affichée : X » avec **Annuler** (la pile d'avant) | ✅ (P29.6) |
+| Loupe : « Rechercher une carte » à la place du titre ; nom et titre du groupe, tous les mots, sans casse ni accents, dans les deux segments, groupes trouvés dépliés ; section « Dans le catalogue en ligne » avec « Ajouter » ; « Aucune carte ne correspond à « … ». » ; la flèche ou Retour ferme la recherche | ✅ `[F5]` (P14.6) ; catalogue en ligne (P29.6) |
+| ⋮ de la barre : « Stockage hors ligne… » (« 11,7 Mo de tuiles · 5,0 Go libres ») → STORAGE, dont le retour revient ici ; « Afficher les cartes masquées (n) » (coche), seulement s'il y en a | ✅ (P29.6 ; remplace la jauge et la puce) |
+| Groupes repliables (OSM, IGN, Multi-zoom, Mes cartes, Locales, Autres), crédit, poids des tuiles | ✅ |
+| Ligne : vignette (sans tuile : icône du type, carte, calque, image aérienne ou relief), nom, « Zooms a à b » (ou la raison d'une carte non supportée, ou « Masquée de la liste »), « X sur l'appareil » ; la ligne porte l'état de sa radio ou de son interrupteur (TalkBack) | ✅ (P29.6) |
+| ⋮ d'une carte (8 lignes au plus) : pour un fond, Ajouter comme calque · Ne plus afficher (affiché) ; Modifier (importée) / Copier pour modifier (fournie) → WIZARD ; Modifier / Copier les zooms (multi-zoom) ; Créer une carte multi-zoom à partir de celle-ci ; Télécharger une zone… · Vider les tuiles stockées (nombre de tuiles à droite, confirmation) · Exporter en .aqx… ; Supprimer (importée, confirmation) / Masquer de la liste (fournie) ; carte masquée : Remettre dans la liste seul | ✅ `[F3]` `[F4]` ; « Afficher comme fond de carte » retiré (radio, P29.6) |
+| Bouton **Ajouter une carte** → feuille : Catalogue en ligne · Adresse de tuiles (XYZ) · Service WMTS · Service WMS (l'assistant s'ouvre à l'Adresse de ce type) · Nouvelle carte multi-zoom · Importer un fichier (.aqx, .mbtiles) (un seul sélecteur : un paquet MBTiles va à STORAGE, qui demande où le ranger ; un `.aqx` ouvre le dialogue d'import sur la carte) ; chaque ligne avec sa description | ✅ (P29.6) |
+| Catalogue en ligne (`maps/OnlineCatalogScreen.kt`, ADR-054) : segments « Fonds de carte · 18 » et « Calques · 7 », loupe, fournisseurs en en-têtes (« 4 calques »), lignes avec l'icône du type, « Ajouter » / « Ajoutée » ; clé demandée pour Ordnance Survey ; message d'ajout avec **Afficher** ; conditions d'usage en pied de liste ; Retour revient à Cartes disponibles | ✅ (P16.4, P29.6) |
+| Assistant (`wizard/SourceWizardScreen.kt`) : titre = type (nouvelle carte, sous-titre « Nouvelle carte ») ou « Modifier une carte » ; 5 arrêts nommés (Adresse, Accès, Zooms, Test, Enregistrer), un arrêt fait prend une coche et se touche pour y revenir (tous en modification) ; pas de « Retour » à la 1re étape ; « Suivant : Accès »… puis « Enregistrer » ; avertissements avec l'icône warning, couche choisie avec check_circle, interrupteur « Calque superposable » au bout de sa ligne, certificat refusé en ligne avec l'icône error | ✅ (P29.6) |
+| Éditeur multi-zoom (`multizoom/MultiZoomScreen.kt`) : nom, barre des zooms fixe en haut, « Ce qui s'affiche » : une ligne par tranche (« Zooms 1 à 8 » / carte, « · tuiles du zoom N » si forcé), une par trou avec **Combler** (tranche créée avec la carte de la tranche du dessous, feuille ouverte) ; toucher une tranche ouvre sa feuille (curseur double, Carte ▾ et ses zooms, zoom forcé, problèmes, « Supprimer la tranche » en rouge) ; « Ajouter une tranche » ; ouvert d'ici, Enregistrer revient ici avec « Carte affichée : X » | ✅ (P29.6) |
 
 ## 6. Traces et waypoints
 
@@ -296,7 +299,7 @@ Depuis P29.4 (variante « A · Topo » pour le panneau, la liste et le détail ;
 | SHARE | « ? » en haut à droite : texte d'explication (masqué par défaut, 2026-10-14) ; « Ce que les autres voient » : nom, profil (15 jetons : initiales + 14 silhouettes game-icons.net teintées de la couleur choisie, ADR-050 ; ou « Votre image » importée, réduite à 64 × 64 px et 6 Ko ; boutons « Importer une image… » / « Retirer ») et bouton « Couleur de l'icône… » (cercle chromatique + luminosité + palette) ; « Tracé des membres » (interrupteur : tracé + position, ou position seule) ; créer / rejoindre un groupe (QR, lien, serveur) ; cartes d'alerte du téléphone (ligne suivante, ADR-071 ; remplacent la carte « Partage téléphone verrouillé » d'ADR-051) ; membres, messages, SOS, intervalle, serveur de coordination | ✅ ; serveur Firebase non configuré (P13.5 ⛔) |
 | DOWNLOADS | formulaire (cartes, zooms, plages des calques), file, pause, reprise, retrait ; liste vide : carte « Aucun téléchargement pour l'instant », une phrase d'explication et le bouton **Sélectionner et enregistrer une zone** (retour à la carte, sélection de zone ouverte, P18.4) ; formulaire : « Tuiles : N, dont M déjà stockées — à télécharger : K (taille) » (P18.6) | ✅ ; ⚠️ la forme « polygone » est décodée et affichée mais **aucun bouton ne permet d'en dessiner un** (seuls rectangle visible et couloir de trace) `[F10]` |
 | STORAGE | en tête : total (« 18.9 Mo »), nombre de cartes, Importer un fichier .mbtiles ; puis une ligne par carte, de la plus lourde à la plus légère : nom, taille, « 478 tuiles · zooms 12 à 16 » (carte locale, tuiles partagées), barre de sa part du total, menu ⋮ : Exporter, Effacer les tuiles de plus de 30 j, Tout effacer (ou Supprimer cette carte pour une carte locale) (P18.4) | ✅ ; 🕳️ purge par zone (annoncée en P2.5) |
-| MULTI_ZOOM | éditeur de cartes multi-zoom | ✅ |
+| MULTI_ZOOM | liste (Réglages ▸ Carte) et éditeur de cartes multi-zoom (§5.3 depuis P29.6) | ✅ |
 | BACKUP | sauvegarde / restauration zip | ✅ |
 | ABOUT | aide, vie privée, licences | ✅ (`[N3]` corrigé ; aide « Prise en main » à jour, `[V3]`) |
 | DIAGNOSTICS | compteurs de l'intercepteur, tuiles de test ; APK debug seulement | ✅ `[N4]` |

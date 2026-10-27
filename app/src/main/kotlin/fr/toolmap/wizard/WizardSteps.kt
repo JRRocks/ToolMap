@@ -6,17 +6,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
@@ -47,6 +51,7 @@ import fr.toolmap.data.wizard.FetchFailure
 import fr.toolmap.data.wizard.ProbeResult
 import fr.toolmap.data.wizard.ProbeVerdict
 import fr.toolmap.download.formatBytes
+import fr.toolmap.maps.MapsIcons
 import fr.toolmap.ui.CheckRow
 import fr.toolmap.ui.theme.Button
 import fr.toolmap.ui.theme.OutlinedButton
@@ -151,7 +156,7 @@ private fun ServiceAddress(
         singleLine = true,
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Button(
+        OutlinedButton(
             onClick = vm::readCapabilities,
             enabled = state.capabilities !is CapabilitiesState.Loading && state.serviceAddress.isNotBlank(),
         ) {
@@ -324,7 +329,13 @@ private fun LayerRow(
             if (id != title) Text(id, style = MaterialTheme.typography.labelSmall, maxLines = 1)
         }
         if (selected) {
-            Text("✓", style = MaterialTheme.typography.titleMedium)
+            // The chosen layer: an icon, not a « ✓ » in text (P29.6).
+            Icon(
+                Icons.Filled.CheckCircle,
+                contentDescription = stringResource(R.string.wizard_layer_chosen),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(end = 12.dp),
+            )
         } else {
             TextButton(onClick = onClick) { Text(stringResource(R.string.action_add)) }
         }
@@ -491,13 +502,21 @@ internal fun ZoomsStep(
             )
         }
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Switch(checked = draft.isLayer, onCheckedChange = vm::setLayer)
+    // The switch at the end of its line, as everywhere else (P29.6); the whole line toggles it.
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .toggleable(value = draft.isLayer, role = Role.Switch, onValueChange = vm::setLayer),
+    ) {
         Text(
             stringResource(R.string.wizard_is_layer),
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(start = 12.dp),
+            modifier = Modifier.weight(1f).padding(end = 12.dp),
         )
+        Switch(checked = draft.isLayer, onCheckedChange = null)
     }
     if (draft.isLayer) {
         Text(stringResource(R.string.wizard_opacity, draft.opacity), style = MaterialTheme.typography.labelMedium)
@@ -545,7 +564,7 @@ internal fun TestStep(
 ) {
     Text(stringResource(R.string.wizard_test_intro), style = MaterialTheme.typography.bodyMedium)
     val running = state.probe is ProbeState.Running
-    Button(onClick = vm::runProbe, enabled = !running && state.draft.isValid) {
+    OutlinedButton(onClick = vm::runProbe, enabled = !running && state.draft.isValid) {
         Text(
             stringResource(
                 when {
@@ -621,18 +640,20 @@ private fun ProbeCard(
     }
 }
 
-/** A refused certificate: what to install in Android so that ToolMap accepts it (S2, ADR-066). */
+/**
+ * A refused certificate: what to install in Android so that ToolMap accepts it (S2, ADR-066). A line with the error
+ * icon, not a box inside the card of the result (P29.6).
+ */
 @Composable
 private fun CertificateRejectedNote() {
-    Surface(
-        color = MaterialTheme.colorScheme.errorContainer,
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(
+            MapsIcons.Error,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(20.dp),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 stringResource(R.string.wizard_verdict_certificate_title),
                 style = MaterialTheme.typography.titleSmall,

@@ -77,14 +77,15 @@ class NavigationBackTest {
         rule.onNodeWithContentDescription("Cartes").performClick()
         // A tile at the foot of the panel since P29.3: below the layers, scrolled to in a small window.
         rule.onNodeWithText("Cartes disponibles").performScrollTo().performClick()
+        // The sheet « Ajouter une carte » since P29.6, whose first line is the catalogue.
         rule.onNodeWithText("Ajouter une carte", useUnmergedTree = true).performClick()
-        rule.onNodeWithText("Catalogue en ligne…").performClick()
-        rule.onAllNodesWithText("OPENSTREETMAP").assertCountEquals(1)
-        // « Ajouter » of the first map of OpenStreetMap, not yet in the catalogue.
+        rule.onNodeWithText("Catalogue en ligne").performClick()
+        rule.onAllNodesWithText("Fonds de carte · ", substring = true).assertCountEquals(1)
+        // « Ajouter » of the first base map of OpenStreetMap, not yet in the catalogue.
         rule.onAllNodesWithText("Ajouter")[0].performClick()
         rule.onAllNodesWithText("Ajoutée").assertCountEquals(1)
         pressBack()
-        rule.onAllNodesWithText("OPENSTREETMAP").assertCountEquals(0)
+        rule.onAllNodesWithText("Fonds de carte · ", substring = true).assertCountEquals(0)
         rule.onAllNodesWithText("Cartes disponibles").assertCountEquals(1)
     }
 

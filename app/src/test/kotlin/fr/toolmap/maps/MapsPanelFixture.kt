@@ -1,5 +1,6 @@
 package fr.toolmap.maps
 
+import fr.toolmap.core.source.BuiltinSources
 import fr.toolmap.core.source.LevelDef
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.source.ZoomSet
@@ -24,9 +25,13 @@ import kotlin.io.path.createTempDirectory
 
 /**
  * The two view models behind « Cartes et calques », on three maps of its own (IGN Cartes, OpenStreetMap, the IGN
- * slopes overlay) and the favourites provided with the app: for the tests and renders of the panel (P29.3).
+ * slopes overlay) and the favourites provided with the app: for the tests and renders of the panel (P29.3). With
+ * [builtin], the maps provided with the app instead, IGN Cartes shown under the IGN slopes: the renders of « Cartes
+ * disponibles » (P29.6).
  */
-class MapsPanelFixture {
+class MapsPanelFixture(
+    private val builtin: Boolean = false,
+) {
     val root: File = createTempDirectory("maps-panel").toFile()
 
     private fun source(
@@ -44,11 +49,15 @@ class MapsPanelFixture {
     val repository =
         SourceRepository(
             File(root, "sources"),
-            listOf(
-                source("ign-maps", "IGN Cartes", ZoomSet.range(1, 18)),
-                source("osm", "OpenStreetMap", ZoomSet.range(0, 19)),
-                source("ign-slopes", "IGN Pentes montagne", ZoomSet.range(8, 17), isLayer = true),
-            ),
+            if (builtin) {
+                BuiltinSources.load()
+            } else {
+                listOf(
+                    source("ign-maps", "IGN Cartes", ZoomSet.range(1, 18)),
+                    source("osm", "OpenStreetMap", ZoomSet.range(0, 19)),
+                    source("ign-slopes", "IGN Pentes montagne", ZoomSet.range(8, 17), isLayer = true),
+                )
+            },
         )
     private val store = MbTilesStore(File(root, "tiles"), repository)
     private val offline = OfflineMode()
@@ -77,13 +86,18 @@ class MapsPanelFixture {
             settingsStore = settings,
             gnss = GnssSatellites(RuntimeEnvironment.getApplication()),
         ).apply {
-            // A stack of three maps, top first: the slopes, OpenStreetMap kept to zooms 1 to 8, IGN Cartes.
             for (layer in state.value.stack.topToBottom()) removeLayer(layer.id)
-            addLayer("ign-maps")
-            addLayer("osm")
-            addLayer("ign-slopes")
-            val osm = state.value.stack.topToBottom().first { it.sourceId == "osm" }
-            setZoomRange(osm.id, 1, 8)
+            if (builtin) {
+                addLayer("ign-maps")
+                addLayer("ign-pentes")
+            } else {
+                // A stack of three maps, top first: the slopes, OpenStreetMap kept to zooms 1 to 8, IGN Cartes.
+                addLayer("ign-maps")
+                addLayer("osm")
+                addLayer("ign-slopes")
+                val osm = state.value.stack.topToBottom().first { it.sourceId == "osm" }
+                setZoomRange(osm.id, 1, 8)
+            }
         }
 
     fun close() {

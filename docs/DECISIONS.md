@@ -1095,3 +1095,45 @@
   grandit d'une ligne d'aide et d'une sous-ligne ; seul l'enregistrement qui vient de finir peut être repris (un nouveau
   départ l'oublie, comme la fin de l'application).
 - **Alternatives rejetées** : variantes B à E de l'aperçu.
+
+## ADR-079 — « Cartes disponibles » en « Bascule » : fond à la radio, calques à l'interrupteur, ajout par une feuille, assistant en 5 étapes
+- **Date / statut** : 2026-10-27 — Accepté (P29.6 ; aperçu `docs/previews/design-06-cartes-disponibles.html`, variante
+  B · Bascule, choisie par l'utilisateur le 2026-10-27). Garde ADR-017 (assistant : capabilities, brouillon, sonde),
+  ADR-031 (cartes multi-zoom par références) et ADR-054 (catalogue en ligne embarqué) ; retire l'étape « Type » de
+  l'assistant (N2).
+- **Contexte** : audit de P29.6 : l'appui sur une ligne changeait la carte affichée sans « Annuler » ; la jauge
+  mettait en avant la place du téléphone ; un menu ⋮ de 9 commandes refaisait l'appui sur la ligne ; « Ajouter une
+  carte » ouvrait un menu muet, avec les imports en triple ; le catalogue était fait de Cards, sans icône de type, et
+  son message d'ajout sans suite ; l'assistant ne faisait qu'avancer (4 × « Suivant » pour renommer une carte) ;
+  l'éditeur multi-zoom perdait la barre des zooms dès la 2e tranche et parlait le langage du fichier `.aqx`.
+- **Décision** :
+  1. Deux segments « Fonds de carte | Calques ». Une radio désigne le fond le plus bas de la pile (celui que
+     `replaceBase` remplace) ; dans « Calques », un interrupteur par calque (et par fond affiché au-dessus du fond) dit
+     s'il est dans la pile (`addLayer` / `hideSource`). La ligne entière porte l'état (`selectable` / `toggleable`).
+     Afficher une carte d'un appui propose « Annuler » (`MapViewModel.restoreStack`, la pile d'avant).
+  2. La barre dit ce que montre la carte (« Fond : IGN Cartes · 1 calque ») ; sa loupe met « Rechercher une carte » à
+     la place du titre et cherche aussi dans le catalogue en ligne (`MapCatalog.matches`), avec « Ajouter » ; son ⋮
+     porte « Stockage hors ligne… » (poids des tuiles, place libre) et « Afficher les cartes masquées (n) ». La jauge,
+     la puce des cartes masquées, la pastille « Affichée » et « Afficher comme fond de carte » disparaissent ; le
+     nombre de tuiles passe à droite de « Vider les tuiles stockées ».
+  3. « Ajouter une carte » ouvre une feuille : Catalogue en ligne, Adresse de tuiles (XYZ), Service WMTS, Service WMS,
+     Nouvelle carte multi-zoom, « Importer un fichier (.aqx, .mbtiles) », chacun avec sa description. Un seul
+     sélecteur de fichier : un paquet MBTiles (extension, sinon en-tête SQLite : `UriReader.isMbTiles`) va à l'écran
+     Stockage, qui demande où le ranger ; le reste suit l'import `.aqx`.
+  4. Catalogue : mêmes segments avec leurs nombres, loupe, fournisseurs en en-têtes, lignes blanches avec l'icône du
+     type, « Afficher » dans le message d'ajout, conditions d'usage en pied de liste.
+  5. Assistant en 5 étapes (`WizardStep` sans `TYPE`) : il commence à l'Adresse du type choisi, qui est son titre ;
+     5 arrêts nommés, un arrêt fait prend une coche et se touche pour y revenir (tous en modification ;
+     `WizardState.reached`) ; pas de « Retour » à la 1re étape ; « Suivant : Accès »… puis « Enregistrer ». Quitter
+     l'Adresse par un arrêt range aussi les clés d'API (`goTo`).
+  6. Éditeur multi-zoom : barre des zooms fixe en haut, « Ce qui s'affiche » en lignes (une par tranche, une par trou
+     avec « Combler », `MultiZoomViewModel.fillGap`), réglages d'une tranche dans une feuille du bas. Ouvert depuis
+     Cartes disponibles, Enregistrer y revient avec « Carte affichée : X ».
+  7. Corrections communes : icônes warning et check_circle au lieu de « ⚠ » et « ✓ », interrupteur « Calque
+     superposable… » au bout de sa ligne, certificat refusé en ligne avec l'icône error, vignette sans tuile à l'icône
+     du type (carte, calque, image aérienne, relief), un seul bouton plein par écran (« Lire les couches » et « Tester
+     une tuile » en contour).
+- **Conséquences** : on sait avant de toucher ce que fera l'appui ; le ⋮ d'une carte tombe à 8 lignes au plus ; il
+  faut choisir un segment avant de voir les cartes ; la radio ne montre que le fond le plus bas ; l'interrupteur
+  d'ici retire de la pile, l'œil de « Cartes et calques » masque sans retirer.
+- **Alternatives rejetées** : variantes A, C, D et E de l'aperçu.

@@ -8,7 +8,6 @@
   <string name="action_back">Retour</string>
 
   <string name="menu">Menu</string>
-  <string name="menu_import">Importer une carte (.aqx)…</string>
   <string name="menu_diagnostics">Diagnostic des tuiles</string>
   <string name="locate_me">Ma position</string>
   <string name="swap_base_short">⇄</string>
@@ -73,38 +72,20 @@
   <string name="workspace_skipped">Cartes indisponibles ignorées : %1$d</string>
   <string name="workspace_saved">Favori enregistré : %1$s</string>
 
-  <string name="add_source_detail">%1$s · zooms %2$d à %3$d</string>
-  <string name="source_base">Fond de carte</string>
-  <string name="source_overlay">Calque superposable</string>
   <string name="source_unsupported">Non supportée : %1$s</string>
 
-  <string name="add_source_new">Nouvelle carte…</string>
   <string name="add_source_edit">Modifier cette carte</string>
   <string name="add_source_copy">Copier pour modifier</string>
 
-  <string name="wizard_title">Ajouter une carte</string>
   <string name="wizard_title_edit">Modifier une carte</string>
-  <string name="wizard_step_of">Étape %1$d/%2$d — %3$s</string>
-  <string name="wizard_step_type">Type</string>
-  <string name="wizard_step_address">Adresse</string>
-  <string name="wizard_step_access">Accès</string>
-  <string name="wizard_step_zooms">Zooms et aspect</string>
-  <string name="wizard_step_test">Test</string>
-  <string name="wizard_step_save">Enregistrement</string>
-  <string name="wizard_next">Suivant</string>
   <string name="wizard_back">Retour</string>
 
-  <string name="wizard_type_prompt">Comment la carte est-elle décrite ?</string>
   <string name="wizard_type_xyz">Adresse de tuiles (XYZ)</string>
   <string name="wizard_type_xyz_desc">Une adresse avec {$z}, {$x} et {$y}, comme celles d\'OpenStreetMap. Le cas le plus courant.</string>
   <string name="wizard_type_wmts">Service WMTS</string>
   <string name="wizard_type_wmts_desc">L\'adresse d\'un service : ToolMap lit la liste des couches et prépare l\'adresse des tuiles (IGN Géoplateforme, par exemple).</string>
   <string name="wizard_type_wms">Service WMS</string>
   <string name="wizard_type_wms_desc">Un service d\'images à la demande : ToolMap lit les couches et prépare des requêtes en Web Mercator (EPSG:3857).</string>
-  <string name="wizard_type_aqx">Importer un fichier .aqx</string>
-  <string name="wizard_type_aqx_desc">Un fichier de cartes AlpineQuest.</string>
-  <string name="wizard_type_mbtiles">Importer un fichier .mbtiles</string>
-  <string name="wizard_type_mbtiles_desc">Une carte déjà téléchargée, utilisable sans réseau.</string>
 
   <string name="wizard_url_label">Adresse des tuiles</string>
   <string name="wizard_url_help">Une adresse par ligne : plusieurs lignes répartissent les requêtes entre plusieurs serveurs.</string>
@@ -1337,11 +1318,6 @@
   <string name="maps_details_forced">Mise à jour forcée pendant cette session.</string>
 
   <string name="am_title">Cartes disponibles</string>
-  <string name="am_subtitle">Catalogue et cartes installées</string>
-  <string name="am_storage_used">%1$s utilisés</string>
-  <string name="am_storage_of">sur %1$s</string>
-  <string name="am_storage_tiles">Tuiles de ToolMap : %1$s</string>
-  <string name="am_storage_manage">Gérer</string>
   <string name="am_group_openstreetmap">Cartes OpenStreetMap</string>
   <string name="am_group_ign">France · Cartes officielles IGN</string>
   <string name="am_group_imported">Mes cartes</string>
@@ -1350,16 +1326,13 @@
   <string name="am_group_size">%1$s</string>
   <string name="am_expand">Déplier le groupe</string>
   <string name="am_collapse">Replier le groupe</string>
-  <string name="am_displayed_badge">Affichée</string>
   <string name="am_card_menu">Menu de la carte</string>
-  <string name="am_show_base">Afficher comme fond de carte</string>
   <string name="am_add_layer">Ajouter comme calque</string>
   <string name="am_hide">Ne plus afficher</string>
   <string name="am_delete">Supprimer la carte</string>
   <string name="am_delete_title">Supprimer cette carte ?</string>
   <string name="am_delete_text">« %1$s » sera retirée de ToolMap. Ses tuiles stockées restent sur l\'appareil jusqu\'à leur effacement dans « Stockage hors ligne ».</string>
   <string name="am_add">Ajouter une carte</string>
-  <string name="catalog_menu">Catalogue en ligne…</string>
   <string name="catalog_title">Catalogue en ligne</string>
   <string name="catalog_subtitle">Cartes à ajouter en un geste, servies par chaque fournisseur selon ses conditions d\'usage</string>
   <string name="catalog_provider_osm">OpenStreetMap</string>
@@ -1370,7 +1343,6 @@
   <string name="catalog_provider_os">Ordnance Survey (Royaume-Uni)</string>
   <string name="catalog_add">Ajouter</string>
   <string name="catalog_added">Ajoutée</string>
-  <string name="catalog_layer">calque</string>
   <string name="catalog_added_message">« %1$s » ajoutée à vos cartes.</string>
   <string name="catalog_key_title">Clé d\'API : %1$s</string>
   <string name="catalog_key_label">Clé d\'API</string>
@@ -1382,16 +1354,84 @@
   <string name="am_search_clear">Effacer la recherche</string>
   <string name="am_search_none">Aucune carte ne correspond à « %1$s ».</string>
   <string name="am_search_note">La recherche porte sur le nom et le groupe.</string>
-  <plurals name="am_hidden_chip">
-    <item quantity="one">%d carte masquée · Afficher</item>
-    <item quantity="other">%d cartes masquées · Afficher</item>
-  </plurals>
-  <string name="am_hidden_note">Masquée · ⋮ Remettre dans la liste</string>
+  <string name="am_hidden_note">Masquée de la liste</string>
   <string name="am_unhide">Remettre dans la liste</string>
   <string name="am_hide_from_list">Masquer de la liste</string>
   <string name="am_save_zone">Télécharger une zone…</string>
   <string name="am_clear_tiles">Vider les tuiles stockées</string>
   <string name="am_export_aqx">Exporter en .aqx…</string>
+  <!-- P29.6 « Cartes disponibles » en « Bascule » (B) -->
+  <string name="am_status">Fond : %1$s · %2$s</string>
+  <string name="am_status_no_base">Aucun fond · %1$s</string>
+  <string name="am_layers_none">aucun calque</string>
+  <plurals name="am_layers_count">
+    <item quantity="one">%d calque</item>
+    <item quantity="many">%d calques</item>
+    <item quantity="other">%d calques</item>
+  </plurals>
+  <string name="am_segment_bases">Fonds de carte</string>
+  <string name="am_segment_layers">Calques</string>
+  <string name="am_zooms">Zooms %1$d à %2$d</string>
+  <string name="am_stored">%1$s sur l\'appareil</string>
+  <string name="am_storage_menu">Stockage hors ligne…</string>
+  <string name="am_storage_menu_sub">%1$s de tuiles · %2$s libres</string>
+  <plurals name="am_show_hidden">
+    <item quantity="one">Afficher la carte masquée (%d)</item>
+    <item quantity="many">Afficher les cartes masquées (%d)</item>
+    <item quantity="other">Afficher les cartes masquées (%d)</item>
+  </plurals>
+  <string name="am_more">Plus d\'options</string>
+  <string name="am_search_open">Rechercher une carte</string>
+  <string name="am_search_close">Fermer la recherche</string>
+  <string name="am_search_catalog">Dans le catalogue en ligne</string>
+  <string name="am_shown_undo">Annuler</string>
+  <string name="am_add_title">Ajouter une carte</string>
+  <string name="am_add_catalog">Catalogue en ligne</string>
+  <string name="am_add_catalog_desc">Cartes de grands fournisseurs, ajoutées en un geste.</string>
+  <string name="am_add_multizoom_desc">Une carte faite d\'autres cartes, une par plage de zooms.</string>
+  <string name="am_add_import">Importer un fichier (.aqx, .mbtiles)</string>
+  <string name="am_add_import_desc">Un fichier de cartes AlpineQuest, ou une carte déjà téléchargée, utilisable sans réseau.</string>
+  <plurals name="catalog_maps">
+    <item quantity="one">%d carte</item>
+    <item quantity="many">%d cartes</item>
+    <item quantity="other">%d cartes</item>
+  </plurals>
+  <plurals name="catalog_providers">
+    <item quantity="one">%d fournisseur</item>
+    <item quantity="many">%d fournisseurs</item>
+    <item quantity="other">%d fournisseurs</item>
+  </plurals>
+  <string name="catalog_segment_bases">Fonds de carte · %1$d</string>
+  <string name="catalog_segment_layers">Calques · %1$d</string>
+  <plurals name="catalog_group_bases">
+    <item quantity="one">%d fond</item>
+    <item quantity="many">%d fonds</item>
+    <item quantity="other">%d fonds</item>
+  </plurals>
+  <plurals name="catalog_group_layers">
+    <item quantity="one">%d calque</item>
+    <item quantity="many">%d calques</item>
+    <item quantity="other">%d calques</item>
+  </plurals>
+  <string name="catalog_show">Afficher</string>
+  <string name="catalog_search_none">Aucune carte du catalogue ne correspond à « %1$s ».</string>
+  <string name="wizard_new_subtitle">Nouvelle carte</string>
+  <string name="wizard_stop_address">Adresse</string>
+  <string name="wizard_stop_access">Accès</string>
+  <string name="wizard_stop_zooms">Zooms</string>
+  <string name="wizard_stop_test">Test</string>
+  <string name="wizard_stop_save">Enregistrer</string>
+  <string name="wizard_next_named">Suivant : %1$s</string>
+  <string name="wizard_stop_done">%1$s, fait</string>
+  <string name="wizard_stop_current">%1$s, étape en cours</string>
+  <string name="mz_shows">Ce qui s\'affiche</string>
+  <string name="mz_row_zooms">Zooms %1$d à %2$d</string>
+  <string name="mz_row_zoom">Zoom %1$d</string>
+  <string name="mz_row_forced">%1$s · tuiles du zoom %2$d</string>
+  <string name="mz_gap_sub">Aucune tranche : rempli par la tranche voisine</string>
+  <string name="mz_fill">Combler</string>
+  <string name="mz_band_map">Carte</string>
+  <string name="wizard_layer_chosen">Couche choisie</string>
 
   <string name="sa_job_name">Zone du %1$s</string>
   <string name="sa_title">Sélectionner et enregistrer une zone</string>
@@ -1477,15 +1517,12 @@
   <string name="mz_edit_title">Modifier la carte multi-zoom</string>
   <string name="mz_save">Enregistrer</string>
   <string name="mz_name">Nom de la carte</string>
-  <string name="mz_strip_hint">Zooms 0 à 22 : une couleur par tranche, un point pour un zoom forcé. En gris, un zoom sans tranche, rempli par la tranche voisine.</string>
   <string name="mz_add_band">Ajouter une tranche</string>
-  <string name="mz_editor_hint">Un zoom forcé plus fin que la tranche réduit ses tuiles (4 par niveau, 4 niveaux au plus) ; plus grossier, il les agrandit. Télécharger une zone de cette carte télécharge les tuiles qu\'elle affiche réellement.</string>
-  <string name="mz_band_title">Tranche %1$d · zooms %2$d à %3$d</string>
   <string name="mz_remove_band">Supprimer la tranche</string>
   <string name="mz_pick_map">Choisir une carte</string>
   <string name="mz_map_zooms">Zooms de cette carte : %1$d à %2$d</string>
   <string name="mz_forced">Zoom forcé</string>
-  <string name="mz_forced_hint">Les tuiles d\'un même zoom sur toute la tranche, comme les trous de &lt;zoom-values&gt; dans un .aqx d\'AlpineQuest.</string>
+  <string name="mz_forced_hint">Les tuiles d\'un seul zoom sur toute la tranche : plus fin que la tranche, il les réduit (4 par niveau, 4 niveaux au plus) ; plus grossier, il les agrandit.</string>
   <string name="mz_forced_zoom">Tuiles du zoom %1$d (%2$s)</string>
   <string name="mz_forced_shrunk">réduites</string>
   <string name="mz_forced_enlarged">agrandies</string>

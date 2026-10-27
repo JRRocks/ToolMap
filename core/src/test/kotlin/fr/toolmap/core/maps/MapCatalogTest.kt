@@ -140,4 +140,13 @@ class MapCatalogTest {
         assertEquals("openstreetmap.org", MapCatalog.hostOf("https://www.openstreetmap.org/copyright"))
         assertNull(MapCatalog.hostOf("not an address"))
     }
+
+    @Test
+    fun `matches finds every word, whatever the case and the accents, and nothing for an empty query`() {
+        assertTrue(MapCatalog.matches("Pistes de ski (Waymarked Trails)", "ski PISTES"))
+        assertTrue(MapCatalog.matches("IGN Plan v2", "plan ign"))
+        assertTrue(MapCatalog.matches("Relief ombré", "OMBRE"))
+        assertFalse(MapCatalog.matches("IGN Plan v2", "plan osm"))
+        assertFalse(MapCatalog.matches("IGN Plan v2", "  "))
+    }
 }

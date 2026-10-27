@@ -114,6 +114,19 @@ object MapCatalog {
         }
     }
 
+    /**
+     * Whether [text] holds every word of [query], whatever the case and the accents: the search of the online catalogue
+     * from « Cartes disponibles » (P29.6), as [search] does for the maps of the list.
+     */
+    fun matches(
+        text: String,
+        query: String,
+    ): Boolean {
+        val words = fold(query).split(' ').filter { it.isNotBlank() }
+        val folded = fold(text)
+        return words.isNotEmpty() && words.all { it in folded }
+    }
+
     /** Lower case without accents: « Énergie » and « energie » match. */
     private fun fold(text: String): String =
         Normalizer

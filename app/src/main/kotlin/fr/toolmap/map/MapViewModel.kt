@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.toolmap.R
 import fr.toolmap.core.download.ZoneShape
 import fr.toolmap.core.download.ZoomLimit
+import fr.toolmap.core.layers.LayerStack
 import fr.toolmap.core.layers.RangeLogic
 import fr.toolmap.core.layers.Workspace
 import fr.toolmap.core.layers.Workspaces
@@ -143,6 +144,9 @@ class MapViewModel
         }
 
         fun removeLayer(id: String) = mutableState.update { it.withStack(it.stack.remove(id)) }
+
+        /** Puts back a stack taken before a change: « Annuler » of « Carte affichée » (P29.6). */
+        fun restoreStack(stack: LayerStack) = mutableState.update { it.withStack(stack) }
 
         /** "Stop displaying the others": keeps only the layer [id] in the stack. */
         fun removeOtherLayers(id: String) = mutableState.update { it.withStack(it.stack.removeOthers(id)) }

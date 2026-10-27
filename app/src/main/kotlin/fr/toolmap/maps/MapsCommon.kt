@@ -25,12 +25,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
+import fr.toolmap.core.source.TileSource
+import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
 
@@ -51,6 +54,8 @@ fun MapThumbnail(
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
     shape: Shape = RoundedCornerShape(8.dp),
+    /** The icon shown until a tile is had (or when none can be): the type of the map (P29.6), never its initials. */
+    placeholder: ImageVector = MapsIcons.Map,
 ) {
     val image by produceState<ImageBitmap?>(null, sourceId) { value = thumbnails.load(sourceId) }
     Box(
@@ -71,7 +76,7 @@ fun MapThumbnail(
             )
         } else {
             Icon(
-                MapsIcons.Map,
+                placeholder,
                 contentDescription = null,
                 tint = MaterialTheme.toolMap.onTile,
                 modifier = Modifier.size(size * PLACEHOLDER_ICON),
@@ -79,6 +84,16 @@ fun MapThumbnail(
         }
     }
 }
+
+/** The icon of the kind of a map: relief data, an overlay, an aerial image, a shaded relief, a map. */
+fun typeIcon(source: TileSource): ImageVector =
+    when {
+        source.type == "dem" -> SettingsIcons.Terrain
+        source.isLayer -> MapsIcons.Layers
+        source.type == "satellite" || source.type == "hybrid" -> MapsIcons.SatelliteAlt
+        source.type == "hillshade" -> SettingsIcons.Terrain
+        else -> MapsIcons.Map
+    }
 
 /** Title line of a panel: [title], the help button and (when given) a leading [navigation] button. */
 @Composable

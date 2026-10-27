@@ -113,6 +113,21 @@ class MultiZoomViewModel
                 draft.copy(bands = draft.bands + band)
             }
 
+        /**
+         * « Combler » (P29.6): a band over the zooms [from] to [to] left without one, showing the map of the band
+         * just below them (the one above when there is none below). Returns the index of the new band.
+         */
+        fun fillGap(
+            from: Int,
+            to: Int,
+        ): Int? {
+            val bands = editor.value?.draft?.bands ?: return null
+            val neighbour =
+                bands.filter { it.to < from }.maxByOrNull { it.to } ?: bands.minByOrNull { it.from } ?: return null
+            change { draft -> draft.copy(bands = draft.bands + ZoomBand(from, to, neighbour.mapId)) }
+            return bands.size
+        }
+
         fun removeBand(index: Int) =
             change { draft -> draft.copy(bands = draft.bands.filterIndexed { i, _ -> i != index }) }
 

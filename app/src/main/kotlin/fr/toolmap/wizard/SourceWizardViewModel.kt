@@ -43,7 +43,8 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import javax.inject.Inject
 
-enum class WizardStep { TYPE, ADDRESS, ACCESS, ZOOMS, TEST, SAVE }
+/** The five steps of the wizard; the kind of map is chosen before, in the sheet « Ajouter une carte » (P29.6). */
+enum class WizardStep { ADDRESS, ACCESS, ZOOMS, TEST, SAVE }
 
 /** How the map is described: a tile URL template, or a WMTS / WMS service whose layers are listed. */
 enum class WizardKind(
@@ -89,7 +90,9 @@ data class LayerChoice(
 )
 
 data class WizardState(
-    val step: WizardStep = WizardStep.TYPE,
+    val step: WizardStep = WizardStep.ADDRESS,
+    /** The furthest step reached: the stops up to it can be touched (all of them in a modification). */
+    val reached: WizardStep = WizardStep.ADDRESS,
     val kind: WizardKind = WizardKind.XYZ,
     val draft: SourceDraft = SourceDraft(),
     /** Address typed for a WMTS / WMS server. */
@@ -157,6 +160,7 @@ class SourceWizardViewModel
                     }
                     WizardState(
                         step = WizardStep.ADDRESS,
+                        reached = if (editing) WizardStep.SAVE else WizardStep.ADDRESS,
                         draft = if (editing) draft else draft.copy(id = "", name = source.name + COPY_SUFFIX),
                         editingId = if (editing) source.id else null,
                     )
@@ -174,40 +178,29 @@ class SourceWizardViewModel
 
         fun chooseKind(kind: WizardKind) = update { it.copy(kind = kind, step = WizardStep.ADDRESS) }
 
-        fun goTo(step: WizardStep) = update { it.copy(step = step, error = null) }
-
-        fun next() {
+        /**
+         * Goes to [step], from « Suivant », from a stop of the indicator or from « Aller à l'accès ». Leaving the
+         * address step, API keys written in the URL move to parameters (kept apart, redacted on export).
+         */
+        fun goTo(step: WizardStep) {
             val s = mutableState.value
-            val following =
-                when (s.step) {
-                    WizardStep.TYPE -> WizardStep.ADDRESS
-                    WizardStep.ADDRESS -> WizardStep.ACCESS
-                    WizardStep.ACCESS -> WizardStep.ZOOMS
-                    WizardStep.ZOOMS -> WizardStep.TEST
-                    WizardStep.TEST -> WizardStep.SAVE
-                    WizardStep.SAVE -> return
-                }
-            // Leaving the address step: API keys written in the URL move to parameters (kept apart, redacted on export).
-            if (s.step == WizardStep.ADDRESS) {
+            if (s.step == WizardStep.ADDRESS && step != WizardStep.ADDRESS) {
                 val moved = s.draft.extractKeys()
                 if (moved != s.draft) {
                     update { it.copy(draft = moved, keysMoved = (moved.params.keys - s.draft.params.keys).toList()) }
                 }
             }
+            update { it.copy(step = step, reached = maxOf(it.reached, step), error = null) }
+        }
+
+        fun next() {
+            val following = WizardStep.entries.getOrNull(mutableState.value.step.ordinal + 1) ?: return
             goTo(following)
         }
 
+        /** The step before; from the first one, nothing: the screen closes. */
         fun back() {
-            val s = mutableState.value
-            val previous =
-                when (s.step) {
-                    WizardStep.TYPE -> return
-                    WizardStep.ADDRESS -> if (s.isEditing) return else WizardStep.TYPE
-                    WizardStep.ACCESS -> WizardStep.ADDRESS
-                    WizardStep.ZOOMS -> WizardStep.ACCESS
-                    WizardStep.TEST -> WizardStep.ZOOMS
-                    WizardStep.SAVE -> WizardStep.TEST
-                }
+            val previous = WizardStep.entries.getOrNull(mutableState.value.step.ordinal - 1) ?: return
             goTo(previous)
         }
 

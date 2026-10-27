@@ -2,14 +2,19 @@ package fr.toolmap.multizoom
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -17,19 +22,28 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Scaffold
@@ -43,11 +57,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,10 +74,12 @@ import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.source.ZoomBand
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.TopBarTextAction
+import fr.toolmap.ui.groupedShape
 import fr.toolmap.ui.screenInsets
 import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
+import fr.toolmap.ui.theme.toolMap
 import kotlin.math.roundToInt
 
 /** Colours of the bands in the zoom strip, in turn. */
@@ -222,6 +240,37 @@ private fun MultiZoomList(
     }
 }
 
+/** A line of « Ce qui s'affiche »: a band (by its index in the draft) or zooms without one. */
+private sealed interface ShownRow {
+    data class Band(
+        val index: Int,
+        val band: ZoomBand,
+    ) : ShownRow
+
+    data class Gap(
+        val from: Int,
+        val to: Int,
+    ) : ShownRow
+}
+
+/** The bands from the lowest zooms up, with the zooms left between two of them (filled by a neighbour). */
+private fun shownRows(bands: List<ZoomBand>): List<ShownRow> {
+    val sorted = bands.withIndex().sortedWith(compareBy({ it.value.from }, { it.value.to }))
+    val rows = ArrayList<ShownRow>()
+    var top = -1
+    for ((index, band) in sorted) {
+        if (top >= 0 && band.from > top + 1) rows += ShownRow.Gap(top + 1, band.from - 1)
+        rows += ShownRow.Band(index, band)
+        top = maxOf(top, band.to)
+    }
+    return rows
+}
+
+/**
+ * The editor of a multi-zoom map, in « Bascule » (P29.6): the name, the zoom strip that stays at the top, then « Ce qui
+ * s'affiche », one line per band (« Zooms 1 à 8 » / « OpenStreetMap ») and one per zooms left without a band, with
+ * « Combler ». A band is set in its sheet: its zooms, its map, its forced zoom, its problems, its removal.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MultiZoomEditorScreen(
@@ -233,6 +282,7 @@ private fun MultiZoomEditorScreen(
 ) {
     val draft = editor.draft
     val byId = remember(choices) { choices.associateBy { it.id } }
+    var openBand by remember { mutableStateOf<Int?>(null) }
     Scaffold(
         modifier = Modifier.windowInsetsPadding(screenInsets()),
         topBar = {
@@ -255,88 +305,249 @@ private fun MultiZoomEditorScreen(
             )
         },
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            item {
-                OutlinedTextField(
-                    value = draft.name,
-                    onValueChange = vm::setName,
-                    label = { Text(stringResource(R.string.mz_name)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            OutlinedTextField(
+                value = draft.name,
+                onValueChange = vm::setName,
+                label = { Text(stringResource(R.string.mz_name)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+            )
+            // The strip stays in sight while the lines scroll under it.
+            Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 10.dp)) {
+                ZoomStrip(draft.bands)
             }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    ZoomStrip(draft.bands)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            val rows = shownRows(draft.bands)
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 32.dp),
+            ) {
+                item(key = "caption") {
                     Text(
-                        stringResource(R.string.mz_strip_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        stringResource(R.string.mz_shows),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 2.dp, top = 14.dp, bottom = 8.dp),
                     )
                 }
-            }
-            val general = editor.issues.filter { it.band == null || it.kind == DraftIssue.Kind.GAP }
-            if (general.isNotEmpty()) {
-                item { IssueLines(general, draft.bands) }
-            }
-            itemsIndexed(draft.bands) { index, band ->
-                BandCard(
-                    index = index,
-                    band = band,
-                    map = byId[band.mapId],
-                    choices = choices.filter { it.id != editor.editingId },
-                    issues = editor.issues.filter { it.band == index && it.kind != DraftIssue.Kind.GAP },
-                    vm = vm,
-                )
-            }
-            item {
-                OutlinedButton(onClick = vm::addBand, enabled = draft.bands.size < MAX_BANDS) {
-                    Icon(Icons.Filled.Add, contentDescription = null)
-                    Text(stringResource(R.string.mz_add_band), modifier = Modifier.padding(start = 8.dp))
+                itemsIndexed(rows) { position, row ->
+                    val first = position == 0
+                    val last = position == rows.lastIndex
+                    when (row) {
+                        is ShownRow.Band -> {
+                            BandRow(
+                                index = row.index,
+                                band = row.band,
+                                map = byId[row.band.mapId],
+                                issues =
+                                    editor.issues.filter {
+                                        it.band == row.index && it.kind != DraftIssue.Kind.GAP
+                                    },
+                                first = first,
+                                last = last,
+                                onOpen = { openBand = row.index },
+                            )
+                        }
+
+                        is ShownRow.Gap -> {
+                            GapRow(row.from, row.to, first, last) {
+                                openBand = vm.fillGap(row.from, row.to)
+                            }
+                        }
+                    }
+                }
+                val general = editor.issues.filter { it.band == null }
+                if (general.isNotEmpty()) {
+                    item(key = "issues") {
+                        Box(Modifier.padding(top = 10.dp)) { IssueLines(general, draft.bands) }
+                    }
+                }
+                item(key = "add") {
+                    OutlinedButton(
+                        onClick = {
+                            vm.addBand()
+                            openBand = draft.bands.size
+                        },
+                        enabled = draft.bands.size < MAX_BANDS,
+                        modifier = Modifier.padding(top = 12.dp),
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null)
+                        Text(stringResource(R.string.mz_add_band), modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+                editor.error?.let { error ->
+                    item(key = "error") {
+                        Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+                    }
                 }
             }
-            item {
-                Text(
-                    stringResource(R.string.mz_editor_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            editor.error?.let { error ->
-                item { Text(error, color = MaterialTheme.colorScheme.error) }
-            }
+        }
+    }
+    openBand?.let { index ->
+        val band = draft.bands.getOrNull(index)
+        if (band == null) {
+            openBand = null
+        } else {
+            BandSheet(
+                index = index,
+                band = band,
+                map = byId[band.mapId],
+                choices = choices.filter { it.id != editor.editingId },
+                issues = editor.issues.filter { it.band == index && it.kind != DraftIssue.Kind.GAP },
+                vm = vm,
+                onDismiss = { openBand = null },
+            )
         }
     }
 }
 
+/** « Zooms 1 à 8 » or « Zoom 18 ». */
 @Composable
-private fun BandCard(
+private fun zoomsText(
+    from: Int,
+    to: Int,
+): String =
+    if (from ==
+        to
+    ) {
+        stringResource(R.string.mz_row_zoom, from)
+    } else {
+        stringResource(R.string.mz_row_zooms, from, to)
+    }
+
+/** The square of a band's colour; a grey one for zooms without a band. */
+@Composable
+private fun Swatch(color: Color) {
+    Canvas(modifier = Modifier.size(16.dp)) { drawRect(color) }
+}
+
+/** A line of the white block of « Ce qui s'affiche » (P29.0 grouped list). */
+@Composable
+private fun ShownLine(
+    first: Boolean,
+    last: Boolean,
+    onClick: (() -> Unit)?,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(groupedShape(first, last))
+            .background(MaterialTheme.toolMap.panel),
+    ) {
+        if (!first) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                    .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun BandRow(
+    index: Int,
+    band: ZoomBand,
+    map: TileSource?,
+    issues: List<DraftIssue>,
+    first: Boolean,
+    last: Boolean,
+    onOpen: () -> Unit,
+) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    ShownLine(first, last, onOpen) {
+        Swatch(bandColor(index))
+        Column(Modifier.weight(1f).padding(start = 16.dp)) {
+            Text(zoomsText(band.from, band.to), style = MaterialTheme.typography.bodyLarge)
+            val name = map?.name ?: stringResource(R.string.mz_pick_map)
+            Text(
+                band.forcedZoom?.let { stringResource(R.string.mz_row_forced, name, it) } ?: name,
+                style = MaterialTheme.typography.bodySmall,
+                color = muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        // A band with a problem says so on its line; the sheet says which.
+        if (issues.isNotEmpty()) {
+            val blocking = issues.any { it.kind.blocking }
+            Icon(
+                Icons.Filled.Warning,
+                contentDescription = issueText(issues.first(), emptyList()),
+                tint = if (blocking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = muted,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
+    }
+}
+
+@Composable
+private fun GapRow(
+    from: Int,
+    to: Int,
+    first: Boolean,
+    last: Boolean,
+    onFill: () -> Unit,
+) {
+    ShownLine(first, last, onClick = null) {
+        Swatch(MaterialTheme.colorScheme.surfaceVariant)
+        Column(Modifier.weight(1f).padding(start = 16.dp)) {
+            Text(zoomsText(from, to), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                stringResource(R.string.mz_gap_sub),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        TextButton(onClick = onFill) { Text(stringResource(R.string.mz_fill)) }
+    }
+}
+
+/**
+ * The settings of a band, in a sheet over the list: its zooms (double slider), its map and the map's zooms, its forced
+ * zoom with its effect, its problems, and « Supprimer la tranche » in red.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BandSheet(
     index: Int,
     band: ZoomBand,
     map: TileSource?,
     choices: List<TileSource>,
     issues: List<DraftIssue>,
     vm: MultiZoomViewModel,
+    onDismiss: () -> Unit,
 ) {
     var mapMenu by remember { mutableStateOf(false) }
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Canvas(modifier = Modifier.padding(end = 8.dp).size(16.dp)) {
-                    drawRect(bandColor(index))
-                }
+                Swatch(bandColor(index))
                 Text(
-                    stringResource(R.string.mz_band_title, index + 1, band.from, band.to),
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f),
+                    zoomsText(band.from, band.to),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(start = 12.dp),
                 )
-                IconButton(onClick = { vm.removeBand(index) }) {
-                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.mz_remove_band))
-                }
             }
             var range by remember(band.from, band.to) {
                 mutableStateOf(band.from.toFloat()..band.to.toFloat().coerceAtLeast(band.from.toFloat()))
@@ -350,13 +561,16 @@ private fun BandCard(
                 valueRange = 0f..MultiZoomViewModel.MAX_EDIT_ZOOM.toFloat(),
                 steps = MultiZoomViewModel.MAX_EDIT_ZOOM - 1,
             )
+            Text(stringResource(R.string.mz_band_map), style = MaterialTheme.typography.labelMedium, color = muted)
             Box {
                 OutlinedButton(onClick = { mapMenu = true }, modifier = Modifier.fillMaxWidth()) {
                     Text(
                         map?.name ?: stringResource(R.string.mz_pick_map),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
                     )
+                    Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
                 }
                 DropdownMenu(expanded = mapMenu, onDismissRequest = { mapMenu = false }) {
                     choices.forEach { choice ->
@@ -366,7 +580,8 @@ private fun BandCard(
                                     Text(choice.name)
                                     Text(
                                         stringResource(R.string.layers_zoom_range, choice.minZoom, choice.maxZoom),
-                                        style = MaterialTheme.typography.labelSmall,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = muted,
                                     )
                                 }
                             },
@@ -381,20 +596,31 @@ private fun BandCard(
             if (map != null && !map.isMultiZoom) {
                 Text(
                     stringResource(R.string.mz_map_zooms, map.minZoom, map.maxZoom),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = muted,
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .toggleable(
+                            value = band.forcedZoom != null,
+                            role = Role.Switch,
+                            onValueChange = { vm.setForced(index, it) },
+                        ),
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(stringResource(R.string.mz_forced), style = MaterialTheme.typography.bodyLarge)
                     Text(
                         stringResource(R.string.mz_forced_hint),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = muted,
                     )
                 }
-                Switch(checked = band.forcedZoom != null, onCheckedChange = { vm.setForced(index, it) })
+                Switch(checked = band.forcedZoom != null, onCheckedChange = null)
             }
             band.forcedZoom?.let { forced ->
                 val top = (band.from + MultiZoomViewModel.FORCE_REACH).coerceAtMost(MultiZoomViewModel.MAX_EDIT_ZOOM)
@@ -412,6 +638,17 @@ private fun BandCard(
                 )
             }
             if (issues.isNotEmpty()) IssueLines(issues, emptyList())
+            TextButton(
+                onClick = {
+                    onDismiss()
+                    vm.removeBand(index)
+                },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                Icon(Icons.Filled.Delete, contentDescription = null)
+                Text(stringResource(R.string.mz_remove_band), modifier = Modifier.padding(start = 8.dp))
+            }
         }
     }
 }
