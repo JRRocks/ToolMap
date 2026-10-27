@@ -1,9 +1,16 @@
 package fr.toolmap.map
 
 import android.app.Application
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -15,17 +22,18 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
- * The main menu does not repeat the settings: « Réglages… » leads to them (P11.11). Since P14.10 the frequent commands
- * are tiles, a block names the maps shown and opens « Cartes et calques » (no « Espace de travail » section, R2), and
- * « Plus… » holds what is new and the report of an error.
+ * The main menu does not repeat the settings: « Réglages… » leads to them (P11.11). Since P29.2 (« Portée ») the four
+ * tiles are its fixed foot, « Plus » unfolds in place (no page of its own) and « Quitter » is at the top, far from the
+ * thumb; the block of the maps shown names the favourite or the maps, never « Pile personnalisée ».
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
 class MainMenuPanelTest {
     @get:Rule
-    val rule = createComposeRule()
+    val rule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
     fun `the options that the settings repeat are gone and Reglages is still in the menu`() {
@@ -55,29 +63,58 @@ class MainMenuPanelTest {
     }
 
     @Test
-    fun `hidden controls make the first tile give them back`() {
-        setContent(controlsHidden = true)
-        rule.onAllNodesWithText("Masquer").assertCountEquals(0)
-        rule.onNodeWithText("Afficher").performClick()
-        assertEquals(listOf(MenuAction.HIDE), actions)
+    fun `the tiles stay at the foot while the rows scroll, Quitter comes before Reglages`() {
+        setContent(maxHeight = 360)
+        // The rows scroll in a panel too short for them; the foot does not.
+        rule.onNodeWithText("Mesurer").assertExists()
+        val top = { text: String -> rule.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top }
+        assertTrue(top("Quitter") < top("Réglages…"))
+        assertTrue(top("Plus") < top("Quitter"))
+        assertTrue(top("Masquer") > top("Réglages…"))
     }
 
     @Test
-    fun `the block of the maps shown names them and opens the maps panel, with no workspace section`() {
-        setContent()
-        rule.onAllNodesWithText("ESPACE DE TRAVAIL").assertCountEquals(0)
+    fun `with a favourite the block names it and lists the maps, and opens the maps panel`() {
+        setContent(favorite = "IGN Topo")
         rule.onNodeWithText("IGN Topo").assertExists()
-        // Since P29.0 the subject of the block opens its grey line, no longer a kicker in capitals over the title.
-        rule.onNodeWithText("Carte affichée · Pentes + Plan IGN").performClick()
+        rule.onNodeWithText("Cartes affichées · Pentes + Plan IGN").performScrollTo().performClick()
         assertEquals(listOf(MenuAction.MAPS), actions)
+        rule.onAllNodesWithText("Pile personnalisée").assertCountEquals(0)
     }
 
     @Test
-    fun `the switch of the information on screen reports the change`() {
+    fun `without a favourite the block names the maps and says there is none`() {
+        setContent(favorite = null, layers = listOf("IGN Cartes"))
+        rule.onNodeWithText("IGN Cartes").assertExists()
+        rule.onNodeWithText("Carte affichée · sans favori").assertExists()
+    }
+
+    @Test
+    fun `the switch rows are switches for TalkBack and report the change`() {
         val changes = mutableListOf<Boolean>()
         setContent(onCoordinates = { changes += it })
-        rule.onNodeWithText("Informations à l'écran").performClick()
+        val switch = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)
+        rule.onNode(
+            switch and hasText("Informations à l'écran", substring = true),
+            useUnmergedTree = false,
+        ).assertIsOff()
+        rule.onNode(switch and hasText("Mode nuit", substring = true)).assertIsOff()
+        rule.onNodeWithText("Informations à l'écran").performScrollTo().performClick()
         assertEquals(listOf(true), changes)
+    }
+
+    @Test
+    fun `the night mode line says what the switch does, then what it did`() {
+        setContent(night = false)
+        rule.onNodeWithText("Assombrit la carte à 60 %").assertExists()
+    }
+
+    @Test
+    fun `the night mode line, switched on`() {
+        setContent(night = true)
+        rule.onNodeWithText("Carte assombrie à 60 %").assertExists()
+        val switch = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)
+        rule.onNode(switch and hasText("Mode nuit", substring = true)).assertIsOn()
     }
 
     @Test
@@ -88,11 +125,35 @@ class MainMenuPanelTest {
     }
 
     @Test
+    fun `Plus unfolds in place with what is new and the report of an error, and no second way to the backup`() {
+        setContent()
+        rule.onAllNodesWithText("Nouveautés").assertCountEquals(0)
+        rule.onNodeWithText("Plus").performClick()
+        rule.onNodeWithText("Nouveautés").performScrollTo().performClick()
+        rule.onNodeWithText("Signaler une erreur").performScrollTo().performClick()
+        assertEquals(listOf(MenuAction.WHATS_NEW, MenuAction.REPORT_ERROR), actions)
+        rule.onAllNodesWithText("Sauvegarde et restauration…").assertCountEquals(0)
+        // The rest of the menu is still there, under the unfolded row.
+        rule.onNodeWithText("Réglages…").assertExists()
+    }
+
+    @Test
+    fun `Back folds Plus before anything else`() {
+        setContent()
+        rule.onNodeWithText("Plus").performClick()
+        rule.onNodeWithText("Nouveautés").assertExists()
+        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        rule.waitForIdle()
+        rule.onAllNodesWithText("Nouveautés").assertCountEquals(0)
+        rule.onNodeWithText("Nouveautés, signaler une erreur").assertExists()
+    }
+
+    @Test
     fun `the commands of the tracks panel and the zone download are not in the menu`() {
         setContent()
         // Drawing, waypoints and search are in the flag's panel (P14.3); the zone is saved from the maps panel (R3).
-        for (page in listOf("main", "more")) {
-            if (page == "more") rule.onNodeWithText("Plus…").performScrollTo().performClick()
+        for (unfolded in listOf(false, true)) {
+            if (unfolded) rule.onNodeWithText("Plus").performClick()
             rule.onAllNodesWithText("Dessiner une trace").assertCountEquals(0)
             rule.onAllNodesWithText("Trace").assertCountEquals(0)
             rule.onAllNodesWithText("Waypoint ici").assertCountEquals(0)
@@ -102,27 +163,18 @@ class MainMenuPanelTest {
     }
 
     @Test
-    fun `Plus offers what is new and the report of an error, and no second way to the backup`() {
-        setContent()
-        rule.onNodeWithText("Plus…").performScrollTo().performClick()
-        rule.onNodeWithText("Nouveautés").performScrollTo().performClick()
-        rule.onNodeWithText("Signaler une erreur").performScrollTo().performClick()
-        assertEquals(listOf(MenuAction.WHATS_NEW, MenuAction.REPORT_ERROR), actions)
-        rule.onAllNodesWithText("Sauvegarde et restauration…").assertCountEquals(0)
-    }
-
-    @Test
     fun `the tile diagnostics are not offered outside debug builds`() {
         setContent(diagnostics = false)
-        rule.onNodeWithText("Plus…").performScrollTo().performClick()
+        rule.onNodeWithText("Plus").performClick()
         rule.onAllNodesWithText("Diagnostic des tuiles").assertCountEquals(0)
     }
 
     @Test
     fun `the tile diagnostics are in Plus in debug builds`() {
         setContent(diagnostics = true)
-        rule.onNodeWithText("Plus…").performScrollTo().performClick()
-        rule.onAllNodesWithText("Diagnostic des tuiles").assertCountEquals(1)
+        rule.onNodeWithText("Plus").performClick()
+        rule.onNodeWithText("Diagnostic des tuiles").performScrollTo().performClick()
+        assertEquals(listOf(MenuAction.DIAGNOSTICS), actions)
     }
 
     private val actions = mutableListOf<MenuAction>()
@@ -130,7 +182,10 @@ class MainMenuPanelTest {
     private fun setContent(
         diagnostics: Boolean = false,
         toolsAllowed: Boolean = true,
-        controlsHidden: Boolean = false,
+        favorite: String? = "IGN Topo",
+        layers: List<String> = listOf("Pentes", "Plan IGN"),
+        night: Boolean = false,
+        maxHeight: Int = 2000,
         onCoordinates: (Boolean) -> Unit = {},
     ) {
         rule.setContent {
@@ -138,16 +193,16 @@ class MainMenuPanelTest {
                 state =
                     MainMenuState(
                         showCoordinates = false,
-                        displayName = "IGN Topo",
-                        displayLayers = listOf("Pentes", "Plan IGN"),
+                        nightMode = night,
+                        favorite = favorite,
+                        displayLayers = layers,
                         measureAllowed = toolsAllowed,
                         printAllowed = toolsAllowed,
-                        controlsHidden = controlsHidden,
                         diagnostics = diagnostics,
                     ),
                 onAction = { actions += it },
                 onCoordinates = onCoordinates,
-                maxHeight = 2000.dp,
+                maxHeight = maxHeight.dp,
             )
         }
     }

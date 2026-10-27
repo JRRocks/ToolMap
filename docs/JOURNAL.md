@@ -20,6 +20,24 @@
 
 ---
 
+## 2026-10-27 — Session 67 (suite) — [P29.2] Menu « Portée » : tuiles sous le pouce, « Plus » déplié sur place, Quitter en haut
+- **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
+- **Objectif** : coder la variante B · Portée du menu principal, choisie par l'utilisateur le 2026-10-27 (« P29.2 (Menu) : B · Portée ») : les quatre tuiles en pied fixe posé sur la barre, au-dessus Mode nuit, Informations à l'écran, le bloc des cartes et Réglages…, en haut la ligne « Plus » qui se déplie sur place et « Quitter », un dialogue de sortie qui nomme ce qui tourne.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/design-02-menu.html`, variante B · Portée, validée le 2026-10-27.
+  - `BarPanel` reçoit un pied fixe (`footer`) ; `MainMenuPanel` réécrit dans l'ordre de l'aperçu ; la page « Plus » est supprimée : la ligne « Plus » se déplie sur place (Nouveautés, Signaler une erreur, Diagnostic des tuiles en debug, avec leurs sous-titres) et Retour la replie avant de fermer le menu ; TalkBack lit « repliée » / « dépliée ».
+  - `map/ExitDialog.kt` : « Quitter ToolMap ? » donne une ligne par service (enregistrement ou pause, partage avec les membres reliés, suivi avec la distance restante ou alertes avec le nombre de points) et le bouton « Arrêter … » de la notification de ToolMap (une phrase commune quand plusieurs tournent).
+  - Corrections communes de l'aperçu : `MenuRow(switchOn = …)` fait des lignes à interrupteur de vrais interrupteurs pour TalkBack (`toggleable`, rôle Switch) ; sous-titre du mode nuit selon l'état ; bloc des cartes sans « Pile personnalisée » (nom du favori et cartes, sinon les cartes et « sans favori ») ; icônes Nouveautés (porte-voix), Signaler une erreur (insecte), Plus (trois points) ; logo du mode masqué en rond blanc (`MapRoundButton`) ; pastille « Écran verrouillé » à la forme des pastilles d'information ; tuile « Afficher » (jamais visible) retirée ; chaînes devenues inutiles retirées.
+  - ADR-075 (place de Quitter, remplace ce point d'ADR-053) ; `docs/specs/ui-index.md` §3 et §3.1 réécrits.
+  - Comparaison : `docs/previews/design-02-menu-rendu.html` (aperçu validé à gauche, rendu du code à droite, jour et nuit) : rendu Robolectric (`MainMenuRenderTest`), pas une capture de l'émulateur, absent du cloud.
+- **Décisions (ADR)** : ADR-075.
+- **Tests / vérifications** :
+  - `MainMenuPanelTest` réécrit (pied fixe sous les lignes qui défilent, Quitter avant Réglages…, bloc avec et sans favori, interrupteurs à rôle Switch, sous-titre du mode nuit, Plus déplié sur place, Retour qui replie Plus d'abord, Diagnostic en debug seulement) ; `ExitDialogTest` (3 tests) ; `MainMenuRenderTest` (rendus jour et nuit, ignorés sans `-Ptoolmap.renders`). `./gradlew :app:testDebugUnitTest --tests '*MainMenuPanelTest*' --tests '*ExitDialogTest*' --tests '*MainMenuRenderTest*' -Ptoolmap.renders=…` : verts.
+  - Premier `./gradlew check assembleDebug --max-workers=2` : 1 échec, `TracksViewModelTest` « merging builds a third track… » en `ConcurrentModificationException`. Cause trouvée : la liste `messages` du test était remplie depuis le fil où le ViewModel émet pendant que le test la parcourait (course, sans lien avec le menu). Corrigé par une `CopyOnWriteArrayList`, ainsi que dans les quatre tests qui avaient le même schéma (`DrawViewModelTest`, `AlertControllerTest`, `SearchViewModelTest`, `MeasureViewModelTest`).
+  - Second `./gradlew check assembleDebug --max-workers=2` : BUILD SUCCESSFUL en 1 min 14 s, version 0.4.82 → **0.4.83**, `ToolMap-debug-0.4.83.apk`. Tests : core 876, data 310, p2p 29 (2 ignorés), app 288 (10 ignorés, dont les rendus), 0 échec ; lint : 0 erreur (app 66 avertissements et 1 indication, data 1).
+- **Problèmes / dette technique** : la capture de l'émulateur à côté de l'aperçu reste à faire sur le poste Windows (critère de P29.2) ; le dialogue de sortie n'a été dessiné qu'avec un enregistrement, les lignes du partage et des alertes suivent le même modèle.
+- **Prochaine étape recommandée** : P29.3 (Cartes et calques, C · Strates).
+
 ## 2026-10-27 — Session 67 — [P29.2 à P29.10] Aperçus de tous les onglets : état actuel et 5 variantes chacun, page de choix commune
 - **Branche / commit** : session cloud (claude.ai/code), branche `claude/pensive-edison-cgzr8t` ; commit local, **pas de push** (`CLAUDE.md` : pas de push sans demande explicite).
 - **Objectif** : à la demande de l'utilisateur (« https://github.com/pbakaus/impeccable utilise les ressources de impeccable pour revoir entièrement tous les onglets. Fais-moi 5 propositions à choisir pour chaque changement »), montrer pour chaque étape restante de la refonte (P29.2 à P29.10) l'état actuel et 5 variantes d'organisation dans le style « Crête », sans toucher au code de l'appli avant les choix.

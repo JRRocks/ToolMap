@@ -38,6 +38,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -71,7 +72,9 @@ class SearchViewModelTest {
     private val geocoder = FakeGeocoder()
     private val offline = OfflineMode()
     private lateinit var vm: SearchViewModel
-    private val messages = ArrayList<UiMessage>()
+
+    // Filled from the thread the view model emits on while the test reads it: a list safe to read meanwhile.
+    private val messages = CopyOnWriteArrayList<UiMessage>()
     private val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
 
     @Before

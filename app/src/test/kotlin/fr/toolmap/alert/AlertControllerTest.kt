@@ -45,6 +45,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.File
 import java.nio.file.Files
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.cos
 import kotlin.test.assertEquals
@@ -103,7 +104,9 @@ class AlertControllerTest {
     private val notifier = FakeNotifier()
     private val service = FakeService()
     private val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
-    private val messages = ArrayList<UiMessage>()
+
+    // Filled from the thread the view model emits on while the test reads it: a list safe to read meanwhile.
+    private val messages = CopyOnWriteArrayList<UiMessage>()
     private val dir: File = Files.createTempDirectory("alerts-app").toFile()
     private lateinit var controller: AlertController
     private var clockMillis = 1_000L

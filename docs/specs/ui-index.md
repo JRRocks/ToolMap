@@ -60,7 +60,7 @@ Depuis P29.0 (2026-10-26), le « Fermer » écrit en haut à gauche des 13 écra
 | ABOUT | « ? » du menu principal (haut de la page) ; « ? » de Cartes et calques, Traces et waypoints, Positionnement (page ouverte à la section du panneau, R5) | écran d'origine (la carte) | écran d'origine | ✅ `[N1]` `[N3]` corrigés (P14.1) |
 | SEARCH | drapeau ▸ Rechercher un lieu… | MAP | MAP (le premier Retour ferme le clavier) | ✅ `[N1]` corrigé (P14.1) |
 | SHARE | Positionnement ▸ Partage de position (déplacé du menu Plus… le 2026-10-14) ; lien `toolmap://` | écran d'origine | écran d'origine | ✅ `[N1]` corrigé (P14.1) |
-| DIAGNOSTICS | Plus… ▸ Diagnostic des tuiles (**APK debug seulement**) | MAP | géré | ✅ `[N4]` réservé aux builds debug (`MainMenuState.diagnostics = BuildConfig.DEBUG`, 2026-10-15) |
+| DIAGNOSTICS | Menu ▸ Plus (dépliée) ▸ Diagnostic des tuiles (**APK debug seulement**) | MAP | géré | ✅ `[N4]` réservé aux builds debug (`MainMenuState.diagnostics = BuildConfig.DEBUG`, 2026-10-15) |
 
 **Pile de retour (P14.1, 2026-10-15)** : `MainActivity` garde la liste des écrans ouverts (`ui/BackStack.kt`, sauvegardée par `rememberSaveable`) ; « Fermer » et la touche Retour reviennent à l'écran d'origine, un écran déjà ouvert n'est pas empilé deux fois, « Voir sur la carte » et les actions qui mènent à la carte vident la pile. Les lignes ci-dessus sont à jour. Constat d'origine, corrigé : **`[N1]`** : seuls la carte, l'assistant et le diagnostic déclarent un `BackHandler`. Sur les onze autres écrans, la touche ou le geste Retour d'Android **quitte l'application** au lieu de revenir à l'écran précédent. C'est le défaut le plus visible pour un utilisateur d'AlpineQuest.
 
@@ -143,23 +143,23 @@ Depuis P29.1 (variante E « Pastilles » de `docs/previews/design-01-carte.html`
 
 ## 3. Menu principal (logo)
 
-Depuis P14.10 (session 38), le menu suit le style du dialogue « Nouveau waypoint » : pastille en tête, tuiles tonales pour les commandes fréquentes, bloc teinté pour l'état, lignes avec sous-titre et chevron (`map/PanelParts.kt`, partagé par les quatre panneaux de la barre).
+Depuis P29.2 (2026-10-27, variante B · Portée, ADR-075), le panneau monte depuis la barre : les quatre tuiles forment son pied fixe, qui ne défile pas ; au-dessus, de bas en haut, Mode nuit, Informations à l'écran, le bloc des cartes affichées et « Réglages… » ; tout en haut, loin du doigt, la ligne « Plus » et « Quitter » (`map/MainMenu.kt`, parties communes de `map/PanelParts.kt`).
 
 | ID | Élément | Action | Statut |
 |---|---|---|---|
-| M1 | En-tête : pastille (montagne), « ToolMap », « Version <version> » + « ? » | ouvre ABOUT en haut de la page (les « ? » des panneaux l'ouvrent à leur section, R5) | ✅ retour vers la carte `[N3]` corrigé |
-| M2 | Tuile Masquer | barre réduite au logo ; le logo rouvre le menu, dont la tuile devient « Afficher » ; Retour les réaffiche aussi | ✅ `[N7]` corrigé (P14.1) |
-| M3 | Tuile Verrouiller | gestes et appui long coupés, commandes cachées ; Retour bloqué | ✅ `[N6]` `[N8]` corrigés (P14.1) |
-| M4 | Tuile Imprimer | parcours T3 (deux questions, cadre, confirmation) ; grisée pendant un outil | ✅ |
-| M4b | Tuile Mesurer | outil de mesure (T2), venu de la page Plus… ; grisée pendant un outil | ✅ (P14.10) |
-| M7 | Bloc « Carte affichée » : nom du favori appliqué ou « Pile personnalisée », cartes de la pile (« Pentes + Plan IGN ») et leurs vignettes | ouvre le panneau Cartes et calques (§5) | ✅ `[R2]` réglé : la section « Espace de travail » est retirée, le nom du favori courant reste ici (P14.10) |
-| M8 | Informations à l'écran (« Position, échelle, GPS ») | interrupteur : montre / cache les pastilles d'information | ✅ |
-| M9 | Mode nuit (« Carte assombrie à 60 % ») | interrupteur : assombrit les cartes (luminosité des fonds et calques), pas les traces, les waypoints ni les menus ; l'intensité se règle dans Réglages ▸ Affichage (§8) | ✅ `[F14]` variante B (P14.6, session 49, ADR-067) |
+| M1 | Bandeau : logo (montagne), « ToolMap », « Version <version> » + « ? » | ouvre ABOUT en haut de la page (les « ? » des panneaux l'ouvrent à leur section, R5) | ✅ retour vers la carte `[N3]` corrigé |
+| M6 | Plus (repliée : « Nouveautés, signaler une erreur » ; flèche) | se déplie sur place (§3.1) ; Retour la replie avant de fermer le menu ; TalkBack lit « repliée » / « dépliée » | ✅ (P29.2, la page « Plus… » est supprimée) |
+| M5b | Quitter (sous « Plus », icône grise) | ferme l'écran ; si un service tourne, « Quitter ToolMap ? » en donne une ligne par service, avec ses chiffres, et le bouton « Arrêter … » de la notification de ToolMap qui l'arrête (`map/ExitDialog.kt`, ADR-053, ADR-075) ; sans service, l'appli se ferme | ✅ (P16.2 ; en haut depuis P29.2) |
 | M5 | Réglages… | SETTINGS ; Retour dans une catégorie ouverte la replie d'abord (P16.1) | ✅ |
-| M6 | Plus… (« Nouveautés, signaler une erreur ») | page « Plus… » (§3.1) | ✅ |
-| M5b | Quitter (en bas, séparé) | ferme l'écran ; « Quitter ToolMap ? » demande confirmation, et précise que l'enregistrement, le partage ou les alertes en cours continuent (ADR-053) | ✅ (P16.2 ; placé en bas en P14.10) |
+| M7 | Bloc des cartes affichées : nom du favori appliqué, avec les cartes sur la ligne grise (« Cartes affichées · Pentes + Plan IGN ») ; sans favori, les cartes en titre et « Carte affichée · sans favori » ; vignettes des cartes | ouvre le panneau Cartes et calques (§5) | ✅ `[R2]` ; « Pile personnalisée » retiré (P29.2) |
+| M8 | Informations à l'écran (« Position, échelle, GPS ») | interrupteur (rôle Switch pour TalkBack) : montre / cache les pastilles d'information | ✅ |
+| M9 | Mode nuit (éteint : « Assombrit la carte à 60 % » ; allumé : « Carte assombrie à 60 % ») | interrupteur (rôle Switch) : assombrit les cartes, pas les traces, les waypoints ni les menus ; l'intensité se règle dans Réglages ▸ Affichage (§8) | ✅ `[F14]` variante B ; sous-titre selon l'état (P29.2) |
+| M2 | Tuile Masquer (pied fixe) | toutes les commandes cachées ; il ne reste qu'un rond blanc avec le logo (comme le zoom), qui les rétablit ; Retour aussi | ✅ `[N7]` (P14.1) ; rond blanc depuis P29.2, tuile « Afficher » retirée |
+| M3 | Tuile Verrouiller (pied fixe) | gestes et appui long coupés, commandes cachées, pastille « Écran verrouillé » à la forme des pastilles d'information ; appui long pour déverrouiller ; Retour n'affiche que le message | ✅ `[N6]` `[N8]` corrigés (P14.1) |
+| M4 | Tuile Imprimer (pied fixe) | parcours T3 (deux questions, cadre, confirmation) ; grisée pendant un outil | ✅ |
+| M4b | Tuile Mesurer (pied fixe) | outil de mesure (T2) ; grisée pendant un outil | ✅ (P14.10) |
 
-### 3.1 Page « Plus… »
+### 3.1 Ligne « Plus » dépliée
 
 | ID | Section | Ligne | Statut |
 |---|---|---|---|
@@ -168,9 +168,9 @@ Depuis P14.10 (session 38), le menu suit le style du dialogue « Nouveau waypoin
 | P5 | Outils | Mesurer distance et surface : tuile du menu principal (M4b) | ✅ (P14.10) |
 | P6 | Outils | Partage de position… : ligne du panneau Positionnement (L7) | ✅ (P14.10) |
 | P7 | Cartes hors ligne | « Télécharger la zone affichée… » retiré : un seul parcours, « Sélectionner et enregistrer une zone » (§5.3) | ✅ (R3, P14.3) |
-| P9 | Aide | Nouveautés : les 5 dernières entrées du journal, embarquées à la compilation (`WhatsNewTask`) | ✅ (P16.3) |
-| P10 | Aide | Signaler une erreur : texte de diagnostic (version, appareil, dernier plantage) partagé par le sélecteur Android ; rien n'est envoyé automatiquement | ✅ (P16.3) |
-| P8 | — | Diagnostic des tuiles → DIAGNOSTICS ; la ligne n'existe que dans l'APK debug. La page n'a plus de sections : Nouveautés, Signaler une erreur, Diagnostic (P14.10) | ✅ `[N4]` (outil de mise au point, absent en release) |
+| P9 | — | Nouveautés (porte-voix, « Les 5 dernières mises à jour ») : les 5 dernières entrées du journal, embarquées à la compilation (`WhatsNewTask`) | ✅ (P16.3) |
+| P10 | — | Signaler une erreur (insecte, « Vous choisissez à qui l'envoyer ») : texte de diagnostic (version, appareil, dernier plantage) partagé par le sélecteur Android ; rien n'est envoyé automatiquement | ✅ (P16.3) |
+| P8 | — | Diagnostic des tuiles (« APK de debug seulement », chevron) → DIAGNOSTICS ; la ligne n'existe que dans l'APK debug | ✅ `[N4]` (outil de mise au point, absent en release) |
 
 ## 4. Panneau « Positionnement » (bouton position)
 

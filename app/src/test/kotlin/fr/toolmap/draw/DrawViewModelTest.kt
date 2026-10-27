@@ -36,6 +36,7 @@ import org.robolectric.annotation.Config
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.imageio.ImageIO
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -50,7 +51,9 @@ class DrawViewModelTest {
     private lateinit var db: TrackDatabase
     private lateinit var repo: TrackRepository
     private lateinit var vm: DrawViewModel
-    private val messages = ArrayList<UiMessage>()
+
+    // Filled from the thread the view model emits on while the test reads it: a list safe to read meanwhile.
+    private val messages = CopyOnWriteArrayList<UiMessage>()
     private val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
 
     /** The terrain tile served for every position; `null`: offline, no tile. */

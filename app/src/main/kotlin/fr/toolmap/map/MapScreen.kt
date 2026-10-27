@@ -66,6 +66,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -101,6 +102,7 @@ import fr.toolmap.core.geo.ScreenGridPlan
 import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.layers.StackToStyle
 import fr.toolmap.core.maps.AreaSelection
+import fr.toolmap.core.p2p.MemberStatus
 import fr.toolmap.core.p2p.PeerState
 import fr.toolmap.core.print.CameraFit
 import fr.toolmap.core.print.PrintViewport
@@ -115,6 +117,7 @@ import fr.toolmap.core.settings.NorthReferenceMath
 import fr.toolmap.core.settings.barometerOn
 import fr.toolmap.core.settings.withBarometer
 import fr.toolmap.core.track.NameDates
+import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.core.track.Waypoint
 import fr.toolmap.core.track.WaypointNames
 import fr.toolmap.crash.CrashReporter
@@ -878,13 +881,10 @@ fun MapScreen(
             showCoordinates = appSettings.showCoordinates,
             nightMode = appSettings.maps.nightMode,
             nightPercent = appSettings.maps.nightPercent,
-            displayName =
-                workspaces.firstOrNull { it.matches(state.stack) }?.name
-                    ?: stringResource(R.string.menu_workspace_custom),
+            favorite = workspaces.firstOrNull { it.matches(state.stack) }?.name,
             displayLayers = shownMaps.map { it.second },
             measureAllowed = !drawUi.active && !measureUi.active && !printUi.active,
             printAllowed = !drawUi.active && !measureUi.active && !printUi.active,
-            controlsHidden = chromeHidden,
             diagnostics = BuildConfig.DEBUG,
         )
     val trackLibrary = library
@@ -939,6 +939,60 @@ fun MapScreen(
         )
     // Something that goes on in the background when the screen is left: a recording, a share, an alert (ADR-053).
     val runningInBackground = positionState.recording || positionState.sharing || alertUi.active
+    // What the exit dialog names, with the figures and the stop button of ToolMap's notification (P29.2).
+    val runningServices =
+        buildList {
+            if (positionState.recording) {
+                val paused = positionState.recordingPaused
+                add(
+                    RunningService(
+                        if (paused) RunningService.Kind.RECORDING_PAUSED else RunningService.Kind.RECORDING,
+                        stringResource(if (paused) R.string.exit_recording_paused else R.string.exit_recording),
+                        TrackFormat.duration(positionState.recordedMillis) + " · " +
+                            formats.distance(positionState.recordedMeters),
+                        stringResource(R.string.background_stop_recording),
+                    ),
+                )
+            }
+            if (positionState.sharing) {
+                val linked = shareUi.others.count { it.status == MemberStatus.DIRECT }
+                add(
+                    RunningService(
+                        RunningService.Kind.SHARING,
+                        stringResource(R.string.exit_sharing),
+                        pluralStringResource(R.plurals.share_notification_members, linked, linked),
+                        stringResource(R.string.background_stop_sharing),
+                    ),
+                )
+            }
+            val follow = alertUi.follow
+            if (follow != null) {
+                val name = follow.name ?: stringResource(R.string.tracks_unnamed)
+                add(
+                    RunningService(
+                        RunningService.Kind.ALERTS,
+                        stringResource(R.string.exit_following),
+                        follow.status?.let {
+                            stringResource(R.string.exit_following_left, name, formats.distance(it.remainingMeters))
+                        } ?: name,
+                        stringResource(R.string.background_stop_following),
+                    ),
+                )
+            } else if (alertUi.watches.isNotEmpty()) {
+                add(
+                    RunningService(
+                        RunningService.Kind.ALERTS,
+                        stringResource(R.string.exit_alerts),
+                        pluralStringResource(
+                            R.plurals.alert_service_watching,
+                            alertUi.watches.size,
+                            alertUi.watches.size,
+                        ),
+                        stringResource(R.string.background_stop_alerts),
+                    ),
+                )
+            }
+        }
     var exitAsked by remember { mutableStateOf(false) }
     // « Nouveautés » (the text, once read) and « Signaler une erreur » (asked, then built off the main thread) (P16.3).
     var whatsNew by remember { mutableStateOf<String?>(null) }
@@ -1058,17 +1112,7 @@ fun MapScreen(
     ) { exitAsked = true }
     if (exitAsked) {
         val activity = context as? Activity
-        AlertDialog(
-            onDismissRequest = { exitAsked = false },
-            title = { Text(stringResource(R.string.settings_exit_title)) },
-            text = if (runningInBackground) ({ Text(stringResource(R.string.settings_exit_background)) }) else null,
-            confirmButton = {
-                TextButton(onClick = { activity?.finish() }) { Text(stringResource(R.string.settings_exit_confirm)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { exitAsked = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
-        )
+        ExitDialog(running = runningServices, onExit = { activity?.finish() }, onDismiss = { exitAsked = false })
     }
 
     whatsNew?.let { text ->

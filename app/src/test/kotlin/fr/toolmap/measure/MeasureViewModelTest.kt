@@ -28,6 +28,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -41,7 +42,9 @@ class MeasureViewModelTest {
     private lateinit var db: TrackDatabase
     private lateinit var repo: TrackRepository
     private lateinit var vm: MeasureViewModel
-    private val messages = ArrayList<UiMessage>()
+
+    // Filled from the thread the view model emits on while the test reads it: a list safe to read meanwhile.
+    private val messages = CopyOnWriteArrayList<UiMessage>()
     private val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
 
     @Before

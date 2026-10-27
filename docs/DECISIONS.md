@@ -956,3 +956,32 @@
 - **Alternatives rejetées** : variantes A Forêt, B TOP 25, C Balise, D Altimètre de l'aperçu ; garder la valeur par
   défaut seule (sans effet sur les téléphones existants) ; `NavigationBar` de Material (pas d'appui long pour la
   position, hauteur et marges imposées).
+
+## ADR-075 — Menu principal « Portée » : les tuiles en pied fixe, « Quitter » en haut, « Plus » déplié sur place
+- **Date / statut** : 2026-10-27 — Accepté (P29.2 ; aperçu `docs/previews/design-02-menu.html`, variante B · Portée,
+  choisie par l'utilisateur le 2026-10-27). **Remplace** le premier point d'ADR-053 sur la place de « Quitter »
+  (« une ligne Quitter après Réglages… », placée en bas en P14.10) ; le reste d'ADR-053 (Quitter ne coupe rien, le
+  dialogue prévient de ce qui continue) est gardé et précisé.
+- **Contexte** : audit de P29.2 : le panneau montait à environ 500 dp avec 11 cibles ; les quatre tuiles fréquentes
+  étaient tout en haut, loin du pouce, et « Quitter », la commande la plus rare et la seule qui ferme l'appli, était
+  la plus proche de la barre ; la page « Plus… » ajoutait un niveau pour deux lignes, et son Retour système fermait
+  tout le menu.
+- **Décision** :
+  1. **Pied fixe** : les tuiles Masquer, Verrouiller, Imprimer, Mesurer forment le bas du panneau, posé sur la barre ;
+     elles ne défilent pas (`BarPanel` reçoit un `footer`). Au-dessus, de bas en haut : Mode nuit, Informations à
+     l'écran, le bloc des cartes affichées, « Réglages… ».
+  2. **Haut du panneau, loin du doigt** : la ligne « Plus » (repliée : « Nouveautés, signaler une erreur ») puis
+     « Quitter », qui passe donc avant « Réglages… ».
+  3. **« Plus » se déplie sur place** (Nouveautés, Signaler une erreur, Diagnostic des tuiles dans l'APK de debug) ;
+     la page « Plus » est supprimée. Retour replie la ligne avant de fermer le menu.
+  4. **Dialogue de sortie** : une ligne de liste par service qui tourne (enregistrement, partage, suivi ou alertes),
+     avec ses chiffres, puis le bouton de la notification de ToolMap qui l'arrête (`map/ExitDialog.kt`).
+  5. Corrections communes de l'aperçu : interrupteurs lus comme tels par TalkBack (`MenuRow(switchOn = …)`, rôle
+     Switch), sous-titre du mode nuit selon l'état, bloc des cartes sans « Pile personnalisée » (nom du favori, sinon
+     les cartes et « sans favori »), icônes Nouveautés (porte-voix) et Signaler une erreur (insecte), logo du mode
+     masqué en rond blanc comme le zoom, pastille « Écran verrouillé » à la forme des pastilles d'information, tuile
+     « Afficher » (jamais visible) retirée.
+- **Conséquences** : le fréquent est à portée de pouce et la tuile visée tombe toujours au même endroit, même en mode
+  gants ; l'ordre de lecture est inversé (le rare se lit en premier sous le bandeau) et s'éloigne d'AlpineQuest, ce que
+  l'utilisateur a accepté en choisissant B. En mode gants, la partie qui défile a peu de place.
+- **Alternatives rejetées** : variantes A Cairn, C Damier, D Soufflet, E Versants de l'aperçu.

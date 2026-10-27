@@ -45,6 +45,7 @@ import org.robolectric.annotation.Config
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.imageio.ImageIO
 import kotlin.io.path.createTempDirectory
 import kotlin.test.assertEquals
@@ -60,7 +61,9 @@ class TracksViewModelTest {
     private lateinit var vm: TracksViewModel
     private lateinit var repository: TrackRepository
     private lateinit var dir: File
-    private val messages = ArrayList<UiMessage>()
+
+    // Filled from the thread the view model emits on while the test reads it: a list safe to read meanwhile.
+    private val messages = CopyOnWriteArrayList<UiMessage>()
     private val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
     private var collector: Job? = null
 

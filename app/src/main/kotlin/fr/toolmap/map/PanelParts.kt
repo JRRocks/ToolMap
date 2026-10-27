@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -39,6 +40,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -56,14 +59,16 @@ import fr.toolmap.ui.theme.toolMap
  */
 
 /**
- * The frame of a panel of the bar: white, 18 dp corners, raised, at most [maxHeight]. The [header] stays at the top,
- * the [content] scrolls under it when the panel is taller.
+ * The frame of a panel of the bar: white, 18 dp corners, raised, at most [maxHeight]. The [header] stays at the top and
+ * the [footer] at the bottom, next to the bar (the main menu's tiles, P29.2); the [content] scrolls between them when
+ * the panel is taller.
  */
 @Composable
 internal fun BarPanel(
     maxHeight: Dp,
     modifier: Modifier = Modifier,
     header: (@Composable () -> Unit)? = null,
+    footer: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
@@ -83,6 +88,7 @@ internal fun BarPanel(
                 Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(vertical = 8.dp),
                 content = content,
             )
+            footer?.invoke()
         }
     }
 }
@@ -241,6 +247,7 @@ internal fun RowScope.ActionTile(
     icon: ImageVector,
     label: String,
     enabled: Boolean = true,
+    minHeight: Dp = TILE_HEIGHT,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -249,7 +256,7 @@ internal fun RowScope.ActionTile(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.toolMap.tile,
         contentColor = MaterialTheme.toolMap.onTile,
-        modifier = Modifier.weight(1f).heightIn(min = 70.dp).alpha(if (enabled) 1f else DISABLED_ALPHA),
+        modifier = Modifier.weight(1f).heightIn(min = minHeight).alpha(if (enabled) 1f else DISABLED_ALPHA),
     ) {
         Column(
             Modifier.padding(horizontal = 4.dp, vertical = 10.dp),
@@ -265,7 +272,8 @@ internal fun RowScope.ActionTile(
 
 /**
  * One line of a panel: an icon or a tick box, the name, a [subtitle] in grey that gives the current value, and what
- * goes at the end ([PanelSwitch], [PanelChevron]).
+ * goes at the end ([PanelSwitch], [PanelChevron]). With [switchOn] the row is a switch: it ends with one, and TalkBack
+ * reads it as a switch, on or off (P29.2).
  */
 @Composable
 internal fun MenuRow(
@@ -278,6 +286,11 @@ internal fun MenuRow(
     indented: Boolean = false,
     /** The colour of [icon] when it shows a state (the recorder in red while it records); the text's otherwise. */
     iconTint: Color? = null,
+    switchOn: Boolean? = null,
+    minHeight: Dp = ROW_HEIGHT,
+    /** What TalkBack says a tap does, and the state it reads, for a row that unfolds in place. */
+    clickLabel: String? = null,
+    stateText: String? = null,
     onClick: () -> Unit,
 ) {
     val color =
@@ -289,9 +302,23 @@ internal fun MenuRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = ROW_HEIGHT)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(start = if (indented) 40.dp else 16.dp, end = if (trailing == null) 16.dp else 8.dp),
+            .heightIn(min = minHeight)
+            .then(
+                if (switchOn != null) {
+                    Modifier.toggleable(
+                        value = switchOn,
+                        enabled = enabled,
+                        role = Role.Switch,
+                        onValueChange = { onClick() },
+                    )
+                } else {
+                    Modifier.clickable(enabled = enabled, onClickLabel = clickLabel, onClick = onClick)
+                },
+            ).then(if (stateText != null) Modifier.semantics { stateDescription = stateText } else Modifier)
+            .padding(
+                start = if (indented) 40.dp else 16.dp,
+                end = if (trailing == null && switchOn == null) 16.dp else 8.dp,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(40.dp), contentAlignment = Alignment.CenterStart) {
@@ -316,7 +343,7 @@ internal fun MenuRow(
                 )
             }
         }
-        trailing?.invoke()
+        if (switchOn != null) PanelSwitch(checked = switchOn) else trailing?.invoke()
     }
 }
 
@@ -341,5 +368,6 @@ internal fun PanelChevron() {
 internal val PANEL_INSET = 12.dp
 
 private val ROW_HEIGHT = 56.dp
+private val TILE_HEIGHT = 70.dp
 private val BAND_HEIGHT = 56.dp
 private const val DISABLED_ALPHA = 0.38f
