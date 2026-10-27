@@ -6,9 +6,10 @@
 
 ## 1. Méthode
 
-- **Ressource** : le skill de design `impeccable` (pbakaus/impeccable, commit `ade3783` du 2026-10-26, licence Apache 2.0), lu comme référence : `SKILL.md`, `reference/android.md`, `mode-operate.md`, `operate.md`, `craft-floor.md`, `audit.native.md`, `colorize.md`, `typeset.md`, `layout.md`, `new-work.md`. Son exécutable (`scripts/impeccable`) n'est pas lancé : seuls les guides servent.
+- **Ressource** : le skill de design `impeccable` (pbakaus/impeccable, commit `ade3783` du 2026-10-26, relu au commit `d34c87e` du 2026-10-27 pour P29.2 à P29.10, licence Apache 2.0), lu comme référence : `SKILL.md`, `reference/android.md`, `mode-operate.md`, `operate.md`, `craft-floor.md`, `audit.native.md`, `colorize.md`, `typeset.md`, `layout.md`, `new-work.md`. Son exécutable (`scripts/impeccable`) n'est pas lancé : seuls les guides servent.
 - **Mode « Operate »** : l'utilisateur fait une tâche (carte, randonnée) ; Material 3 garde la structure, la navigation et les contrôles ; le style passe par le thème (rôles de couleur, échelle typographique, formes) et **une** signature visuelle.
 - **Cinq variantes par changement**, rendues dans la conversation (état actuel + A à E), copie autonome envoyée en fichier, puis **notification** (`PushNotification`) pour demander le choix. Aucun code avant un choix explicite (`CLAUDE.md`).
+- **P29.2 à P29.10 montrées ensemble** (demande du 2026-10-27 : « revoir entièrement tous les onglets, 5 propositions pour chaque changement ») : une page par étape (`docs/previews/design-02-menu.html` à `design-10-outils.html`, jour et nuit, état actuel reconstruit depuis le code de 0.4.81) et une page de choix commune où l'utilisateur coche une variante par onglet. Chaque étape reste ensuite codée seule, dans l'ordre, avec son build et sa capture de l'émulateur. Les pages sont construites avec un kit commun (style Crête en HTML) gardé hors du dépôt.
 - **Un build par étape** ; après le code, capture de l'émulateur à côté de l'aperçu validé (`docs/previews/design-NN-…-emulateur.html`).
 - L'étape 0 fixe le **style** (même organisation des écrans, seul l'habillage change) ; les étapes suivantes peuvent changer l'**organisation** d'un onglet, dans le style choisi.
 
@@ -38,14 +39,14 @@
 |---|---|---|---|---|
 | P29.0 | ✅ | **Style uniforme** : palette, typographie, formes, barre du haut, boutons, listes, panneaux (A Forêt · B TOP 25 · C Balise · D Altimètre · E Crête) | `docs/previews/design-00-style.html` (montré le 2026-10-26) ; émulateur : `docs/previews/design-00-style-emulateur.html` | **E · Crête** (2026-10-26) ; codée, ADR-074 |
 | P29.1 | ✅ | Carte : boîtes d'information, barre du bas, zoom, point central, bandeaux (A Cartouche · B Coque pétrole · C Bandeau · D Tableau de bord · E Pastilles) | `docs/previews/design-01-carte.html` (montré le 2026-10-27) ; comparaison `docs/previews/design-01-carte-emulateur.html` | **E · Pastilles** (2026-10-27), codée en 0.4.79 |
-| P29.2 | ⬜ | Menu principal (logo) et page « Plus… » | — | — |
-| P29.3 | ⬜ | Panneau « Cartes et calques », Cartes affichées, favoris | — | — |
-| P29.4 | ⬜ | Panneau « Traces et waypoints », écran Traces, détail d'une trace, fiche d'un élément, dialogue waypoint | — | — |
-| P29.5 | ⬜ | Panneau « Positionnement », enregistreur | — | — |
-| P29.6 | ⬜ | Cartes disponibles, assistant d'ajout, multi-zoom, catalogue en ligne | — | — |
-| P29.7 | ⬜ | Téléchargements, Stockage, sélection de zone | — | — |
-| P29.8 | ⬜ | Partage de position (hors groupe, en groupe, membres, alertes) | — | — |
-| P29.9 | ⬜ | Réglages et Sauvegarde | — | — |
-| P29.10 | ⬜ | Recherche, À propos, outils sur la carte (impression, mesure, dessin, itinéraire), dialogues | — | — |
+| P29.2 | 🔄 | Menu principal (logo) et page « Plus… » (A Cairn · B Portée · C Damier · D Soufflet · E Versants) | `docs/previews/design-02-menu.html` (montré le 2026-10-27, page de choix commune) | en attente |
+| P29.3 | 🔄 | Panneau « Cartes et calques », Cartes affichées, favoris (A Rangement · B Planche · C Strates · D Classeur · E Étagement) | `docs/previews/design-03-cartes.html` (montré le 2026-10-27, page de choix commune) | en attente |
+| P29.4 | 🔄 | Panneau « Traces et waypoints », écran Traces, détail d'une trace, fiche d'un élément, dialogue waypoint (A Topo · B Repère · C Registre · D Volet · E Carnet) | `docs/previews/design-04-traces.html` (montré le 2026-10-27, page de choix commune) | en attente |
+| P29.5 | 🔄 | Panneau « Positionnement », enregistreur (A Sentier · B Départ · C Jauge · D Diptyque · E Cadran) | `docs/previews/design-05-position.html` (montré le 2026-10-27, page de choix commune) | en attente |
+| P29.6 | 🔄 | Cartes disponibles, assistant d'ajout, multi-zoom, catalogue en ligne (A Étagère · B Bascule · C Inventaire · D Casier · E Atlas) | `docs/previews/design-06-cartes-disponibles.html` (montré le 2026-10-27, page de choix commune) | en attente |
+| P29.7 | 🔄 | Téléchargements, Stockage, sélection de zone (NOMS07) | `docs/previews/design-07-telechargements.html` (montré le 2026-10-27, page de choix commune) | en attente |
+| P29.8 | 🔄 | Partage de position (hors groupe, en groupe, membres, alertes) (A Refuge · B Cordée · C Veille · D Belvédère · E Écho) | `docs/previews/design-08-partage.html` (montré le 2026-10-27, page de choix commune) | en attente |
+| P29.9 | 🔄 | Réglages et Sauvegarde (A Tiroirs · B Sommaire · C Loupe · D Index · E Lucarne) | `docs/previews/design-09-reglages.html` (montré le 2026-10-27, page de choix commune) | en attente |
+| P29.10 | 🔄 | Recherche, À propos, outils sur la carte (impression, mesure, dessin, itinéraire), dialogues (A Équerre · B Viseur · C Établi · D Coulisse · E Relève) | `docs/previews/design-10-outils.html` (montré le 2026-10-27, page de choix commune) | en attente |
 
 Chaque étape : 5 variantes rendues, notification, choix, code, build, capture de l'émulateur à côté de l'aperçu, entrée du journal, statut ici et dans `docs/PLAN.md`.
