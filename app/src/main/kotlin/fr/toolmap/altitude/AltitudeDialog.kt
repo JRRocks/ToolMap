@@ -20,6 +20,7 @@ import fr.toolmap.core.settings.UnitSystem
 import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.data.altitude.AltitudeStatus
 import fr.toolmap.ui.LocalAppSettings
+import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.TextButton
 import java.util.Locale
 
@@ -64,7 +65,7 @@ fun AltitudeDialog(
                 )
                 status.seaLevelHpa?.let {
                     Text(
-                        stringResource(R.string.altitude_dialog_sea_level, String.format(Locale.ROOT, "%.1f", it)),
+                        stringResource(R.string.altitude_dialog_sea_level, LocalFormats.current.pressure(it)),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

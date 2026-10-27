@@ -89,6 +89,11 @@ class RecordingService : Service() {
                     controller.stop()
                 }
 
+                // « Reprendre » of the end message: the recording that just ended goes on, in a new segment.
+                ACTION_REOPEN -> {
+                    controller.reopen(intent.getLongExtra(EXTRA_TRACK_ID, -1))
+                }
+
                 // The user chose to carry on with a recording found after a crash.
                 ACTION_RESTORE -> {
                     controller.checkForRecovery()
@@ -178,7 +183,9 @@ class RecordingService : Service() {
         const val ACTION_RESUME = "fr.toolmap.record.RESUME"
         const val ACTION_STOP = "fr.toolmap.record.STOP"
         const val ACTION_RESTORE = "fr.toolmap.record.RESTORE"
+        const val ACTION_REOPEN = "fr.toolmap.record.REOPEN"
         private const val EXTRA_NAME = "name"
+        private const val EXTRA_TRACK_ID = "track"
         private const val EXTRA_PROFILE = "profile"
 
         /** Starts the service and, through it, a recording; the caller must hold the location permission. */
@@ -193,6 +200,20 @@ class RecordingService : Service() {
                     .putExtra(EXTRA_NAME, name)
                     .putExtra(EXTRA_PROFILE, profile.name)
             ContextCompat.startForegroundService(context, intent)
+        }
+
+        /** Starts the service to record again the track [trackId] that just ended (« Reprendre », P29.5). */
+        fun reopen(
+            context: Context,
+            trackId: Long,
+        ) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(
+                    context,
+                    RecordingService::class.java,
+                ).setAction(ACTION_REOPEN).putExtra(EXTRA_TRACK_ID, trackId),
+            )
         }
 
         /** Starts the service to carry on with a recording found after a crash (it resumes whatever it finds). */

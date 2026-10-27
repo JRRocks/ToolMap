@@ -173,14 +173,19 @@ Depuis P29.2 (2026-10-27, variante B · Portée, ADR-075), le panneau monte depu
 
 ## 4. Panneau « Positionnement » (bouton position)
 
+Depuis P29.5 (variante « A · Sentier », `docs/previews/design-05-position.html`, ADR-078) : mêmes lignes et même ordre, une ligne d'aide, le calage sous le baromètre, un seul dialogue de départ, « Reprendre » après un arrêt.
+
 | ID | Ligne | Action | Statut |
 |---|---|---|---|
 | L1 | « ? » | ouvre ABOUT à la section « Positionnement » (nouvelle : position en temps réel, La carte suit, enregistreur), surlignée 1,6 s | ✅ `[R5]` `[F11]` variante B (P14.3, session 49) ; retour vers la carte (`[N3]` corrigé) |
-| L3 | Bloc « Position en temps réel » : interrupteur, état « ± 5 m · alt. 282 m · GPS » (ou « GPS + baromètre »), « En attente du GPS… » ou « Désactivée » | interrupteur | ✅ (P14.10) |
-| L5 | « La carte suit » : segments Libre · Suivi · Boussole · Explorer | applique le mode ; allume la position si elle est éteinte ; Libre et Suivi remettent la carte à plat, Explorer = suivi + cap + inclinaison 60° (ancienne ligne « Mode explorateur ») ; le segment allumé suit aussi l'appui long sur B4 | ✅ `[R4]` réglé (P14.10) ; 60° à valider sur téléphone |
-| L4 | Enregistreur de trace (« Arrêté » ou « En cours · 1,2 km · 0:24 ») ; icône : une trace et une épingle, comme AlpineQuest, rouge pendant l'enregistrement (P16.7) | démarre (dialogue) / arrête | ✅ |
-| L6 | Baromètre (« Corrige l'altitude du GPS ») | interrupteur, visible seulement si le téléphone a le capteur ; même réglage que Réglages (ADR-053) ; icône propre (jauge) | ✅ (P16.2) |
+| L3 | Bloc « Position en temps réel » : interrupteur, état « ± 4 m · alt. 297 m · GPS + baromètre » (« alt. » écrit depuis P29.5), « En attente du GPS… · 3 satellites vus » (satellites vus par le récepteur, `GnssSatellites.counts`) ou « Désactivée » | interrupteur | ✅ (P14.10, P29.5) |
+| L5 | « La carte suit » : segments Libre · Suivi · Boussole · Explorer, puis une **ligne d'aide** : « Choisir un mode allume la position. » position coupée, sinon ce que fait le mode (« La carte vous suit, nord en haut. »…) | applique le mode ; allume la position si elle est éteinte ; Libre et Suivi remettent la carte à plat, Explorer = suivi + cap + inclinaison 60° (ancienne ligne « Mode explorateur ») ; le segment allumé suit aussi l'appui long sur B4 | ✅ `[R4]` réglé (P14.10) ; aide P29.5 ; 60° à valider sur téléphone |
+| L4 | Enregistreur de trace (« Arrêté » ou, avec le point rouge de la pastille, « En cours · 1 h 12 · 4,82 km », la durée avant la distance comme sur la pastille) ; icône : une trace et une épingle, comme AlpineQuest, **turquoise** pendant l'enregistrement (P29.5 ; rouge « erreur » avant) | démarre (dialogue unique, ci-dessous) / arrête ; le message de fin « Enregistrement terminé : la trace est dans la bibliothèque. » s'affiche au-dessus du panneau ouvert (plus dessous ni sur ses dernières lignes), avec **Reprendre** (rouvre la même trace, nouveau segment, mêmes chiffres : `RecordingController.reopen`) | ✅ (P29.5) |
+| L4a | Dialogue « Enregistrer une trace » (`record/RecordStartDialog.kt`) : « Activité » (si « Demander l'activité » est allumé) en puces : les 4 dernières activités, la plus récente choisie d'avance, « Toutes… » déplie la grille des 33 d'AlpineQuest (libellés en 12 sp) ; « Nom » montre le nom final (« Randonnée · Sortie du 27 oct. 2026 à 09:41 ») ; « Précision des points » : Précise (toutes les secondes et 2 m) · Normale (2 s, 5 m) · Espacée (2 s, 10 m) · Économie (10 s, 25 m), la dernière retenue ; Annuler · **Démarrer** (plein) | démarre l'enregistrement (puis l'autorisation de position précise et des notifications) ; le second dialogue « Quelle activité ? » n'existe plus | ✅ (P29.5) |
+| L6 | Baromètre (« Corrige l'altitude du GPS », « · calée » une fois calé) | interrupteur, visible seulement si le téléphone a le capteur ; même réglage que Réglages (ADR-053) ; icône propre (jauge) | ✅ (P16.2, P29.5) |
+| L6a | « Caler l'altitude… » (sous le baromètre allumé ; « Sommet coté, panneau, borne », grisée avec « Allumez la position pour caler » tant que la position est coupée) | ouvre le dialogue « Caler l'altitude » (un seul nom partout ; pression au niveau de la mer dans l'unité des réglages) ; la ligne du baromètre du détail de la pastille GPS garde son entrée | ✅ (P29.5) |
 | L7 | Partage de position (« Aucun groupe » ou « 3 membres · position envoyée ») | ouvre SHARE (chevron : plus d'interrupteur qui ouvrait un écran) | ✅ (P14.10) |
+| — | Refus d'autorisation (position, enregistrement) : message sans le préfixe « Import impossible : » | snackbar | ✅ (P29.5) |
 
 ## 5. Panneau « Cartes et calques » (bouton Cartes)
 

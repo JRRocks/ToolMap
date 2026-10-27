@@ -79,6 +79,9 @@ class RecordingController(
     /** The statistics of the segment in progress, when « Réinitialiser les statistiques du segment » is on. */
     private var segmentBase: LiveStats? = null
 
+    /** The recording that just ended, which « Reprendre » can open again (P29.5). */
+    private var lastFinished: RecordingSession? = null
+
     private val mutableState = MutableStateFlow(RecordingUi())
     val state: StateFlow<RecordingUi> = mutableState.asStateFlow()
 
@@ -89,6 +92,7 @@ class RecordingController(
     ): Long =
         mutex.withLock {
             check(core.state == RecorderState.IDLE && mutableState.value.recoverable == null) { "already recording" }
+            lastFinished = null
             val now = clock()
             this.profile = profile
             core = RecorderCore(profile.settings)
@@ -135,6 +139,15 @@ class RecordingController(
             core.stop(clock())
             stopListening()
             flush()
+            lastFinished =
+                RecordingSession(
+                    trackId = id,
+                    startedAtMillis = startedAt,
+                    activeMillis = core.stats(clock()).elapsedMillis,
+                    paused = true,
+                    savedAtMillis = clock(),
+                    profile = profile.name,
+                )
             repository.finishTrack(id)
             store.clear()
             trackId = null
@@ -142,6 +155,33 @@ class RecordingController(
             core = RecorderCore()
             mutableState.value = RecordingUi(profile = profile, finishedTrackId = id)
             id
+        }
+
+    /**
+     * « Reprendre » of the end message (P29.5): the track that just ended is recorded again, with its figures, the next
+     * fix opening a new segment (the way walked meanwhile is not part of it). `false` when [id] is not the recording
+     * that just ended, when the track is gone or when a recording runs.
+     */
+    suspend fun reopen(id: Long): Boolean =
+        mutex.withLock {
+            val last = lastFinished?.takeIf { it.trackId == id } ?: return false
+            if (core.state != RecorderState.IDLE || trackId != null) return false
+            val track = repository.loadTrack(id) ?: return false
+            lastFinished = null
+            profile = RecorderProfile.fromName(last.profile)
+            core = RecorderCore(profile.settings)
+            core.replay(track.segments, last.activeMillis)
+            core.resume(clock())
+            trackId = id
+            startedAt = last.startedAtMillis
+            pending.clear()
+            lastFlush = clock()
+            segmentBase = null
+            mutableState.value = RecordingUi(profile = profile, trackId = id)
+            writeSession()
+            listen()
+            publish()
+            true
         }
 
     /** Looks for a recording the process left unfinished; the result is in [state]. */

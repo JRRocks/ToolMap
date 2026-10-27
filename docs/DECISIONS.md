@@ -1065,3 +1065,33 @@
 - **Alternatives rejetées** : A seule (le dialogue à chaque waypoint, sept commandes au même rang dans la fiche), B
   seule (bloc du centre, éléments proches et tri par proximité : non retenus pour le panneau et la liste), C Registre,
   D Volet, E Carnet.
+
+## ADR-078 — « Positionnement » en « Sentier » : un seul dialogue de départ, « Reprendre » après un arrêt, calage sous le baromètre
+- **Date / statut** : 2026-10-27 — Accepté (P29.5 ; aperçu `docs/previews/design-05-position.html`, variante A · Sentier,
+  choisie par l'utilisateur le 2026-10-27). Garde ADR-037 (panneau dans l'ordre d'AlpineQuest, mêmes lignes et mêmes
+  interrupteurs) et ADR-053 (Baromètre = même réglage que Réglages ▸ Altitude) ; remplace le dialogue « Quelle
+  activité ? » de P11.8 par une partie du dialogue de départ.
+- **Contexte** : audit de P29.5 : partir demandait deux dialogues sans montrer le nom final ; un toucher arrêtait
+  l'enregistrement sans retour, et le message de fin restait caché sous le panneau ; le panneau marquait
+  l'enregistrement du rouge « erreur » de Material et écrivait la distance avant la durée, à l'inverse de la pastille ;
+  le calage de l'altitude n'était qu'une ligne de 32 dp du détail de la pastille GPS ; « En attente du GPS… » ne disait
+  rien de la recherche ; les refus d'autorisation s'affichaient comme un « Import impossible ».
+- **Décision** :
+  1. Panneau : une ligne d'aide sous « La carte suit » (ce que fait le mode choisi, ou que choisir un mode allume la
+     position) ; « alt. » devant l'altitude ; « En attente du GPS… · N satellites vus » (`GnssSatellites.counts` : vus et
+     utilisés) ; l'enregistreur en turquoise avec le point rouge de sa pastille, la durée avant la distance ; « · calée »
+     après le baromètre calé ; « Caler l'altitude… » sous le baromètre allumé, grisée tant que la position est coupée.
+  2. Départ : un seul dialogue (`RecordStartDialog`) : activité en puces (les 4 dernières, la plus récente choisie
+     d'avance, mémorisées par `RecordingViewModel`), « Toutes… » qui déplie les 33, le nom final dans le champ, la
+     précision des points renommée (Précise · Normale · Espacée · Économie, mêmes réglages que les profils WALK, BIKE,
+     PRECISE, SAVER, dont les noms internes restent) ; « Démarrer » démarre.
+  3. Arrêt : toujours un toucher (interrupteur ou pastille) ; le message de fin, désormais composé au-dessus des
+     panneaux et placé au-dessus du panneau ouvert (sa hauteur mesurée, pour ne pas couvrir ses dernières lignes),
+     propose « Reprendre » : `RecordingController.reopen` rouvre la trace qui vient de finir (chiffres repris,
+     nouveau segment), par l'action `ACTION_REOPEN` du service.
+  4. Un seul nom, « Caler l'altitude » ; pression au niveau de la mer dans l'unité des réglages ; refus d'autorisation
+     sans « Import impossible : » ; durée avant distance aussi dans la notification.
+- **Conséquences** : un dialogue de moins au départ ; un arrêt par mégarde se rattrape sans confirmation ; le panneau
+  grandit d'une ligne d'aide et d'une sous-ligne ; seul l'enregistrement qui vient de finir peut être repris (un nouveau
+  départ l'oublie, comme la fin de l'application).
+- **Alternatives rejetées** : variantes B à E de l'aperçu.

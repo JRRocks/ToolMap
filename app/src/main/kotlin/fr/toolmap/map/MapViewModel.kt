@@ -27,6 +27,7 @@ import fr.toolmap.data.tiles.TileStats
 import fr.toolmap.data.workspaces.WorkspaceStore
 import fr.toolmap.download.PendingZone
 import fr.toolmap.record.GnssSatellites
+import fr.toolmap.record.SatelliteCount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -68,8 +69,8 @@ class MapViewModel
         private val mutableState = MutableStateFlow(store.load().withoutRetiredMaps())
         val state: StateFlow<WorkState> = mutableState.asStateFlow()
 
-        /** The satellites used by the GPS fix, while the map collects it (the GPS box of the top left corner). */
-        fun satellites(): Flow<Int> = gnss.used()
+        /** The satellites seen and used by the GPS, while the map collects it (the GPS box, the positioning panel). */
+        fun satellites(): Flow<SatelliteCount> = gnss.counts()
 
         /** How far maps borrow tiles of another zoom to never show an empty area (option of the settings, ADR-031). */
         val scaling: StateFlow<ScalingPolicy> =

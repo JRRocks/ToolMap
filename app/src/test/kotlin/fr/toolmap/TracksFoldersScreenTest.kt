@@ -43,6 +43,8 @@ class TracksFoldersScreenTest {
         }
         rule.onNodeWithContentDescription("Traces et waypoints").performClick()
         rule.onNodeWithText("Liste des traces et waypoints").performClick()
+        // The library reads the new waypoint from the database a moment later: the empty state shows until then.
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Nouveau dossier").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("Nouveau dossier").performClick()
         rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("Randos")
         rule.onNodeWithText("OK").performClick()

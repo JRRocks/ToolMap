@@ -20,6 +20,25 @@
 
 ---
 
+## 2026-10-27 — Session 67 (suite) — [P29.5] « Positionnement » en « Sentier » : un seul dialogue de départ, « Reprendre » après un arrêt
+- **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
+- **Objectif** : coder la variante A · Sentier du panneau « Positionnement », choisie par l'utilisateur le 2026-10-27 (« P29.5 (Positionnement) : A · Sentier ») : le panneau d'aujourd'hui rangé et corrigé, une ligne d'aide sous « La carte suit », le calage de l'altitude sous le baromètre, un seul dialogue pour partir, « Reprendre » après un arrêt.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/design-05-position.html`, variante A · Sentier, validée le 2026-10-27.
+  - Panneau (`PositionMenu.kt`) : ligne d'aide sous les quatre modes (ce que fait le mode choisi, ou « Choisir un mode allume la position. ») ; « alt. » devant l'altitude ; « En attente du GPS… · 3 satellites vus » (`GnssSatellites.counts` : satellites vus et utilisés) ; enregistreur en turquoise avec le point rouge de sa pastille (`MenuRow(subtitleDot)`), la durée avant la distance ; « · calée » après le baromètre calé ; « Caler l'altitude… » sous le baromètre allumé, grisée position coupée, qui ouvre le dialogue de calage.
+  - Départ : `record/RecordStartDialog.kt` (nouveau) remplace les deux dialogues (`ActivityDialog.kt` supprimé) : activité en puces (les 4 dernières, mémorisées par `RecordingViewModel`, la plus récente choisie d'avance), « Toutes… » qui déplie la grille des 33 (libellés en 12 sp), champ « Nom » au libellé toujours en haut qui montre le nom final, « Précision des points » (Précise · Normale · Espacée · Économie, mêmes réglages qu'avant), « Démarrer » plein.
+  - Arrêt et reprise : le message de fin passe au-dessus des panneaux et propose « Reprendre » (`RecordingController.reopen`, action `ACTION_REOPEN` du service) : la trace qui vient de finir repart dans un nouveau segment, avec ses chiffres.
+  - Corrections communes à toutes les variantes : refus d'autorisation sans « Import impossible : » ; un seul nom « Caler l'altitude » (dialogue, ligne, accessibilité ; « Alt. : calage… ») ; pression au niveau de la mer dans l'unité des réglages ; durée avant distance aussi dans la notification.
+  - ADR-078 ; `docs/specs/ui-index.md` §4 réécrit.
+  - Comparaison : `docs/previews/design-05-position-rendu.html`.
+- **Décisions (ADR)** : ADR-078.
+- **Tests / vérifications** :
+  - `PositionMenuPanelTest` (+6 : durée avant distance, aide position coupée et Suivi avec « alt. », satellites vus, « Caler l'altitude… » grisée puis ouverte, « calée ») ; `RecordStartDialogTest` (3 : puces, nom final et Démarrer ; « Toutes… » et une activité de la grille ; précisions nommées sans activité) ; `RecordingControllerTest` : « Reprendre » rouvre la trace finie dans un nouveau segment, chiffres repris, et un nouveau départ l'oublie ; `PositionRenderTest` (6 rendus).
+  - Défaut révélé par `TracksFoldersScreenTest` : composé par-dessus les panneaux, le message (10 s) couvrait les dernières lignes du panneau ouvert et prenait le toucher. Corrigé : la hauteur du panneau ouvert est mesurée et le message se place au-dessus. Le test attend aussi que la bibliothèque ait lu le waypoint créé (lecture asynchrone de la base) avant « Nouveau dossier ».
+  - `./gradlew check assembleDebug --max-workers=2` : BUILD SUCCESSFUL en 2 min 14 s (0.4.88 ; le build arrêté par ce test avait compté 0.4.87) ; lint : deux avertissements `ModifierParameter` nés de l'étape, corrigés (ordre des paramètres de `PositionMenuPanel`, marges de `Caption`) ; build final : BUILD SUCCESSFUL en 1 min 53 s, version 0.4.86 → **0.4.89**, `ToolMap-debug-0.4.89.apk`. Tests : core 876, data 310, p2p 29 (2 ignorés), app 339 (34 ignorés, dont les rendus), 0 échec ; lint : 0 erreur, app 66 avertissements et 1 indication.
+- **Problèmes / dette technique** : capture de l'émulateur à faire sur le poste Windows ; « Boussole » reste coupé sur un écran de 360 dp (comme avant) ; seul l'enregistrement qui vient de finir se reprend.
+- **Prochaine étape recommandée** : P29.6 (Cartes disponibles, B · Bascule).
+
 ## 2026-10-27 — Session 67 (suite) — [P29.4] « Traces » : liste et détail en « Topo », fiche en « Repère », « Waypoint ici » en un appui
 - **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
 - **Objectif** : coder P29.4 selon le choix de l'utilisateur du 2026-10-27 (« A · Topo pour Panneau du drapeau / Écran Traces / Détail d'une trace, B · Repère pour Fiche d'un élément touché / Waypoint en un appui ») : des commandes qui disent ce qu'elles font, une liste qui montre la marque de chaque élément sur la carte, un détail qui donne chiffres et profil d'emblée, une fiche qui met une seule action en avant, un waypoint posé en un appui.

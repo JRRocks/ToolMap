@@ -192,6 +192,33 @@ class RecordingControllerTest {
     }
 
     @Test
+    fun `Reprendre after a stop records the same track again, in a new segment, with its figures`() {
+        val c = controller(flushEveryPoints = 50, options = { RecorderSettings(resetStatsOnSegment = false) })
+        val id = runBlocking { c.start("Sortie", RecorderProfile.WALK) }
+        feed(c, 0, 3)
+        runBlocking { c.stop() }
+        eventually("receiver stopped") { gps.collectors == 0 }
+        assertTrue(!runBlocking { c.reopen(id + 1) }, "only the track that just ended opens again")
+        assertTrue(runBlocking { c.reopen(id) })
+        assertEquals(RecorderState.RECORDING, c.state.value.phase)
+        assertEquals(id, store.read()!!.trackId, "the session file is back, for a crash")
+        eventually("receiver back") { gps.collectors > 0 }
+        for (k in 20 until 23) {
+            now = 1_000_000L + k * 4_000L
+            gps.flow.tryEmit(fix(k))
+        }
+        eventually("the last fix after Reprendre") { c.state.value.live.lastFix?.timeMillis == fix(22).timeMillis }
+        assertEquals(6, c.state.value.live.pointCount, "the figures go on from those of the stopped recording")
+        runBlocking { c.stop() }
+        assertEquals(listOf(3, 3), stored(id).map { it.size })
+        // A new recording forgets the one before: « Reprendre » of an old message does nothing.
+        val other = runBlocking { c.start("Autre", RecorderProfile.WALK) }
+        runBlocking { c.stop() }
+        assertTrue(!runBlocking { c.reopen(id) })
+        assertTrue(other != id)
+    }
+
+    @Test
     fun `without the reset the live statistics keep counting the whole track after a pause`() {
         val c = controller(flushEveryPoints = 50, options = { RecorderSettings(resetStatsOnSegment = false) })
         runBlocking { c.start("Sans remise à zéro", RecorderProfile.WALK) }

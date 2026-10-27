@@ -15,18 +15,25 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import javax.inject.Inject
 
+/** The satellites the receiver sees, and those it uses for its fix. */
+data class SatelliteCount(
+    val used: Int,
+    val seen: Int,
+)
+
 /**
- * How many satellites the GPS uses for its fix, as the platform's GNSS status reports them (the GPS box of the map).
- * Nothing is listened to until the flow is collected, and the listener is removed when it stops.
+ * How many satellites the GPS sees and uses for its fix, as the platform's GNSS status reports them (the GPS box of
+ * the map, the waiting line of the positioning panel). Nothing is listened to until the flow is collected, and the
+ * listener is removed when it stops.
  */
 class GnssSatellites
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
     ) {
-        /** The number of satellites used in the fix, sent at each change. Sends nothing without the location permission. */
+        /** The satellites seen and used in the fix, sent at each change. Sends nothing without the location permission. */
         @SuppressLint("MissingPermission")
-        fun used(): Flow<Int> =
+        fun counts(): Flow<SatelliteCount> =
             callbackFlow {
                 val granted =
                     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
@@ -43,7 +50,7 @@ class GnssSatellites
                             for (index in 0 until status.satelliteCount) {
                                 if (status.usedInFix(index)) used++
                             }
-                            trySend(used)
+                            trySend(SatelliteCount(used = used, seen = status.satelliteCount))
                         }
                     }
                 manager.registerGnssStatusCallback(callback, Handler(Looper.getMainLooper()))

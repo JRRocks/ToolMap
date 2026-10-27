@@ -169,11 +169,11 @@ import fr.toolmap.print.PrintTrackActions
 import fr.toolmap.print.PrintUi
 import fr.toolmap.print.PrintViewModel
 import fr.toolmap.print.pageCorners
-import fr.toolmap.record.ActivityDialog
 import fr.toolmap.record.RecordStartDialog
 import fr.toolmap.record.RecordingChip
 import fr.toolmap.record.RecordingRecoveryDialog
 import fr.toolmap.record.RecordingViewModel
+import fr.toolmap.record.SatelliteCount
 import fr.toolmap.record.labelRes
 import fr.toolmap.share.MemberDialog
 import fr.toolmap.share.ShareHud
@@ -287,8 +287,8 @@ fun MapScreen(
             }
         }
     }
-    // The satellites of the fix, listened to only while the location is on.
-    val satellites by produceState<Int?>(null, controller.locationOn, covered) {
+    // The satellites seen and used by the GPS, listened to only while the location is on.
+    val satellites by produceState<SatelliteCount?>(null, controller.locationOn, covered) {
         value = null
         if (controller.locationOn && !covered) vm.satellites().collect { value = it }
     }
@@ -337,6 +337,8 @@ fun MapScreen(
     var showRecordStart by remember { mutableStateOf(false) }
     var recoveryDismissed by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
+    // The height of the panel open above the bar, so that a message stands over it rather than on its last rows.
+    var barPanelHeight by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     var drawBarHeight by remember { mutableIntStateOf(0) }
     var printPanelHeight by remember { mutableIntStateOf(0) }
@@ -697,11 +699,19 @@ fun MapScreen(
     LaunchedEffect(draw) {
         draw.notices.collect { notice -> snackbar.showSnackbar(RouteNoticeVisuals.of(resources, notice)) }
     }
+    // The end of a recording says where the track went, and « Reprendre » opens it again in a new segment (P29.5): a
+    // stop by mistake is undone without a question first.
     LaunchedEffect(recordingUi.finishedTrackId) {
         val id = recordingUi.finishedTrackId
         if (id != null) {
-            snackbar.showSnackbar(resources.getString(R.string.record_finished))
+            val answer =
+                snackbar.showSnackbar(
+                    resources.getString(R.string.record_finished),
+                    actionLabel = resources.getString(R.string.record_resume),
+                    duration = SnackbarDuration.Long,
+                )
             recording.acknowledgeFinished()
+            if (answer == SnackbarResult.ActionPerformed) recording.reopen(id)
         }
     }
     // « Avertissement de perte de signal » (P11.8): a message when the GNSS has been silent for a minute, and when it is back.
@@ -736,7 +746,6 @@ fun MapScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val permissionDeniedText = stringResource(R.string.location_permission_denied)
     // The action waiting for the location permission: it runs once the system has answered (P11.9).
     var locationAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val permissionLauncher =
@@ -746,7 +755,7 @@ fun MapScreen(
             if (grants.values.any { it }) {
                 action?.invoke()
             } else {
-                vm.reportImportReadError(permissionDeniedText)
+                vm.notify(R.string.location_permission_denied)
             }
         }
     // Runs [action] with the location permission, asking for it first when the phone does not have it yet.
@@ -821,7 +830,6 @@ fun MapScreen(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
             }.toTypedArray()
         }
-    val recordDeniedText = stringResource(R.string.record_permission_denied)
     var pendingRecord by remember { mutableStateOf<Pair<String, RecorderProfile>?>(null) }
     val askNotifications = rememberNotificationAsk(R.string.background_ask_recording)
     val recordPermissionLauncher =
@@ -832,7 +840,7 @@ fun MapScreen(
                 recording.start(pending.first, pending.second)
                 askNotifications()
             } else if (pending != null) {
-                vm.reportImportReadError(recordDeniedText)
+                vm.notify(R.string.record_permission_denied)
             }
         }
     val startWithPermission = { name: String, profile: RecorderProfile ->
@@ -847,21 +855,6 @@ fun MapScreen(
             recordPermissionLauncher.launch(recordPermissions)
         }
     }
-    // « Demander l'activité » (P11.8): the activity asked first, and its name goes in front of the name of the track.
-    var activityAsk by remember { mutableStateOf<Pair<String, RecorderProfile>?>(null) }
-    val startRecording = { name: String, profile: RecorderProfile ->
-        if (appSettings.recorder.askActivity) activityAsk = name to profile else startWithPermission(name, profile)
-    }
-    activityAsk?.let { (name, profile) ->
-        ActivityDialog(
-            onSelect = { activity ->
-                activityAsk = null
-                startWithPermission("${resources.getString(activity.labelRes())} · $name", profile)
-            },
-            onDismiss = { activityAsk = null },
-        )
-    }
-
     val attribution =
         remember(state.stack, sources) {
             state.stack.layers
@@ -938,6 +931,8 @@ fun MapScreen(
             accuracyMeters = altitudeStatus.accuracyMeters.takeIf { controller.locationOn },
             altitudeMeters = altitudeStatus.altitude?.meters.takeIf { controller.locationOn },
             altitudeFromBarometer = altitudeStatus.altitude?.source == AltitudeSource.BAROMETER,
+            satellitesSeen = satellites?.seen,
+            barometerCalibrated = altitudeStatus.calibrated,
         )
     // Something that goes on in the background when the screen is left: a recording, a share, an alert (ADR-053).
     val runningInBackground = positionState.recording || positionState.sharing || alertUi.active
@@ -1222,6 +1217,7 @@ fun MapScreen(
             rootActions.onSaveArea()
         }
     }
+    val barPanelOpen = showMenu || showTracks || showPositioning || (mapsPage == MapsPage.ROOT && !covered)
     Box(modifier = Modifier.fillMaxSize().onSizeChanged { rootSize = it }) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -1314,7 +1310,7 @@ fun MapScreen(
                             mapping = mapping,
                             baseMaxZoom = baseMaxZoom,
                             gps = altitudeStatus.takeIf { controller.locationOn },
-                            satellites = satellites,
+                            satellites = satellites?.used,
                             targetMeters = if (navTarget != null) navGuidance?.distanceMeters else null,
                             heading = headingText,
                             onAltitudeClick = { showAltitude = true },
@@ -1478,30 +1474,6 @@ fun MapScreen(
                     }
                 },
             )
-            SnackbarHost(
-                snackbar,
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = bottomClearance + if (chromeShown) barDp else 0.dp),
-            ) { data ->
-                val visuals = data.visuals
-                if (visuals is RouteNoticeVisuals) {
-                    RouteNoticeSnackbar(
-                        visuals = visuals,
-                        onAllByHand = {
-                            data.dismiss()
-                            draw.setRouting(false)
-                        },
-                        onOpenBRouter = {
-                            data.dismiss()
-                            openBRouter(context)
-                        },
-                    )
-                } else {
-                    Snackbar(data)
-                }
-            }
         }
         // The handles of the zone stand over the info boxes, so that a corner taken under them can still be moved (V2).
         saveArea?.takeIf { mapsPage == MapsPage.SAVE_AREA }?.let { area ->
@@ -1523,7 +1495,11 @@ fun MapScreen(
                     onNightMode = { on -> vm.updateSettings { it.copy(maps = it.maps.copy(nightMode = on)) } },
                     maxHeight = menuMaxHeight,
                     displayPreview = { StackThumbnails(shownMaps, maps.thumbnails) },
-                    modifier = Modifier.align(Alignment.BottomStart).padding(bottom = bottomClearance + barDp + 12.dp),
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = bottomClearance + barDp + 12.dp)
+                            .onSizeChanged { barPanelHeight = it.height },
                 )
             }
         }
@@ -1553,7 +1529,11 @@ fun MapScreen(
                         onOpenAbout(HelpSection.TRACKS)
                     },
                     maxHeight = menuMaxHeight,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(bottom = bottomClearance + barDp + 12.dp),
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = bottomClearance + barDp + 12.dp)
+                            .onSizeChanged { barPanelHeight = it.height },
                 )
             }
         }
@@ -1580,8 +1560,13 @@ fun MapScreen(
                         showPositioning = false
                         onOpenAbout(HelpSection.POSITIONING)
                     },
+                    onCalibrate = { showAltitude = true },
                     maxHeight = menuMaxHeight,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(bottom = bottomClearance + barDp + 12.dp),
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = bottomClearance + barDp + 12.dp)
+                            .onSizeChanged { barPanelHeight = it.height },
                 )
             }
         }
@@ -1601,7 +1586,11 @@ fun MapScreen(
                     actions = rootActions,
                     currentZoom = mapping.toTileZoom(controller.liveCamera.zoom),
                     maxHeight = menuMaxHeight,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(bottom = bottomClearance + barDp + 12.dp),
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = bottomClearance + barDp + 12.dp)
+                            .onSizeChanged { barPanelHeight = it.height },
                 )
             }
         }
@@ -1671,6 +1660,35 @@ fun MapScreen(
                             WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
                         ).onSizeChanged { conditionsPanelHeight = it.height },
             )
+        }
+        // The messages stand over the panels (P29.5): « Enregistrement terminé » and its « Reprendre » stay in sight when
+        // the recording is stopped from the positioning panel; drawing, measure and print controls stay over them.
+        Box(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(12.dp)) {
+            SnackbarHost(
+                snackbar,
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = bottomClearance + if (chromeShown) barDp else 0.dp)
+                        .padding(bottom = if (barPanelOpen) with(density) { barPanelHeight.toDp() } + 12.dp else 0.dp),
+            ) { data ->
+                val visuals = data.visuals
+                if (visuals is RouteNoticeVisuals) {
+                    RouteNoticeSnackbar(
+                        visuals = visuals,
+                        onAllByHand = {
+                            data.dismiss()
+                            draw.setRouting(false)
+                        },
+                        onOpenBRouter = {
+                            data.dismiss()
+                            openBRouter(context)
+                        },
+                    )
+                } else {
+                    Snackbar(data)
+                }
+            }
         }
         if (drawUi.active && drawUi.chooseSegment == null) {
             DrawBar(
@@ -1866,11 +1884,23 @@ fun MapScreen(
             )
         }
         if (showRecordStart) {
+            // One dialog (P29.5): the activity (« Demander l'activité »), the name and the precision of the points.
             RecordStartDialog(
                 initialProfile = remember { recording.lastProfile() },
-                onStart = { name, profile ->
+                askActivity = appSettings.recorder.askActivity,
+                recentActivities = remember { recording.recentActivities() },
+                initialActivity =
+                    remember {
+                        recording.recentActivities().first().takeIf { recording.hasRecentActivity() }
+                    },
+                onStart = { name, profile, activity ->
                     showRecordStart = false
-                    startRecording(name, profile)
+                    activity?.let(recording::rememberActivity)
+                    val named =
+                        activity?.let {
+                            resources.getString(R.string.record_named, resources.getString(it.labelRes()), name)
+                        }
+                    startWithPermission(named ?: name, profile)
                 },
                 onDismiss = { showRecordStart = false },
             )

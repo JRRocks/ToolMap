@@ -11,6 +11,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -20,6 +21,7 @@ import fr.toolmap.R
 import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.Switch
+import fr.toolmap.ui.theme.toolMap
 
 /** How the map follows the position: the four choices of « La carte suit » (R4). */
 enum class FollowChoice {
@@ -60,6 +62,10 @@ data class PositionMenuState(
     /** Altitude of the last position, when known, and whether the barometer gave it. */
     val altitudeMeters: Double? = null,
     val altitudeFromBarometer: Boolean = false,
+    /** The satellites the receiver sees while it waits for a first position, when it says. */
+    val satellitesSeen: Int? = null,
+    /** The barometer has been calibrated on a known altitude. */
+    val barometerCalibrated: Boolean = false,
 )
 
 /*
@@ -68,7 +74,9 @@ data class PositionMenuState(
  * suit » with its four choices (free, following, compass, explorer), which were only reachable by a long press before
  * (R4: the long press stays, as a shortcut); then the recorder, the barometer on a phone that has one (P16.2, ADR-053)
  * and the sharing, each saying where it stands. The other settings are in « Réglages » only (P11.11, ADR-039). The rows
- * do not close the panel, but « Partage de position », which opens its screen; the « ? » opens the help.
+ * do not close the panel, but « Partage de position », which opens its screen; the « ? » opens the help. Since P29.5
+ * (« Sentier »): a help line says what the chosen way to follow does; the recorder takes the turquoise and the red dot
+ * of its chip, the time before the distance; « Caler l'altitude… » sits under the barometer.
  */
 @Composable
 fun PositionMenuPanel(
@@ -76,11 +84,12 @@ fun PositionMenuPanel(
     onFollow: (FollowChoice) -> Unit,
     onRealTime: (Boolean) -> Unit,
     onRecorder: (Boolean) -> Unit,
-    onBarometer: (Boolean) -> Unit = {},
     onShare: () -> Unit,
     onHelp: () -> Unit,
     maxHeight: Dp,
     modifier: Modifier = Modifier,
+    onBarometer: (Boolean) -> Unit = {},
+    onCalibrate: () -> Unit = {},
 ) {
     val fmt = LocalFormats.current
     BarPanel(
@@ -91,7 +100,7 @@ fun PositionMenuPanel(
         val quality =
             listOfNotNull(
                 state.accuracyMeters?.let { stringResource(R.string.position_accuracy, fmt.distance(it)) },
-                state.altitudeMeters?.let { fmt.elevation(it) },
+                state.altitudeMeters?.let { stringResource(R.string.position_altitude, fmt.elevation(it)) },
                 if (state.altitudeMeters != null) {
                     val baro = state.altitudeFromBarometer
                     val source = if (baro) R.string.position_source_baro else R.string.position_source_gps
@@ -104,9 +113,23 @@ fun PositionMenuPanel(
             title = stringResource(R.string.position_real_time),
             subtitle =
                 when {
-                    !state.realTime -> stringResource(R.string.position_off)
-                    quality.isEmpty() -> stringResource(R.string.position_waiting)
-                    else -> quality
+                    !state.realTime -> {
+                        stringResource(R.string.position_off)
+                    }
+
+                    quality.isEmpty() -> {
+                        val seen = state.satellitesSeen?.takeIf { it > 0 }
+                        val waiting = stringResource(R.string.position_waiting)
+                        if (seen == null) {
+                            waiting
+                        } else {
+                            waiting + " · " + pluralStringResource(R.plurals.position_satellites_seen, seen, seen)
+                        }
+                    }
+
+                    else -> {
+                        quality
+                    }
                 },
             leading = { StateIcon(MenuIcons.MyLocation, on = state.realTime) },
             trailing = { Switch(checked = state.realTime, onCheckedChange = null, modifier = Modifier.padding(8.dp)) },
@@ -114,10 +137,17 @@ fun PositionMenuPanel(
         )
         PanelCaption(stringResource(R.string.position_follow))
         FollowChoices(selected = state.follow, onSelect = onFollow)
+        Text(
+            stringResource(followHelp(state.follow)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 8.dp),
+        )
         MenuRow(
             stringResource(R.string.position_recorder),
             icon = MenuIcons.RecordTrack,
-            iconTint = if (state.recording) MaterialTheme.colorScheme.error else null,
+            // The turquoise of the recording chip, and its red dot before the figures (P29.5).
+            iconTint = if (state.recording) MaterialTheme.toolMap.accent else null,
             subtitle =
                 when {
                     !state.recording -> {
@@ -131,11 +161,12 @@ fun PositionMenuPanel(
                             } else {
                                 R.string.position_recorder_on
                             },
-                            fmt.distance(state.recordedMeters),
                             TrackFormat.duration(state.recordedMillis),
+                            fmt.distance(state.recordedMeters),
                         )
                     }
                 },
+            subtitleDot = if (state.recording && !state.recordingPaused) RECORDING_DOT else null,
             trailing = { PanelSwitch(checked = state.recording) },
         ) {
             onRecorder(!state.recording)
@@ -146,10 +177,31 @@ fun PositionMenuPanel(
             MenuRow(
                 stringResource(R.string.position_barometer),
                 icon = MenuIcons.Gauge,
-                subtitle = stringResource(R.string.position_barometer_sub),
+                subtitle =
+                    stringResource(
+                        if (state.barometer && state.barometerCalibrated) {
+                            R.string.position_barometer_calibrated
+                        } else {
+                            R.string.position_barometer_sub
+                        },
+                    ),
                 trailing = { PanelSwitch(checked = state.barometer) },
             ) {
                 onBarometer(!state.barometer)
+            }
+            // The calibration, found where the barometer is (it was only in the detail of the GPS chip); the sensor
+            // runs only with the position on.
+            if (state.barometer) {
+                MenuRow(
+                    stringResource(R.string.position_calibrate),
+                    enabled = state.realTime,
+                    subtitle =
+                        stringResource(
+                            if (state.realTime) R.string.position_calibrate_sub else R.string.position_calibrate_off,
+                        ),
+                    trailing = { PanelChevron() },
+                    onClick = onCalibrate,
+                )
             }
         }
         // Opens the sharing screen, where a group is created or joined: a chevron, not a switch that would not switch.
@@ -178,6 +230,19 @@ fun PositionMenuPanel(
         }
     }
 }
+
+/** What the chosen way to follow does, or that choosing one turns the position on. */
+private fun followHelp(choice: FollowChoice?): Int =
+    when (choice) {
+        null -> R.string.position_follow_help_off
+        FollowChoice.FREE -> R.string.position_follow_help_free
+        FollowChoice.FOLLOW -> R.string.position_follow_help_follow
+        FollowChoice.COMPASS -> R.string.position_follow_help_compass
+        FollowChoice.EXPLORER -> R.string.position_follow_help_explorer
+    }
+
+/** The red dot of a running recording, as on its chip of the map. */
+private val RECORDING_DOT = Color(0xFFE53935)
 
 /** « La carte suit »: four segments, none chosen while the position is off; choosing one turns it on. */
 @Composable

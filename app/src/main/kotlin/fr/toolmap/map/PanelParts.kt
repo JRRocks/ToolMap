@@ -1,6 +1,7 @@
 package fr.toolmap.map
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -298,6 +299,8 @@ internal fun MenuRow(
     /** What TalkBack says a tap does, and the state it reads, for a row that unfolds in place. */
     clickLabel: String? = null,
     stateText: String? = null,
+    /** A dot before the [subtitle] (the red dot of a running recording, P29.5). */
+    subtitleDot: Color? = null,
     onClick: () -> Unit,
 ) {
     val color =
@@ -338,16 +341,28 @@ internal fun MenuRow(
         Column(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 6.dp)) {
             Text(label, style = MaterialTheme.typography.bodyLarge, color = color)
             if (subtitle != null) {
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color =
-                        if (enabled) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = DISABLED_ALPHA)
-                        },
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (subtitleDot != null) {
+                        Box(
+                            Modifier
+                                .padding(end = 6.dp)
+                                .size(8.dp)
+                                .border(1.5.dp, Color.White, CircleShape)
+                                .padding(1.dp)
+                                .background(subtitleDot, CircleShape),
+                        )
+                    }
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color =
+                            if (enabled) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = DISABLED_ALPHA)
+                            },
+                    )
+                }
             }
         }
         if (switchOn != null) PanelSwitch(checked = switchOn) else trailing?.invoke()

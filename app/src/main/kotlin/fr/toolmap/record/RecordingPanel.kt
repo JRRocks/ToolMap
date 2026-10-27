@@ -45,14 +45,6 @@ import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
 
-private fun profileLabel(profile: RecorderProfile): Int =
-    when (profile) {
-        RecorderProfile.WALK -> R.string.record_profile_walk
-        RecorderProfile.BIKE -> R.string.record_profile_bike
-        RecorderProfile.PRECISE -> R.string.record_profile_precise
-        RecorderProfile.SAVER -> R.string.record_profile_saver
-    }
-
 /**
  * The running recording as a chip of the top right corner (P29.1, variant E « Pastilles »): a red dot, the time and
  * the distance, « En pause » with a pause sign while it waits. It turns to the error colour while the GPS is lost or
@@ -179,59 +171,6 @@ private fun Figure(
         Text(value, style = MaterialTheme.typography.titleMedium)
         Text(label, style = MaterialTheme.typography.labelSmall)
     }
-}
-
-/** Name and settings of a recording about to start. */
-@Composable
-fun RecordStartDialog(
-    initialProfile: RecorderProfile,
-    onStart: (name: String, profile: RecorderProfile) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val date = NameDates.format(System.currentTimeMillis())
-    var name by remember { mutableStateOf("") }
-    var profile by remember { mutableStateOf(initialProfile) }
-    val defaultName = stringResource(R.string.record_default_name, date)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.record_start_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.record_name_label)) },
-                    placeholder = { Text(defaultName) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(stringResource(R.string.record_profile_title), style = MaterialTheme.typography.titleSmall)
-                Column(Modifier.selectableGroup()) {
-                    RecorderProfile.entries.forEach { option ->
-                        Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .selectable(selected = option == profile, role = Role.RadioButton) {
-                                        profile =
-                                            option
-                                    },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = option == profile, onClick = null)
-                            Text(stringResource(profileLabel(option)), modifier = Modifier.padding(start = 8.dp))
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onStart(name.ifBlank { defaultName }, profile) }) {
-                Text(stringResource(R.string.record_start))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
 }
 
 /** Offered when the process died during a recording. */
