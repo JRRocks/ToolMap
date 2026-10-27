@@ -185,36 +185,34 @@ Depuis P29.2 (2026-10-27, variante B · Portée, ADR-075), le panneau monte depu
 
 ## 5. Panneau « Cartes et calques » (bouton Cartes)
 
-### 5.1 Racine (`maps/MapsRootPanel.kt`)
+### 5.1 Panneau (`maps/MapsRootPanel.kt`, lignes de la pile : `maps/StackRows.kt`)
 
-Depuis P14.10, un panneau posé au-dessus de la barre comme les trois autres (plus une feuille du bas) ; il reste ouvert au retour de Cartes disponibles ; Retour ou un appui hors du panneau le ferme.
+Depuis P29.3 (2026-10-27, variante C · Strates, ADR-076), la pile est le contenu du panneau : plus de feuille « Cartes affichées ». Le panneau est posé au-dessus de la barre ; il reste ouvert au retour de Cartes disponibles et se rouvre au retour de Téléchargements et de Stockage (P18.7) ; Retour ou un appui hors du panneau le ferme.
 
-| ID | Ligne | Statut |
+| ID | Élément | Statut |
 |---|---|---|
-| C2 | Bloc « Cartes affichées » : noms de la pile, « 2 cartes · ordre, opacité, couleurs », vignettes superposées → feuille §5.2 | ✅ (P14.10) |
-| C1 | Cartes disponibles → AVAILABLE | ✅ |
-| C3 | Sélectionner et enregistrer une zone → mode T5 | ✅ |
-| C4 | « Cartes et ensembles favoris » : rangée de tuiles qui défile ; appui = appliquer ; noms sur deux lignes sans couper les mots | ✅ (P14.10) |
-| C5 | Favoris : appui long = supprimer | ✅ supprime aussi un favori fourni (masqué, `hidden-builtins.txt`), rétabli par Options ▸ « Rétablir les favoris fournis (n supprimé(s)) » ; favoris fournis, seuls depuis ADR-069 : « Rando Multi-Zoom » (cinq cartes empilées avec leurs plages de zoom) et « Sortie Ski » (IGN SCAN 25, SnowBase Map au-dessus de 1550 m, puis à partir du zoom 12 les pistes, les traces Yeti et les pentes IGN à 30 %) (ADR-052, ADR-063, ADR-069). Reste : ni renommer, ni réordonner, ni mettre à jour un favori `[F2]` |
-| C6 | Tuile « + Enregistrer l'affichage » en tête des favoris (remplace le signet) | ✅ (P14.10) |
-| C7 | Mode hors ligne (« Tuiles stockées seulement ») : interrupteur visible, plus dans un menu Options | ✅ (P14.10) |
-| C8 | Puce Couverture (filtre) | ✅ (P14.10) |
-| C9 | Puce Importer .aqx | ✅ (P14.10) |
-| C10 | Puce Téléchargements → DOWNLOADS ; le retour rouvre ce panneau (P18.7) | ✅ (P14.10) |
-| C11 | Puce Stockage → STORAGE, le retour rouvre ce panneau (P18.7) ; puce « Rétablir les favoris fournis » quand il y en a de supprimés | ✅ (P14.10) |
+| C2 | Bandeau : « Cartes et calques », puis le favori appliqué (ou la seule carte) et le nombre de cartes, et « N dessinée(s) au zoom Z » ; icône « Enregistrer l'affichage » (dialogue « Nouveau favori ») ; « ? » | ✅ (P29.3) |
+| C4 | Favoris en puces (vignette ronde de la carte de fond du dessus, nom ; le favori appliqué est plein) ; appui = appliquer, le panneau reste ouvert | ✅ (P29.3) |
+| C5 | Appui long sur une puce : Appliquer · Supprimer ; suppression immédiate, snackbar « Favori supprimé : … » avec « Annuler » ; puce « Rétablir (n) » quand des favoris fournis ont été supprimés | ✅ (P29.3) |
+| C2b | « Cartes affichées · du dessus vers le dessous », puis une ligne par calque (§5.2) ; pile vide : « Aucune carte affichée… » ; bouton « Enregistrer comme favori… » quand la pile ne correspond à aucun favori | ✅ (P29.3) |
+| C7 | « Hors ligne » (interrupteur, lu « Mode hors ligne, tuiles stockées seulement ») | ✅ (P29.3) |
+| C8 | « Couverture » (interrupteur de même forme) | ✅ (P29.3) |
+| C1 | Tuile Cartes disponibles → AVAILABLE | ✅ |
+| C3 | Tuile Enregistrer une zone → mode T5 | ✅ |
+| C10 | Tuile Téléchargements → DOWNLOADS ; le retour rouvre ce panneau (P18.7) | ✅ |
+| C11 | Tuile Stockage → STORAGE ; le retour rouvre ce panneau (P18.7) | ✅ |
+| C9 | ~~Puce Importer .aqx~~ : dans Cartes disponibles ▸ Ajouter une carte (ADR-039, ADR-076) | ✅ retirée (P29.3) |
 | C12 | « ? » | ABOUT à la section « Cartes et calques », surlignée 1,6 s | ✅ `[R5]` (session 49) |
 
-### 5.2 Cartes affichées : menu ⋮ d'un calque (`maps/DisplayedMapsSheet.kt`)
+### 5.2 Ligne d'un calque (`maps/StackRows.kt`)
 
 | Entrée | Statut |
 |---|---|
-| Ligne d'un calque : nom, puis « N % d'opacité » ; pour un calque limité à des zooms : « Visible aux zooms 12 à 17 » (« Visible au zoom 19 » pour un seul), « · inactif à ce zoom » hors de sa plage, l'opacité seulement sous 100 % (ADR-063) ; avec une bande d'altitude : « Au-dessus de 1500 m », « Au-dessus de 1500 m · zooms 8 à 16 » (ET), « Au-dessus de 1500 m ou zooms 8 à 16 » (OU) | ✅ (P20) |
-| Œil (afficher / masquer), goutte (opacité) | ✅ |
-| Détails | ✅ |
-| Forcer la mise à jour (session) | ✅ |
-| Monter · Descendre · Ne plus afficher · Ne plus afficher les autres | ✅ (pas de glisser-déposer) |
-| Opacité · Modifier les couleurs · Couleurs inversées · Conditions d'affichage (remplace « Plage de zoom », P20) | ✅ |
-| **Conditions d'affichage** (`maps/DisplayConditionsPanel.kt`, `MapsPage.CONDITIONS`) : panneau non modal en bas de la carte, les commandes du bas remontent ; en-tête, ✕, nom de la carte ; Zoom : résumé, « · inactif à ce zoom », Réinitialiser, barre 0-20 et repère du zoom affiché ; ET / OU (boutons segmentés) et phrase de ce que la carte montre ; Altitude : résumé, Réinitialiser, barre 0-4800 m par 50 m (bout de barre = sans limite, « 4800 m et + »), repère « centre N m » ; les barres s'appliquent au relâcher, l'ancien dessin reste jusqu'au nouveau ; Retour ou ✕ le ferment (spec `elevation-maps.md` §3, ADR-068) | ✅ (P20, session 50) |
+| Poignée (glisser pour changer l'ordre ; TalkBack : actions Monter, Descendre) · vignette (cerclée de turquoise si le calque est dessiné au zoom de la carte, atténuée sinon) · nom (graisse 500 s'il est dessiné) · ligne d'état : « N % d'opacité » ; pour un calque limité : « Visible aux zooms 12 à 17 », « · inactif à ce zoom », bande d'altitude, l'opacité seulement sous 100 % (ADR-063, P20) · flèche · œil | ✅ (P29.3) |
+| Toucher la ligne : elle se déplie sur place (une à la fois) : « Opacité : N % » (curseur), puis Monter · Descendre · Conditions · Couleurs · Plus | ✅ (P29.3) |
+| Couleurs : contraste, luminosité, saturation, couleurs inversées, « Réinitialiser les couleurs », dépliés sous les commandes | ✅ (P29.3) |
+| Plus : Détails · Forcer la mise à jour des données locales (cette session) · Ne plus afficher · Ne plus afficher les autres | ✅ (P29.3) |
+| **Conditions d'affichage** (`maps/DisplayConditionsPanel.kt`, `MapsPage.CONDITIONS`) : panneau non modal en bas de la carte, la barre remonte au-dessus ; bandeau pétrole (titre, nom de la carte, ✕) ; Zoom et Altitude en une ligne chacun (libellé et valeur, barre, Réinitialiser en icône) ; « 0 m · centre N m · 4800 m et + » ; ET / OU et sa phrase seulement si les deux conditions sont posées ; ✕ et Retour ramènent au panneau, la ligne toujours dépliée | ✅ (P29.3, compact) |
 | Mode de fusion, teinte (panneau « Couleurs et fusion ») | ⬜ P26 (`docs/plan-fonctions-2026-10.md`) |
 
 ### 5.3 Écran « Cartes disponibles » (`maps/AvailableMapsScreen.kt`)

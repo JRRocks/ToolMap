@@ -323,7 +323,6 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 MapScreen(
                                     vm = viewModel,
-                                    onImportClick = { picker.launch(arrayOf("*/*")) },
                                     onOpenDiagnostics = { open(Screen.DIAGNOSTICS) },
                                     onOpenDownloads = {
                                         downloadViewModel.clearPending()

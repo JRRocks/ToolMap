@@ -985,3 +985,42 @@
   gants ; l'ordre de lecture est inversé (le rare se lit en premier sous le bandeau) et s'éloigne d'AlpineQuest, ce que
   l'utilisateur a accepté en choisissant B. En mode gants, la partie qui défile a peu de place.
 - **Alternatives rejetées** : variantes A Cairn, C Damier, D Soufflet, E Versants de l'aperçu.
+
+## ADR-076 — « Cartes et calques » en « Strates » : la pile dans le panneau, lignes dépliables, glisser pour réordonner
+- **Date / statut** : 2026-10-27 — Accepté (P29.3 ; aperçu `docs/previews/design-03-cartes.html`, variante C · Strates,
+  choisie par l'utilisateur le 2026-10-27). **Revient** sur deux points écartés en P14
+  (`docs/specs/ui-reorganization.md` : pas de glisser-déposer des calques) et remplace la feuille « Cartes affichées »
+  (P11.2, P14.10) ; complète ADR-060 (le panneau Cartes reste le seul endroit où l'on applique, enregistre et supprime
+  un favori) et ADR-068 (le panneau « Conditions d'affichage » garde sa fonction, en version compacte).
+- **Contexte** : audit de P29.3 : une même tâche passait par trois contenants (panneau, feuille modale, panneau des
+  conditions), trois en-têtes et deux « ? » ; la feuille modale voilait la carte pendant un réglage visuel ; le menu ⋮
+  d'un calque alignait 10 commandes ; fermer les conditions ramenait à la carte nue ; monter un calque de trois rangs
+  demandait 6 touchers ; les favoris sans vignette montraient des lettres sur un pastel.
+- **Décision** :
+  1. La feuille `DisplayedMapsSheet` et `MapsPage.DISPLAYED` disparaissent : la pile est le contenu du panneau, du
+     dessus vers le dessous, une ligne par calque (poignée, vignette, nom, état, flèche, œil).
+  2. Toucher une ligne la déplie sur place (une à la fois) : opacité, Monter · Descendre · Conditions · Couleurs ·
+     Plus ; Couleurs se déplie en dessous (contraste, luminosité, saturation, couleurs inversées, réinitialiser) ; Plus
+     garde Détails, Forcer la mise à jour (cette session), Ne plus afficher, Ne plus afficher les autres. « Opacité de
+     la carte » et « Couleurs inversées » du ⋮, doublons, sont retirés.
+  3. La poignée se fait glisser pour réordonner (le calque change de place à chaque demi-ligne) ; TalkBack garde
+     Monter et Descendre en actions de la poignée.
+  4. Bandeau : favori appliqué (ou la seule carte), nombre de cartes, et combien sont dessinées au zoom de la carte
+     (`LayerElevation.isDrawnAt`) ; la vignette d'un calque dessiné est cerclée de turquoise, celle d'un calque
+     inactif atténuée. Sans favori et avec plusieurs cartes, le bandeau dit seulement leur nombre : pas de « Pile
+     personnalisée », comme le menu principal depuis P29.2 (ADR-075).
+  5. Favoris en puces (vignette ronde de la carte de fond du dessus) ; appliquer laisse le panneau ouvert ; appui long :
+     Appliquer · Supprimer ; la suppression se fait aussitôt, avec « Annuler » dans la snackbar
+     (`WorkspaceStore.unhide`, `MapViewModel.restoreWorkspace`) ; « Rétablir (n) » en dernière puce.
+  6. Pied : « Hors ligne » et « Couverture », deux interrupteurs de même forme ; quatre tuiles Cartes disponibles,
+     Enregistrer une zone, Téléchargements, Stockage. « Importer .aqx » quitte le panneau (il reste dans Cartes
+     disponibles ▸ Ajouter une carte, ADR-039).
+  7. Conditions compactes : bandeau pétrole, barres en ligne avec leur libellé, Réinitialiser en icône, ET / OU et sa
+     phrase seulement si zoom et altitude sont posés ; ✕ et Retour ramènent au panneau, la ligne du calque toujours
+     dépliée (`MapsViewModel.expandedLayer`). La phrase « La carte se redessine… » passe dans l'aide.
+  8. Les vignettes sans image montrent l'icône de carte sur la couleur des tuiles du thème, plus d'initiales.
+- **Conséquences** : un toucher de moins pour tout réglage de calque ; la carte reste nette pendant les réglages ;
+  l'organisation s'éloigne d'AlpineQuest (plus de « Cartes affichées » à part, appliquer un favori ne ferme plus le
+  panneau), ce que l'utilisateur a accepté en choisissant C ; le glisser-déposer est du code maison (pas de liste
+  paresseuse : la pile est courte).
+- **Alternatives rejetées** : variantes A Rangement, B Planche, D Classeur, E Étagement de l'aperçu.

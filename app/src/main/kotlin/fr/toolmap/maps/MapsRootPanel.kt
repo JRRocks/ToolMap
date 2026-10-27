@@ -2,31 +2,35 @@ package fr.toolmap.maps
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,47 +39,54 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
+import fr.toolmap.core.layers.LayerElevation
 import fr.toolmap.core.layers.Workspace
+import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.state.WorkState
 import fr.toolmap.map.BarPanel
 import fr.toolmap.map.MapViewModel
 import fr.toolmap.map.MenuIcons
-import fr.toolmap.map.MenuRow
 import fr.toolmap.map.PANEL_INSET
+import fr.toolmap.map.PanelBand
 import fr.toolmap.map.PanelCaption
-import fr.toolmap.map.PanelChevron
-import fr.toolmap.map.PanelSwitch
-import fr.toolmap.map.StateCard
+import fr.toolmap.settings.SettingsIcons
+import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
-import fr.toolmap.map.PanelHeader as BarPanelHeader
+import fr.toolmap.ui.theme.toolMap
+import kotlin.math.floor
 
 /** What the root panel can ask the map screen to do (screens it cannot open itself). */
 class MapsRootActions(
     val onOpenAvailable: () -> Unit,
     val onSaveArea: () -> Unit,
-    val onImport: () -> Unit,
     val onOpenDownloads: () -> Unit,
     val onOpenStorage: () -> Unit,
     /** The « ? »: the help page at its « Cartes et calques » section (R5, F11). */
     val onHelp: () -> Unit = {},
+    /** A favourite was just deleted: the screen offers « Annuler » for a while (P29.3). */
+    val onFavoriteDeleted: (Workspace) -> Unit = {},
 )
 
-/**
- * The « Cartes et calques » panel (P14.10), above the bar like the other panels of the bar: a tinted block with the
- * maps shown (it opens « Cartes affichées »), the catalogue and the saving of a zone, the favourites (the first tile
- * saves the display as a new one), the offline mode, and the less used options as chips.
+/*
+ * « Cartes et calques » since P29.3 (« Strates », docs/previews/design-03-cartes.html, variant C): the layer stack is
+ * the panel itself. The band says what is shown and how many maps are drawn at the zoom of the map; the favourites are
+ * a row of chips; each layer is a line (drag handle, thumbnail, name and state, eye) that unfolds in place with its
+ * opacity, its order, its conditions, its colours and the rest of its commands; at the foot, the offline mode and the
+ * coverage as two switches, then the four ways to the catalogue, the zone, the downloads and the storage.
  */
 @Composable
 fun MapsRootPanel(
@@ -83,7 +94,8 @@ fun MapsRootPanel(
     maps: MapsViewModel,
     vm: MapViewModel,
     actions: MapsRootActions,
-    onDismiss: () -> Unit,
+    /** The zoom of the tiles on screen, which says which layers are drawn now. */
+    currentZoom: Double,
     maxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -92,89 +104,72 @@ fun MapsRootPanel(
     val offline by vm.offline.collectAsStateWithLifecycle()
     val coverage by vm.coverage.collectAsStateWithLifecycle()
     val sources by maps.sources.collectAsStateWithLifecycle()
+    val expanded by maps.expandedLayer.collectAsStateWithLifecycle()
     var showSave by remember { mutableStateOf(false) }
-    var toDelete by remember { mutableStateOf<Workspace?>(null) }
-    val sourceName = { id: String -> sources.firstOrNull { it.id == id }?.name ?: id }
-    val shown = state.stack.topToBottom().map { it.sourceId to sourceName(it.sourceId) }
+    val byId = remember(sources) { sources.associateBy { it.id } }
+    val layers = state.stack.topToBottom()
+    val applied = favorites.firstOrNull { it.matches(state.stack) }
 
     BarPanel(
         maxHeight = maxHeight,
         modifier = modifier,
-        header = { BarPanelHeader(stringResource(R.string.maps_title), onHelp = actions.onHelp) },
+        header = {
+            MapsBand(
+                favorite = applied?.name,
+                single = layers.singleOrNull()?.let { byId[it.sourceId]?.name },
+                count = layers.size,
+                drawn = layers.count { it.visible && it.opacity > 0f && LayerElevation.isDrawnAt(it, currentZoom) },
+                zoom = floor(currentZoom).toInt(),
+                onSave = { showSave = true },
+                onHelp = actions.onHelp,
+            )
+        },
     ) {
-        StateCard(
-            overline = stringResource(R.string.maps_displayed),
-            title = shown.joinToString(" + ") { it.second }.ifEmpty { stringResource(R.string.menu_display_none) },
-            subtitle = pluralStringResource(R.plurals.maps_displayed_count, shown.size, shown.size),
-            leading = { StackThumbnails(shown, maps.thumbnails) },
-            trailing = { PanelChevron() },
-            onClick = { maps.open(MapsPage.DISPLAYED) },
+        FavoriteChips(
+            favorites = favorites,
+            applied = applied,
+            hiddenBuiltins = hiddenBuiltins.size,
+            byId = byId,
+            thumbnails = maps.thumbnails,
+            onApply = vm::applyWorkspace,
+            onDelete = { favorite ->
+                vm.deleteWorkspace(favorite.id)
+                actions.onFavoriteDeleted(favorite)
+            },
+            onRestore = vm::restoreBuiltinWorkspaces,
         )
-        MenuRow(stringResource(R.string.maps_available), icon = MapsIcons.Map, trailing = { PanelChevron() }) {
-            actions.onOpenAvailable()
+        PanelCaption(stringResource(R.string.maps_stack_caption))
+        if (layers.isEmpty()) {
+            Text(
+                stringResource(R.string.maps_displayed_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
         }
-        MenuRow(stringResource(R.string.maps_save_area), icon = MapsIcons.CropFree, trailing = { PanelChevron() }) {
-            actions.onSaveArea()
-        }
-        PanelCaption(stringResource(R.string.maps_favorites))
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = PANEL_INSET),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            item(key = "add") { AddFavoriteTile(onClick = { showSave = true }) }
-            items(favorites, key = { it.id }) { favorite ->
-                FavoriteTile(
-                    favorite = favorite,
-                    selected = favorite.matches(state.stack),
-                    sourceName = sourceName,
-                    thumbnails = maps.thumbnails,
-                    onApply = {
-                        vm.applyWorkspace(favorite)
-                        onDismiss()
-                    },
-                    onLongPress = { toDelete = favorite },
-                )
+        StackRows(
+            layers = layers,
+            byId = byId,
+            maps = maps,
+            vm = vm,
+            currentZoom = currentZoom,
+            expanded = expanded,
+            onExpand = maps::setExpanded,
+        )
+        if (layers.isNotEmpty() && applied == null) {
+            // The stack matches no favourite: the way to keep it, next to it.
+            TextButton(onClick = { showSave = true }, modifier = Modifier.padding(start = 8.dp)) {
+                Icon(MapsIcons.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.maps_save_hint_button), modifier = Modifier.padding(start = 8.dp))
             }
         }
-        MenuRow(
-            stringResource(R.string.maps_option_offline),
-            icon = MenuIcons.CloudOff,
-            subtitle = stringResource(R.string.maps_option_offline_sub),
-            trailing = { PanelSwitch(checked = offline) },
-        ) {
-            vm.setOffline(!offline)
-        }
-        FlowRow(
-            Modifier.fillMaxWidth().padding(horizontal = PANEL_INSET),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            FilterChip(
-                selected = coverage,
-                onClick = { vm.setCoverage(!coverage) },
-                label = { Text(stringResource(R.string.maps_chip_coverage)) },
-                leadingIcon =
-                    if (coverage) {
-                        { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                    } else {
-                        null
-                    },
-            )
-            AssistChip(
-                onClick = actions.onImport,
-                label = { Text(stringResource(R.string.maps_chip_import)) },
-                leadingIcon = {
-                    Icon(MenuIcons.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
-                },
-            )
-            AssistChip(onClick = actions.onOpenDownloads, label = { Text(stringResource(R.string.menu_downloads)) })
-            AssistChip(onClick = actions.onOpenStorage, label = { Text(stringResource(R.string.maps_chip_storage)) })
-            if (hiddenBuiltins.isNotEmpty()) {
-                AssistChip(
-                    onClick = vm::restoreBuiltinWorkspaces,
-                    label = { Text(stringResource(R.string.maps_favorite_restore, hiddenBuiltins.size)) },
-                )
-            }
-        }
+        SwitchCells(
+            offline = offline,
+            coverage = coverage,
+            onOffline = { vm.setOffline(!offline) },
+            onCoverage = { vm.setCoverage(!coverage) },
+        )
+        NavTiles(actions)
     }
     if (showSave) {
         SaveFavoriteDialog(
@@ -186,15 +181,273 @@ fun MapsRootPanel(
             onDismiss = { showSave = false },
         )
     }
-    toDelete?.let { favorite ->
-        DeleteFavoriteDialog(
-            favorite = favorite,
-            onDelete = {
-                vm.deleteWorkspace(favorite.id)
-                toDelete = null
-            },
-            onDismiss = { toDelete = null },
+}
+
+/**
+ * The band of the panel: its title, then what is shown (the favourite applied, else the only map, with the number of
+ * maps) and how many of them the map draws at its zoom; « Enregistrer l'affichage » and the « ? » at the end.
+ */
+@Composable
+private fun MapsBand(
+    favorite: String?,
+    single: String?,
+    count: Int,
+    drawn: Int,
+    zoom: Int,
+    onSave: () -> Unit,
+    onHelp: () -> Unit,
+) {
+    val maps = pluralStringResource(R.plurals.maps_band_count, count, count)
+    val subtitle =
+        if (count == 0) {
+            stringResource(R.string.maps_band_empty)
+        } else {
+            val what = (favorite ?: single)?.let { "$it · $maps" } ?: maps
+            val now =
+                if (drawn == 0) {
+                    stringResource(R.string.maps_band_none_drawn, zoom)
+                } else {
+                    pluralStringResource(R.plurals.maps_band_drawn, drawn, drawn, zoom)
+                }
+            "$what\n$now"
+        }
+    PanelBand(title = stringResource(R.string.maps_title), subtitle = subtitle, subtitleLines = 2) {
+        IconButton(onClick = onSave) {
+            Icon(MapsIcons.BookmarkAdd, contentDescription = stringResource(R.string.maps_favorite_add_tile))
+        }
+        IconButton(onClick = onHelp) {
+            Icon(MenuIcons.Help, contentDescription = stringResource(R.string.menu_help))
+        }
+    }
+}
+
+/**
+ * The favourites as chips: the round picture of the top base map of each, its name; the one applied is filled. A tap
+ * applies it (the panel stays open); a long press offers « Appliquer » and « Supprimer ». « Rétablir (n) » last brings
+ * back the provided ones deleted.
+ */
+@Composable
+private fun FavoriteChips(
+    favorites: List<Workspace>,
+    applied: Workspace?,
+    hiddenBuiltins: Int,
+    byId: Map<String, TileSource>,
+    thumbnails: MapThumbnails,
+    onApply: (Workspace) -> Unit,
+    onDelete: (Workspace) -> Unit,
+    onRestore: () -> Unit,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = PANEL_INSET),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 2.dp),
+    ) {
+        items(favorites, key = { it.id }) { favorite ->
+            // The top map that is not an overlay: what the favourite shows first.
+            val cover =
+                favorite.layers.asReversed().firstOrNull { byId[it.sourceId]?.isLayer == false }?.sourceId
+                    ?: favorite.layers.lastOrNull()?.sourceId
+            FavoriteChip(
+                favorite = favorite,
+                selected = favorite.id == applied?.id,
+                cover = cover,
+                coverName = cover?.let { byId[it]?.name } ?: favorite.name,
+                thumbnails = thumbnails,
+                onApply = { onApply(favorite) },
+                onDelete = { onDelete(favorite) },
+            )
+        }
+        if (hiddenBuiltins > 0) {
+            item(key = "restore") {
+                ChipFrame(selected = false, onClick = onRestore) {
+                    Icon(
+                        MapsIcons.RestartAlt,
+                        contentDescription = null,
+                        modifier = Modifier.padding(start = 4.dp).size(18.dp),
+                    )
+                    Text(
+                        stringResource(R.string.maps_favorite_restore_short, hiddenBuiltins),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoriteChip(
+    favorite: Workspace,
+    selected: Boolean,
+    cover: String?,
+    coverName: String,
+    thumbnails: MapThumbnails,
+    onApply: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        ChipFrame(selected = selected, onClick = onApply, onLongClick = { menu = true }) {
+            MapThumbnail(cover.orEmpty(), coverName, thumbnails, size = 24.dp, shape = CircleShape)
+            Text(favorite.name, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.maps_favorite_apply)) },
+                onClick = {
+                    menu = false
+                    onApply()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.layers_remove)) },
+                onClick = {
+                    menu = false
+                    onDelete()
+                },
+            )
+        }
+    }
+}
+
+/** A chip of 32 dp (a 48 dp touch target): filled with the secondary container when selected, outlined otherwise. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ChipFrame(
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = if (selected) scheme.secondaryContainer else MaterialTheme.toolMap.panel,
+        contentColor = if (selected) scheme.onSecondaryContainer else scheme.onSurface,
+        border = if (selected) null else BorderStroke(1.dp, scheme.outline),
+        modifier =
+            Modifier
+                .minimumInteractiveComponentSize()
+                .height(32.dp)
+                .semantics { this.selected = selected }
+                .clip(MaterialTheme.shapes.small)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                    onLongClickLabel = onLongClick?.let { stringResource(R.string.maps_favorite_actions) },
+                ),
+    ) {
+        Row(
+            Modifier.padding(start = 4.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            content = content,
         )
+    }
+}
+
+/** « Hors ligne » and « Couverture », two switches of the same kind side by side. */
+@Composable
+private fun SwitchCells(
+    offline: Boolean,
+    coverage: Boolean,
+    onOffline: () -> Unit,
+    onCoverage: () -> Unit,
+) {
+    val offlineSpoken =
+        stringResource(R.string.maps_option_offline) + ", " + stringResource(R.string.maps_option_offline_sub)
+    Row(
+        Modifier.fillMaxWidth().padding(start = PANEL_INSET, end = PANEL_INSET, top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        SwitchCell(stringResource(R.string.maps_offline_short), offline, onOffline, spoken = offlineSpoken)
+        SwitchCell(stringResource(R.string.maps_chip_coverage), coverage, onCoverage)
+    }
+}
+
+@Composable
+private fun RowScope.SwitchCell(
+    label: String,
+    on: Boolean,
+    onToggle: () -> Unit,
+    spoken: String? = null,
+) {
+    Row(
+        Modifier
+            .weight(1f)
+            .heightIn(min = 56.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.toolMap.tile)
+            .toggleable(value = on, role = Role.Switch, onValueChange = { onToggle() })
+            .then(if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier)
+            .padding(start = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.toolMap.onTile,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(checked = on, onCheckedChange = null, modifier = Modifier.offset(x = (-2).dp))
+    }
+}
+
+/** The four ways out of the panel, in a 2 × 2 grid: icon and name on one line (four do not fit in a row). */
+@Composable
+private fun NavTiles(actions: MapsRootActions) {
+    val rows =
+        listOf(
+            listOf(
+                Triple(MapsIcons.Map, R.string.maps_available, actions.onOpenAvailable),
+                Triple(MapsIcons.CropFree, R.string.maps_tile_save_area, actions.onSaveArea),
+            ),
+            listOf(
+                Triple(MapsIcons.Download, R.string.menu_downloads, actions.onOpenDownloads),
+                Triple(SettingsIcons.Storage, R.string.maps_chip_storage, actions.onOpenStorage),
+            ),
+        )
+    rows.forEach { row ->
+        Row(
+            Modifier.fillMaxWidth().padding(start = PANEL_INSET, end = PANEL_INSET, top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            row.forEach { (icon, label, onClick) -> NavTile(icon, stringResource(label), onClick) }
+        }
+    }
+    Spacer(Modifier.height(4.dp))
+}
+
+@Composable
+private fun RowScope.NavTile(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.toolMap.tile,
+        contentColor = MaterialTheme.toolMap.onTile,
+        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+    ) {
+        Row(
+            Modifier.padding(start = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            // 13 sp, so that « Téléchargements » holds on one line in half the width of a phone.
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 17.sp),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -220,93 +473,6 @@ fun StackThumbnails(
                 thumbnails = thumbnails,
                 size = THUMBNAIL,
                 modifier = Modifier.offset(x = THUMBNAIL_STEP * (shown.size - 1 - index)),
-            )
-        }
-    }
-}
-
-/** The first tile of the favourites: a dashed frame with a « + », which saves what is shown as a new favourite. */
-@Composable
-private fun AddFavoriteTile(onClick: () -> Unit) {
-    val outline = MaterialTheme.colorScheme.outline
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier =
-            Modifier.width(FAVORITE_WIDTH).drawBehind {
-                drawRoundRect(
-                    color = outline,
-                    cornerRadius = CornerRadius(12.dp.toPx()),
-                    style =
-                        Stroke(
-                            width = 1.5.dp.toPx(),
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())),
-                        ),
-                )
-            },
-    ) {
-        Column(
-            modifier = Modifier.padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            }
-            Text(
-                stringResource(R.string.maps_favorite_add_tile),
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 2,
-                minLines = 2,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-/** A favorite: the picture of its base map, its name; a tap shows it, a long press offers to delete it. */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun FavoriteTile(
-    favorite: Workspace,
-    selected: Boolean,
-    sourceName: (String) -> String,
-    thumbnails: MapThumbnails,
-    onApply: () -> Unit,
-    onLongPress: () -> Unit,
-) {
-    val cover = favorite.layers.firstOrNull()?.sourceId
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color =
-            if (selected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerHighest
-            },
-        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-        modifier = Modifier.width(FAVORITE_WIDTH).combinedClickable(onClick = onApply, onLongClick = onLongPress),
-    ) {
-        Column(
-            modifier = Modifier.padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            MapThumbnail(
-                sourceId = cover.orEmpty(),
-                name = cover?.let(sourceName) ?: favorite.name,
-                thumbnails = thumbnails,
-                size = 64.dp,
-            )
-            // Two lines, broken between words: the tile is wide enough for the longest word of the names given.
-            Text(
-                favorite.name,
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 2,
-                minLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
             )
         }
     }
@@ -344,30 +510,6 @@ private fun SaveFavoriteDialog(
     )
 }
 
-@Composable
-private fun DeleteFavoriteDialog(
-    favorite: Workspace,
-    onDelete: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.maps_favorite_delete_title)) },
-        text = {
-            Text(
-                stringResource(
-                    if (favorite.isBuiltin) R.string.maps_favorite_builtin else R.string.maps_favorite_delete_text,
-                    favorite.name,
-                ),
-            )
-        },
-        confirmButton = { TextButton(onClick = onDelete) { Text(stringResource(R.string.layers_remove)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
-}
-
-/** Wide enough for « OpenStreetMap » and « Multi-Zoom » on one line each, so that no word is cut. */
-private val FAVORITE_WIDTH = 108.dp
 private val THUMBNAIL = 40.dp
 private val THUMBNAIL_STEP = 14.dp
 private const val MAX_THUMBNAILS = 3

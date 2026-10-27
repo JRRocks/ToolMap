@@ -39,8 +39,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
@@ -137,7 +139,6 @@ import fr.toolmap.draw.SegmentChooser
 import fr.toolmap.draw.installBRouter
 import fr.toolmap.draw.openBRouter
 import fr.toolmap.maps.DisplayConditionsPanel
-import fr.toolmap.maps.DisplayedMapsSheet
 import fr.toolmap.maps.HelpDialog
 import fr.toolmap.maps.MapsIcons
 import fr.toolmap.maps.MapsPage
@@ -198,7 +199,6 @@ import kotlin.math.roundToInt
 @Composable
 fun MapScreen(
     vm: MapViewModel,
-    onImportClick: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenStorage: () -> Unit,
@@ -571,7 +571,9 @@ fun MapScreen(
     BackHandler(enabled = printUi.active) {
         if (printUi.stage == PrintStage.CONFIRM) print.backToFrame() else print.close()
     }
-    BackHandler(enabled = mapsPage == MapsPage.SAVE_AREA || mapsPage == MapsPage.CONDITIONS) { maps.close() }
+    BackHandler(enabled = mapsPage == MapsPage.SAVE_AREA) { maps.close() }
+    // Back from the conditions comes back to the maps panel, the line of the layer still unfolded (P29.3).
+    BackHandler(enabled = mapsPage == MapsPage.CONDITIONS) { maps.closeConditions() }
     SideEffect {
         maps.thumbnails.around =
             state.camera.let { LonLatZoom(it.lon, it.lat, mapping.toTileZoom(it.zoom).toInt().coerceAtLeast(0)) }
@@ -1174,15 +1176,22 @@ fun MapScreen(
                         maps.openSaveArea(visible, tileZoom, vm.state.value.stack)
                     }
                 },
-                onImport = {
-                    maps.close()
-                    onImportClick()
-                },
                 // Left open behind the full screen (hidden while it covers the map): back from Downloads or
                 // Storage returns to this panel, where the user came from.
                 onOpenDownloads = onOpenDownloads,
                 onOpenStorage = onOpenStorage,
                 onHelp = { onOpenAbout(HelpSection.MAPS) },
+                onFavoriteDeleted = { favorite ->
+                    scope.launch {
+                        val answer =
+                            snackbar.showSnackbar(
+                                resources.getString(R.string.maps_favorite_deleted, favorite.name),
+                                actionLabel = resources.getString(R.string.action_cancel),
+                                duration = SnackbarDuration.Short,
+                            )
+                        if (answer == SnackbarResult.ActionPerformed) vm.restoreWorkspace(favorite)
+                    }
+                },
             )
         }
     // « Sélectionner une zone » of an empty « Cartes hors ligne » screen: start the selection once the map is laid out.
@@ -1570,7 +1579,7 @@ fun MapScreen(
                     maps = maps,
                     vm = vm,
                     actions = rootActions,
-                    onDismiss = maps::close,
+                    currentZoom = mapping.toTileZoom(controller.liveCamera.zoom),
                     maxHeight = menuMaxHeight,
                     modifier = Modifier.align(Alignment.BottomStart).padding(bottom = bottomClearance + barDp + 12.dp),
                 )
@@ -1634,7 +1643,7 @@ fun MapScreen(
                 centerElevation = centerElevation,
                 onZoomRange = { min, max -> vm.setZoomRange(layer.id, min, max) },
                 onElevationRange = { min, max, logic -> vm.setElevationRange(layer.id, min, max, logic) },
-                onClose = maps::close,
+                onClose = maps::closeConditions,
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)
@@ -1700,21 +1709,6 @@ fun MapScreen(
 
     // The sheets and dialogs are windows of their own: they would stay on top of the screen that covers the map.
     if (!covered) {
-        when (mapsPage) {
-            MapsPage.DISPLAYED -> {
-                DisplayedMapsSheet(
-                    state = state,
-                    maps = maps,
-                    vm = vm,
-                    currentZoom = mapping.toTileZoom(controller.liveCamera.zoom),
-                    onDismiss = maps::close,
-                )
-            }
-
-            MapsPage.ROOT, MapsPage.SAVE_AREA, MapsPage.CONDITIONS, MapsPage.NONE -> {
-                Unit
-            }
-        }
         if (showAreaHelp) HelpDialog(stringResource(R.string.sa_help_text)) { showAreaHelp = false }
         val tappedRef = tapped
         val lib = library

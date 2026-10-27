@@ -57,6 +57,12 @@ class WorkspaceStore(
         refresh()
     }
 
+    /** Shows again the built-in preset [id] the user just deleted (« Annuler » after the delete, P29.3). */
+    fun unhide(id: String) {
+        writeHidden(hidden.value - id)
+        refresh()
+    }
+
     /** Shows again every built-in preset the user deleted. */
     fun restoreBuiltins() {
         writeHidden(emptySet())

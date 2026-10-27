@@ -54,7 +54,7 @@ import javax.inject.Inject
  * The panel of the map screen that is open (`NONE` = only the map). `CONDITIONS` is the « Conditions d'affichage »
  * panel of the layer [MapsViewModel.conditionsLayer] (P20).
  */
-enum class MapsPage { NONE, ROOT, DISPLAYED, SAVE_AREA, CONDITIONS }
+enum class MapsPage { NONE, ROOT, SAVE_AREA, CONDITIONS }
 
 /** Disk figures behind the gauge of the "Available maps" screen. */
 data class StorageFigures(
@@ -124,6 +124,18 @@ class MapsViewModel
 
         /** The layer whose « Conditions d'affichage » are open (page `CONDITIONS`). */
         val conditionsLayer: StateFlow<String?> = mutableConditionsLayer.asStateFlow()
+
+        private val mutableExpandedLayer = MutableStateFlow<String?>(null)
+
+        /**
+         * The layer whose line is unfolded in « Cartes et calques » (P29.3, « Strates »): kept while its conditions are
+         * open, so that closing them comes back to the line being set.
+         */
+        val expandedLayer: StateFlow<String?> = mutableExpandedLayer.asStateFlow()
+
+        fun setExpanded(layerId: String?) {
+            mutableExpandedLayer.value = layerId
+        }
 
         val sources: StateFlow<List<TileSource>> = repository.sources
 
@@ -266,11 +278,15 @@ class MapsViewModel
 
         fun close() = open(MapsPage.NONE)
 
-        /** Opens the « Conditions d'affichage » panel of layer [layerId] over the map, the sheet closing. */
+        /** Opens the « Conditions d'affichage » panel of layer [layerId] over the map, the maps panel closing. */
         fun openConditions(layerId: String) {
             mutableConditionsLayer.value = layerId
+            mutableExpandedLayer.value = layerId
             open(MapsPage.CONDITIONS)
         }
+
+        /** Closes the conditions: back to the maps panel, the line of the layer still unfolded (P29.3). */
+        fun closeConditions() = open(MapsPage.ROOT)
 
         private val mutableSaveAreaAsked = MutableStateFlow(false)
 

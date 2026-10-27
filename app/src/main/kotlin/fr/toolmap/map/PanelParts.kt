@@ -102,6 +102,8 @@ internal fun PanelBand(
     title: String,
     subtitle: String? = null,
     leading: (@Composable () -> Unit)? = null,
+    /** Two lines for a subtitle that says two things (« Rando Multi-Zoom · 5 cartes », « 1 dessinée au zoom 14 »). */
+    subtitleLines: Int = 1,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val tm = MaterialTheme.toolMap
@@ -123,7 +125,12 @@ internal fun PanelBand(
                 overflow = TextOverflow.Ellipsis,
             )
             if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = tm.onShellVariant, maxLines = 1)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = tm.onShellVariant,
+                    maxLines = subtitleLines,
+                )
             }
         }
         CompositionLocalProvider(LocalContentColor provides tm.onShell) { actions() }

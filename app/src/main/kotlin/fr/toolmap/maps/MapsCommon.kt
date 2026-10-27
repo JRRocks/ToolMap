@@ -23,8 +23,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,30 +32,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.ui.theme.TextButton
+import fr.toolmap.ui.theme.toolMap
 
 private const val PERCENT = 100f
-private const val HUE_RANGE = 360
-private const val PLACEHOLDER_SATURATION = 0.28f
-private const val PLACEHOLDER_VALUE = 0.9f
 
-/** Up to two capital letters for the placeholder of a map without a picture ("IGN topo" gives "IT"). */
-internal fun initialsOf(name: String): String =
-    name
-        .split(' ', '-', '_', '\'', '’')
-        .filter { word -> word.any(Char::isLetterOrDigit) }
-        .take(2)
-        .joinToString("") { word -> word.first { it.isLetterOrDigit() }.uppercase() }
-        .ifEmpty { "?" }
+/** The map icon of a picture-less thumbnail, as a share of its side. */
+private const val PLACEHOLDER_ICON = 0.5f
 
-/** A stable pastel colour per map, so a picture-less card is still recognisable. */
-internal fun placeholderColor(sourceId: String): Color =
-    Color.hsv(
-        hue = Math.floorMod(sourceId.hashCode(), HUE_RANGE).toFloat(),
-        saturation = PLACEHOLDER_SATURATION,
-        value = PLACEHOLDER_VALUE,
-    )
-
-/** The picture of a map (a tile of it), or its initials on a coloured square while there is none. */
+/**
+ * The picture of a map (a tile of it), or, while there is none, the map icon on the tile colour of the theme (P29.3:
+ * never letters on a pastel in place of a picture). [shape] is 8 dp corners, a circle in the favourites' chips.
+ */
 @Composable
 fun MapThumbnail(
     sourceId: String,
@@ -63,10 +50,15 @@ fun MapThumbnail(
     thumbnails: MapThumbnails,
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
+    shape: Shape = RoundedCornerShape(8.dp),
 ) {
     val image by produceState<ImageBitmap?>(null, sourceId) { value = thumbnails.load(sourceId) }
     Box(
-        modifier = modifier.size(size).clip(RoundedCornerShape(8.dp)).background(placeholderColor(sourceId)),
+        modifier =
+            modifier
+                .size(size)
+                .clip(shape)
+                .background(MaterialTheme.toolMap.tile),
         contentAlignment = Alignment.Center,
     ) {
         val bitmap = image
@@ -78,7 +70,12 @@ fun MapThumbnail(
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
-            Text(initialsOf(name), style = MaterialTheme.typography.titleMedium, color = Color.Black.copy(alpha = 0.6f))
+            Icon(
+                MapsIcons.Map,
+                contentDescription = null,
+                tint = MaterialTheme.toolMap.onTile,
+                modifier = Modifier.size(size * PLACEHOLDER_ICON),
+            )
         }
     }
 }

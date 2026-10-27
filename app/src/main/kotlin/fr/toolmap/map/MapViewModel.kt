@@ -219,6 +219,13 @@ class MapViewModel
             viewModelScope.launch(Dispatchers.IO) { workspaceStore.delete(id) }
         }
 
+        /** Brings back the favourite [workspace] just deleted: « Annuler » of the snackbar (P29.3). */
+        fun restoreWorkspace(workspace: Workspace) {
+            viewModelScope.launch(Dispatchers.IO) {
+                if (workspace.isBuiltin) workspaceStore.unhide(workspace.id) else workspaceStore.save(workspace)
+            }
+        }
+
         /** Shows again the built-in favorites the user deleted. */
         fun restoreBuiltinWorkspaces() {
             viewModelScope.launch(Dispatchers.IO) { workspaceStore.restoreBuiltins() }

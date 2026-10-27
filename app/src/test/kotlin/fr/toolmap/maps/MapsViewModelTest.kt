@@ -135,10 +135,22 @@ class MapsViewModelTest {
     fun `opening a page replaces the previous one`() {
         vm.open(MapsPage.ROOT)
         assertEquals(MapsPage.ROOT, vm.page.value)
-        vm.open(MapsPage.DISPLAYED)
-        assertEquals(MapsPage.DISPLAYED, vm.page.value)
+        vm.open(MapsPage.CONDITIONS)
+        assertEquals(MapsPage.CONDITIONS, vm.page.value)
         vm.close()
         assertEquals(MapsPage.NONE, vm.page.value)
+    }
+
+    @Test
+    fun `closing the conditions comes back to the panel, the line of the layer still unfolded`() {
+        vm.open(MapsPage.ROOT)
+        vm.setExpanded("a")
+        vm.openConditions("b")
+        assertEquals(MapsPage.CONDITIONS, vm.page.value)
+        assertEquals("b", vm.conditionsLayer.value)
+        vm.closeConditions()
+        assertEquals(MapsPage.ROOT, vm.page.value)
+        assertEquals("b", vm.expandedLayer.value)
     }
 
     @Test

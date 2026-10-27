@@ -20,6 +20,27 @@
 
 ---
 
+## 2026-10-27 — Session 67 (suite) — [P29.3] « Cartes et calques » en « Strates » : la pile dans le panneau, lignes dépliables, glisser pour réordonner
+- **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
+- **Objectif** : coder la variante C · Strates du panneau « Cartes et calques », choisie par l'utilisateur le 2026-10-27 (« P29.3 (Cartes et calques) : C · Strates ») : la pile des calques devient le contenu du panneau, chaque ligne se déplie sur place, on réordonne en glissant, les favoris sont des puces, les conditions d'affichage sont compactes.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/design-03-cartes.html`, variante C · Strates, validée le 2026-10-27.
+  - `MapsRootPanel` réécrit ; `maps/StackRows.kt` (nouveau) : lignes de la pile (poignée à glisser, avec Monter et Descendre en actions TalkBack ; vignette cerclée de turquoise quand le calque est dessiné au zoom de la carte, atténuée sinon ; œil), ligne dépliée (opacité, Monter · Descendre · Conditions · Couleurs · Plus ; couleurs dépliées sous les commandes ; Plus : Détails, Forcer la mise à jour, Ne plus afficher, Ne plus afficher les autres), dialogue Détails repris. `DisplayedMapsSheet` et `MapsPage.DISPLAYED` supprimés ; « Opacité de la carte » et « Couleurs inversées » du ⋮ (doublons) retirés.
+  - Bandeau : favori appliqué ou seule carte, nombre de cartes, « N dessinée(s) au zoom Z » ; icône « Enregistrer l'affichage ». Sans favori et avec plusieurs cartes, seulement le nombre de cartes (pas de « Pile personnalisée », comme le menu de P29.2 : la note de l'aperçu de P29.3 le gardait, son dessin ne montrait pas ce cas).
+  - Favoris en puces (vignette ronde de la carte de fond du dessus) ; appui : appliquer, le panneau reste ouvert ; appui long : Appliquer · Supprimer ; suppression aussitôt avec « Annuler » dans la snackbar (`WorkspaceStore.unhide`, `MapViewModel.restoreWorkspace`) ; « Rétablir (n) ».
+  - Pied : « Hors ligne » et « Couverture » en interrupteurs de même forme (rôle Switch) ; tuiles Cartes disponibles, Enregistrer une zone, Téléchargements, Stockage. « Importer .aqx » quitte le panneau (il reste dans Cartes disponibles ▸ Ajouter une carte).
+  - Conditions d'affichage compactes : bandeau pétrole, Zoom et Altitude en une ligne (libellé et valeur courte, barre, Réinitialiser en icône), ET / OU seulement si les deux conditions sont posées ; ✕ et Retour ramènent au panneau, la ligne du calque toujours dépliée (`MapsViewModel.expandedLayer`, `closeConditions`). Barres de 48 dp (au lieu de 40). La phrase « La carte se redessine… » passe dans l'aide, réécrite (`maps_help_text`, `about_start_offline`).
+  - Vignettes sans image : icône de carte sur la couleur des tuiles du thème, plus d'initiales sur un pastel.
+  - ADR-076 ; `docs/specs/ui-index.md` §5.1 et §5.2 réécrits ; note dans `docs/specs/elevation-maps.md`.
+  - Comparaison : `docs/previews/design-03-cartes-rendu.html` (aperçu validé à gauche, rendu Robolectric à droite : la carte est un fond uni et les vignettes restent des icônes, les tests n'ayant pas de réseau).
+- **Décisions (ADR)** : ADR-076.
+- **Tests / vérifications** :
+  - `MapsPanelFixture` (les deux ViewModel sur trois cartes factices) ; `MapsRootPanelTest` (7 tests : bandeau et calques dessinés, pile dans le panneau dans l'ordre, ligne dépliée et Monter, couleurs dépliées, œil, appui long sur un favori et suppression, interrupteurs et tuiles, plus d'« Importer .aqx ») ; `MapsViewModelTest` : retour des conditions vers le panneau, ligne dépliée ; `MapsHelpersTest` réduit (initiales retirées) ; `MapsPanelRenderTest` (rendus). Verts.
+  - `NavigationBackTest` « the online catalogue opens… » adapté : « Cartes disponibles » est une tuile au pied du panneau, à faire défiler dans la petite fenêtre du test.
+  - `./gradlew check assembleDebug --max-workers=2` : BUILD SUCCESSFUL en 1 min 3 s, version 0.4.83 → **0.4.84**, `ToolMap-debug-0.4.84.apk`. Tests : core 876, data 310, p2p 29 (2 ignorés), app 296 (15 ignorés, dont les rendus), 0 échec ; lint : 0 erreur.
+- **Problèmes / dette technique** : capture de l'émulateur à faire sur le poste Windows ; le glisser se fait d'une demi-ligne à la fois (pas d'animation des voisins) ; l'annulation d'une suppression remet un favori enregistré en fin de liste.
+- **Prochaine étape recommandée** : P29.4 (Traces : A · Topo pour le panneau, la liste et le détail ; B · Repère pour la fiche et le waypoint en un appui).
+
 ## 2026-10-27 — Session 67 (suite) — [P29.2] Menu « Portée » : tuiles sous le pouce, « Plus » déplié sur place, Quitter en haut
 - **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
 - **Objectif** : coder la variante B · Portée du menu principal, choisie par l'utilisateur le 2026-10-27 (« P29.2 (Menu) : B · Portée ») : les quatre tuiles en pied fixe posé sur la barre, au-dessus Mode nuit, Informations à l'écran, le bloc des cartes et Réglages…, en haut la ligne « Plus » qui se déplie sur place et « Quitter », un dialogue de sortie qui nomme ce qui tourne.

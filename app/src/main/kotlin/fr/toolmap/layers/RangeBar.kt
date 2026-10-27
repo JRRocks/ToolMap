@@ -23,7 +23,9 @@ import fr.toolmap.core.layers.ZoomBar
 
 private val HANDLE_RADIUS = 11.dp
 private val TRACK_HEIGHT = 6.dp
-private val BAR_HEIGHT = 40.dp
+
+// 48 dp: the height of a touch target (android.md), P29.3.
+private val BAR_HEIGHT = 48.dp
 private val CURSOR_WIDTH = 2.dp
 
 /**

@@ -3,6 +3,8 @@
 > Demande de l'utilisateur (2026-10-23) : « un système de changement de carte selon la courbe de niveau. Exemple de 0 m à 1500 m tu affiches OpenTopoMap, mais de 1500 m à l'infini tu affiches OpenSnowMap. Teste la faisabilité et le coût en performance. Mets en place la sauvegarde des tuiles pour le hors ligne. Si le coût en calcul est léger, permets la modification de la hauteur de la courbe de niveau en direct (même hors ligne). » Puis : « les options de la courbe de niveau vont au même endroit que l'affichage selon le zoom ; les deux options fusionnent en condition ET / OU ».
 >
 > Aperçu validé le **2026-10-23** : variante A (panneau en bas de la carte, réglage appliqué au relâcher, ET / OU), ligne du calque et ligne « Altitudes » du téléchargement : `docs/previews/p20-elevation.html`. Décision : ADR-068.
+>
+> Depuis P29.3 (2026-10-27, ADR-076), le panneau est compact : bandeau pétrole, Zoom et Altitude en une ligne chacun, Réinitialiser en icône ; ET / OU et sa phrase n'apparaissent que si les deux conditions sont posées ; ✕ et Retour ramènent au panneau « Cartes et calques », la ligne du calque dépliée.
 
 ## 1. Principe
 

@@ -75,7 +75,8 @@ class NavigationBackTest {
     @Test
     fun `the online catalogue opens from Ajouter une carte, adds a map and goes back to the catalogue`() {
         rule.onNodeWithContentDescription("Cartes").performClick()
-        rule.onNodeWithText("Cartes disponibles").performClick()
+        // A tile at the foot of the panel since P29.3: below the layers, scrolled to in a small window.
+        rule.onNodeWithText("Cartes disponibles").performScrollTo().performClick()
         rule.onNodeWithText("Ajouter une carte", useUnmergedTree = true).performClick()
         rule.onNodeWithText("Catalogue en ligne…").performClick()
         rule.onAllNodesWithText("OPENSTREETMAP").assertCountEquals(1)

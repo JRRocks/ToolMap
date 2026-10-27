@@ -1,12 +1,17 @@
 package fr.toolmap.maps
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -27,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.core.layers.ElevationBar
@@ -36,15 +40,19 @@ import fr.toolmap.core.layers.LayerElevation
 import fr.toolmap.core.layers.RangeLogic
 import fr.toolmap.core.layers.ZoomBar
 import fr.toolmap.layers.RangeBar
-import fr.toolmap.ui.theme.TextButton
+import fr.toolmap.map.PanelBand
+import fr.toolmap.ui.theme.toolMap
 import kotlin.math.roundToInt
 
 private val LOGIC_WIDTH = 168.dp
+private val LABEL_WIDTH = 72.dp
 
 /**
- * « Conditions d'affichage » of a layer (P20, variant A validated on 2026-10-23): a panel at the bottom of the map,
- * which stays visible and usable above it, with the zoom range and the elevation band joined by ET / OU. A bar applies
- * its range when the finger lifts (the map is redrawn then); the choice ET / OU and the resets apply at once.
+ * « Conditions d'affichage » of a layer (P20, variant A validated on 2026-10-23), compact since P29.3 (« Strates »): a
+ * panel at the bottom of the map, which stays visible and usable above it, under the petrol band (its ✕ and Back come
+ * back to the maps panel, the line of the layer still unfolded). The zoom range and the elevation band are bars in line
+ * with their label; ET / OU and its sentence show only when both are set. A bar applies its range when the finger lifts
+ * (the map is redrawn then); the choice ET / OU and the resets apply at once.
  */
 @Composable
 fun DisplayConditionsPanel(
@@ -79,144 +87,162 @@ fun DisplayConditionsPanel(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = 3.dp,
+        shape = MaterialTheme.shapes.extraLarge.copy(bottomStart = CornerSize(0.dp), bottomEnd = CornerSize(0.dp)),
+        color = MaterialTheme.toolMap.panel,
         shadowElevation = 8.dp,
     ) {
-        Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.maps_layer_conditions),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                )
+        Column {
+            PanelBand(title = stringResource(R.string.maps_layer_conditions), subtitle = name) {
                 IconButton(onClick = onClose) {
                     Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close))
                 }
             }
-            Text(
-                name,
-                style = MaterialTheme.typography.bodySmall,
-                color = muted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-
-            SectionLabel(stringResource(R.string.cond_section_zoom))
-            val zoomSummary = zoomSummary(zoomMin, zoomMax)
-            SummaryRow(
-                summary = zoomSummary,
-                note = stringResource(R.string.layers_inactive_here).takeUnless { drawnNow },
-                onReset = { onZoomRange(null, null) }.takeIf { layer.hasZoomRange },
-            )
-            RangeBar(
-                range = zoomDraft,
-                max = ZoomBar.MAX,
-                cursor = currentZoom,
-                activeNow = drawnNow,
-                description = stringResource(R.string.layers_display_bar),
-                stateText = zoomSummary,
-                onChange = { zoomDraft = it },
-                onRelease = {
-                    val (low, high) = ZoomBar.toBounds(zoomDraft)
-                    if (low != layer.displayMinZoom || high != layer.displayMaxZoom) onZoomRange(low, high)
-                },
-            )
-
-            LogicChoice(
-                selected = layer.rangeLogic,
-                onSelect = { onElevationRange(layer.displayMinElevation, layer.displayMaxElevation, it) },
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp, bottom = 4.dp),
-            )
-            Text(
-                explanation(draft),
-                style = MaterialTheme.typography.bodySmall,
-                color = muted,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            SectionLabel(stringResource(R.string.cond_section_elevation))
-            val bandSummary = bandSummary(bandMin, bandMax)
-            SummaryRow(
-                summary = bandSummary,
-                note = null,
-                onReset = { onElevationRange(null, null, layer.rangeLogic) }.takeIf { layer.hasElevationRange },
-            )
-            RangeBar(
-                range = bandDraft,
-                max = ElevationBar.STEPS,
-                cursor = centerElevation?.let(ElevationBar::positionOf),
-                activeNow = drawnNow,
-                description = stringResource(R.string.cond_elevation_bar),
-                stateText = bandSummary,
-                onChange = { bandDraft = it },
-                onRelease = {
-                    val (low, high) = ElevationBar.toBounds(bandDraft)
-                    if (low != layer.displayMinElevation || high != layer.displayMaxElevation) {
-                        onElevationRange(low, high, layer.rangeLogic)
-                    }
-                },
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    stringResource(R.string.cond_alt_start),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = muted,
-                )
-                if (centerElevation != null) {
-                    Text(
-                        stringResource(R.string.cond_alt_center, centerElevation.roundToInt()),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.tertiary,
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 8.dp)) {
+                val zoomSummary = zoomSummary(zoomMin, zoomMax)
+                BarRow(
+                    label = stringResource(R.string.cond_section_zoom),
+                    value = zoomShort(zoomMin, zoomMax),
+                    onReset = { onZoomRange(null, null) }.takeIf { layer.hasZoomRange },
+                ) {
+                    RangeBar(
+                        range = zoomDraft,
+                        max = ZoomBar.MAX,
+                        cursor = currentZoom,
+                        activeNow = drawnNow,
+                        description = stringResource(R.string.layers_display_bar),
+                        stateText = zoomSummary,
+                        onChange = { zoomDraft = it },
+                        onRelease = {
+                            val (low, high) = ZoomBar.toBounds(zoomDraft)
+                            if (low != layer.displayMinZoom || high != layer.displayMaxZoom) onZoomRange(low, high)
+                        },
                     )
                 }
-                Text(
-                    stringResource(R.string.cond_alt_end, ElevationBar.MAX_METERS),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = muted,
+                val bandSummary = bandSummary(bandMin, bandMax)
+                BarRow(
+                    label = stringResource(R.string.cond_section_elevation),
+                    value = bandShort(bandMin, bandMax),
+                    onReset = { onElevationRange(null, null, layer.rangeLogic) }.takeIf { layer.hasElevationRange },
+                ) {
+                    RangeBar(
+                        range = bandDraft,
+                        max = ElevationBar.STEPS,
+                        cursor = centerElevation?.let(ElevationBar::positionOf),
+                        activeNow = drawnNow,
+                        description = stringResource(R.string.cond_elevation_bar),
+                        stateText = bandSummary,
+                        onChange = { bandDraft = it },
+                        onRelease = {
+                            val (low, high) = ElevationBar.toBounds(bandDraft)
+                            if (low != layer.displayMinElevation || high != layer.displayMaxElevation) {
+                                onElevationRange(low, high, layer.rangeLogic)
+                            }
+                        },
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = LABEL_WIDTH + 20.dp, end = 52.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        stringResource(R.string.cond_alt_start),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = muted,
+                    )
+                    if (centerElevation != null) {
+                        Text(
+                            stringResource(R.string.cond_alt_center, centerElevation.roundToInt()),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.cond_alt_end, ElevationBar.MAX_METERS),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = muted,
+                    )
+                }
+                // ET / OU changes the drawing only when both a zoom range and an elevation band are set.
+                if (layer.hasZoomRange && layer.hasElevationRange) {
+                    LogicChoice(
+                        selected = layer.rangeLogic,
+                        onSelect = { onElevationRange(layer.displayMinElevation, layer.displayMaxElevation, it) },
+                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp, bottom = 4.dp),
+                    )
+                    Text(
+                        explanation(draft),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = muted,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** A condition in one line: its name and value on the left, its bar, « Réinitialiser » as an icon at the end. */
+@Composable
+private fun BarRow(
+    label: String,
+    value: String,
+    onReset: (() -> Unit)?,
+    bar: @Composable () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.width(LABEL_WIDTH)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(value, style = MaterialTheme.typography.bodyMedium)
+        }
+        Box(Modifier.weight(1f).padding(start = 4.dp)) { bar() }
+        if (onReset != null) {
+            IconButton(onClick = onReset) {
+                Icon(
+                    MapsIcons.RestartAlt,
+                    contentDescription = stringResource(R.string.cond_reset),
+                    tint = MaterialTheme.colorScheme.primary,
                 )
             }
-            Text(
-                stringResource(R.string.cond_hint),
-                style = MaterialTheme.typography.labelSmall,
-                color = muted,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-            )
+        } else {
+            Spacer(Modifier.size(48.dp))
         }
     }
 }
 
+/** « 12 à 17 », « tous »: the zoom range in the label column. */
 @Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 10.dp),
-    )
-}
-
-/** "Zooms 8 à 16" with what applies to it now ([note]) and « Réinitialiser » when there is a limit to remove. */
-@Composable
-private fun SummaryRow(
-    summary: String,
-    note: String?,
-    onReset: (() -> Unit)?,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Text(summary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-        if (note != null) Text(note, style = MaterialTheme.typography.labelSmall)
-        if (onReset != null) {
-            TextButton(onClick = onReset) { Text(stringResource(R.string.cond_reset)) }
-        }
+private fun zoomShort(
+    min: Int?,
+    max: Int?,
+): String =
+    when {
+        min == null && max == null -> stringResource(R.string.cond_short_zoom_all)
+        max == null -> stringResource(R.string.cond_short_zoom_from, min ?: 0)
+        min == null -> stringResource(R.string.cond_short_zoom_until, max)
+        min == max -> stringResource(R.string.cond_short_zoom_single, min)
+        else -> stringResource(R.string.cond_short_zoom_between, min, max)
     }
-}
+
+/** « toutes », « dès 1500 m »: the elevation band in the label column. */
+@Composable
+private fun bandShort(
+    min: Int?,
+    max: Int?,
+): String =
+    when {
+        min == null && max == null -> stringResource(R.string.cond_short_alt_all)
+        max == null -> stringResource(R.string.cond_short_alt_above, min ?: 0)
+        min == null -> stringResource(R.string.cond_short_alt_below, max)
+        else -> stringResource(R.string.cond_short_alt_between, min, max)
+    }
 
 @Composable
 private fun LogicChoice(

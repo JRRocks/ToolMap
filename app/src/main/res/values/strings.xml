@@ -68,7 +68,6 @@
   <string name="cond_alt_start">0 m</string>
   <string name="cond_alt_end">%1$d m et +</string>
   <string name="cond_alt_center">centre %1$d m</string>
-  <string name="cond_hint">La carte se redessine quand vous relâchez le curseur ; l\'ancien dessin reste jusqu\'au nouveau.</string>
 
   <string name="workspace_applied">Favori appliqué : %1$s</string>
   <string name="workspace_skipped">Cartes indisponibles ignorées : %1$d</string>
@@ -1102,7 +1101,7 @@
   <string name="about_intro">ToolMap affiche vos cartes, même hors ligne, enregistre vos traces et partage votre position avec vos proches, sans compte et sans serveur à vous.</string>
   <string name="about_start_title">Prise en main</string>
   <string name="about_start_map">Cartes : « Cartes » puis « Cartes disponibles » montre le catalogue ; « Ajouter une carte » puis « Nouvelle carte… » ouvre l\'assistant (adresse d\'un serveur de tuiles, clé d\'API, Referer), « Importer une carte (.aqx)… » reprend un fichier d\'AlpineQuest. Les calques se superposent, avec une opacité et une plage de zoom par calque.</string>
-  <string name="about_start_offline">Hors ligne : dans « Cartes », « Sélectionner et enregistrer une zone » enregistre dans le téléphone les tuiles des cartes cochées ; « Mode hors ligne » (Options) n\'utilise plus que ce qui est enregistré. « Stockage hors ligne » gère l\'espace occupé et importe ou exporte des fichiers .mbtiles.</string>
+  <string name="about_start_offline">Hors ligne : dans « Cartes », la tuile « Enregistrer une zone » enregistre dans le téléphone les tuiles des cartes cochées ; l\'interrupteur « Hors ligne » n\'utilise plus que ce qui est enregistré. « Stockage » gère l\'espace occupé et importe ou exporte des fichiers .mbtiles.</string>
   <string name="about_start_tracks">Traces : « Traces et waypoints » importe et exporte du GPX ou du KML ; « Ma position » puis « Enregistreur de trace » enregistre avec le GPS écran éteint ; « Dessiner une trace » ou « Dessiner un itinéraire » trace à la main.</string>
   <string name="about_start_tools">Outils : recherche de lieux, mesure de distance et de surface, grille de coordonnées (DD, DMS, UTM, MGRS, Lambert 93), alertes de proximité et suivi de trace avec alerte d\'écart, altimètre barométrique, impression à l\'échelle en PDF.</string>
   <string name="about_start_share">Partage de position : un membre crée un groupe et montre un code QR ou envoie un lien, les autres le scannent ou l\'ouvrent pour rejoindre le groupe. Un serveur de coordination (Firebase) fait passer les positions, chiffrées : la clé du groupe reste dans les téléphones.</string>
@@ -1308,21 +1307,15 @@
   <string name="maps_title">Cartes et calques</string>
   <string name="maps_open">Cartes</string>
   <string name="maps_help_title">Cartes et calques</string>
-  <string name="maps_help_text">Cartes disponibles : le catalogue des cartes, ce qu\'elles occupent sur l\'appareil, l\'ajout d\'une carte.\n\nCartes affichées : la pile de calques, du dessus vers le dessous. L\'œil montre ou cache une carte, le bouton d\'opacité règle sa transparence, le menu ⋮ ouvre ses réglages.\n\nSélectionner et enregistrer une zone : dessinez un rectangle sur la carte, choisissez le zoom maximal, et les tuiles des cartes cochées sont téléchargées pour être utilisées sans réseau.\n\nFavoris : touchez une vignette pour retrouver une carte ou un ensemble de calques avec ses réglages ; la première vignette, « + », enregistre l\'affichage actuel. Un appui long supprime un favori, même fourni avec l\'application (le bouton « Rétablir les favoris fournis », en bas du panneau, le fait revenir).\n\nMode hors ligne : seules les tuiles déjà stockées sont affichées. Couverture : montre sur la carte les zones enregistrées.</string>
+  <string name="maps_help_text">Le panneau montre la pile des cartes affichées, du dessus vers le dessous. Le bandeau dit le favori appliqué (ou la carte), le nombre de cartes et combien sont dessinées au zoom de la carte : la vignette d\'une carte dessinée est cerclée de turquoise, celle d\'une carte inactive à ce zoom est atténuée.\n\nUne carte : l\'œil la montre ou la cache ; la poignée, à gauche, se fait glisser pour changer l\'ordre ; toucher la ligne la déplie : opacité, Monter, Descendre, Conditions (plage de zoom et bande d\'altitude), Couleurs, et Plus (détails, mise à jour forcée, ne plus afficher). La carte se redessine quand vous relâchez un curseur ; l\'ancien dessin reste jusqu\'au nouveau.\n\nFavoris : touchez une puce pour retrouver une carte ou un ensemble de calques avec ses réglages ; l\'icône du bandeau enregistre l\'affichage actuel. Un appui long propose Appliquer ou Supprimer ; « Annuler », juste après, rétablit le favori supprimé, et la puce « Rétablir » ramène les favoris fournis.\n\nHors ligne : seules les tuiles déjà stockées sont affichées. Couverture : montre sur la carte les zones enregistrées.\n\nCartes disponibles : le catalogue, ce que les cartes occupent sur l\'appareil, l\'ajout d\'une carte (dont l\'import d\'un fichier .aqx). Enregistrer une zone : dessinez un rectangle sur la carte et choisissez le zoom maximal ; les tuiles des cartes cochées sont téléchargées pour être utilisées sans réseau. Téléchargements et Stockage ouvrent leurs écrans.</string>
   <string name="maps_available">Cartes disponibles</string>
-  <string name="maps_displayed">Cartes affichées</string>
   <string name="maps_save_area">Sélectionner et enregistrer une zone</string>
   <string name="maps_favorites">Cartes et ensembles favoris</string>
   <string name="maps_favorite_save">Enregistrer</string>
   <string name="maps_favorite_new_title">Nouveau favori</string>
   <string name="maps_favorite_name">Nom du favori</string>
   <string name="maps_favorite_empty">Affichez au moins une carte avant de l\'enregistrer.</string>
-  <string name="maps_favorite_delete_title">Supprimer ce favori ?</string>
-  <string name="maps_favorite_delete_text">« %1$s » ne sera plus proposé. Les cartes ne sont pas supprimées.</string>
-  <string name="maps_favorite_builtin">« %1$s » est un favori fourni avec l\'application : il ne sera plus proposé. Les cartes ne sont pas supprimées. Les options de ce panneau permettent de le rétablir.</string>
-  <string name="maps_favorite_restore">Rétablir les favoris fournis (%1$d supprimé(s))</string>
   <string name="maps_option_offline">Mode hors ligne</string>
-  <string name="maps_back">Retour aux cartes et calques</string>
   <string name="maps_help">Aide</string>
   <string name="maps_displayed_empty">Aucune carte affichée. Ouvrez « Cartes disponibles » pour en choisir une.</string>
   <string name="maps_layer_line">%1$d %% d\'opacité</string>
@@ -1330,17 +1323,10 @@
   <string name="maps_layer_hidden">masquée</string>
   <string name="maps_layer_show">Afficher la carte</string>
   <string name="maps_layer_hide">Masquer la carte</string>
-  <string name="maps_layer_opacity_button">Opacité de la carte</string>
-  <string name="maps_layer_menu">Réglages de la carte</string>
   <string name="maps_layer_details">Détails</string>
   <string name="maps_layer_force_update">Forcer la mise à jour des données locales (cette session)</string>
-  <string name="maps_group_order">Ordre</string>
   <string name="maps_layer_undisplay">Ne plus afficher</string>
   <string name="maps_layer_undisplay_others">Ne plus afficher les autres</string>
-  <string name="maps_group_edit">Modifier</string>
-  <string name="maps_layer_opacity">Opacité de la carte</string>
-  <string name="maps_layer_save_hint">Vous pouvez enregistrer vos changements comme carte ou ensemble favori.</string>
-  <string name="maps_layer_colors">Modifier les couleurs</string>
   <string name="maps_layer_inverted">Couleurs inversées</string>
   <string name="maps_layer_conditions">Conditions d\'affichage</string>
   <string name="maps_layer_unavailable">Carte introuvable</string>
@@ -1776,13 +1762,41 @@
     <item quantity="one">%d membre</item>
     <item quantity="other">%d membres</item>
   </plurals>
-  <plurals name="maps_displayed_count">
-    <item quantity="one">%d carte · ordre, opacité, couleurs</item>
-    <item quantity="other">%d cartes · ordre, opacité, couleurs</item>
+  <plurals name="maps_band_count">
+    <item quantity="one">%1$d carte</item>
+    <item quantity="other">%1$d cartes</item>
+  </plurals>
+  <plurals name="maps_band_drawn">
+    <item quantity="one">%1$d dessinée au zoom %2$d</item>
+    <item quantity="other">%1$d dessinées au zoom %2$d</item>
   </plurals>
   <string name="maps_option_offline_sub">Tuiles stockées seulement</string>
   <string name="maps_favorite_add_tile">Enregistrer l\'affichage</string>
   <string name="maps_chip_coverage">Couverture</string>
-  <string name="maps_chip_import">Importer .aqx</string>
   <string name="maps_chip_storage">Stockage</string>
+  <string name="maps_band_empty">Aucune carte</string>
+  <string name="maps_band_none_drawn">Aucune dessinée au zoom %1$d</string>
+  <string name="maps_stack_caption">Cartes affichées · du dessus vers le dessous</string>
+  <string name="maps_cmd_conditions">Conditions</string>
+  <string name="maps_cmd_colors">Couleurs</string>
+  <string name="maps_cmd_more">Plus</string>
+  <string name="maps_layer_drag">Faire glisser pour changer l\'ordre</string>
+  <string name="maps_layer_unfold">déplier les réglages</string>
+  <string name="maps_layer_fold">replier les réglages</string>
+  <string name="maps_offline_short">Hors ligne</string>
+  <string name="maps_tile_save_area">Enregistrer une zone</string>
+  <string name="maps_favorite_apply">Appliquer</string>
+  <string name="maps_favorite_actions">Appliquer ou supprimer</string>
+  <string name="maps_favorite_deleted">Favori supprimé : %1$s</string>
+  <string name="maps_favorite_restore_short">Rétablir (%1$d)</string>
+  <string name="maps_save_hint_button">Enregistrer comme favori…</string>
+  <string name="cond_short_zoom_all">tous</string>
+  <string name="cond_short_zoom_from">dès %1$d</string>
+  <string name="cond_short_zoom_until">jusqu\'à %1$d</string>
+  <string name="cond_short_zoom_single">%1$d</string>
+  <string name="cond_short_zoom_between">%1$d à %2$d</string>
+  <string name="cond_short_alt_all">toutes</string>
+  <string name="cond_short_alt_above">dès %1$d m</string>
+  <string name="cond_short_alt_below">sous %1$d m</string>
+  <string name="cond_short_alt_between">%1$d à %2$d m</string>
 </resources>

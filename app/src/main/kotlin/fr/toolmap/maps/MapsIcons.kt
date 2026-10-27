@@ -93,6 +93,53 @@ object MapsIcons {
     /** « Télécharger une zone… » of the map menu (F4). */
     val Download: ImageVector by lazy { icon("Download", "M5,20h14v-2H5v2zM19,9h-4V3H9v6H5l7,7 7,-7z") }
 
+    /** Six dots: the handle a layer is dragged by (P29.3). */
+    val DragIndicator: ImageVector by lazy {
+        icon(
+            "DragIndicator",
+            "M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" +
+                "m0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" +
+                "m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
+        )
+    }
+
+    val ArrowUpward: ImageVector by lazy {
+        icon("ArrowUpward", "m4 12 1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z")
+    }
+
+    val ArrowDownward: ImageVector by lazy {
+        icon("ArrowDownward", "m20 12-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z")
+    }
+
+    /** Sliders: « Conditions » of a layer. */
+    val Tune: ImageVector by lazy {
+        icon(
+            "Tune",
+            "M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10z" +
+                "m-6-4h2V7h4V5h-4V3h-2v6z",
+        )
+    }
+
+    /** A bookmark with a « + »: « Enregistrer l'affichage » as a favourite. */
+    val BookmarkAdd: ImageVector by lazy {
+        icon(
+            "BookmarkAdd",
+            "M21 7h-2v2h-2V7h-2V5h2V3h2v2h2v2zm-2 14-7-3-7 3V5c0-1.1.9-2 2-2h7" +
+                "a5.002 5.002 0 0 0 5 7.9V21z",
+        )
+    }
+
+    /** A circular arrow: « Réinitialiser » a condition, « Rétablir » the provided favourites. */
+    val RestartAlt: ImageVector by lazy {
+        icon(
+            "RestartAlt",
+            "M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6 0 2.97-2.17 5.43-5 5.91v2.02" +
+                "c3.95-.49 7-3.85 7-7.93 0-4.42-3.58-8-8-8z" +
+                "m-6 8c0-1.65.67-3.15 1.76-4.24L6.34 7.34A8.014 8.014 0 0 0 4 13c0 4.08 3.05 7.44 7 7.93v-2.02" +
+                "c-2.83-.48-5-2.94-5-5.91z",
+        )
+    }
+
     /** « Exporter en .aqx… » of the map menu (F4). */
     val IosShare: ImageVector by lazy {
         icon(
