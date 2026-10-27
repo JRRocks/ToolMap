@@ -127,11 +127,12 @@ fun PanelHeader(
 @Composable
 fun HelpDialog(
     text: String,
+    title: String = stringResource(R.string.maps_help_title),
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.maps_help_title)) },
+        title = { Text(title) },
         text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )

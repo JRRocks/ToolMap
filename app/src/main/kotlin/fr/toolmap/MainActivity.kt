@@ -490,7 +490,14 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         Screen.STORAGE -> {
-                                            StorageScreen(vm = storageViewModel, onBack = ::back)
+                                            StorageScreen(
+                                                vm = storageViewModel,
+                                                onBack = ::back,
+                                                onSelectZone = {
+                                                    mapsViewModel.askSaveArea()
+                                                    toMap()
+                                                },
+                                            )
                                         }
 
                                         Screen.WIZARD -> {

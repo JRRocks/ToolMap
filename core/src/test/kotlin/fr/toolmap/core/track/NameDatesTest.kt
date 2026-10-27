@@ -23,6 +23,12 @@ class NameDatesTest {
     }
 
     @Test
+    fun `the day alone, for a finished download`() {
+        assertEquals("25 oct.", NameDates.formatDay(millis("2026-10-25T17:02"), paris))
+        assertEquals("1 mai", NameDates.formatDay(millis("2027-05-01T08:05"), paris))
+    }
+
+    @Test
     fun `the phone language does not change the format`() {
         val previous = Locale.getDefault()
         try {

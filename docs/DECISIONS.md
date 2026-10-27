@@ -1137,3 +1137,32 @@
   faut choisir un segment avant de voir les cartes ; la radio ne montre que le fond le plus bas ; l'interrupteur
   d'ici retire de la pile, l'œil de « Cartes et calques » masque sans retirer.
 - **Alternatives rejetées** : variantes A, C, D et E de l'aperçu.
+
+## ADR-080 — Téléchargements et stockage en « Poids » : la zone pesée d'abord, la tâche en cours en grand, la place du téléphone en tête
+- **Date / statut** : 2026-10-27 — Accepté (P29.7 ; aperçu `docs/previews/design-07-telechargements.html`, variante
+  B · Poids, choisie par l'utilisateur le 2026-10-27). Garde ADR-042 (stockage, carte SD) et la file WorkManager
+  des téléchargements ; la sélection de zone suit le cadrage de l'impression (P17) pour la barre du bas.
+- **Contexte** : audit de P29.7 : l'en-tête du panneau de zone, coupé (« Sélectionner et enreg… »), n'était pas le
+  bandeau des panneaux ; la barre du bas restait active pendant la sélection et « Cartes » effaçait le rectangle ;
+  chaque carte s'écrivait « 6-16/18 » en 11 sp ; l'aide parlait de cases « en vert » et la confirmation d'un chemin
+  qui n'existe pas ; l'écran s'appelait « Cartes hors ligne » ; une corbeille oubliait une tâche sans retour possible ;
+  « erreurs : 0 » toujours écrit, nombres sans espace des milliers ; le Stockage ne disait pas la place du téléphone.
+- **Décision** :
+  1. Zone : la barre du bas est masquée pendant la sélection (✕ ou Retour la ramènent), les boutons de zoom restent ;
+     la feuille met le poids en grand avec la place libre (`refreshStorage` à l'ouverture du mode), puis le zoom
+     maximal, la ligne repliée « Cartes · … · 2 sur 3 » qui déplie les cases des cartes (zooms en mots, 12 sp, barres
+     avec leurs bouts) et « Enregistrer la zone » en pleine largeur ; les états du total remplacent le grand chiffre.
+     Aide titrée « Enregistrer une zone », couleurs justes ; confirmation « Suivi dans Cartes › Téléchargements. ».
+  2. Téléchargements : l'écran prend le nom de la tuile ; la tâche en cours vient d'abord, en grand (vignette, pour
+     cent, Pause, Retirer) ; les tâches en attente ou interrompues juste dessous ; « En pause » avec les échecs ;
+     « Terminés » ; nombres à la française, erreurs seulement s'il y en a ; bouton « Nouvelle zone ».
+  3. « Retirer » propose « Annuler » (`DownloadScheduler.restore` : la tâche revient telle quelle, en attente si
+     elle tournait). Pour que le retrait tienne, le travail d'une tâche ne réécrit plus une tâche retirée
+     (`ZoneJobStore.update`) : avant, l'annulation la réenregistrait « En pause » et elle réapparaissait.
+  4. Stockage : jauge du téléphone en tête (place du dossier des tuiles, `StatFs`), part de ToolMap en turquoise ;
+     liste groupée de la plus lourde à la plus légère ; import en icône dans la barre ; l'état vide mène à la
+     sélection d'une zone.
+- **Conséquences** : la décision « combien pèse cette zone, reste-t-il de la place ? » se lit d'un coup d'œil ; les
+  cartes cochées ne se voient qu'en résumé tant que la ligne « Cartes » est repliée ; pendant la sélection, le menu,
+  les traces et la position ne s'ouvrent pas (il faut sortir du mode).
+- **Alternatives rejetées** : variantes A, C, D et E de l'aperçu.

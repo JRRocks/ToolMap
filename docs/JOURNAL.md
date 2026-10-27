@@ -20,6 +20,24 @@
 
 ---
 
+## 2026-10-27 — Session 67 (suite) — [P29.7] Téléchargements et stockage en « Poids » : la zone pesée d'abord
+- **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
+- **Objectif** : coder la variante B · Poids de la sélection de zone, des Téléchargements et du Stockage, choisie par l'utilisateur le 2026-10-27 (« P29.7 (Téléchargements) : B · Poids ») : répondre d'un coup d'œil à « combien pèse cette zone, et reste-t-il de la place ? », mettre la tâche en cours en premier, ouvrir le Stockage sur la place du téléphone.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/design-07-telechargements.html`, variante B · Poids, validée le 2026-10-27.
+  - Zone (`SaveAreaPanel`, `MapScreen`) : barre du bas masquée pendant la sélection (✕ ou Retour la ramènent), boutons de zoom gardés ; feuille à bandeau pétrole « Enregistrer une zone » (« ? », ✕) ; poids en grand avec « 5,0 Go libres » (place relue à l'ouverture du mode) et « 415 tuiles à télécharger · 31 déjà stockées », les états du total à la place du grand chiffre ; « Zoom maximal » ; ligne repliée « Cartes · IGN Cartes, OpenTopoMap · 2 sur 3 » qui déplie les cases (zooms en mots en 12 sp, « Zooms 6 à 16 (sur 18) · … », barres avec « 0 » et le zoom le plus profond aux bouts) ; « Enregistrer la zone » plein, pleine largeur. Aide titrée « Enregistrer une zone » et couleurs justes ; confirmation « Suivi dans Cartes › Téléchargements. ».
+  - Téléchargements (`DownloadScreen`) : titre « Téléchargements » ; la tâche en cours en grand (vignette, « 51 % », barre, Pause, Retirer) ; tâches en attente ou interrompues juste dessous ; « En pause » avec les échecs et leur message en rouge ; « Terminés » (« le 25 oct. », `NameDates.formatDay`) ; blocs blancs avec icône d'état, lecture ou pause, ⋮ « Retirer de la liste » ; nombres à la française (« 1 450 »), erreurs seulement s'il y en a, pas de barre une fois terminé ; bouton « Nouvelle zone ». « Retirer » propose « Annuler » (`DownloadScheduler.restore`).
+  - Défaut corrigé au passage : retirer une tâche en cours la faisait réapparaître « En pause » (le travail annulé la réenregistrait) ; le travail ne fait plus que des mises à jour (`ZoneJobStore.update`), qui ne ramènent jamais une tâche retirée.
+  - Stockage (`StorageScreen`) : jauge du téléphone en tête (`StatFs` du dossier des tuiles, part de ToolMap en turquoise), « De la plus lourde à la plus légère » en bloc blanc, import en icône dans la barre, état vide avec « Sélectionner et enregistrer une zone ».
+  - ADR-080 ; `docs/specs/ui-index.md` T5, DOWNLOADS et STORAGE ; dans `docs/plan-design-2026-10.md`, la ligne de P29.7 nomme enfin ses cinq variantes (un reste « (NOMS07) » de la préparation des aperçus).
+  - Comparaison : `docs/previews/design-07-telechargements-rendu.html`.
+- **Décisions (ADR)** : ADR-080.
+- **Tests / vérifications** :
+  - `SaveAreaPanelTest` (2 : bandeau, poids, zoom et bouton ; ligne « Cartes » dépliée, zooms en mots, bouts des barres, une carte décochée) ; `DownloadFixture` et `DownloadScreenTest` (4 : tâche en cours d'abord, « En pause » et « Terminés » avec les nombres à la française et sans « erreur », « Nouvelle zone », « Retirer » puis « Annuler ») ; `StorageScreenTest` (2 : jauge puis liste de la plus lourde, état vide) ; `ZoneJobStoreTest` (+1 : une mise à jour ne ramène pas une tâche retirée) ; `NameDatesTest` (+1) ; `OfflineRenderTest` (7 rendus).
+  - `./gradlew spotlessApply check assembleDebug --max-workers=2` : BUILD SUCCESSFUL en 3 min 11 s, version 0.4.92 → **0.4.93**, `ToolMap-debug-0.4.93.apk`. Tests : core 878, data 311, p2p 29 (2 ignorés), app 381 (51 ignorés, dont les rendus), 0 échec ; lint : 0 erreur, app 66 avertissements et 1 indication.
+- **Problèmes / dette technique** : capture de l'émulateur à faire sur le poste Windows ; pendant la sélection de zone, menu, traces et position ne s'ouvrent plus (il faut sortir du mode, comme pour l'impression).
+- **Prochaine étape recommandée** : P29.8 (Partage, B · Cordée).
+
 ## 2026-10-27 — Session 67 (suite) — [P29.6] « Cartes disponibles » en « Bascule » : fond à la radio, calques à l'interrupteur
 - **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
 - **Objectif** : coder la variante B · Bascule de « Cartes disponibles », choisie par l'utilisateur le 2026-10-27 (« P29.6 (Cartes disponibles) : B · Bascule ») : choisir ce qui s'affiche d'un geste, avec « Annuler » ; ajouter une carte depuis une seule feuille ; un assistant en 5 étapes dont on touche les arrêts ; un éditeur multi-zoom qui se lit d'un coup d'œil.

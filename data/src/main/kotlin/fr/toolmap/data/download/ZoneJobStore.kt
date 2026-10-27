@@ -31,6 +31,17 @@ class ZoneJobStore(
         flow.value = (flow.value.filterNot { it.request.id == job.request.id } + job).sortedByDescending { order(it) }
     }
 
+    /**
+     * Saves [job] only while it is still listed: the worker's writes (progress, the pause of a cancelled work) must
+     * not bring back a job the user removed. Returns whether it was saved.
+     */
+    @Synchronized
+    fun update(job: ZoneJob): Boolean {
+        if (get(job.request.id) == null) return false
+        save(job)
+        return true
+    }
+
     @Synchronized
     fun delete(id: String) {
         fileFor(id).delete()

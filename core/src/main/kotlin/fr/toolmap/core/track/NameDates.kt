@@ -11,10 +11,17 @@ import java.util.Locale
  */
 object NameDates {
     private val FORMAT = DateTimeFormatter.ofPattern("d MMM yyyy 'à' HH:mm", Locale.FRENCH)
+    private val DAY = DateTimeFormatter.ofPattern("d MMM", Locale.FRENCH)
 
     /** [millis] since the epoch, read in [zone] (the phone's by default), e.g. `22 oct. 2026 à 17:02`. */
     fun format(
         millis: Long,
         zone: ZoneId = ZoneId.systemDefault(),
     ): String = FORMAT.format(Instant.ofEpochMilli(millis).atZone(zone))
+
+    /** The day of [millis] alone, e.g. `25 oct.`: when a download finished (P29.7). */
+    fun formatDay(
+        millis: Long,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): String = DAY.format(Instant.ofEpochMilli(millis).atZone(zone))
 }

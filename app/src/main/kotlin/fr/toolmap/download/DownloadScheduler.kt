@@ -59,6 +59,19 @@ class DownloadScheduler
             jobs.delete(jobId)
         }
 
+        /**
+         * « Annuler » after a removal (P29.7): the job comes back as it was; one that was going is queued again, from
+         * the tiles it had already stored.
+         */
+        fun restore(job: ZoneJob) {
+            if (job.status in ACTIVE) {
+                jobs.save(job.copy(status = ZoneStatus.QUEUED, updatedAtMillis = System.currentTimeMillis()))
+                enqueue(job.request.id)
+            } else {
+                jobs.save(job)
+            }
+        }
+
         private fun enqueue(jobId: String) {
             val work =
                 OneTimeWorkRequestBuilder<ZoneDownloadWorker>()

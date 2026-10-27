@@ -15,9 +15,14 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,8 +31,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -41,12 +49,16 @@ import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.maps.AreaCorner
 import fr.toolmap.core.maps.AreaSelection
@@ -58,14 +70,17 @@ import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.download.SourceEstimate
 import fr.toolmap.download.ZoneEstimate
 import fr.toolmap.download.formatBytes
+import fr.toolmap.map.MenuIcons
+import fr.toolmap.map.PanelBand
 import fr.toolmap.ui.CheckRow
 import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.toolMap
 import kotlin.math.roundToInt
 
 private val HANDLE_TOUCH = 48.dp
 private val HANDLE_DOT = 22.dp
 private val STRIP_HEIGHT = 8.dp
-private val ROWS_MAX_HEIGHT = 168.dp
+private val ROWS_MAX_HEIGHT = 216.dp
 
 /**
  * The rectangle over the map: the part outside it is dimmed, and four handles move its corners. The rectangle
@@ -159,7 +174,12 @@ private fun CornerHandle(
     )
 }
 
-/** The bottom panel of "Select and save an area": the maps with their zoom strips, the zoom, the total. */
+/**
+ * The sheet of « Enregistrer une zone » (P29.7, « Poids »): what the zone weighs, in large, with the room left on the
+ * phone; the maximal zoom; the maps folded in one line (« IGN Cartes, OpenTopoMap · 2 sur 3 ») that unfolds their rows
+ * and zoom strips in the sheet; « Enregistrer la zone » across the sheet. The states of the total (computing, too
+ * large, the limit of a community server, no tile, already saved) take the place of the large figure.
+ */
 @Composable
 fun SaveAreaPanel(
     ui: SaveAreaUi,
@@ -170,79 +190,178 @@ fun SaveAreaPanel(
     onHelp: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val figures by maps.storageFigures.collectAsStateWithLifecycle()
+    var unfolded by rememberSaveable { mutableStateOf(false) }
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = 3.dp,
+        shape = MaterialTheme.shapes.extraLarge.copy(bottomStart = CornerSize(0.dp), bottomEnd = CornerSize(0.dp)),
+        color = MaterialTheme.toolMap.panel,
         shadowElevation = 8.dp,
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            PanelHeader(
-                title = stringResource(R.string.sa_title),
-                onHelp = onHelp,
-                trailing = {
-                    IconButton(onClick = onClose) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.sa_close))
-                    }
-                },
-            )
-            if (ui.rows.isEmpty()) {
-                Text(stringResource(R.string.sa_no_maps), style = MaterialTheme.typography.bodyMedium)
-            }
-            Column(modifier = Modifier.heightIn(max = ROWS_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
-                for (row in ui.rows) {
-                    MapRow(row, ui, currentTileZoom, maps)
+        Column {
+            PanelBand(title = stringResource(R.string.sa_band)) {
+                IconButton(onClick = onHelp) {
+                    Icon(MenuIcons.Help, contentDescription = stringResource(R.string.menu_help))
+                }
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.sa_close))
                 }
             }
+            Weight(ui, figures?.freeBytes)
             if (ui.sliderMax > 0) {
-                Text(stringResource(R.string.sa_zoom, ui.maxZoom), style = MaterialTheme.typography.labelLarge)
-                Slider(
-                    value = ui.maxZoom.toFloat(),
-                    onValueChange = { maps.setAreaMaxZoom(it.roundToInt()) },
-                    valueRange = 0f..ui.sliderMax.toFloat(),
-                    steps = (ui.sliderMax - 1).coerceAtLeast(0),
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(totalText(ui), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Button(onClick = onSave, enabled = ui.canSave && !ui.estimating) {
-                    Text(stringResource(R.string.sa_download))
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.sa_zoom_label),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            "${ui.maxZoom}",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    Slider(
+                        value = ui.maxZoom.toFloat(),
+                        onValueChange = { maps.setAreaMaxZoom(it.roundToInt()) },
+                        valueRange = 0f..ui.sliderMax.toFloat(),
+                        steps = (ui.sliderMax - 1).coerceAtLeast(0),
+                    )
                 }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (ui.rows.isEmpty()) {
+                Text(
+                    stringResource(R.string.sa_no_maps),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(16.dp),
+                )
+            } else {
+                MapsLine(ui, unfolded) { unfolded = !unfolded }
+                if (unfolded) {
+                    Column(Modifier.heightIn(max = ROWS_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
+                        ui.rows.forEachIndexed { index, row ->
+                            if (index > 0) {
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    modifier = Modifier.padding(start = 52.dp, end = 16.dp),
+                                )
+                            }
+                            MapRow(row, ui, currentTileZoom, maps)
+                        }
+                    }
+                }
+            }
+            Button(
+                onClick = onSave,
+                enabled = ui.canSave && !ui.estimating,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp)
+                        .heightIn(min = 48.dp),
+            ) {
+                Text(stringResource(R.string.sa_download))
             }
         }
     }
 }
 
+/**
+ * « 9,5 Mo » in large with « 5,0 Go libres », then « 415 tuiles à télécharger · 31 déjà stockées »; a state of the total
+ * in place of the figure while there is none.
+ */
 @Composable
-private fun totalText(ui: SaveAreaUi): String =
-    when (val estimate = ui.estimate.takeUnless { ui.estimating }) {
+private fun Weight(
+    ui: SaveAreaUi,
+    freeBytes: Long?,
+) {
+    val resources = LocalResources.current
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val estimate = ui.estimate.takeUnless { ui.estimating }
+    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            val ready = estimate as? ZoneEstimate.Ready
+            val big =
+                when {
+                    ready == null -> null
+                    ready.missing == 0L -> null
+                    else -> formatBytes(ready.bytes)
+                }
+            Box(Modifier.weight(1f)) {
+                if (big != null) {
+                    Text(
+                        big,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                } else {
+                    Text(
+                        totalState(estimate),
+                        style = MaterialTheme.typography.titleMedium,
+                        color =
+                            if (estimate is ZoneEstimate.TooMany || estimate is ZoneEstimate.Restricted) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                }
+            }
+            if (freeBytes != null && freeBytes > 0) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
+                ) {
+                    Icon(
+                        MapsIcons.PhoneAndroid,
+                        contentDescription = null,
+                        tint = muted,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        stringResource(R.string.sa_free, formatBytes(freeBytes)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = muted,
+                        modifier = Modifier.padding(start = 4.dp),
+                    )
+                }
+            }
+        }
+        (estimate as? ZoneEstimate.Ready)?.let { ready ->
+            Text(
+                when {
+                    ready.missing == 0L -> {
+                        tilesText(resources, ready.tiles)
+                    }
+
+                    ready.stored == 0L -> {
+                        stringResource(R.string.sa_to_fetch, tilesText(resources, ready.missing))
+                    }
+
+                    else -> {
+                        stringResource(R.string.sa_to_fetch, tilesText(resources, ready.missing)) + " · " +
+                            storedText(resources, ready.stored)
+                    }
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = muted,
+            )
+        }
+    }
+}
+
+/** The total when there is no weight to show: computing, already saved, nothing, too large, a server's limit. */
+@Composable
+private fun totalState(estimate: ZoneEstimate?): String =
+    when (estimate) {
         null -> {
             stringResource(R.string.sa_estimating)
         }
 
         is ZoneEstimate.Ready -> {
-            val resources = LocalResources.current
-            when {
-                estimate.stored == 0L -> {
-                    stringResource(R.string.sa_total, tilesText(resources, estimate.tiles), formatBytes(estimate.bytes))
-                }
-
-                estimate.missing == 0L -> {
-                    stringResource(R.string.sa_total_all_stored, tilesText(resources, estimate.tiles))
-                }
-
-                else -> {
-                    stringResource(
-                        R.string.sa_total_missing,
-                        tilesText(resources, estimate.missing),
-                        formatBytes(estimate.bytes),
-                        storedText(resources, estimate.stored),
-                    )
-                }
-            }
+            stringResource(R.string.sa_all_stored)
         }
 
         ZoneEstimate.Empty -> {
@@ -258,6 +377,46 @@ private fun totalText(ui: SaveAreaUi): String =
         }
     }
 
+/** « Cartes » folded: the names of the maps checked and how many of the maps offered they are. */
+@Composable
+private fun MapsLine(
+    ui: SaveAreaUi,
+    unfolded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val checked = ui.rows.filter { it.checked && !it.isElevation }
+    val maps = ui.rows.filterNot { it.isElevation }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .toggleable(value = unfolded, role = Role.Button, onValueChange = { onToggle() })
+                .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(MapsIcons.Layers, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+        Column(Modifier.weight(1f).padding(start = 20.dp)) {
+            Text(stringResource(R.string.sa_maps), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                listOfNotNull(
+                    checked.joinToString(", ") { it.source.name }.ifEmpty { null },
+                    pluralStringResource(R.plurals.sa_maps_count, maps.size, checked.size, maps.size),
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(
+            if (unfolded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+            contentDescription = stringResource(if (unfolded) R.string.am_collapse else R.string.am_expand),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 @Composable
 private fun MapRow(
     row: AreaRow,
@@ -268,7 +427,11 @@ private fun MapRow(
     val source = row.source
     val span = ZoneStrips.span(row.minZoom, row.maxZoom, ui.maxZoom)
     val figures = maps.rowFigures(ui, source.id)
-    CheckRow(checked = row.checked, onCheckedChange = { maps.setAreaChecked(source.id, it) }) {
+    CheckRow(
+        checked = row.checked,
+        onCheckedChange = { maps.setAreaChecked(source.id, it) },
+        modifier = Modifier.padding(start = 4.dp, end = 16.dp, top = 2.dp, bottom = 6.dp),
+    ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 if (row.isElevation) {
@@ -276,16 +439,23 @@ private fun MapRow(
                 } else {
                     source.name
                 },
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            // In words, 12 sp (« Zooms 6 à 16 (sur 18) · … »), no longer « 6-16/18 » in 11 sp.
             Text(
                 if (row.isElevation) elevationDetail(row, span, figures) else rowDetail(row, span, figures),
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            ZoomStrip(row.minZoom, row.maxZoom, ui, currentTileZoom, row.checked)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                StripEnd("0")
+                Box(Modifier.weight(1f).padding(horizontal = 6.dp)) {
+                    ZoomStrip(row.minZoom, row.maxZoom, ui, currentTileZoom, row.checked)
+                }
+                StripEnd("${ui.sliderMax}")
+            }
         }
     }
 }
@@ -373,6 +543,12 @@ private fun elevationDetail(
             )
         }
     }
+
+/** « 0 » and « 18 » at the two ends of a zoom strip. */
+@Composable
+private fun StripEnd(text: String) {
+    Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
 
 /** "12 déjà stockées": the tiles of the zone a download would skip. */
 private fun storedText(

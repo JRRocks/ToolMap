@@ -166,6 +166,15 @@ object MapsIcons {
         )
     }
 
+    /** Material « phone_android »: the room left on the phone, beside the weight of a zone (P29.7). */
+    val PhoneAndroid: ImageVector by lazy {
+        icon(
+            "PhoneAndroid",
+            "M16,1L8,1C6.34,1 5,2.34 5,4v16c0,1.66 1.34,3 3,3h8c1.66,0 3,-1.34 3,-3L19,4c0,-1.66 -1.34,-3 -3,-3z" +
+                "M14,21h-4v-1h4v1zM17.25,18L6.75,18L6.75,4h10.5v14z",
+        )
+    }
+
     /** « Exporter en .aqx… » of the map menu (F4). */
     val IosShare: ImageVector by lazy {
         icon(

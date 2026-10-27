@@ -1401,6 +1401,9 @@ fun MapScreen(
 
                         framing -> {}
 
+                        // A framing too (P29.7, « Poids »): the bar comes back with ✕ or Back.
+                        mapsPage == MapsPage.SAVE_AREA -> {}
+
                         chromeHidden -> {
                             MenuLogoButton(
                                 onClick = { chromeHidden = false },
@@ -1747,7 +1750,11 @@ fun MapScreen(
 
     // The sheets and dialogs are windows of their own: they would stay on top of the screen that covers the map.
     if (!covered) {
-        if (showAreaHelp) HelpDialog(stringResource(R.string.sa_help_text)) { showAreaHelp = false }
+        if (showAreaHelp) {
+            HelpDialog(stringResource(R.string.sa_help_text), title = stringResource(R.string.sa_band)) {
+                showAreaHelp = false
+            }
+        }
         val tappedRef = tapped
         val lib = library
         if (tappedRef != null && lib != null) {

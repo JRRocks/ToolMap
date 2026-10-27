@@ -401,6 +401,8 @@ class MapsViewModel
                     sliderMax = sliderMax,
                 )
             mutablePage.value = MapsPage.SAVE_AREA
+            // The room left on the phone, beside the weight of the zone (P29.7).
+            refreshStorage()
         }
 
         /**

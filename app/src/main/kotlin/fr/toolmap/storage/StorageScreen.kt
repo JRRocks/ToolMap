@@ -2,17 +2,22 @@ package fr.toolmap.storage
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -42,9 +47,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -55,11 +64,14 @@ import fr.toolmap.data.storage.PackageException
 import fr.toolmap.data.storage.SourceUsage
 import fr.toolmap.data.storage.StorageManager
 import fr.toolmap.download.formatBytes
+import fr.toolmap.map.MenuIcons
+import fr.toolmap.ui.GroupBlock
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.screenInsets
 import fr.toolmap.ui.theme.Button
 import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.TextButton
+import fr.toolmap.ui.theme.toolMap
 
 private const val PURGE_AFTER_DAYS = 30
 private const val MIME_BINARY = "application/octet-stream"
@@ -75,12 +87,18 @@ private sealed interface Confirm {
     ) : Confirm
 }
 
-/** Tiles kept on the device: size per map, purges, and `.mbtiles` export / import. */
+/**
+ * Tiles kept on the device: size per map, purges, and `.mbtiles` export / import. Since P29.7 (« Poids ») it opens on
+ * the gauge of the phone (used and total, ToolMap's part in turquoise), then the maps from the heaviest in one white
+ * block; the import is an icon of the bar, the empty storage leads to the selection of a zone.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StorageScreen(
     vm: StorageViewModel,
     onBack: () -> Unit,
+    /** Back to the map, with the zone selection started (from the empty storage, P29.7). */
+    onSelectZone: () -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val sources by vm.sources.collectAsStateWithLifecycle()
@@ -111,7 +129,15 @@ fun StorageScreen(
     Scaffold(
         modifier = Modifier.windowInsetsPadding(screenInsets()),
         topBar = {
-            ToolMapTopBar(title = stringResource(R.string.storage_title), onBack = onBack)
+            ToolMapTopBar(
+                title = stringResource(R.string.storage_title),
+                onBack = onBack,
+                actions = {
+                    IconButton(onClick = { importer.launch(arrayOf("*/*")) }, enabled = !state.busy) {
+                        Icon(MenuIcons.UploadFile, contentDescription = stringResource(R.string.storage_import))
+                    }
+                },
+            )
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
@@ -121,48 +147,61 @@ fun StorageScreen(
                     .padding(padding)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
         ) {
-            if (state.busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            // How much is kept, then the maps from the largest down: the ones worth purging come first.
+            if (state.busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
+            // The room of the phone first, where one decides to purge; then the maps from the heaviest down.
             val total = state.usages.sumOf { it.diskBytes }
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (state.usages.isEmpty()) {
-                        Text(stringResource(R.string.storage_empty), style = MaterialTheme.typography.titleMedium)
-                    } else {
-                        Text(formatBytes(total), style = MaterialTheme.typography.headlineSmall)
-                        Text(
-                            pluralStringResource(R.plurals.storage_maps, state.usages.size, state.usages.size),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                    OutlinedButton(
-                        onClick = { importer.launch(arrayOf("*/*")) },
-                        enabled = !state.busy,
-                        modifier = Modifier.padding(top = 8.dp),
-                    ) {
-                        Text(stringResource(R.string.storage_import))
-                    }
+            SpaceGauge(state, total)
+            if (state.usages.isEmpty()) {
+                Text(
+                    stringResource(R.string.storage_empty),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 24.dp),
+                )
+                Text(
+                    stringResource(R.string.download_empty_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Button(onClick = onSelectZone, modifier = Modifier.padding(top = 16.dp)) {
+                    Text(stringResource(R.string.maps_save_area))
                 }
-            }
-            for (usage in state.usages.sortedByDescending { it.diskBytes }) {
-                UsageCard(
-                    usage = usage,
-                    share = if (total > 0) usage.diskBytes.toFloat() / total else 0f,
-                    isLocalMap = vm.isLocalMap(usage.sourceId),
+                OutlinedButton(
+                    onClick = { importer.launch(arrayOf("*/*")) },
                     enabled = !state.busy,
-                    onExport = {
-                        exportingId = usage.sourceId
-                        exporter.launch(StorageManager.slug(usage.name) + ".mbtiles")
-                    },
-                    onPurgeOld = { vm.purgeOlderThan(usage.sourceId, PURGE_AFTER_DAYS) },
-                    onPurge = { confirm = Confirm.Purge(usage) },
-                    onDeleteMap = { confirm = Confirm.DeleteMap(usage) },
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    Text(stringResource(R.string.storage_import))
+                }
+            } else {
+                Text(
+                    stringResource(R.string.storage_sorted),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, top = 18.dp, bottom = 8.dp),
+                )
+                val sorted = state.usages.sortedByDescending { it.diskBytes }
+                GroupBlock(
+                    rows =
+                        sorted.map { usage ->
+                            {
+                                UsageRow(
+                                    usage = usage,
+                                    share = if (total > 0) usage.diskBytes.toFloat() / total else 0f,
+                                    isLocalMap = vm.isLocalMap(usage.sourceId),
+                                    enabled = !state.busy,
+                                    onExport = {
+                                        exportingId = usage.sourceId
+                                        exporter.launch(StorageManager.slug(usage.name) + ".mbtiles")
+                                    },
+                                    onPurgeOld = { vm.purgeOlderThan(usage.sourceId, PURGE_AFTER_DAYS) },
+                                    onPurge = { confirm = Confirm.Purge(usage) },
+                                    onDeleteMap = { confirm = Confirm.DeleteMap(usage) },
+                                )
+                            }
+                        },
                 )
             }
         }
@@ -192,11 +231,69 @@ fun StorageScreen(
 }
 
 /**
- * One map of the storage: its name, size, tiles and zooms on two lines, a bar of its part of the total, and its
- * commands in the ⋮ menu (export, purges, or deletion of a local map).
+ * The gauge of the phone: « 5,4 Go utilisés » and « sur 10,4 Go », a bar where ToolMap's part is turquoise (never
+ * thinner than 8 dp, so that it stays seen) and the rest of the used room grey, and its legend « Tuiles de ToolMap ».
  */
 @Composable
-private fun UsageCard(
+private fun SpaceGauge(
+    state: StorageUiState,
+    tilesBytes: Long,
+) {
+    val tm = MaterialTheme.toolMap
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(Modifier.fillMaxWidth()) {
+        if (state.spaceTotal > 0) {
+            val used = (state.spaceTotal - state.spaceFree).coerceAtLeast(0L)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    stringResource(R.string.storage_phone_used, formatBytes(used)),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    stringResource(R.string.storage_phone_of, formatBytes(state.spaceTotal)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = muted,
+                )
+            }
+            val track = MaterialTheme.colorScheme.outlineVariant
+            val rest = muted
+            Canvas(Modifier.fillMaxWidth().padding(top = 10.dp).height(10.dp).clip(RoundedCornerShape(5.dp))) {
+                drawRect(track)
+                val usedWidth = size.width * (used.toFloat() / state.spaceTotal).coerceIn(0f, 1f)
+                val ours =
+                    (size.width * (tilesBytes.toFloat() / state.spaceTotal))
+                        .coerceAtLeast(GAUGE_MIN_PART.toPx())
+                        .coerceAtMost(usedWidth.coerceAtLeast(GAUGE_MIN_PART.toPx()))
+                drawRect(tm.accent, size = Size(ours, size.height))
+                val gap = GAUGE_GAP.toPx()
+                if (usedWidth > ours + gap) {
+                    drawRect(rest, topLeft = Offset(ours + gap, 0f), size = Size(usedWidth - ours - gap, size.height))
+                }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+            Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(tm.accent))
+            Text(
+                stringResource(
+                    R.string.storage_toolmap_part,
+                    formatBytes(tilesBytes),
+                    pluralStringResource(R.plurals.storage_maps_short, state.usages.size, state.usages.size),
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = muted,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+    }
+}
+
+/**
+ * One map of the storage as a row of the white block: its name and its size at the end, its tiles, zooms and kind,
+ * a bar of its part of the total, and its commands in the ⋮ menu (export, purges, or deletion of a local map).
+ */
+@Composable
+private fun UsageRow(
     usage: SourceUsage,
     share: Float,
     isLocalMap: Boolean,
@@ -207,88 +304,94 @@ private fun UsageCard(
     onDeleteMap: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        usage.name,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    Text(
-                        formatBytes(usage.diskBytes),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-                val zooms = usage.perZoom.keys
+    Row(
+        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    listOfNotNull(
-                        pluralStringResource(
-                            R.plurals.storage_tiles,
-                            usage.tiles.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
-                            usage.tiles,
-                        ),
-                        when {
-                            zooms.isEmpty() -> null
-                            zooms.min() == zooms.max() -> stringResource(R.string.storage_zoom, zooms.min())
-                            else -> stringResource(R.string.storage_zooms, zooms.min(), zooms.max())
-                        },
-                        if (isLocalMap) stringResource(R.string.storage_local_badge) else null,
-                        if (usage.usedBy.size > 1) {
-                            pluralStringResource(R.plurals.storage_shared, usage.usedBy.size, usage.usedBy.size)
-                        } else {
-                            null
-                        },
-                    ).joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    usage.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
-                LinearProgressIndicator(
-                    progress = { share },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    drawStopIndicator = {},
+                Text(
+                    formatBytes(usage.diskBytes),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 8.dp),
                 )
             }
-            Box {
-                IconButton(onClick = { menu = true }, enabled = enabled) {
-                    Icon(
-                        Icons.Filled.MoreVert,
-                        contentDescription = stringResource(R.string.storage_actions, usage.name),
-                    )
-                }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    val items =
-                        buildList {
-                            add(stringResource(R.string.storage_export) to onExport)
-                            if (isLocalMap) {
-                                add(stringResource(R.string.storage_delete_map) to onDeleteMap)
-                            } else {
-                                add(stringResource(R.string.storage_purge_old, PURGE_AFTER_DAYS) to onPurgeOld)
-                                add(stringResource(R.string.storage_purge) to onPurge)
-                            }
+            val zooms = usage.perZoom.keys
+            Text(
+                listOfNotNull(
+                    pluralStringResource(
+                        R.plurals.storage_tiles,
+                        usage.tiles.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                        usage.tiles,
+                    ),
+                    when {
+                        zooms.isEmpty() -> null
+                        zooms.min() == zooms.max() -> stringResource(R.string.storage_zoom, zooms.min())
+                        else -> stringResource(R.string.storage_zooms, zooms.min(), zooms.max())
+                    },
+                    if (isLocalMap) stringResource(R.string.storage_local_badge) else null,
+                    if (usage.usedBy.size > 1) {
+                        pluralStringResource(R.plurals.storage_shared, usage.usedBy.size, usage.usedBy.size)
+                    } else {
+                        null
+                    },
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            LinearProgressIndicator(
+                progress = { share },
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp).height(4.dp),
+                color = MaterialTheme.toolMap.accent,
+                trackColor = MaterialTheme.colorScheme.outlineVariant,
+                gapSize = 0.dp,
+                drawStopIndicator = {},
+            )
+        }
+        Box {
+            IconButton(onClick = { menu = true }, enabled = enabled) {
+                Icon(
+                    Icons.Filled.MoreVert,
+                    contentDescription = stringResource(R.string.storage_actions, usage.name),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                val items =
+                    buildList {
+                        add(stringResource(R.string.storage_export) to onExport)
+                        if (isLocalMap) {
+                            add(stringResource(R.string.storage_delete_map) to onDeleteMap)
+                        } else {
+                            add(stringResource(R.string.storage_purge_old, PURGE_AFTER_DAYS) to onPurgeOld)
+                            add(stringResource(R.string.storage_purge) to onPurge)
                         }
-                    for ((label, action) in items) {
-                        DropdownMenuItem(
-                            text = { Text(label) },
-                            onClick = {
-                                menu = false
-                                action()
-                            },
-                        )
                     }
+                for ((label, action) in items) {
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = {
+                            menu = false
+                            action()
+                        },
+                    )
                 }
             }
         }
     }
 }
+
+private val GAUGE_MIN_PART = 8.dp
+private val GAUGE_GAP = 2.dp
 
 @Composable
 private fun ConfirmDialog(

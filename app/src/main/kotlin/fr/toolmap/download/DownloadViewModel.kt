@@ -10,6 +10,7 @@ import fr.toolmap.core.source.TileSource
 import fr.toolmap.data.download.ZoneJobStore
 import fr.toolmap.data.sources.SourceRepository
 import fr.toolmap.data.tiles.OfflineMode
+import fr.toolmap.maps.MapThumbnails
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -66,6 +67,8 @@ class DownloadViewModel
         private val repository: SourceRepository,
         private val offlineMode: OfflineMode,
         jobStore: ZoneJobStore,
+        /** The image of the first map of a job, in the block of the job going (P29.7). */
+        val thumbnails: MapThumbnails,
     ) : ViewModel() {
         val jobs: StateFlow<List<ZoneJob>> = jobStore.jobs
         val sources: StateFlow<List<TileSource>> = repository.sources
@@ -110,6 +113,9 @@ class DownloadViewModel
         fun resume(id: String) = scheduler.resume(id)
 
         fun remove(id: String) = scheduler.remove(id)
+
+        /** « Annuler » after « Retirer »: the job as it was before. */
+        fun restore(job: ZoneJob) = scheduler.restore(job)
 
         private fun request(
             draft: ZoneDraft,

@@ -223,10 +223,9 @@
   <string name="download_notification_progress">Tuiles : %1$d / %2$d</string>
   <string name="download_notification_done">Terminé — tuiles : %1$d</string>
   <string name="download_notification_failed">Téléchargement interrompu</string>
-  <string name="download_title">Cartes hors ligne</string>
+  <string name="download_title">Téléchargements</string>
   <string name="download_offline_warning">Le mode hors ligne est actif : aucun téléchargement n\'est possible.</string>
   <string name="download_go_online">Repasser en ligne</string>
-  <string name="download_jobs">Téléchargements</string>
   <string name="download_jobs_empty">Aucun téléchargement pour l\'instant.</string>
   <string name="download_empty_hint">Pour utiliser une carte sans réseau, choisissez une zone sur la carte et le zoom maximal : ses tuiles sont enregistrées dans le téléphone.</string>
   <string name="download_new">Nouveau téléchargement</string>
@@ -245,10 +244,28 @@
   <string name="download_shape_rectangle">Zone affichée à l\'écran : %1$.1f × %2$.1f km</string>
   <string name="download_shape_polygon">Polygone — sommets : %1$d</string>
   <string name="download_shape_corridor">Autour d\'une trace : ± %1$d m</string>
-  <string name="download_counters">Tuiles : %1$d / %2$d · %3$s · erreurs : %4$d</string>
   <string name="download_pause">Pause</string>
   <string name="download_resume">Reprendre</string>
-  <string name="download_remove">Supprimer ce téléchargement</string>
+  <string name="download_remove">Retirer de la liste</string>
+  <string name="download_remove_hint">Les tuiles restent sur le téléphone</string>
+  <string name="download_remove_short">Retirer</string>
+  <string name="download_removed">« %1$s » retirée de la liste. Les tuiles restent sur le téléphone.</string>
+  <string name="download_undo">Annuler</string>
+  <string name="download_more">Actions sur « %1$s »</string>
+  <string name="download_new_zone">Nouvelle zone</string>
+  <string name="download_section_paused">En pause</string>
+  <string name="download_section_done">Terminés</string>
+  <string name="download_zooms_to">zooms jusqu\'à %1$d</string>
+  <string name="download_zooms_range">zooms %1$d à %2$d</string>
+  <string name="download_tiles_of">%1$s / %2$s tuiles</string>
+  <string name="download_tiles_all">%1$s tuiles</string>
+  <string name="download_done_on">le %1$s</string>
+  <string name="download_percent">%1$d\u00A0%%</string>
+  <plurals name="download_errors">
+    <item quantity="one">%d erreur</item>
+    <item quantity="many">%d erreurs</item>
+    <item quantity="other">%d erreurs</item>
+  </plurals>
   <string name="download_status_queued">En attente</string>
   <string name="download_status_running">En cours</string>
   <string name="download_status_paused">En pause</string>
@@ -265,6 +282,15 @@
   <string name="storage_title">Stockage hors ligne</string>
   <string name="storage_import">Importer un fichier .mbtiles</string>
   <string name="storage_empty">Aucune tuile stockée pour l\'instant.</string>
+  <string name="storage_phone_used">%1$s utilisés</string>
+  <string name="storage_phone_of">sur %1$s</string>
+  <string name="storage_toolmap_part">Tuiles de ToolMap : %1$s · %2$s</string>
+  <string name="storage_sorted">De la plus lourde à la plus légère</string>
+  <plurals name="storage_maps_short">
+    <item quantity="one">%d carte</item>
+    <item quantity="many">%d cartes</item>
+    <item quantity="other">%d cartes</item>
+  </plurals>
   <string name="storage_total">Total : %1$s</string>
   <string name="storage_usage">Tuiles : %1$d · %2$s</string>
   <string name="storage_per_zoom">Par zoom — %1$s</string>
@@ -1434,31 +1460,37 @@
   <string name="wizard_layer_chosen">Couche choisie</string>
 
   <string name="sa_job_name">Zone du %1$s</string>
-  <string name="sa_title">Sélectionner et enregistrer une zone</string>
-  <string name="sa_help_text">Déplacez les quatre poignées pour entourer la zone à garder, puis cochez les cartes et réglez le zoom maximal. Chaque barre montre les niveaux de zoom de la carte : en vert ceux qui seront enregistrés, en gris ceux qui ne le seront pas, et le trait rouge marque le zoom actuel.</string>
-  <string name="sa_row">%1$d-%2$d/%3$d · %4$s · %5$s</string>
+  <string name="sa_band">Enregistrer une zone</string>
+  <string name="sa_zoom_label">Zoom maximal</string>
+  <string name="sa_free">%1$s libres</string>
+  <string name="sa_to_fetch">%1$s à télécharger</string>
+  <string name="sa_all_stored">Déjà enregistrée</string>
+  <string name="sa_maps">Cartes</string>
+  <plurals name="sa_maps_count">
+    <item quantity="one">%1$d sur %2$d</item>
+    <item quantity="many">%1$d sur %2$d</item>
+    <item quantity="other">%1$d sur %2$d</item>
+  </plurals>
+  <string name="sa_help_text">Déplacez les quatre poignées pour entourer la zone à garder, réglez le zoom maximal, puis touchez « Cartes » pour cocher les cartes. Chaque barre montre les niveaux de zoom de la carte : en couleur ceux qui seront enregistrés, en gris clair ceux qui ne le seront pas ou que la carte n\'a pas, et le trait rouge marque le zoom affiché.</string>
+  <string name="sa_row">Zooms %1$d à %2$d (sur %3$d) · %4$s · %5$s</string>
   <string name="sa_row_none">Aucune tuile à ces zooms</string>
-  <string name="sa_row_waiting">%1$d-%2$d/%3$d · calcul…</string>
+  <string name="sa_row_waiting">Zooms %1$d à %2$d (sur %3$d) · calcul…</string>
   <string name="sa_row_unchecked">Non cochée</string>
-  <string name="sa_zoom">Zoom maximal : %1$d</string>
-  <string name="sa_total">Total : %1$s · %2$s</string>
-  <string name="sa_total_missing">À télécharger : %1$s · %2$s (%3$s)</string>
-  <string name="sa_total_all_stored">Déjà enregistrée : %1$s</string>
-  <string name="sa_row_stored">%1$d-%2$d/%3$d · %4$s à télécharger · %5$s · %6$s</string>
-  <string name="sa_row_all_stored">%1$d-%2$d/%3$d · déjà enregistrée</string>
+  <string name="sa_row_stored">Zooms %1$d à %2$d (sur %3$d) · %4$s à télécharger · %5$s · %6$s</string>
+  <string name="sa_row_all_stored">Zooms %1$d à %2$d (sur %3$d) · déjà enregistrée</string>
   <!-- The elevation tiles the maps drawn in an elevation band need offline (P20) -->
   <string name="sa_elevation_row">Altitudes (pour %1$s)</string>
-  <string name="sa_elevation">%1$d-%2$d · %3$s · %4$s</string>
-  <string name="sa_elevation_waiting">%1$d-%2$d · calcul…</string>
-  <string name="sa_elevation_stored">%1$d-%2$d · %3$s à télécharger · %4$s · %5$s</string>
-  <string name="sa_elevation_all_stored">%1$d-%2$d · déjà enregistrées</string>
+  <string name="sa_elevation">Zooms %1$d à %2$d · %3$s · %4$s</string>
+  <string name="sa_elevation_waiting">Zooms %1$d à %2$d · calcul…</string>
+  <string name="sa_elevation_stored">Zooms %1$d à %2$d · %3$s à télécharger · %4$s · %5$s</string>
+  <string name="sa_elevation_all_stored">Zooms %1$d à %2$d · déjà enregistrées</string>
   <plurals name="sa_stored">
     <item quantity="one">%d déjà stockée</item>
     <item quantity="other">%d déjà stockées</item>
   </plurals>
   <string name="sa_estimating">Estimation en cours…</string>
   <string name="sa_download">Enregistrer la zone</string>
-  <string name="sa_started">Téléchargement lancé : %1$s (%2$s). Suivi dans Options › Téléchargements.</string>
+  <string name="sa_started">Téléchargement lancé : %1$s (%2$s). Suivi dans Cartes › Téléchargements.</string>
   <string name="sa_no_maps">Aucune carte à enregistrer : affichez une carte qui a un serveur.</string>
   <string name="sa_handle">Poignée de la zone</string>
   <string name="sa_close">Quitter la sélection de zone</string>
@@ -1467,10 +1499,6 @@
   <plurals name="storage_tiles">
     <item quantity="one">%1$d tuile</item>
     <item quantity="other">%1$d tuiles</item>
-  </plurals>
-  <plurals name="storage_maps">
-    <item quantity="one">%1$d carte enregistrée sur le téléphone</item>
-    <item quantity="other">%1$d cartes enregistrées sur le téléphone</item>
   </plurals>
   <plurals name="storage_shared">
     <item quantity="one">Tuiles partagées par %1$d carte</item>

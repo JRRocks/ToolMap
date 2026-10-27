@@ -50,9 +50,10 @@ class ZoneDownloadWorker(
         val entry = EntryPointAccessors.fromApplication(applicationContext, DownloadEntryPoint::class.java)
         val jobs = entry.jobs()
         val job = jobs.get(jobId) ?: return Result.failure()
+        // Every write below is an update: a job removed from the list while it ran stays removed (P29.7).
         // The maps are on a card that is out: nothing could be stored, so the job is refused now (ADR-042).
         if (!TileStorages.isUsable(applicationContext, TileLocation(applicationContext.filesDir).active())) {
-            jobs.save(
+            jobs.update(
                 job.copy(
                     status = ZoneStatus.FAILED,
                     message = applicationContext.getString(R.string.download_refused_card),
@@ -80,20 +81,20 @@ class ZoneDownloadWorker(
                 message = null,
                 updatedAtMillis = System.currentTimeMillis(),
             )
-        jobs.save(current)
+        jobs.update(current)
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
         val startNanos = SystemClock.elapsedRealtimeNanos()
         try {
             val result =
                 entry.downloader().run(job.request) { progress ->
                     current = current.copy(progress = progress, updatedAtMillis = System.currentTimeMillis())
-                    jobs.save(current)
+                    jobs.update(current)
                     manager.notify(notificationId, notification(progress))
                 }
             if (BuildConfig.PERF_LOG) logTiming(result, (SystemClock.elapsedRealtimeNanos() - startNanos) / 1_000_000L)
             return finish(jobs, current, result, manager, notificationId)
         } catch (e: CancellationException) {
-            jobs.save(current.copy(status = ZoneStatus.PAUSED, updatedAtMillis = System.currentTimeMillis()))
+            jobs.update(current.copy(status = ZoneStatus.PAUSED, updatedAtMillis = System.currentTimeMillis()))
             throw e
         }
     }
@@ -109,7 +110,7 @@ class ZoneDownloadWorker(
         val now = System.currentTimeMillis()
         return when (result) {
             is ZoneResult.Completed -> {
-                jobs.save(job.copy(status = ZoneStatus.DONE, progress = result.progress, updatedAtMillis = now))
+                jobs.update(job.copy(status = ZoneStatus.DONE, progress = result.progress, updatedAtMillis = now))
                 val text = applicationContext.getString(R.string.download_notification_done, result.progress.processed)
                 manager.notify(notificationId, DownloadNotifications.finished(applicationContext, name, text))
                 Result.success()
@@ -117,7 +118,7 @@ class ZoneDownloadWorker(
 
             is ZoneResult.Interrupted -> {
                 val giveUp = runAttemptCount >= MAX_ATTEMPTS
-                jobs.save(
+                jobs.update(
                     job.copy(
                         status = if (giveUp) ZoneStatus.FAILED else ZoneStatus.INTERRUPTED,
                         progress = result.progress,
@@ -135,7 +136,7 @@ class ZoneDownloadWorker(
             }
 
             is ZoneResult.Refused -> {
-                jobs.save(job.copy(status = ZoneStatus.FAILED, message = refusal(result), updatedAtMillis = now))
+                jobs.update(job.copy(status = ZoneStatus.FAILED, message = refusal(result), updatedAtMillis = now))
                 manager.cancel(notificationId)
                 Result.failure()
             }

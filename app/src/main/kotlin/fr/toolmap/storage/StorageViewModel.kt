@@ -2,6 +2,7 @@ package fr.toolmap.storage
 
 import android.content.Context
 import android.net.Uri
+import android.os.StatFs
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,6 +15,7 @@ import fr.toolmap.data.storage.PackageInfo
 import fr.toolmap.data.storage.SourceUsage
 import fr.toolmap.data.storage.StagedPackage
 import fr.toolmap.data.storage.StorageManager
+import fr.toolmap.data.tiles.TileLocation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,6 +63,9 @@ sealed interface StorageMessage {
 
 data class StorageUiState(
     val usages: List<SourceUsage> = emptyList(),
+    /** Size and room left of the storage that holds the tiles (P29.7: the gauge at the top); 0 while unknown. */
+    val spaceTotal: Long = 0L,
+    val spaceFree: Long = 0L,
     val busy: Boolean = false,
     val pendingImport: PendingImport? = null,
     val message: StorageMessage? = null,
@@ -183,7 +188,20 @@ class StorageViewModel
                         StorageMessage.Failed(e.message ?: e.javaClass.simpleName)
                     }
                 val usages = withContext(Dispatchers.IO) { runCatching { manager.usage() }.getOrDefault(emptyList()) }
-                mutableState.update { it.copy(busy = false, usages = usages, message = message ?: it.message) }
+                val stat =
+                    withContext(Dispatchers.IO) {
+                        val dir = TileLocation(context.filesDir).active().takeIf { it.exists() } ?: context.filesDir
+                        runCatching { StatFs(dir.path) }.getOrNull()
+                    }
+                mutableState.update {
+                    it.copy(
+                        busy = false,
+                        usages = usages,
+                        spaceTotal = stat?.totalBytes ?: 0L,
+                        spaceFree = stat?.availableBytes ?: 0L,
+                        message = message ?: it.message,
+                    )
+                }
             }
         }
 

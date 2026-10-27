@@ -11,8 +11,10 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ZoneJobStoreTest {
     private lateinit var dir: File
@@ -66,6 +68,19 @@ class ZoneJobStoreTest {
         store.delete("a")
         assertNull(store.get("a"))
         assertEquals(0, ZoneJobStore(dir).jobs.value.size)
+    }
+
+    @Test
+    fun `an update writes a listed job but never brings back a removed one`() {
+        val store = ZoneJobStore(dir)
+        store.save(job("a", 1))
+        assertTrue(store.update(job("a", 1).copy(status = ZoneStatus.PAUSED)))
+        assertEquals(ZoneStatus.PAUSED, store.get("a")?.status)
+        store.delete("a")
+        // The worker of a removed job writes its pause on cancellation: the job stays removed (P29.7).
+        assertFalse(store.update(job("a", 1).copy(status = ZoneStatus.PAUSED)))
+        assertNull(store.get("a"))
+        assertNull(ZoneJobStore(dir).get("a"))
     }
 
     @Test
