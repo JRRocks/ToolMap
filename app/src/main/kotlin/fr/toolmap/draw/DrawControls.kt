@@ -48,7 +48,6 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import fr.toolmap.R
 import fr.toolmap.core.route.RouteMarkers
 import fr.toolmap.core.route.RoutePlan
-import fr.toolmap.core.settings.UnitSystem
 import fr.toolmap.core.track.ElevationProfile
 import fr.toolmap.core.track.NameDates
 import fr.toolmap.core.track.TrackFormat
@@ -422,7 +421,16 @@ private fun RoutedPanel(
             )
         }
     }
-    if (taken == null && placing == null) {
+    // The crosshair in a zone to avoid, on no stop: how to change its size takes the place of the switch (P30.4).
+    val sizing = !empty && taken == null && placing == null && under == null && zone != null
+    if (sizing) {
+        Text(
+            stringResource(R.string.route_zone_resize_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+    } else if (taken == null && placing == null) {
         RoutingSwitchRow(
             route = route,
             onToggle = onToggle,
@@ -614,7 +622,6 @@ private fun ZoneTiles(
     vm: DrawViewModel,
     center: () -> Pair<Double, Double>,
 ) {
-    val fmt = LocalFormats.current
     Text(
         stringResource(R.string.route_zone_hint),
         style = MaterialTheme.typography.bodyMedium,
@@ -626,16 +633,7 @@ private fun ZoneTiles(
             FilterChip(
                 selected = meters == radius,
                 onClick = { vm.setZoneRadius(meters) },
-                // « 1 km » rather than « 1,00 km »: a round size, not a measure.
-                label = {
-                    Text(
-                        if (fmt.units == UnitSystem.METRIC && meters % 1000 == 0) {
-                            "${meters / 1000} km"
-                        } else {
-                            fmt.distance(meters.toDouble())
-                        },
-                    )
-                },
+                label = { Text(zoneSize(meters)) },
             )
         }
     }

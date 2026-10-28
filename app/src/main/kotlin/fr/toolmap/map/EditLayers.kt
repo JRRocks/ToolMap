@@ -27,7 +27,8 @@ import kotlin.math.roundToInt
  * `start`, `end` or `named` (a coloured disc with a letter or an icon, and the name) or `pass` (a small white disc).
  *
  * Below them, the zones to avoid of a route (P19.8, variant A of `docs/previews/p19-nogos.html`): a pale red disc with
- * a dashed edge and a no-entry sign at its centre, and the circle that follows the crosshair before it is placed.
+ * a dashed edge and a no-entry sign at its centre, and the circle that follows the crosshair before it is placed; the
+ * zone under the crosshair has a solid edge (P30.4).
  */
 object EditLayers {
     private const val LINE_SOURCE = "tm-e-line"
@@ -41,6 +42,7 @@ object EditLayers {
     private const val ZONES_SOURCE = "tm-e-zones"
     private const val ZONES_FILL_LAYER = "tm-e-zones-fill"
     private const val ZONES_EDGE_LAYER = "tm-e-zones-edge"
+    private const val ZONES_HOVER_LAYER = "tm-e-zones-hover"
     private const val ZONES_SIGN_LAYER = "tm-e-zones-sign"
     private const val NO_ENTRY_IMAGE = "tm-no-entry"
     private const val LEG_LABEL_LAYER = "tm-e-leg-label"
@@ -69,6 +71,8 @@ object EditLayers {
     private const val ZONE_OPACITY = 0.16f
     private const val RING_OPACITY = 0.07f
     private const val ZONE_EDGE_WIDTH = 2f
+    private const val HOVER_OPACITY = 0.22f
+    private const val HOVER_EDGE_WIDTH = 2.6f
     private const val SIGN_DP = 16f
 
     fun install(style: Style) {
@@ -264,17 +268,28 @@ object EditLayers {
                             z,
                             Expression.literal(ZONE_OPACITY),
                             Expression.stop("ring", Expression.literal(RING_OPACITY)),
+                            Expression.stop("hover", Expression.literal(HOVER_OPACITY)),
                         ),
                     ),
                 ),
         )
+        val hover = Expression.eq(z, Expression.literal("hover"))
         style.addLayer(
             LineLayer(ZONES_EDGE_LAYER, ZONES_SOURCE)
-                .withFilter(isArea)
+                .withFilter(Expression.all(isArea, Expression.not(hover)))
                 .withProperties(
                     PropertyFactory.lineColor(ZONE_HEX),
                     PropertyFactory.lineWidth(ZONE_EDGE_WIDTH),
                     PropertyFactory.lineDasharray(arrayOf(2.5f, 2f)),
+                ),
+        )
+        // The zone under the crosshair, whose handle changes its size (P30.4): a solid edge.
+        style.addLayer(
+            LineLayer(ZONES_HOVER_LAYER, ZONES_SOURCE)
+                .withFilter(Expression.all(isArea, hover))
+                .withProperties(
+                    PropertyFactory.lineColor(ZONE_HEX),
+                    PropertyFactory.lineWidth(HOVER_EDGE_WIDTH),
                 ),
         )
         style.addLayer(

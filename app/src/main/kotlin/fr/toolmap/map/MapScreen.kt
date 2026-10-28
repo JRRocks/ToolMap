@@ -142,6 +142,7 @@ import fr.toolmap.draw.RouteNoticeSnackbar
 import fr.toolmap.draw.RouteNoticeVisuals
 import fr.toolmap.draw.RouteStatsCard
 import fr.toolmap.draw.SegmentChooser
+import fr.toolmap.draw.ZoneSizeHandle
 import fr.toolmap.draw.installBRouter
 import fr.toolmap.draw.openBRouter
 import fr.toolmap.maps.DisplayConditionsPanel
@@ -522,6 +523,24 @@ fun MapScreen(
         if (drawUi.taken == null) return@LaunchedEffect
         snapshotFlow { controller.liveCamera }.collect { draw.followCrosshair(it.lat, it.lon) }
     }
+    // The zone to avoid under the crosshair (P30.4): drawn with a solid edge and given the handle of its size. A stop
+    // under the crosshair comes first, as for the tiles of the panel; nothing while a stop or a new zone is in hand.
+    val routePlan = drawUi.route?.plan
+    val hoveredZone by remember(routePlan, drawUi.active, drawUi.routed, drawUi.taken, drawUi.zoneRadius) {
+        derivedStateOf {
+            if (!drawUi.active || !drawUi.routed || routePlan == null || routePlan.zones.isEmpty() ||
+                drawUi.taken != null || drawUi.zoneRadius != null
+            ) {
+                null
+            } else {
+                val c = controller.liveCamera
+                draw.zoneUnder(c.lat, c.lon)?.takeIf {
+                    draw.stopUnder(c.lat, c.lon, controller.metersFor(TAP_REACH_DP)) == null
+                }
+            }
+        }
+    }
+    LaunchedEffect(hoveredZone) { draw.hoverZone(hoveredZone) }
     // A zone to avoid being placed (« Éviter une zone », P19.8): its circle follows the camera until it is placed.
     LaunchedEffect(drawUi.zoneRadius) {
         if (drawUi.zoneRadius == null) return@LaunchedEffect
@@ -1371,6 +1390,20 @@ fun MapScreen(
             FreehandLayer(
                 toPoint = controller::screenToLatLon,
                 onStroke = { stroke -> draw.addStroke(stroke, controller.metersFor(STROKE_TOLERANCE_DP)) },
+            )
+        }
+
+        // The handle that changes the size of the zone under the crosshair (P30.4), under the panels.
+        val sized = hoveredZone
+        val sizedZone = sized?.let { routePlan?.zones?.getOrNull(it) }
+        if (sized != null && sizedZone != null) {
+            ZoneSizeHandle(
+                zone = sizedZone,
+                camera = controller.liveCamera,
+                project = controller::latLonToScreen,
+                unproject = controller::screenToLatLon,
+                onPreview = { r -> draw.previewZoneSize(sized, r) },
+                onResize = { r -> draw.resizeZone(sized, r) },
             )
         }
 

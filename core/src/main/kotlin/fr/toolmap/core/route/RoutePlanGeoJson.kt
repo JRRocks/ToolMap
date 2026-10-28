@@ -37,12 +37,16 @@ object RoutePlanGeoJson {
         return out
     }
 
-    /** With [taken], the legs on both sides of that stop are `g` (pale): it is being moved (« Prendre l'étape »). */
+    /**
+     * With [taken], the legs on both sides of that stop are `g` (pale): it is being moved (« Prendre l'étape »). With
+     * [pale], every leg is: a zone is being resized and the way will be computed again (P30.4).
+     */
     fun lines(
         plan: RoutePlan,
         computingLabel: String,
         byHandLabel: String,
         taken: Int? = null,
+        pale: Boolean = false,
     ): String {
         if (plan.legs.isEmpty()) return EMPTY
         val out = StringBuilder(plan.legs.sumOf { it.points.size } * 24 + 128)
@@ -53,7 +57,7 @@ object RoutePlanGeoJson {
             if (leg.points.size < 2) return@forEachIndexed
             val st =
                 when {
-                    taken != null && (k == taken - 1 || k == taken) -> "g"
+                    pale || (taken != null && (k == taken - 1 || k == taken)) -> "g"
                     leg.state == LegState.PENDING -> "p"
                     leg.isByHand -> "h"
                     else -> "r"
@@ -175,17 +179,28 @@ object RoutePlanGeoJson {
     /**
      * The zones to avoid (P19.8, variant A of `docs/previews/p19-nogos.html`): each a circle (`z` = `zone`) with its
      * centre (`z` = `sign`, the no-entry sign); [placing], the circle that follows the crosshair before it is placed
-     * (`z` = `ring`).
+     * (`z` = `ring`); zone [hovered], the one under the crosshair, with a solid edge (`z` = `hover`, P30.4), drawn with
+     * the radius [hoverRadius] while its handle is pulled.
      */
     fun zones(
         plan: RoutePlan,
         placing: AvoidZone? = null,
+        hovered: Int? = null,
+        hoverRadius: Int? = null,
     ): String {
         if (plan.zones.isEmpty() && placing == null) return EMPTY
         val out = StringBuilder((plan.zones.size + 1) * (CIRCLE_SIDES * 24 + 160))
         out.append("{\"type\":\"FeatureCollection\",\"features\":[")
         var first = true
-        val all = plan.zones.map { it to "zone" } + listOfNotNull(placing?.let { it to "ring" })
+        val all =
+            plan.zones.mapIndexed { i, zone ->
+                if (i == hovered) {
+                    (if (hoverRadius != null && hoverRadius > 0) zone.copy(radiusMeters = hoverRadius) else zone) to
+                        "hover"
+                } else {
+                    zone to "zone"
+                }
+            } + listOfNotNull(placing?.let { it to "ring" })
         for ((zone, z) in all) {
             if (!first) out.append(',')
             first = false
@@ -196,7 +211,7 @@ object RoutePlanGeoJson {
                 position(out, p.lat, p.lon)
             }
             out.append("]]}}")
-            if (z == "zone") {
+            if (z != "ring") {
                 out.append(",{\"type\":\"Feature\",\"properties\":{\"z\":\"sign\"}")
                 out.append(",\"geometry\":{\"type\":\"Point\",\"coordinates\":")
                 position(out, zone.lat, zone.lon)

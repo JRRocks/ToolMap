@@ -183,6 +183,9 @@ class DrawViewModel
         private var placing: Int? = null
         private var placingAt: TrackPoint? = null
 
+        /** The zone under the crosshair, drawn with a solid edge and given a handle (P30.4); `null` outside them all. */
+        private var hovered: Int? = null
+
         private val queue = RoutingQueue(viewModelScope, brouter, ::onLegResult)
 
         /** Terrain elevations of the legs drawn by hand (`docs/specs/routing.md` §5.6), asked one batch at a time. */
@@ -309,6 +312,7 @@ class DrawViewModel
             atStart = false
             placing = null
             placingAt = null
+            hovered = null
             pendingTrack = null
             mutableCursor.value = null
             mutableUi.value = DrawUi(active = true, target = target)
@@ -544,6 +548,67 @@ class DrawViewModel
         fun removeZone(index: Int) {
             edited(route?.removeZone(index) == true)
         }
+
+        // ---- Size of a zone, at its handle (P30.4, variant C of `docs/previews/p30-itineraires.html`) ----
+
+        /** The crosshair entered zone [index], or left them all (`null`): only the zones are drawn again. */
+        fun hoverZone(index: Int?) {
+            if (index == hovered) return
+            hovered = index
+            val e = route ?: return
+            val shown = mutableOverlay.value ?: return
+            mutableOverlay.value =
+                EditOverlay(
+                    shown.lineGeoJson,
+                    shown.handlesGeoJson,
+                    shown.icons,
+                    shown.elasticGeoJson,
+                    RoutePlanGeoJson.zones(e.plan, placingRing(), hovered),
+                )
+        }
+
+        /** The handle of zone [index] is pulled to [radius] meters: the circle grows or shrinks, the route pales. */
+        fun previewZoneSize(
+            index: Int,
+            radius: Int,
+        ) {
+            val e = route ?: return
+            if (index !in e.plan.zones.indices) return
+            val shown = mutableOverlay.value ?: return
+            mutableOverlay.value =
+                EditOverlay(
+                    RoutePlanGeoJson.lines(
+                        e.plan,
+                        legLabels.first,
+                        if (e.routing) legLabels.second else "",
+                        pale = true,
+                    ),
+                    shown.handlesGeoJson,
+                    shown.icons,
+                    shown.elasticGeoJson,
+                    RoutePlanGeoJson.zones(e.plan, placingRing(), index, radius),
+                )
+        }
+
+        /**
+         * The handle of zone [index] let go at [radius] meters: the zone keeps its centre and takes that size (one
+         * « Annuler »), which is kept for the next zone; the legs it touches are computed again.
+         */
+        fun resizeZone(
+            index: Int,
+            radius: Int,
+        ) {
+            val e = route ?: return
+            val zone = e.plan.zones.getOrNull(index) ?: return
+            if (radius <= 0 || radius == zone.radiusMeters) {
+                publish()
+                return
+            }
+            settings.update { s -> s.copy(placemarks = s.placemarks.copy(routingAvoidRadius = radius)) }
+            if (!edited(e.replaceZone(index, zone.copy(radiusMeters = radius)))) publish()
+        }
+
+        private fun placingRing(): AvoidZone? = placing?.let { r -> placingAt?.let { AvoidZone(it.lat, it.lon, r) } }
 
         /** "Add here" at the crosshair; on a route, a waypoint under it becomes a named stop. */
         fun addAt(
@@ -1046,6 +1111,7 @@ class DrawViewModel
             takenAt = null
             placing = null
             placingAt = null
+            hovered = null
             editor = PolylineEditor()
             pendingTrack = null
             mutableUi.value = DrawUi()
@@ -1109,14 +1175,14 @@ class DrawViewModel
                 )
             val t = taken
             val at = takenAt?.takeIf { t != null }
-            val ring = placing?.let { r -> placingAt?.let { AvoidZone(it.lat, it.lon, r) } }
+            if (hovered?.let { it !in plan.zones.indices } == true) hovered = null
             mutableOverlay.value =
                 EditOverlay(
                     RoutePlanGeoJson.lines(plan, legLabels.first, if (e.routing) legLabels.second else "", t),
                     RoutePlanGeoJson.handles(plan, e.selected, midpoints = !e.routing, moved = at),
                     RoutePlanGeoJson.icons(plan),
                     if (t != null && at != null) RoutePlanGeoJson.elastic(plan, t, at) else null,
-                    RoutePlanGeoJson.zones(plan, ring),
+                    RoutePlanGeoJson.zones(plan, placingRing(), hovered),
                 )
             schedule()
             elevate()

@@ -51,6 +51,7 @@ class DrawViewModelTest {
     private lateinit var db: TrackDatabase
     private lateinit var repo: TrackRepository
     private lateinit var vm: DrawViewModel
+    private lateinit var settings: SettingsStore
 
     // Filled from the thread the view model emits on while the test reads it: a list safe to read meanwhile.
     private val messages = CopyOnWriteArrayList<UiMessage>()
@@ -67,7 +68,8 @@ class DrawViewModelTest {
         val app = RuntimeEnvironment.getApplication()
         // BRouter is not installed under Robolectric: routes are drawn by hand, as before P19.
         val terrain = ElevationCompleter(ElevationTiles { _, _, _ -> tilePng })
-        vm = DrawViewModel(repo, BRouterEngine(app), SettingsStore(File(app.filesDir, "settings.json")), terrain)
+        settings = SettingsStore(File(app.filesDir, "settings.json"))
+        vm = DrawViewModel(repo, BRouterEngine(app), settings, terrain)
         scope.launch { vm.messages.collect { messages += it } }
     }
 
@@ -252,6 +254,38 @@ class DrawViewModelTest {
         vm.cancel()
         assertFalse(vm.ui.value.active)
         assertTrue(runBlocking { repo.library.first().isEmpty })
+    }
+
+    @Test
+    fun `a zone pulled at its handle keeps its centre, takes the size for the next zone and is undone at once`() {
+        vm.startNewRoute()
+        vm.addAt(45.0, 6.0)
+        vm.addAt(45.01, 6.0)
+        waitFor("two stops") { vm.ui.value.route?.plan?.stops?.size == 2 }
+        vm.startZone()
+        vm.followZone(45.005, 6.0)
+        vm.placeZone(45.005, 6.0)
+        val placed = vm.ui.value.route!!.plan.zones.single()
+        assertEquals(250, placed.radiusMeters)
+
+        vm.hoverZone(0)
+        assertTrue("\"hover\"" in vm.overlay.value!!.zonesGeoJson!!, "the zone under the crosshair has a solid edge")
+        vm.previewZoneSize(0, 400)
+        assertTrue("\"st\":\"g\"" in vm.overlay.value!!.lineGeoJson, "the route pales while the handle is pulled")
+        assertEquals(250, vm.ui.value.route!!.plan.zones.single().radiusMeters, "nothing changes before it is let go")
+
+        vm.resizeZone(0, 400)
+        val resized = vm.ui.value.route!!.plan.zones.single()
+        assertEquals(400, resized.radiusMeters)
+        assertEquals(placed.lat, resized.lat)
+        assertEquals(placed.lon, resized.lon)
+        assertEquals(400, settings.settings.value.placemarks.routingAvoidRadius)
+        assertFalse("\"st\":\"g\"" in vm.overlay.value!!.lineGeoJson)
+
+        vm.undo()
+        assertEquals(250, vm.ui.value.route!!.plan.zones.single().radiusMeters)
+        vm.hoverZone(null)
+        assertFalse("\"hover\"" in vm.overlay.value!!.zonesGeoJson!!)
     }
 
     @Test

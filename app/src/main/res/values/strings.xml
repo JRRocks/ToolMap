@@ -587,6 +587,11 @@
     <item quantity="one">%1$d zone évitée</item>
     <item quantity="other">%1$d zones évitées</item>
   </plurals>
+  <!-- Taille d'une zone à éviter à sa poignée (P30.4, variante C de docs/previews/p30-itineraires.html) -->
+  <string name="route_zone_resize_hint">Tirez la poignée pour changer la taille (50 m à 2 km).</string>
+  <string name="route_zone_handle">Poignée de taille de la zone</string>
+  <string name="route_zone_grow">Agrandir la zone</string>
+  <string name="route_zone_shrink">Réduire la zone</string>
   <string name="route_no_data_leg">Pas de données BRouter ici : tronçon tracé à la main.</string>
   <string name="route_no_path_leg">BRouter ne trouve pas de chemin ici : tronçon tracé à la main.</string>
   <string name="route_timeout_leg">Calcul trop long : tronçon tracé à la main.</string>

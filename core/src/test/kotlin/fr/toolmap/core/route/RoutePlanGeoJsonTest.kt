@@ -144,4 +144,25 @@ class RoutePlanGeoJsonTest {
         assertEquals(outline.first(), outline.last())
         for (p in outline) assertEquals(250.0, Geodesy.distance(zone.lat, zone.lon, p.lat, p.lon), 1.0)
     }
+
+    @Test
+    fun `the zone under the crosshair has a solid edge, drawn at the size its handle gives`() {
+        val zones = listOf(AvoidZone(45.0, 6.0, 250), AvoidZone(45.02, 6.0, 250))
+        val text = RoutePlanGeoJson.zones(RoutePlan(zones = zones), hovered = 1, hoverRadius = 400)
+        assertEquals(1, count(text, "\"z\":\"zone\""))
+        assertEquals(1, count(text, "\"z\":\"hover\""))
+        assertEquals(2, count(text, "\"z\":\"sign\""), "the zone under the crosshair keeps its sign")
+        // The east point of the hovered circle is 400 m from its centre.
+        val hovered = text.substringAfter("\"z\":\"hover\"").substringAfter("[[[").substringBefore("]")
+        val (lon, lat) = hovered.split(',').map { it.toDouble() }
+        assertEquals(400.0, Geodesy.distance(45.02, 6.0, lat, lon), 1.0)
+    }
+
+    @Test
+    fun `while a zone is resized every leg is pale`() {
+        val text = RoutePlanGeoJson.lines(plan(), "calcul", "à la main", pale = true)
+        assertEquals(0, count(text, "\"st\":\"r\""))
+        assertEquals(0, count(text, "\"st\":\"h\""))
+        assertTrue(count(text, "\"st\":\"g\"") >= 2)
+    }
 }

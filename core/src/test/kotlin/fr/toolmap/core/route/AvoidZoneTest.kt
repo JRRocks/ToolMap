@@ -1,5 +1,6 @@
 package fr.toolmap.core.route
 
+import fr.toolmap.core.track.Geodesy
 import fr.toolmap.core.track.TrackPoint
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,6 +38,24 @@ class AvoidZoneTest {
         assertTrue(AvoidZone(45.001, 6.0, 500).covers(zone))
         assertFalse(AvoidZone(45.003, 6.0, 500).covers(zone))
         assertFalse(zone.covers(AvoidZone(45.0, 6.0, 500)))
+    }
+
+    @Test
+    fun `the handle gives sizes rounded to 50 m, from 50 m to 2 km`() {
+        assertEquals(250, AvoidZone.resized(262.0))
+        assertEquals(300, AvoidZone.resized(276.0))
+        assertEquals(50, AvoidZone.resized(3.0))
+        assertEquals(2_000, AvoidZone.resized(5_000.0))
+    }
+
+    @Test
+    fun `the handle sits on the circle, due east of the centre`() {
+        val east = zone.east()
+        assertEquals(zone.lat, east.lat, 1e-9)
+        assertTrue(east.lon > zone.lon)
+        assertEquals(250.0, Geodesy.distance(zone.lat, zone.lon, east.lat, east.lon), 1.0)
+        val far = zone.east(1_500)
+        assertEquals(1_500.0, Geodesy.distance(zone.lat, zone.lon, far.lat, far.lon), 5.0)
     }
 
     @Test
