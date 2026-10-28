@@ -23,11 +23,24 @@ Ne sont pas concernées : les modifications sans effet visible (logique, perform
 
 Les plans (`docs/PLAN.md`, `docs/plan-*.md`) sont relus à chaque session : n'y écrire **aucune** idée « pour plus tard » (ni ligne 💤, ni « Reporté », ni « Bonus »). Les écrire dans `docs/idees-futur.md`, à **ne lire que sur demande de l'utilisateur**. Travailler en petits incréments : un build par tâche.
 
+## ⚠️ Copie la plus récente d'abord : GitHub, Drive ou local (demande de l'utilisateur, 2026-10-28)
+
+Le projet vit à trois endroits qui peuvent prendre de l'avance l'un sur l'autre (deux postes Windows, sessions cloud) : le dépôt GitHub `JRRocks/ToolMap` (**toutes ses branches**, pas seulement `main`), le miroir Google Drive `2 - Jean/Claude Code/ToolMap/` et le dossier local. **En début de session, avant de lire le plan ou de toucher un fichier, et de nouveau avant chaque miroir Drive :**
+
+1. **Relever la version de chaque copie** (`version=` de `version.properties` ; à version égale, le titre de l'entrée en haut de `docs/JOURNAL.md`) :
+   - GitHub : `git fetch origin`, puis pour chaque branche de `git branch -r` (hors `dependabot/…`) `git show origin/<branche>:version.properties` ; sans dossier git : `git ls-remote https://github.com/JRRocks/ToolMap` et le fichier brut `https://raw.githubusercontent.com/JRRocks/ToolMap/<branche>/version.properties` ;
+   - Drive : `<lecteur>:\<Mon Drive|My Drive>\2 - Jean\Claude Code\ToolMap\version.properties` (Google Drive pour ordinateur) ;
+   - local : `version.properties` du dossier de travail, et `git status` (des changements non poussés font du local la copie la plus récente).
+2. **La copie à la version la plus haute fait référence** : mettre les autres à jour à partir d'elle avant tout travail. Local en retard → copie de sauvegarde des fichiers modifiés, puis `git fetch` et `git checkout -B <branche> origin/<branche>` (fichiers supprimés en amont : `git clean` après vérification). Drive en retard → `scripts\drive-mirror.ps1` une fois le local à jour. GitHub en retard → pousser (§ protocole, point 7).
+3. **Ne jamais écraser une copie plus récente par une plus ancienne.** `scripts\drive-mirror.ps1` refuse de lancer `/MIR` si la version du Drive dépasse celle du local.
+4. **Copies divergentes** (même version et contenus différents, ou changements de chaque côté) : ne rien écraser, le dire à l'utilisateur et lui demander laquelle garder.
+5. Noter dans l'entrée du journal la version de chaque copie et celle qui faisait référence.
+
 ## ⚠️ Protocole de suivi OBLIGATOIRE (journal de bord)
 
 Chaque session (humaine ou IA) **doit** suivre ce protocole. C'est ce qui permet à plusieurs modèles successifs de faire avancer le projet sans perdre le fil.
 
-1. **En début de session**, lire dans cet ordre :
+1. **En début de session**, après avoir mis les copies à jour depuis la plus récente (§ « Copie la plus récente d'abord »), lire dans cet ordre :
    - `docs/PLAN.md` : feuille de route, tâches à ID (`P3.2`) et leur statut ;
    - les **3 entrées les plus récentes** de `docs/JOURNAL.md` (elles sont en haut du fichier) ;
    - `docs/DECISIONS.md` avant toute décision d'architecture ; ne jamais contredire un ADR sans en écrire un nouveau qui le remplace.
@@ -59,7 +72,7 @@ Google Drive est le **miroir des fichiers locaux** du poste Windows (2e sauvegar
 
 | Drive | Contenu |
 |---|---|
-| `2 - Jean/Claude Code/ToolMap/` | copie exacte de `C:\Bureau\Desktop\Jean\ToolMap` (fichiers sources ; sans `build/`, `.gradle/`, `.kotlin/`, `.idea/`, `local.properties`, APK) |
+| `2 - Jean/Claude Code/ToolMap/` | copie exacte du dossier local du poste qui fait le miroir : `C:\Bureau\Desktop\Jean\ToolMap` ou `C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap` (fichiers sources ; sans `.git/`, `build/`, `.gradle/`, `.kotlin/`, `.idea/`, `local.properties`, APK) |
 | `2 - Jean/Claude Code/APK release/` | APK compilés, **nommés `AppName.version.apk`**, ex. `ToolMap.0.4.1.apk` (version de `version.properties`) |
 
 - `scripts/drive-mirror.ps1` fait les deux : `robocopy /MIR` vers le dossier ToolMap (ce qui est supprimé en local l'est aussi sur le Drive), puis copie de `ToolMap-debug-<version>.apk` vers `APK release/ToolMap.<version>.apk`.
@@ -128,7 +141,7 @@ Les commandes longues (> 2 min) doivent tourner en arrière-plan avec une sortie
 
 - **Cloud** (claude.ai/code) : le **hook SessionStart** (`.claude/hooks/session-start.sh`) installe le SDK Android dans `$HOME/android-sdk`, écrit `local.properties` et configure le miroir Maven Central du bac à sable (ADR-009). Si une session démarre sans lui, lancer à la main : `CLAUDE_CODE_REMOTE=true CLAUDE_PROJECT_DIR=$PWD ./.claude/hooks/session-start.sh` puis `export ANDROID_HOME=$HOME/android-sdk`. Un build à froid prend ≈ 2 min. En cas de `429 Too Many Requests` de Maven Central, vérifier que `~/.gradle/init.d/cloud-mirror.init.gradle` existe. Pas d'émulateur.
 - **Poste Windows de l'utilisateur** (depuis le 2026-10-15, sessions 27 et suivantes) : SDK d'Android Studio (`local.properties` → `C:/Users/<utilisateur>/AppData/Local/Android/Sdk`), `./gradlew` lancé depuis Git Bash avec le JDK d'Android Studio ; un build complet prend ≈ 4 à 5 min. **Un émulateur est disponible** (« Medium_Phone », Android 37) : `adb install -r -g app/build/outputs/apk/debug/ToolMap-debug-<version>.apk`, gestes par `adb shell input`, écran lu par `uiautomator dump` et captures. Le hook cloud ne fait rien ici.
-  - **Attention git** : sur ce poste, le dossier `ToolMap/` n'est **pas suivi** par le dépôt qui le contient (`C:\Bureau\Desktop\Jean`, branche `sauvegarde/…`, sans remote) : rien ne s'y annule par git. Faire une copie des fichiers avant une réécriture importante.
+  - **Attention git** : sur le poste `C:\Bureau\Desktop\Jean`, le dossier `ToolMap/` n'est **pas suivi** par le dépôt qui le contient (branche `sauvegarde/…`, sans remote) : rien ne s'y annule par git. Faire une copie des fichiers avant une réécriture importante. Sur le poste `C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`, le dossier est un **clone git** de `JRRocks/ToolMap` (depuis le 2026-10-28 ; `core.autocrlf=false`, identité `noreply` réglée dans le dépôt) : la mise à jour se fait par `git fetch` (§ « Copie la plus récente d'abord »).
   - **Dépôts GitHub** (depuis le 2026-10-27) : le code est poussé dans le dépôt **public** `JRRocks/ToolMap`, branche `main`, repartie d'un seul commit sans historique (0.4.81). L'historique complet jusqu'à 0.4.80 est dans le dépôt **privé** `JRRocks/ToolMap-Archive` : ne jamais en pousser un commit ni une branche dans `ToolMap` (ils portent l'adresse e-mail de l'utilisateur). Identité des commits : `JRRocks <314636139+JRRocks@users.noreply.github.com>`, jamais l'adresse personnelle.
 
 Ce que l'émulateur ne remplace pas : le GPS réel, les capteurs (baromètre), la caméra, le partage entre deux téléphones, les services écran éteint et la consommation se vérifient par l'utilisateur sur son téléphone, avec l'APK de la CI (artefact `toolmap-debug-apk`, signé avec la clé de debug fixe `app/debug.keystore`, donc réinstallable par-dessus la version précédente) ou l'APK compilé en local.

@@ -20,6 +20,20 @@
 
 ---
 
+## 2026-10-28 — Session 68 — Règle de la copie la plus récente : GitHub, Drive ou local
+- **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`), branche `claude/pensive-edison-cgzr8t` ; poussée sur `JRRocks/ToolMap`.
+- **Objectif** : remettre le dossier local au niveau du dernier push GitHub (85fc160, 0.4.101) et instaurer la règle demandée par l'utilisateur le 2026-10-28 : avant de travailler, comparer GitHub, Drive et local, et s'appuyer sur la copie la plus récente.
+- **Réalisé** :
+  - Versions relevées : GitHub `claude/pensive-edison-cgzr8t` **0.4.101** (référence), GitHub `main` 0.4.81, local 0.4.81 (identique à `main` au retour chariot près), Drive 0.4.79.
+  - Local : copie de sauvegarde, puis le dossier devient un clone git de `JRRocks/ToolMap` sur `claude/pensive-edison-cgzr8t` (`core.autocrlf=false`, identité `noreply`) ; les trois fichiers supprimés en amont par P29.3, P29.5 et P29.9 (`DisplayedMapsSheet.kt`, `ActivityDialog.kt`, `SettingsCategoriesTest.kt`) sont retirés.
+  - `CLAUDE.md` : nouvelle section « Copie la plus récente d'abord » (relever les versions des trois copies, la plus haute fait référence, ne jamais écraser une copie plus récente, demander en cas de divergence, noter les versions au journal) ; protocole point 1, table du miroir et « Attention git » mis à jour pour le second poste.
+  - `scripts/drive-mirror.ps1` : refuse le `/MIR` si le Drive est plus récent que le local ; `.git` exclu du miroir.
+  - Drive : même règle ajoutée au `CLAUDE.md` commun de `2 - Jean/Claude Code/`, puis miroir du projet et de l'APK.
+- **Décisions (ADR)** : aucune (règle de travail, pas d'architecture).
+- **Tests / vérifications** : `./gradlew spotlessApply check assembleDebug` (JDK d'Android Studio) : BUILD SUCCESSFUL en 9 min 29 s, version **0.4.102**, `ToolMap-debug-0.4.102.apk`. Tests : core 886, data 311, p2p 29 (2 ignorés), app 434 (72 ignorés), 0 échec ; lint : 0 erreur, app 63 avertissements, data 1. `spotlessApply` avait passé 614 fichiers en CRLF (Windows, `core.autocrlf=false`) : annulé, seules les fins de ligne changeaient. CI : voir le message de fin de session.
+- **Problèmes / dette technique** : sous Windows, `spotlessApply` réécrit les fichiers en CRLF ; lancer `check` sans `spotlessApply` sur ce poste, ou annuler ces changements avant le commit. `main` reste en 0.4.81 : la refonte P29 n'existe que sur `claude/pensive-edison-cgzr8t` (fusion à décider par l'utilisateur).
+- **Prochaine étape recommandée** : vérifier P29.2 à P29.10 sur l'émulateur du poste Windows (captures à côté des aperçus validés), puis la suite de `docs/PLAN.md`.
+
 ## 2026-10-28 — Session 67 (suite) — Règle du push : Claude pousse lui-même sur GitHub
 - **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; poussée sur `JRRocks/ToolMap`.
 - **Objectif** : appliquer la demande de l'utilisateur du 2026-10-28 (« Le github est maintenant en publique sans restriction. Change la règle dans claude.md pour un push sur Git automatiquement géré par toi quand nécessaire ») et pousser la refonte P29.
