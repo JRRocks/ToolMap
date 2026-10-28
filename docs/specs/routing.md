@@ -69,7 +69,7 @@ Changer de profil dans la puce : la feuille propose « Recalculer tout l'itinér
 Panneau du drapeau ▸ tuile **Itinéraire** (inchangée) → mode dessin d'itinéraire avec l'interrupteur **« Suivre les chemins (BRouter) »**, allumé par défaut quand BRouter est installé. Éteint : le dessin à la main actuel (réticule, main levée), dont chaque point est une étape reliée en ligne droite. La tuile **Trace** reste le dessin libre.
 
 ### 5.2 Poser une étape
-- Au **réticule** : « Ajouter ici » (ADR-019, inchangé).
+- Au **réticule** : « Ajouter ici » (ADR-019, inchangé). Le réticule est le point central : pendant l'édition, il se place au milieu de la carte laissée entre le bandeau du haut et le panneau « Itinéraire », la carte glissant avec lui (ADR-084).
 - **Waypoint existant** sous le réticule : il devient une étape nommée (son nom, son icône).
 - **« Depuis ma position »** : pose la première étape à la position GPS (proposé tant que l'itinéraire est vide et que la position est connue).
 

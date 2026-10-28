@@ -8,6 +8,8 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -62,6 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -116,6 +120,7 @@ import fr.toolmap.core.settings.LongPressAction
 import fr.toolmap.core.settings.NorthReferenceMath
 import fr.toolmap.core.settings.barometerOn
 import fr.toolmap.core.settings.withBarometer
+import fr.toolmap.core.source.Credits
 import fr.toolmap.core.track.NameDates
 import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.core.track.Waypoint
@@ -347,6 +352,10 @@ fun MapScreen(
     var rootSize by remember { mutableStateOf(IntSize.Zero) }
     // Where the info boxes end on screen (pixels), for the zone selection to start clear of them (V2).
     var infoBoxesEnd by remember { mutableStateOf(IntOffset.Zero) }
+    // The bottom of the top boxes and the top of the tool panel (pixels): the map between them is where the centre
+    // point goes while a drawing or measuring tool is open (`docs/previews/p19-reticule.html`).
+    var topChromeBottom by remember { mutableIntStateOf(0) }
+    var toolPanelTop by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val safe = WindowInsets.safeDrawing.asPaddingValues()
@@ -860,11 +869,11 @@ fun MapScreen(
     }
     val attribution =
         remember(state.stack, sources) {
-            state.stack.layers
-                .filter { it.visible && it.opacity > 0f }
-                .mapNotNull { layer -> sources.firstOrNull { it.id == layer.sourceId }?.copyright }
-                .distinct()
-                .joinToString(" · ")
+            Credits.short(
+                state.stack.layers
+                    .filter { it.visible && it.opacity > 0f }
+                    .mapNotNull { layer -> sources.firstOrNull { it.id == layer.sourceId }?.copyright },
+            )
         }
 
     // The main menu (P11.6): what it shows, and what its commands and options do. A command closes the menu.
@@ -1229,7 +1238,27 @@ fun MapScreen(
     val toolLift = if (toolShown) with(density) { toolPanelHeight.toDp() } + 12.dp else 0.dp
     val toolMaxHeight =
         (with(density) { rootSize.height.toDp() } - barDp - TOOL_PANEL_TOP_ROOM).coerceAtLeast(TOOL_PANEL_MIN_HEIGHT)
-    Box(modifier = Modifier.fillMaxSize().onSizeChanged { rootSize = it }) {
+    // While a drawing or measuring panel is open, the centre point and the camera target go to the middle of the map
+    // left between the top boxes and the panel, so that the panel never covers the point « Ajouter ici » aims at.
+    var rootTop by remember { mutableIntStateOf(0) }
+    val centreTop = (topChromeBottom - rootTop).coerceAtLeast(0)
+    val centreBottom = (rootSize.height - (toolPanelTop - rootTop)).coerceAtLeast(0)
+    val centreShifted =
+        toolShown && (drawUi.active || measureUi.active) && toolPanelTop > 0 &&
+            rootSize.height - centreTop - centreBottom >= with(density) { CENTRE_MIN_ROOM.roundToPx() }
+    val insetTop = if (centreShifted) centreTop else 0
+    val insetBottom = if (centreShifted) centreBottom else 0
+    LaunchedEffect(insetTop, insetBottom, controller.isReady) {
+        if (controller.isReady) controller.setCentreInsets(insetTop, insetBottom)
+    }
+    val centreOffset by animateIntAsState((insetTop - insetBottom) / 2, tween(CENTRE_SHIFT_MILLIS), label = "centre")
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .onSizeChanged { rootSize = it }
+                .onGloballyPositioned { rootTop = it.positionInRoot().y.roundToInt() },
+    ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = {
@@ -1292,7 +1321,7 @@ fun MapScreen(
                         },
                     )
                 },
-                modifier = Modifier.align(Alignment.Center),
+                modifier = Modifier.align(Alignment.Center).offset { IntOffset(0, centreOffset) },
             )
         }
         if (drawUi.active && drawUi.freehand && !drawUi.routed && drawUi.chooseSegment == null) {
@@ -1393,6 +1422,7 @@ fun MapScreen(
                         )
                     }
                 },
+                modifier = Modifier.onGloballyPositioned { topChromeBottom = it.boundsInRoot().bottom.roundToInt() },
             )
             if (chromeShown && !framing && appSettings.canvas.zoomButtons && appSettings.canvas.menusLeftHanded) {
                 MapZoomButtons(
@@ -1713,6 +1743,7 @@ fun MapScreen(
                         .align(Alignment.BottomCenter)
                         .padding(bottom = if (printUi.stage == PrintStage.FRAME) 0.dp else barDp + 12.dp)
                         .onSizeChanged { toolPanelHeight = it.height }
+                        .onGloballyPositioned { toolPanelTop = it.boundsInRoot().top.roundToInt() }
                 if (drawUi.active && drawUi.chooseSegment == null) {
                     DrawBar(
                         ui = drawUi,
@@ -2092,4 +2123,8 @@ private const val PRINT_CONFIRM_GAP_DP = 12.0
 /** Room left over a tool panel at the top of the screen, for the pill of the route figures (P29.10). */
 private val TOOL_PANEL_TOP_ROOM = 140.dp
 private val TOOL_PANEL_MIN_HEIGHT = 200.dp
+
+/** Below this much map between the top boxes and a tool panel, the centre point stays in the middle of the screen. */
+private val CENTRE_MIN_ROOM = 96.dp
+
 private const val METERS_PER_DEGREE_OF_LATITUDE = 111_320.0

@@ -594,6 +594,24 @@ class MapController(
         )
     }
 
+    /**
+     * Puts the centre of the map (camera target, centre point) in the middle of what a tool panel leaves visible:
+     * [top] px under the top of the map, [bottom] px above its bottom (`docs/previews/p19-reticule.html`). The point
+     * under the centre stays under it: the map slides with it. Both 0 bring it back to the middle of the screen.
+     */
+    fun setCentreInsets(
+        top: Int,
+        bottom: Int,
+    ) {
+        val m = map ?: return
+        val padding = m.cameraPosition.padding
+        if (padding != null && padding[1] == top.toDouble() && padding[3] == bottom.toDouble()) return
+        m.animateCamera(
+            CameraUpdateFactory.paddingTo(0.0, top.toDouble(), 0.0, bottom.toDouble()),
+            CENTRE_SHIFT_MILLIS,
+        )
+    }
+
     /** One zoom level in or out, from the + and − buttons. */
     fun zoomBy(levels: Double) {
         map?.animateCamera(CameraUpdateFactory.zoomBy(levels))
@@ -820,3 +838,6 @@ class MapController(
         const val RELOCK_DELAY_MS = 10_000L
     }
 }
+
+/** The slide of the map when a tool panel opens or closes; the centre point moves as long. */
+internal const val CENTRE_SHIFT_MILLIS = 300

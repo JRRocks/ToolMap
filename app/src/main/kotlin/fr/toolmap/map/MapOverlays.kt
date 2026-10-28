@@ -1,5 +1,9 @@
 package fr.toolmap.map
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -14,9 +18,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -34,6 +41,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -54,6 +62,7 @@ import fr.toolmap.data.altitude.AltitudeStatus
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.minTouchTarget
 import fr.toolmap.ui.theme.toolMap
+import kotlinx.coroutines.delay
 import java.util.Locale
 
 private val OverlayShape = RoundedCornerShape(6.dp)
@@ -116,22 +125,38 @@ fun CompassButton(
     }
 }
 
-/** Mandatory credits of the maps on screen, bottom right. */
+/**
+ * Mandatory credits of the maps on screen, on one line above the bar (variant E of `docs/previews/p19-reticule.html`,
+ * 2026-10-28): shown for [CREDITS_SHOWN_MILLIS] each time the maps change, then faded out, so that they never cover
+ * the centre point for long. The full texts are in « Aide et à propos ».
+ */
 @Composable
 fun AttributionText(
     text: String,
     modifier: Modifier = Modifier,
 ) {
     if (text.isBlank()) return
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        modifier =
-            modifier
-                .background(MaterialTheme.toolMap.panel.copy(alpha = 0.75f), OverlayShape)
-                .padding(horizontal = 6.dp, vertical = 1.dp),
-    )
+    var shown by remember(text) { mutableStateOf(true) }
+    LaunchedEffect(text) {
+        delay(CREDITS_SHOWN_MILLIS)
+        shown = false
+    }
+    AnimatedVisibility(visible = shown, enter = fadeIn(), exit = fadeOut(tween(CREDITS_FADE_MILLIS))) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier =
+                modifier
+                    .background(MaterialTheme.toolMap.panel.copy(alpha = 0.75f), OverlayShape)
+                    .padding(horizontal = 6.dp, vertical = 1.dp),
+        )
+    }
 }
+
+private const val CREDITS_SHOWN_MILLIS = 4_000L
+private const val CREDITS_FADE_MILLIS = 600
 
 /**
  * The point the coordinates refer to, at the centre of the map (F1, ADR-043): a small white circle, which a tap opens

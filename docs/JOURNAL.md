@@ -20,6 +20,27 @@
 
 ---
 
+## 2026-10-28 — Session 69 — [P19.13] Réticule de « Ajouter ici » visible, crédits passagers sur une ligne
+- **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`), branche `main` ; poussée sur `JRRocks/ToolMap`.
+- **Objectif** : demande de l'utilisateur (« Travail sur l'itinéraire avec BRouter. 3 points placés à des endroits aléatoires, doit générer un tracé GPX autre que 2 lignes droites »), puis, l'itinéraire marchant chez lui, « le point pour visée “Ajouter ici” est invisible » et « le réticule est actuellement caché derrière les crédits de carte (à retirer car occupant trop d'espace) ».
+- **Réalisé** :
+  - Versions relevées en début de session : GitHub `main` et `claude/pensive-edison-cgzr8t` **0.4.102**, Drive 0.4.102, local 0.4.102 sans changement : copies identiques, pas de mise à jour.
+  - **Itinéraire BRouter** : sur l'émulateur de ce poste (sans BRouter ni ToolMap au départ), BRouter 1.7.10 (GitHub `abrensch/brouter`) et `E5_N45.rd5` (brouter.de) installés avec l'accord de l'utilisateur ; 3 points au hasard sont routés le long des chemins (22,9 km en Belledonne ; 51,1 km Belledonne → Haut-Bréda → Chartreuse ; 32,1 km après la correction). L'utilisateur confirme que c'est bon sur son téléphone. Lu dans le code de BRouter : depuis 1.7.8, un point loin des chemins est raccroché au plus proche (`use_dynamic_range`, 60 km au plus) ; avant, le message « position not mapped in existing datafile » serait classé « pas de données » par `BRouterErrors` (« datafile »), donc tronçon à la main : non corrigé, l'utilisateur n'est pas concerné.
+  - **Réticule caché** : reproduit sur l'émulateur à 500 dpi (`wm density 500`, au lieu de 420) : le panneau « Itinéraire » et le crédit couvrent le point central ; sur le téléphone de l'utilisateur, les crédits sur trois lignes (deux étapes) et le panneau sans étape le couvrent.
+  - Aperçu `docs/previews/p19-reticule.html` (autonome, sans script : la première version, générée par script, ne s'affichait pas chez l'utilisateur) : état actuel, puis réticule au milieu de la carte visible et 5 façons de sortir les crédits de la carte ; **variante E validée le 2026-10-28** (crédits passagers).
+  - Code (ADR-084) : `MapController.setCentreInsets` (marge de caméra MapLibre) et décalage animé de `CenterPoint` dans `MapScreen` pendant le dessin et la mesure ; `Credits.short` (`:core`) et `AttributionText` sur une ligne, 4 s puis effacement.
+  - Docs : ADR-084, `PLAN.md` (P19.13), `specs/ui-index.md` (G12, panneaux d'outils), `specs/routing.md` §5.2 ; rendu `docs/previews/p19-reticule-emulateur.html` (avant, crédits, aucune étape, trois étapes).
+- **Décisions (ADR)** : ADR-084.
+- **Tests / vérifications** :
+  - `CreditsTest` (3, `:core`) vert.
+  - Émulateur à 500 dpi, ToolMap 0.4.103 : « © OSM » à l'ouverture, disparu au bout de 4 s (relevé chaque seconde par `uiautomator`) ; mode Itinéraire : réticule au milieu entre les boîtes et le panneau, l'étape A posée dessous, le réticule et A restent ensemble quand le panneau change de hauteur ; 3 étapes routées (32,1 km), C sous le réticule ; ✕ ▸ Abandonner : le point revient au centre de l'écran.
+  - `./gradlew check assembleDebug` (JDK d'Android Studio, `core.eol=lf`) : BUILD SUCCESSFUL en 5 min 53 s, version **0.4.104**, `ToolMap-debug-0.4.104.apk`. Tests : core 889, data 311, p2p 29 (2 ignorés), app 434 (72 ignorés), 0 échec ; lint : 0 erreur, app 63 avertissements et 1 indication, data 1 avertissement (comme avant). CI : voir le message de fin de session.
+- **Problèmes / dette technique** :
+  - Spotless sous Windows : sans `.gitattributes` et avec `core.autocrlf=false`, il attend des fins de ligne CRLF ; `git config core.eol lf` (réglage local du dépôt, non commité) lui fait vérifier le LF comme la CI.
+  - L'émulateur de ce poste a un second écran (« Emulator 2D Display », n° 2) où `am start` ouvre les applications : lancer avec `am start --display 0`.
+  - `BRouterErrors` classe « position not mapped in existing datafile » (BRouter < 1.7.8) en « pas de données ».
+- **Prochaine étape recommandée** : vérifier le réticule et les crédits sur le téléphone ; puis P29.2 à P29.10 sur l'émulateur du poste Windows (captures à côté des aperçus validés), puis la suite de `docs/PLAN.md`.
+
 ## 2026-10-28 — Session 68 — Règle de la copie la plus récente : GitHub, Drive ou local
 - **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`), branche `claude/pensive-edison-cgzr8t` ; poussée sur `JRRocks/ToolMap`.
 - **Objectif** : remettre le dossier local au niveau du dernier push GitHub (85fc160, 0.4.101) et instaurer la règle demandée par l'utilisateur le 2026-10-28 : avant de travailler, comparer GitHub, Drive et local, et s'appuyer sur la copie la plus récente.
