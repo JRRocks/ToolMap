@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -28,9 +25,14 @@ import fr.toolmap.R
 import fr.toolmap.core.alert.AlertEvent
 import fr.toolmap.ui.LocalAppSettings
 import fr.toolmap.ui.LocalFormats
+import fr.toolmap.ui.MapPill
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.TextButton
 
-/** The followed line on the map: progress, distance left, how far off, and the last alert until it is dismissed. */
+/**
+ * The followed line on the map: progress, distance left, how far off, and the last alert until it is dismissed; white
+ * pills of the map since P29.10, the alert in its own colour.
+ */
 @Composable
 fun FollowHud(
     ui: AlertUi,
@@ -48,8 +50,8 @@ fun FollowHud(
             val colors = MaterialTheme.colorScheme
             val urgent = banner.event is AlertEvent.OffTrack
             val container = if (urgent) colors.errorContainer else colors.secondaryContainer
-            Card(
-                colors = CardDefaults.cardColors(containerColor = container),
+            MapPill(
+                color = container,
                 modifier =
                     Modifier.semantics {
                         liveRegion = if (urgent) LiveRegionMode.Assertive else LiveRegionMode.Polite
@@ -68,7 +70,7 @@ fun FollowHud(
             }
         }
         if (ui.gpsFailed) {
-            Card {
+            MapPill {
                 Text(
                     stringResource(R.string.follow_gps_failed),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -80,7 +82,7 @@ fun FollowHud(
         val follow = ui.follow
         if (follow != null) {
             val status = follow.status
-            Card {
+            MapPill {
                 Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                     Text(
                         stringResource(R.string.follow_title, follow.name ?: stringResource(R.string.tracks_unnamed)),

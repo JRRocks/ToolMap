@@ -32,10 +32,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -76,6 +74,8 @@ import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.TopBarTextAction
 import fr.toolmap.ui.groupedShape
 import fr.toolmap.ui.screenInsets
+import fr.toolmap.ui.theme.AlertDialog
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton

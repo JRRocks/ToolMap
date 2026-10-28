@@ -22,7 +22,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -60,6 +59,7 @@ import fr.toolmap.core.settings.StorageLocation
 import fr.toolmap.storage.TileStorageState
 import fr.toolmap.storage.TileStorages
 import fr.toolmap.ui.LocalAppSettings
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
 import java.io.File

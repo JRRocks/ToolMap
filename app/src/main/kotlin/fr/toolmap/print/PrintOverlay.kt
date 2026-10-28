@@ -1,5 +1,6 @@
 package fr.toolmap.print
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -13,6 +14,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,9 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +58,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
@@ -70,8 +72,12 @@ import fr.toolmap.core.print.PrintTexts
 import fr.toolmap.core.print.PrintViewport
 import fr.toolmap.core.state.CameraState
 import fr.toolmap.core.track.TrackPoint
+import fr.toolmap.map.ToolPanel
 import fr.toolmap.settings.SettingsIcons
+import fr.toolmap.ui.MapPill
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.TextButton
 import java.util.Locale
@@ -217,7 +223,8 @@ private fun Offset.unit(): Offset = getDistance().let { if (it > 0f) this / it e
 
 /**
  * The band over the map while the frame is placed: the format, the orientation and the scale, each a tap away, and
- * nothing else (preview validated on 2026-10-26): the ground size and the warnings wait for the confirmation sheet.
+ * nothing else (preview validated on 2026-10-26): the ground size and the warnings wait for the confirmation sheet. A
+ * white pill of the map since P29.10.
  */
 @Composable
 fun PrintFrameBar(
@@ -229,14 +236,14 @@ fun PrintFrameBar(
     val template = ui.template
     var custom by remember { mutableStateOf(false) }
     var customScale by remember { mutableStateOf(false) }
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = BAR_ALPHA),
-        shadowElevation = 4.dp,
-    ) {
+    MapPill(modifier = modifier) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp).horizontalScroll(rememberScrollState()),
+            modifier =
+                Modifier.padding(
+                    start = 8.dp,
+                    top = 4.dp,
+                    bottom = 4.dp,
+                ).horizontalScroll(rememberScrollState()),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -313,54 +320,44 @@ fun PrintFrameBar(
     }
 }
 
-/** Annuler / Suivant under the frame, with the reminder that the frame moves under a finger. */
+/**
+ * Annuler / Suivant under the frame, with the reminder that the frame moves under a finger: the panel « Imprimer à
+ * l'échelle », without ✕ (P29.10, as in the validated preview of the frame: « Annuler » gives up).
+ */
 @Composable
 fun PrintFrameActions(
     onCancel: () -> Unit,
     onNext: () -> Unit,
+    maxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        tonalElevation = 3.dp,
-        shadowElevation = 8.dp,
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text(stringResource(R.string.print_frame_hint), style = MaterialTheme.typography.bodySmall)
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.print_cancel))
-                }
-                Button(onClick = onNext, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.print_next)) }
-            }
-        }
+    ToolPanel(title = stringResource(R.string.print_title), maxHeight = maxHeight, modifier = modifier) {
+        Text(
+            stringResource(R.string.print_frame_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        CancelNext(onCancel = onCancel, onNext = onNext, nextEnabled = true)
     }
 }
 
 /**
- * Under the pages of a print along a track (F9): how many pages, how they overlap, then Annuler / Suivant. Suivant
- * waits for the pages to be counted.
+ * Under the pages of a print along a track (F9): how many pages, how they overlap, then Annuler / Suivant, in the panel
+ * « Imprimer à l'échelle » (P29.10). Suivant waits for the pages to be counted.
  */
 @Composable
 fun PrintTrackActions(
     ui: PrintUi,
     onCancel: () -> Unit,
     onNext: () -> Unit,
+    maxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
     val plan = ui.plan
     val pages = plan?.mapPages?.size ?: 0
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        tonalElevation = 3.dp,
-        shadowElevation = 8.dp,
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    ToolPanel(title = stringResource(R.string.print_title), maxHeight = maxHeight, modifier = modifier) {
+        Column(Modifier.padding(horizontal = 16.dp)) {
             if (plan == null || ui.planning) {
                 Text(stringResource(R.string.print_planning), style = MaterialTheme.typography.bodyMedium)
             } else {
@@ -384,21 +381,35 @@ fun PrintTrackActions(
                     )
                 }
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = onCancel) { Text(stringResource(R.string.print_cancel)) }
-                Spacer(Modifier.weight(1f))
-                Button(onClick = onNext, enabled = pages > 0 && !ui.planning) {
-                    Text(stringResource(R.string.print_next))
-                }
-            }
+        }
+        CancelNext(onCancel = onCancel, onNext = onNext, nextEnabled = pages > 0 && !ui.planning)
+    }
+}
+
+/** « Annuler » in outline and « Suivant », the filled button, side by side. */
+@Composable
+private fun CancelNext(
+    onCancel: () -> Unit,
+    onNext: () -> Unit,
+    nextEnabled: Boolean,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+            Text(stringResource(R.string.print_cancel))
+        }
+        Button(onClick = onNext, enabled = nextEnabled, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+            Text(stringResource(R.string.print_next))
         }
     }
 }
 
-/** A chip that opens a menu: the menu items get a function that closes it. */
+/**
+ * A chip that opens a menu: the menu items get a function that closes it. Compact since P29.10 (32 dp seen, its name
+ * and its arrow), so that the format, the orientation, the scale and the rotation fit the pill on a phone.
+ */
 @Composable
 private fun MenuChip(
     label: String,
@@ -406,11 +417,21 @@ private fun MenuChip(
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
-        AssistChip(
+        Surface(
             onClick = { open = true },
-            label = { Text(label) },
-            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
-        )
+            shape = MaterialTheme.shapes.small,
+            color = Color.Transparent,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        ) {
+            Row(
+                modifier = Modifier.height(32.dp).padding(start = 10.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(label, style = MaterialTheme.typography.labelLarge)
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
+        }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) { items { open = false } }
     }
 }
@@ -515,7 +536,6 @@ private fun groundSize(template: PrintTemplate): Pair<String, String> =
     )
 
 private const val DIM_ALPHA = 0.35f
-private const val BAR_ALPHA = 0.94f
 private const val FRAME_STROKE_DP = 2f
 private const val CROSS_DP = 8f
 private const val CORNERS = 4

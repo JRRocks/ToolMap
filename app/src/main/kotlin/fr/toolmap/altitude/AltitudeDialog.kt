@@ -3,7 +3,6 @@ package fr.toolmap.altitude
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -21,6 +20,7 @@ import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.data.altitude.AltitudeStatus
 import fr.toolmap.ui.LocalAppSettings
 import fr.toolmap.ui.LocalFormats
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.TextButton
 import java.util.Locale
 

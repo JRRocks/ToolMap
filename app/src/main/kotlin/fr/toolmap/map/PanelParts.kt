@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,6 +34,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -41,6 +47,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
@@ -49,7 +56,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.toolmap.R
+import fr.toolmap.draw.RouteIcons
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.Switch
+import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
 
 /*
@@ -249,22 +259,34 @@ internal fun ActionTiles(content: @Composable RowScope.() -> Unit) {
     )
 }
 
-/** A frequent command as a tile: its petrol icon over a short name. */
+/**
+ * A frequent command as a tile: its petrol icon over a short name. A [highlighted] tile is the main action at the
+ * crosshair of a tool (« Ajouter ici », « Insérer ici », P29.10); a tile with [selected] is a toggle (« Main levée »),
+ * highlighted while on.
+ */
 @Composable
 internal fun RowScope.ActionTile(
     icon: ImageVector,
     label: String,
     enabled: Boolean = true,
     minHeight: Dp = TILE_HEIGHT,
+    highlighted: Boolean = false,
+    selected: Boolean? = null,
     onClick: () -> Unit,
 ) {
+    val lit = highlighted || selected == true
     Surface(
         onClick = onClick,
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.toolMap.tile,
-        contentColor = MaterialTheme.toolMap.onTile,
-        modifier = Modifier.weight(1f).heightIn(min = minHeight).alpha(if (enabled) 1f else DISABLED_ALPHA),
+        color = if (lit) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.toolMap.tile,
+        contentColor = if (lit) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.toolMap.onTile,
+        modifier =
+            Modifier
+                .weight(1f)
+                .heightIn(min = minHeight)
+                .alpha(if (enabled) 1f else DISABLED_ALPHA)
+                .then(if (selected != null) Modifier.semantics { this.selected = selected } else Modifier),
     ) {
         Column(
             Modifier.padding(horizontal = 4.dp, vertical = 10.dp),
@@ -386,9 +408,90 @@ internal fun PanelChevron() {
     )
 }
 
+/**
+ * The panel of a tool on the map (P29.10, « Équerre »): drawing, route, measure and print become panels of the bar,
+ * which float above it as Cartes, Traces and Position do: the petrol band with the name of the tool and its figures in
+ * [subtitle], ✕ to leave it ([onClose], read as [closeDescription]; none while the print frame is placed), then the
+ * tiles and the commands of the tool, with a single filled button.
+ */
+@Composable
+internal fun ToolPanel(
+    title: String,
+    maxHeight: Dp,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    onClose: (() -> Unit)? = null,
+    closeDescription: String = stringResource(R.string.action_close),
+    /** What stays at the foot while the content scrolls (the actions of the print confirmation). */
+    footer: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    BarPanel(
+        maxHeight = maxHeight,
+        modifier = modifier,
+        footer = footer,
+        header = {
+            PanelBand(title = title, subtitle = subtitle) {
+                if (onClose != null) {
+                    IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = closeDescription) }
+                }
+            }
+        },
+        content = content,
+    )
+}
+
+/**
+ * The foot of a tool panel: undo and redo as icons, read « Annuler la dernière action » and « Rétablir » (the word
+ * « Annuler » of a button is kept for giving up), a menu named by a text ([menu]: « Outils », « Garder… »), and the
+ * main action at the end ([main]).
+ */
+@Composable
+internal fun ToolFooter(
+    onUndo: () -> Unit,
+    canUndo: Boolean,
+    onRedo: () -> Unit,
+    canRedo: Boolean,
+    menu: @Composable () -> Unit = {},
+    main: @Composable () -> Unit = {},
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 4.dp, end = PANEL_INSET, top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onUndo, enabled = canUndo) {
+            Icon(RouteIcons.Undo, contentDescription = stringResource(R.string.draw_undo_a11y))
+        }
+        IconButton(onClick = onRedo, enabled = canRedo) {
+            Icon(RouteIcons.Redo, contentDescription = stringResource(R.string.draw_redo))
+        }
+        menu()
+        Spacer(Modifier.weight(1f))
+        main()
+    }
+}
+
+/** A menu of a tool panel named by a text and its arrow (« Outils ▾ »), opening [items], each given a way to close. */
+@Composable
+internal fun TextMenu(
+    label: String,
+    enabled: Boolean = true,
+    items: @Composable ColumnScope.(close: () -> Unit) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }, enabled = enabled, contentPadding = TEXT_MENU_PADDING) {
+            Text(label)
+            Icon(RouteIcons.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) { items { open = false } }
+    }
+}
+
 /** The side margin of the blocks and tiles inside a panel. */
 internal val PANEL_INSET = 12.dp
 
+private val TEXT_MENU_PADDING = PaddingValues(start = 12.dp, end = 6.dp)
 private val ROW_HEIGHT = 56.dp
 private val TILE_HEIGHT = 70.dp
 private val BAND_HEIGHT = 56.dp

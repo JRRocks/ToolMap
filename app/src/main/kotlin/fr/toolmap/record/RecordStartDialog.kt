@@ -19,7 +19,6 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -53,6 +52,7 @@ import fr.toolmap.R
 import fr.toolmap.core.record.RecorderProfile
 import fr.toolmap.core.record.TrackActivity
 import fr.toolmap.core.track.NameDates
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.Button
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap

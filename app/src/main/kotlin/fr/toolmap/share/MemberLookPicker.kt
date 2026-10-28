@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -50,6 +49,7 @@ import fr.toolmap.R
 import fr.toolmap.core.p2p.ColorWheel
 import fr.toolmap.core.p2p.MemberLook
 import fr.toolmap.core.p2p.MemberPalette
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.TextButton
 import kotlinx.coroutines.Dispatchers

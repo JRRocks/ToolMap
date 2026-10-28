@@ -11,7 +11,6 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,6 +25,7 @@ import androidx.core.content.ContextCompat
 import fr.toolmap.R
 import fr.toolmap.core.eventlog.EventLog
 import fr.toolmap.service.BackgroundNotification
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.TextButton
 
 /**

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,11 +21,12 @@ import fr.toolmap.core.geo.Guidance
 import fr.toolmap.core.geo.NavTarget
 import fr.toolmap.core.geo.Navigation
 import fr.toolmap.ui.LocalFormats
+import fr.toolmap.ui.MapPill
 import fr.toolmap.ui.theme.TextButton
 
 /**
  * Distance and bearing to the target, with an arrow that points to it as the map is drawn on screen (it turns with the
- * map bearing, so it needs no compass of its own).
+ * map bearing, so it needs no compass of its own); a white pill of the map since P29.10.
  */
 @Composable
 fun TargetHud(
@@ -38,7 +38,7 @@ fun TargetHud(
     modifier: Modifier = Modifier,
 ) {
     val fmt = LocalFormats.current
-    Card(modifier = modifier) {
+    MapPill(modifier = modifier) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),

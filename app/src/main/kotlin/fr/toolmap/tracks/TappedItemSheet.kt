@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -65,6 +64,7 @@ import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.LocalAppSettings
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.FilledTonalButton
 import fr.toolmap.waypoints.WaypointIconBadge
 
@@ -268,9 +268,10 @@ fun TappedItemSheet(
     }
     if (askDelete) {
         ConfirmDialog(
-            title = stringResource(R.string.tracks_delete),
-            message = stringResource(R.string.tracks_delete_ask, name ?: unnamed),
+            title = stringResource(R.string.tracks_delete_title, name ?: unnamed),
+            message = stringResource(R.string.tracks_delete_final),
             confirmLabel = stringResource(R.string.tracks_delete),
+            destructive = true,
             onConfirm = {
                 askDelete = false
                 onDelete(ref)

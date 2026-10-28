@@ -20,6 +20,24 @@
 
 ---
 
+## 2026-10-28 — Session 67 (suite) — [P29.10] Outils en « Équerre » (1/2) : chaque outil devient un panneau de la barre
+- **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
+- **Objectif** : coder la première moitié de la variante A · Équerre, choisie par l'utilisateur le 2026-10-27 (« P29.10 (Outils) : A · Équerre ») : les outils posés sur la carte (dessin, itinéraire, mesure, cadre et confirmation d'impression) deviennent des panneaux de la barre, au-dessus d'elle, avec un seul bouton plein ; menus et dialogues blancs ; suppression qui nomme l'objet. La Recherche et l'Aide suivent dans un second incrément.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/design-10-outils.html`, variante A · Équerre, validée le 2026-10-27.
+  - `ToolPanel`, `ToolFooter`, `TextMenu` et tuiles allumées (`ActionTile`) dans `map/PanelParts.kt` ; `DrawBar` (trace et itinéraire), `MeasureBar`, `PrintFrameActions`, `PrintTrackActions` et `PrintConfirmSheet` réécrits dessus ; icônes Annuler / Rétablir, Déplacer, Supprimer, Main levée (`RouteIcons`).
+  - `MapScreen` : les panneaux d'outil flottent au-dessus de la barre restée en bas ; boutons de droite, crédits et messages montent au-dessus (`MapBottomChrome.lift`) ; un panneau de la barre ouvert pendant un outil le couvre ; la confirmation d'impression recadre la feuille au-dessus du panneau et de la barre.
+  - `ui/MapPill.kt` : chiffres d'itinéraire, bande du cadre (puces compactes), bandeaux de cible et de suivi ; puce de profil de 32 dp (48 dp au toucher).
+  - Enveloppes `AlertDialog` et `DropdownMenu` blanches (`ToolMapColors.popup`) adoptées dans tout le code ; `ConfirmDialog(destructive)` ; suppressions nommées (« Supprimer « … » ? », « Cette action est définitive. ») ; alertes d'impression en couleur tertiaire.
+  - Chaînes : 6 ajoutées, 5 retirées ; ADR-083 ; `docs/specs/ui-index.md` §T (T1, T1b, T2, T3, T3b).
+  - Comparaison : `docs/previews/design-10-outils-rendu.html` (itinéraire, cadre, mesure ; le dialogue, fenêtre à part, ne se rend pas sous Robolectric : vérifié par test).
+- **Décisions (ADR)** : ADR-083.
+- **Tests / vérifications** :
+  - `ToolPanelsTest` (6 : nouvelle trace, ✕ avec confirmation, itinéraire à la main, mesure, panneau du cadre, suppression nommée) ; `ToolsRenderTest` (5 rendus) ; suite de l'app relancée.
+  - `./gradlew spotlessApply check assembleDebug --max-workers=2` : BUILD SUCCESSFUL en 3 min 33 s, version **0.4.97**, `ToolMap-debug-0.4.97.apk`. Tests : core 884, data 311, p2p 29 (2 ignorés), app 425 (68 ignorés, dont les rendus), 0 échec ; lint : 0 erreur, app 63 avertissements et 1 indication (inchangé).
+- **Problèmes / dette technique** : capture de l'émulateur à faire sur le poste Windows, en particulier l'itinéraire avec BRouter et le retour du panneau d'outil après un panneau de la barre.
+- **Prochaine étape recommandée** : P29.10 (2/2) : Recherche et Aide et à propos.
+
 ## 2026-10-27 — Session 67 (suite) — [P29.9] Réglages en « Loupe » : chercher un réglage sans savoir où il est rangé
 - **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
 - **Objectif** : coder la variante C · Loupe des Réglages et de la Sauvegarde, choisie par l'utilisateur le 2026-10-27 (« P29.9 (Réglages) : C · Loupe ») : un champ de recherche dont les résultats sont les vrais réglages, des pages de catégorie à onglets, le socle commun (interrupteurs, segmentés, curseurs dans la ligne, « Rétablir » avec « Annuler ») et la Sauvegarde en deux segments.

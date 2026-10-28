@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -22,6 +21,7 @@ import fr.toolmap.R
 import fr.toolmap.data.sources.DuplicatePolicy
 import fr.toolmap.data.sources.ImportPreview
 import fr.toolmap.ui.CheckRow
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.TextButton
 
 /** Confirmation step of an `.aqx` import: choose the sources and what to do with ids already in use. */

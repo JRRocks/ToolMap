@@ -10,11 +10,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,7 +25,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.core.download.ZoneShape
@@ -33,24 +37,35 @@ import fr.toolmap.core.measure.MeasureResult
 import fr.toolmap.core.settings.BearingFormat
 import fr.toolmap.core.track.NameDates
 import fr.toolmap.data.tracks.ItemKind
+import fr.toolmap.draw.RouteIcons
+import fr.toolmap.map.ActionTile
+import fr.toolmap.map.ActionTiles
+import fr.toolmap.map.PANEL_INSET
+import fr.toolmap.map.TextMenu
+import fr.toolmap.map.ToolFooter
+import fr.toolmap.map.ToolPanel
 import fr.toolmap.maps.MapsIcons
 import fr.toolmap.tracks.RenameDialog
 import fr.toolmap.ui.Formats
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.FilledTonalButton
 import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.TextButton
 
 /**
- * The controls of the measure tool: the figures for the points placed so far, mode (path or area), undo / redo,
- * add at the crosshair, and keeping the line as a route or a track. Taps on the map are handled by the map screen.
+ * The panel of the measure tool (P29.10, « Équerre »): a panel of the bar, floating above it, with the petrol band
+ * « Mesure » and its figures (« 3 points · 2,35 km »), ✕ to leave; « Distance | Surface », the figures, the actions at
+ * the crosshair as tiles, then undo / redo and « Garder… » (as a route or a track). Taps on the map are handled by the
+ * map screen.
  */
 @Composable
 fun MeasureBar(
     ui: MeasureUi,
     vm: MeasureViewModel,
     center: () -> Pair<Double, Double>,
+    maxHeight: Dp,
     modifier: Modifier = Modifier,
     backEnabled: Boolean = true,
     /** « Télécharger cette zone… » (F10): the download form with the surface measured. */
@@ -58,83 +73,81 @@ fun MeasureBar(
 ) {
     val fmt = LocalFormats.current
     var askName by remember { mutableStateOf<ItemKind?>(null) }
-    var saveOpen by remember { mutableStateOf(false) }
-    // Back closes the tool as « Quitter » does, instead of leaving the app.
+    // Back closes the tool as ✕ does, instead of leaving the app.
     BackHandler(enabled = backEnabled, onBack = vm::close)
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        tonalElevation = 6.dp,
-        shadowElevation = 8.dp,
+    val points = ui.result.pointCount
+    ToolPanel(
+        title = stringResource(R.string.measure_title),
+        maxHeight = maxHeight,
+        modifier = modifier,
+        subtitle =
+            if (points > 0) {
+                pluralStringResource(R.plurals.measure_band, points, points, fmt.distance(ui.result.lengthMeters))
+            } else {
+                null
+            },
+        onClose = vm::close,
+        closeDescription = stringResource(R.string.draw_quit),
     ) {
-        Column(
-            modifier = Modifier.navigationBarsPadding().padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(stringResource(R.string.measure_title), style = MaterialTheme.typography.titleSmall)
-            MeasureFigures(ui.result, ui.mode, fmt)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                FilterChip(
-                    selected = ui.mode == MeasureMode.PATH,
-                    onClick = { vm.setMode(MeasureMode.PATH) },
-                    label = { Text(stringResource(R.string.measure_mode_path)) },
-                )
-                FilterChip(
-                    selected = ui.mode == MeasureMode.AREA,
-                    onClick = { vm.setMode(MeasureMode.AREA) },
-                    label = { Text(stringResource(R.string.measure_mode_area)) },
+        val modes =
+            listOf(
+                MeasureMode.PATH to R.string.measure_mode_path,
+                MeasureMode.AREA to R.string.measure_mode_area,
+            )
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = PANEL_INSET, vertical = 4.dp)) {
+            modes.forEachIndexed { index, (mode, label) ->
+                SegmentedButton(
+                    selected = ui.mode == mode,
+                    onClick = { vm.setMode(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(index, modes.size),
+                    icon = {},
+                    label = { Text(stringResource(label)) },
                 )
             }
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                OutlinedButton(onClick = vm::undo, enabled = ui.canUndo) { Text(stringResource(R.string.draw_undo)) }
-                OutlinedButton(onClick = vm::redo, enabled = ui.canRedo) { Text(stringResource(R.string.draw_redo)) }
-                Button(onClick = {
-                    val (lat, lon) = center()
-                    vm.addAt(lat, lon)
-                }) { Text(stringResource(R.string.draw_add_here)) }
-                OutlinedButton(onClick = vm::clear, enabled = ui.result.pointCount > 0) {
-                    Text(stringResource(R.string.draw_tool_clear))
-                }
+        }
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { MeasureFigures(ui.result, ui.mode, fmt) }
+        ActionTiles {
+            ActionTile(RouteIcons.AddLocationAlt, stringResource(R.string.draw_add_here), highlighted = true) {
+                val (lat, lon) = center()
+                vm.addAt(lat, lon)
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = vm::close) { Text(stringResource(R.string.draw_quit)) }
-                Box {
-                    OutlinedButton(onClick = { saveOpen = true }, enabled = ui.result.pointCount >= 2) {
-                        Text(stringResource(R.string.measure_keep))
-                    }
-                    DropdownMenu(expanded = saveOpen, onDismissRequest = { saveOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.measure_keep_route)) },
-                            onClick = {
-                                saveOpen = false
-                                askName = ItemKind.ROUTE
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.measure_keep_track)) },
-                            onClick = {
-                                saveOpen = false
-                                askName = ItemKind.TRACK
-                            },
-                        )
-                    }
-                }
-                // Only in « Surface » mode, from three points (F10).
-                if (ui.mode == MeasureMode.AREA && ui.result.pointCount >= MIN_AREA_POINTS) {
-                    FilledTonalButton(onClick = { vm.areaZone()?.let(onDownloadArea) }) {
-                        Icon(MapsIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text(stringResource(R.string.measure_download_area), modifier = Modifier.padding(start = 8.dp))
-                    }
+            ActionTile(
+                RouteIcons.DeleteSweep,
+                stringResource(R.string.draw_tool_clear),
+                points > 0,
+                onClick = vm::clear,
+            )
+            // Only in « Surface » mode, from three points (F10).
+            if (ui.mode == MeasureMode.AREA && points >= MIN_AREA_POINTS) {
+                ActionTile(MapsIcons.Download, stringResource(R.string.measure_download_area)) {
+                    vm.areaZone()?.let(onDownloadArea)
                 }
             }
         }
+        ToolFooter(
+            onUndo = vm::undo,
+            canUndo = ui.canUndo,
+            onRedo = vm::redo,
+            canRedo = ui.canRedo,
+            menu = {
+                TextMenu(stringResource(R.string.measure_keep), enabled = points >= 2) { close ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.measure_keep_route)) },
+                        onClick = {
+                            close()
+                            askName = ItemKind.ROUTE
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.measure_keep_track)) },
+                        onClick = {
+                            close()
+                            askName = ItemKind.TRACK
+                        },
+                    )
+                }
+            },
+        )
     }
 
     askName?.let { kind ->
@@ -165,10 +178,7 @@ private fun MeasureFigures(
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            stringResource(R.string.measure_points, result.pointCount),
-            style = MaterialTheme.typography.bodySmall,
-        )
+        // The number of points is in the band of the panel since P29.10.
         if (result.pointCount >= 2) {
             Text(
                 stringResource(R.string.measure_length, fmt.distance(result.lengthMeters)),

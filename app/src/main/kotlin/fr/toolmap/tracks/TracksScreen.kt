@@ -37,7 +37,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -115,6 +114,7 @@ import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.groupedShape
 import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.minTouchTarget
 import fr.toolmap.ui.theme.toolMap
@@ -638,20 +638,19 @@ fun TracksScreen(
             }
 
             is Dialog.Delete -> {
+                val folder = d.folderId != null
                 ConfirmDialog(
-                    title = stringResource(R.string.tracks_delete),
-                    message =
+                    title =
                         stringResource(
-                            if (d.folderId !=
-                                null
-                            ) {
-                                R.string.tracks_delete_folder_ask
-                            } else {
-                                R.string.tracks_delete_ask
-                            },
+                            if (folder) R.string.tracks_delete_folder_title else R.string.tracks_delete_title,
                             d.name,
                         ),
+                    message =
+                        stringResource(
+                            if (folder) R.string.tracks_delete_folder_final else R.string.tracks_delete_final,
+                        ),
                     confirmLabel = stringResource(R.string.tracks_delete),
+                    destructive = true,
                     onConfirm = {
                         d.ref?.let { vm.delete(it) }
                         d.folderId?.let { vm.deleteFolder(it) }
@@ -663,9 +662,10 @@ fun TracksScreen(
 
             is Dialog.DeleteMany -> {
                 ConfirmDialog(
-                    title = stringResource(R.string.tracks_delete),
-                    message = pluralStringResource(R.plurals.tracks_delete_many_ask, d.refs.size, d.refs.size),
+                    title = pluralStringResource(R.plurals.tracks_delete_many_title, d.refs.size, d.refs.size),
+                    message = stringResource(R.string.tracks_delete_final),
                     confirmLabel = stringResource(R.string.tracks_delete),
+                    destructive = true,
                     onConfirm = {
                         d.refs.forEach { vm.delete(it) }
                         selected = emptySet()

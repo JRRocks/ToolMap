@@ -26,7 +26,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -68,6 +67,7 @@ import fr.toolmap.core.settings.AppSettings
 import fr.toolmap.core.settings.SettingsSearch
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.screenInsets
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.toolMap
 import kotlinx.coroutines.launch

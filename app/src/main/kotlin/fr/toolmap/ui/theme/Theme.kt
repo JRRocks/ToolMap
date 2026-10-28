@@ -122,6 +122,8 @@ data class ToolMapColors(
     val info: Color,
     val onInfo: Color,
     val onInfoVariant: Color,
+    /** Menus and dialogs (P29.10): the white of the panels by day, a step above the panel by night. */
+    val popup: Color,
 )
 
 private val LightToolMapColors =
@@ -139,6 +141,7 @@ private val LightToolMapColors =
         info = Color.White,
         onInfo = Petrol,
         onInfoVariant = Color(0xFF506169),
+        popup = Color.White,
     )
 
 private val DarkToolMapColors =
@@ -156,6 +159,7 @@ private val DarkToolMapColors =
         info = Color(0xFF11222A),
         onInfo = Color(0xFFDDE7EA),
         onInfoVariant = Color(0xFFA9BAC1),
+        popup = Color(0xFF1A2F38),
     )
 
 private val LocalToolMapColors = staticCompositionLocalOf { LightToolMapColors }

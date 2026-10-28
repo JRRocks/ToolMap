@@ -18,8 +18,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -64,6 +62,8 @@ import fr.toolmap.core.source.TileSource
 import fr.toolmap.download.formatBytes
 import fr.toolmap.map.MapViewModel
 import fr.toolmap.settings.SettingsIcons
+import fr.toolmap.ui.theme.AlertDialog
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap

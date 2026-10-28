@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +56,7 @@ import fr.toolmap.core.maps.MapCatalog
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.groupedShape
 import fr.toolmap.ui.screenInsets
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
 import kotlinx.coroutines.launch

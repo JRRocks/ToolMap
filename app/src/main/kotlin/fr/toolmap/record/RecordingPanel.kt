@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -40,7 +38,9 @@ import fr.toolmap.core.track.NameDates
 import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.map.MenuIcons
 import fr.toolmap.ui.LocalFormats
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap

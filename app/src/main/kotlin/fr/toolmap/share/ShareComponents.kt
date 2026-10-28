@@ -21,10 +21,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -67,6 +65,8 @@ import fr.toolmap.p2p.QrCodes
 import fr.toolmap.p2p.QrMatrix
 import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.LocalFormats
+import fr.toolmap.ui.theme.AlertDialog
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.TextButton
 import java.util.Locale
 

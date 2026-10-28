@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.core.print.Dressing
@@ -56,6 +56,8 @@ import fr.toolmap.core.print.PrintTemplate
 import fr.toolmap.core.print.PrintTexts
 import fr.toolmap.core.print.PrintWarning
 import fr.toolmap.download.formatBytes
+import fr.toolmap.map.ToolPanel
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.Button
 import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.Switch
@@ -183,80 +185,66 @@ fun PrintSetupDialog(
 
 // --- step 3: the confirmation
 
-/** The grid, waypoints, tracks and title; the rest under « Plus d'options » (P17, Q7). */
+/**
+ * The grid, waypoints, tracks and title; the rest under « Plus d'options » (P17, Q7). A tool panel since P29.10, above
+ * the bar come back, with ✕ « Fermer » in its band; the actions stay at its foot while the options scroll.
+ */
 @Composable
 fun PrintConfirmSheet(
     ui: PrintUi,
     actions: PrintActions,
+    maxHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
     val template = ui.template
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        tonalElevation = 3.dp,
-        shadowElevation = 8.dp,
+    ToolPanel(
+        title = stringResource(R.string.print_title),
+        maxHeight = maxHeight,
+        modifier = modifier,
+        onClose = actions.onClose,
+        closeDescription = stringResource(R.string.print_close),
+        footer = { ConfirmActions(ui, actions) },
     ) {
-        Column(modifier = Modifier.padding(top = 4.dp)) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(summaryLine(template), style = MaterialTheme.typography.bodyMedium)
+            GridChoice(template, actions)
+            SwitchRow(R.string.print_dress_waypoints, template.dressing.waypoints) { v ->
+                actions.onUpdate { it.withDressing { copy(waypoints = v) } }
+            }
+            SwitchRow(R.string.print_dress_tracks, template.dressing.tracks) { v ->
+                actions.onUpdate { it.withDressing { copy(tracks = v) } }
+            }
+            OutlinedTextField(
+                value = template.title,
+                onValueChange = { v -> actions.onUpdate { it.copy(title = v) } },
+                label = { Text(stringResource(R.string.print_field_title)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            PlanLines(ui)
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = actions.onToggleMore)
+                        .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    stringResource(R.string.print_title),
-                    style = MaterialTheme.typography.titleMedium,
+                    stringResource(R.string.print_more_options),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = actions.onClose) {
-                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.print_close))
-                }
-            }
-            Column(
-                modifier =
-                    Modifier
-                        .heightIn(max = SHEET_MAX_HEIGHT)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(summaryLine(template), style = MaterialTheme.typography.bodyMedium)
-                GridChoice(template, actions)
-                SwitchRow(R.string.print_dress_waypoints, template.dressing.waypoints) { v ->
-                    actions.onUpdate { it.withDressing { copy(waypoints = v) } }
-                }
-                SwitchRow(R.string.print_dress_tracks, template.dressing.tracks) { v ->
-                    actions.onUpdate { it.withDressing { copy(tracks = v) } }
-                }
-                OutlinedTextField(
-                    value = template.title,
-                    onValueChange = { v -> actions.onUpdate { it.copy(title = v) } },
-                    label = { Text(stringResource(R.string.print_field_title)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                Icon(
+                    if (ui.moreOptions) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = null,
                 )
-                PlanLines(ui)
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = actions.onToggleMore)
-                            .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        stringResource(R.string.print_more_options),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Icon(
-                        if (ui.moreOptions) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                        contentDescription = null,
-                    )
-                }
-                if (ui.moreOptions) MoreOptions(template, actions)
             }
-            ConfirmActions(ui, actions)
+            if (ui.moreOptions) MoreOptions(template, actions)
         }
     }
 }
@@ -302,7 +290,11 @@ private fun PlanLines(ui: PrintUi) {
         }
 
         else -> {
-            Text(stringResource(R.string.print_sum_missing, missing), style = style, color = WARNING_ORANGE)
+            Text(
+                stringResource(R.string.print_sum_missing, missing),
+                style = style,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
             if (!ui.canDownloadMissing) {
                 Text(stringResource(R.string.print_missing_hatched, PrintUi.MAX_DOWNLOAD_TILES), style = style)
             }
@@ -333,7 +325,7 @@ fun WarningLines(
                     stringResource(R.string.print_warn_unavailable, warning.sourceId)
                 }
             }
-        Text(text, style = style, color = WARNING_ORANGE)
+        Text(text, style = style, color = MaterialTheme.colorScheme.tertiary)
     }
 }
 
@@ -524,7 +516,7 @@ fun PrintOutcomeDialog(
                         if (outcome.missingTiles > 0) {
                             Text(
                                 stringResource(R.string.print_done_missing, outcome.missingTiles),
-                                color = WARNING_ORANGE,
+                                color = MaterialTheme.colorScheme.tertiary,
                             )
                         }
                         Text(stringResource(R.string.print_reminder))
@@ -699,6 +691,4 @@ private val GRID_ORDER =
     listOf(GridKind.NONE, GridKind.UTM, GridKind.MGRS, GridKind.LAMBERT93, GridKind.WGS84, GridKind.WGS84_DECIMAL)
 
 /** Orange of the warnings that do not stop the print. */
-private val WARNING_ORANGE = Color(0xFFE65100)
-private val SHEET_MAX_HEIGHT = 360.dp
 private const val MAX_MARGIN_SLIDER_MM = 30f

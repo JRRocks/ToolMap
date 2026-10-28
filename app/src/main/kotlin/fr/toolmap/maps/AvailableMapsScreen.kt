@@ -33,8 +33,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -99,6 +97,8 @@ import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.groupedShape
 import fr.toolmap.ui.screenInsets
+import fr.toolmap.ui.theme.AlertDialog
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap

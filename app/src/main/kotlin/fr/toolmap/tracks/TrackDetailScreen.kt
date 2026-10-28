@@ -23,9 +23,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -72,7 +70,9 @@ import fr.toolmap.ui.GroupBlock
 import fr.toolmap.ui.GroupCaption
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.ToolMapTopBar
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.TextButton
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -484,9 +484,10 @@ private fun TrackDialogs(
 
         Ask.DELETE -> {
             ConfirmDialog(
-                title = stringResource(R.string.tracks_delete),
-                message = stringResource(R.string.tracks_delete_ask, name),
+                title = stringResource(R.string.tracks_delete_title, name),
+                message = stringResource(R.string.tracks_delete_final),
                 confirmLabel = stringResource(R.string.tracks_delete),
+                destructive = true,
                 onConfirm = {
                     onDone()
                     vm.delete(ref)

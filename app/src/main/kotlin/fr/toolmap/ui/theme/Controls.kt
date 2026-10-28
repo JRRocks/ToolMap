@@ -1,20 +1,30 @@
 package fr.toolmap.ui.theme
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonElevation
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.SwitchColors
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.material3.AlertDialog as M3AlertDialog
 import androidx.compose.material3.Button as M3Button
+import androidx.compose.material3.DropdownMenu as M3DropdownMenu
 import androidx.compose.material3.FilledTonalButton as M3FilledTonalButton
 import androidx.compose.material3.OutlinedButton as M3OutlinedButton
 import androidx.compose.material3.Switch as M3Switch
@@ -171,3 +181,58 @@ private fun switchColors(): SwitchColors {
         uncheckedBorderColor = scheme.onSurfaceVariant,
     )
 }
+
+/**
+ * A dialog of the « Crête » style (P29.10): on the white of the panels by day ([ToolMapColors.popup]), with the 18 dp
+ * corners of the panels, without the tint of Material's elevation. Material's signature, so that a screen switches by
+ * its imports only.
+ */
+@Composable
+fun AlertDialog(
+    onDismissRequest: () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    dismissButton: @Composable (() -> Unit)? = null,
+    icon: @Composable (() -> Unit)? = null,
+    title: @Composable (() -> Unit)? = null,
+    text: @Composable (() -> Unit)? = null,
+    shape: Shape = MaterialTheme.shapes.extraLarge,
+    containerColor: Color = MaterialTheme.toolMap.popup,
+    properties: DialogProperties = DialogProperties(),
+) = M3AlertDialog(
+    onDismissRequest = onDismissRequest,
+    confirmButton = confirmButton,
+    modifier = modifier,
+    dismissButton = dismissButton,
+    icon = icon,
+    title = title,
+    text = text,
+    shape = shape,
+    containerColor = containerColor,
+    tonalElevation = 0.dp,
+    properties = properties,
+)
+
+/** A menu of the « Crête » style (P29.10): white by day, 12 dp corners, lifted from a white panel by its shadow. */
+@Composable
+fun DropdownMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    offset: DpOffset = DpOffset(0.dp, 0.dp),
+    scrollState: ScrollState = rememberScrollState(),
+    properties: PopupProperties = PopupProperties(focusable = true),
+    content: @Composable ColumnScope.() -> Unit,
+) = M3DropdownMenu(
+    expanded = expanded,
+    onDismissRequest = onDismissRequest,
+    modifier = modifier,
+    offset = offset,
+    scrollState = scrollState,
+    properties = properties,
+    shape = MaterialTheme.shapes.small,
+    containerColor = MaterialTheme.toolMap.popup,
+    tonalElevation = 0.dp,
+    shadowElevation = MenuDefaults.ShadowElevation,
+    content = content,
+)

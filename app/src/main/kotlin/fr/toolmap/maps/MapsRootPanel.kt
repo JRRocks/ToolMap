@@ -21,8 +21,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -64,6 +62,8 @@ import fr.toolmap.map.PANEL_INSET
 import fr.toolmap.map.PanelBand
 import fr.toolmap.map.PanelCaption
 import fr.toolmap.settings.SettingsIcons
+import fr.toolmap.ui.theme.AlertDialog
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap

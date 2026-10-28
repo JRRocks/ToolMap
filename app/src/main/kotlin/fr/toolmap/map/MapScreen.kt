@@ -30,9 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -186,6 +184,8 @@ import fr.toolmap.tracks.TracksViewModel
 import fr.toolmap.ui.LocalAppSettings
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.rememberNotificationAsk
+import fr.toolmap.ui.theme.AlertDialog
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.waypoints.WaypointDialog
 import kotlinx.coroutines.Dispatchers
@@ -340,9 +340,9 @@ fun MapScreen(
     // The height of the panel open above the bar, so that a message stands over it rather than on its last rows.
     var barPanelHeight by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
-    var drawBarHeight by remember { mutableIntStateOf(0) }
     var printPanelHeight by remember { mutableIntStateOf(0) }
-    var measureBarHeight by remember { mutableIntStateOf(0) }
+    // The height of the panel of a tool (drawing, route, measure, print confirmation), above the bar since P29.10.
+    var toolPanelHeight by remember { mutableIntStateOf(0) }
     var gridPlan by remember { mutableStateOf<ScreenGridPlan?>(null) }
     var rootSize by remember { mutableStateOf(IntSize.Zero) }
     // Where the info boxes end on screen (pixels), for the zone selection to start clear of them (V2).
@@ -353,10 +353,12 @@ fun MapScreen(
     val bottomClearance =
         when {
             mapsPage == MapsPage.SAVE_AREA -> with(density) { saveAreaPanelHeight.toDp() }
+
             conditionsLayer != null -> with(density) { conditionsPanelHeight.toDp() }
-            printUi.active -> with(density) { printPanelHeight.toDp() }
-            drawUi.active && drawUi.chooseSegment == null -> with(density) { drawBarHeight.toDp() }
-            measureUi.active -> with(density) { measureBarHeight.toDp() }
+
+            // While the frame is placed the bar is hidden: its panel stands at the bottom (P29.10).
+            printUi.stage == PrintStage.FRAME -> with(density) { printPanelHeight.toDp() } + 12.dp
+
             else -> 0.dp
         }
 
@@ -636,7 +638,8 @@ fun MapScreen(
         delay(PRINT_CONFIRM_SETTLE_MS)
         val widthDp = rootSize.width / density.density.toDouble()
         val heightDp = rootSize.height / density.density.toDouble()
-        val sheetDp = printPanelHeight / density.density.toDouble()
+        // The panel of the confirmation stands above the bar since P29.10.
+        val sheetDp = (printPanelHeight + barHeight) / density.density.toDouble() + PRINT_CONFIRM_GAP_DP
         val availableWidth = (widthDp - 2 * PRINT_CONFIRM_SIDE_DP).coerceAtLeast(PRINT_MIN_FIT_DP)
         val availableHeight =
             (heightDp - sheetDp - PRINT_CONFIRM_TOP_DP - PRINT_CONFIRM_BOTTOM_DP).coerceAtLeast(PRINT_MIN_FIT_DP)
@@ -1218,6 +1221,14 @@ fun MapScreen(
         }
     }
     val barPanelOpen = showMenu || showTracks || showPositioning || (mapsPage == MapsPage.ROOT && !covered)
+    // The panel of a tool floats above the bar as the panels of the bar do (P29.10, « Équerre »); a panel of the bar
+    // opened meanwhile covers it, and it comes back when that one closes.
+    val toolOpen =
+        (drawUi.active && drawUi.chooseSegment == null) || measureUi.active || printUi.stage == PrintStage.CONFIRM
+    val toolShown = toolOpen && !barPanelOpen
+    val toolLift = if (toolShown) with(density) { toolPanelHeight.toDp() } + 12.dp else 0.dp
+    val toolMaxHeight =
+        (with(density) { rootSize.height.toDp() } - barDp - TOOL_PANEL_TOP_ROOM).coerceAtLeast(TOOL_PANEL_MIN_HEIGHT)
     Box(modifier = Modifier.fillMaxSize().onSizeChanged { rootSize = it }) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -1392,6 +1403,7 @@ fun MapScreen(
             }
             MapBottomChrome(
                 modifier = Modifier.padding(bottom = bottomClearance),
+                lift = toolLift,
                 attribution = { if (!framing) AttributionText(attribution) },
                 bar = {
                     when {
@@ -1673,7 +1685,8 @@ fun MapScreen(
                     Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = bottomClearance + if (chromeShown) barDp else 0.dp)
-                        .padding(bottom = if (barPanelOpen) with(density) { barPanelHeight.toDp() } + 12.dp else 0.dp),
+                        .padding(bottom = if (barPanelOpen) with(density) { barPanelHeight.toDp() } + 12.dp else 0.dp)
+                        .padding(bottom = toolLift),
             ) { data ->
                 val visuals = data.visuals
                 if (visuals is RouteNoticeVisuals) {
@@ -1693,54 +1706,71 @@ fun MapScreen(
                 }
             }
         }
-        if (drawUi.active && drawUi.chooseSegment == null) {
-            DrawBar(
-                ui = drawUi,
-                vm = draw,
-                center = { controller.liveCamera.let { it.lat to it.lon } },
-                modifier = Modifier.align(Alignment.BottomCenter).onSizeChanged { drawBarHeight = it.height },
-                backEnabled = !locked,
-                hooks =
-                    RouteHooks(
-                        insertLegAt = {
-                            val camera = controller.liveCamera
-                            draw.insertLegAt(camera.lat, camera.lon, controller.metersFor(TAP_REACH_DP))
-                        },
-                        reachMeters = { controller.metersFor(TAP_REACH_DP) },
-                        position = { navPosition?.let { it.lat to it.lon } ?: controller.lastPosition() },
-                        onCenter = { lat, lon -> controller.flyTo(lat, lon) },
-                        onInstall = { installBRouter(context) },
-                    ),
-            )
-        }
-        if (measureUi.active) {
-            MeasureBar(
-                ui = measureUi,
-                vm = measure,
-                center = { controller.liveCamera.let { it.lat to it.lon } },
-                modifier = Modifier.align(Alignment.BottomCenter).onSizeChanged { measureBarHeight = it.height },
-                backEnabled = !locked,
-                onDownloadArea = onDownloadZone,
-            )
-        }
-        if (printUi.stage == PrintStage.FRAME || printUi.stage == PrintStage.CONFIRM) {
-            val printModifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
-                    ).onSizeChanged { printPanelHeight = it.height }
-            if (printUi.stage == PrintStage.FRAME && printUi.alongTrack) {
-                PrintTrackActions(
-                    ui = printUi,
-                    onCancel = print::close,
-                    onNext = print::confirm,
-                    modifier = printModifier,
-                )
-            } else if (printUi.stage == PrintStage.FRAME) {
-                PrintFrameActions(onCancel = print::close, onNext = print::confirm, modifier = printModifier)
-            } else {
-                PrintConfirmSheet(ui = printUi, actions = printActions, modifier = printModifier)
+        if (toolShown || printUi.stage == PrintStage.FRAME) {
+            Box(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(12.dp)) {
+                val toolModifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = if (printUi.stage == PrintStage.FRAME) 0.dp else barDp + 12.dp)
+                        .onSizeChanged { toolPanelHeight = it.height }
+                if (drawUi.active && drawUi.chooseSegment == null) {
+                    DrawBar(
+                        ui = drawUi,
+                        vm = draw,
+                        center = { controller.liveCamera.let { it.lat to it.lon } },
+                        maxHeight = toolMaxHeight,
+                        modifier = toolModifier,
+                        backEnabled = !locked,
+                        hooks =
+                            RouteHooks(
+                                insertLegAt = {
+                                    val camera = controller.liveCamera
+                                    draw.insertLegAt(camera.lat, camera.lon, controller.metersFor(TAP_REACH_DP))
+                                },
+                                reachMeters = { controller.metersFor(TAP_REACH_DP) },
+                                position = { navPosition?.let { it.lat to it.lon } ?: controller.lastPosition() },
+                                onCenter = { lat, lon -> controller.flyTo(lat, lon) },
+                                onInstall = { installBRouter(context) },
+                            ),
+                    )
+                }
+                if (measureUi.active) {
+                    MeasureBar(
+                        ui = measureUi,
+                        vm = measure,
+                        center = { controller.liveCamera.let { it.lat to it.lon } },
+                        maxHeight = toolMaxHeight,
+                        modifier = toolModifier,
+                        backEnabled = !locked,
+                        onDownloadArea = onDownloadZone,
+                    )
+                }
+                if (printUi.stage == PrintStage.FRAME || printUi.stage == PrintStage.CONFIRM) {
+                    val printModifier = toolModifier.onSizeChanged { printPanelHeight = it.height }
+                    if (printUi.stage == PrintStage.FRAME && printUi.alongTrack) {
+                        PrintTrackActions(
+                            ui = printUi,
+                            onCancel = print::close,
+                            onNext = print::confirm,
+                            maxHeight = toolMaxHeight,
+                            modifier = printModifier,
+                        )
+                    } else if (printUi.stage == PrintStage.FRAME) {
+                        PrintFrameActions(
+                            onCancel = print::close,
+                            onNext = print::confirm,
+                            maxHeight = toolMaxHeight,
+                            modifier = printModifier,
+                        )
+                    } else {
+                        PrintConfirmSheet(
+                            ui = printUi,
+                            actions = printActions,
+                            maxHeight = toolMaxHeight,
+                            modifier = printModifier,
+                        )
+                    }
+                }
             }
         }
     }
@@ -2057,4 +2087,9 @@ private const val PRINT_CONFIRM_TOP_DP = 96.0
 private const val PRINT_CONFIRM_BOTTOM_DP = 110.0
 private const val PRINT_CONFIRM_SIDE_DP = 72.0
 private const val PRINT_CONFIRM_SETTLE_MS = 150L
+private const val PRINT_CONFIRM_GAP_DP = 12.0
+
+/** Room left over a tool panel at the top of the screen, for the pill of the route figures (P29.10). */
+private val TOOL_PANEL_TOP_ROOM = 140.dp
+private val TOOL_PANEL_MIN_HEIGHT = 200.dp
 private const val METERS_PER_DEGREE_OF_LATITUDE = 111_320.0

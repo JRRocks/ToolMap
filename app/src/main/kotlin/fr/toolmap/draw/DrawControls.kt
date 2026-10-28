@@ -16,9 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -43,6 +41,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import fr.toolmap.R
@@ -51,12 +50,20 @@ import fr.toolmap.core.track.NameDates
 import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.core.track.TrackPath
 import fr.toolmap.core.track.TrackPoint
+import fr.toolmap.map.ActionTile
+import fr.toolmap.map.ActionTiles
+import fr.toolmap.map.PANEL_INSET
+import fr.toolmap.map.TextMenu
+import fr.toolmap.map.ToolFooter
+import fr.toolmap.map.ToolPanel
 import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.tracks.ConfirmDialog
 import fr.toolmap.tracks.ElevationProfileView
 import fr.toolmap.tracks.RenameDialog
 import fr.toolmap.ui.LocalFormats
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.FilledTonalButton
 import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.TextButton
@@ -65,8 +72,10 @@ import fr.toolmap.ui.theme.TextButton
 private val SIMPLIFY_TOLERANCES = listOf(1.0, 2.0, 5.0, 10.0, 25.0)
 
 /**
- * The controls shown while drawing or editing a line: status, undo / redo, add / move / delete at the crosshair, free
- * hand, tools menu and save / quit. Taps on the map are handled by the map screen, which hands them to the view model.
+ * The panel of a line being drawn or edited (P29.10, « Équerre »): a panel of the bar, floating above it, with the petrol
+ * band (« Nouvelle trace », « Itinéraire » or the name of the line, its points and length) and ✕ to leave; the actions
+ * at the crosshair as tiles (add, move, delete, free hand), then undo / redo, « Outils » and « Enregistrer », the only
+ * filled button. Taps on the map are handled by the map screen, which hands them to the view model.
  *
  * A route also has « Suivre les chemins (BRouter) » (P19): on, the panel of the computed routes replaces the drawing
  * by hand (screens 2 to 5 of `docs/previews/p19-routing.html`); [hooks] gives it what it needs from the map.
@@ -76,6 +85,7 @@ fun DrawBar(
     ui: DrawUi,
     vm: DrawViewModel,
     center: () -> Pair<Double, Double>,
+    maxHeight: Dp,
     modifier: Modifier = Modifier,
     backEnabled: Boolean = true,
     hooks: RouteHooks? = null,
@@ -84,7 +94,6 @@ fun DrawBar(
     var askQuit by remember { mutableStateOf(false) }
     var askName by remember { mutableStateOf(false) }
     var askTolerance by remember { mutableStateOf(false) }
-    var toolsOpen by remember { mutableStateOf(false) }
     var stopsOpen by remember { mutableStateOf(false) }
     var profileOpen by remember { mutableStateOf(false) }
     var chartOpen by remember { mutableStateOf(false) }
@@ -92,13 +101,10 @@ fun DrawBar(
     // « Simplifier… » of the question before following the ways: the route is computed once simplified.
     var routeAfterSimplify by remember { mutableStateOf(false) }
     val route = ui.route
-    // Back leaves the drawing as « Quitter » does: unsaved changes are not lost without asking.
+    val quit = { if (ui.dirty) askQuit = true else vm.cancel() }
+    // Back leaves the drawing as ✕ does: unsaved changes are not lost without asking.
     BackHandler(enabled = backEnabled) {
-        when {
-            stopsOpen -> stopsOpen = false
-            ui.dirty -> askQuit = true
-            else -> vm.cancel()
-        }
+        if (stopsOpen) stopsOpen = false else quit()
     }
     if (route != null) {
         // BRouter may have been installed (« Installer ») while the user was away.
@@ -115,128 +121,129 @@ fun DrawBar(
             vm.setRouting(on)
         }
     }
+    val save = {
+        if (ui.target is DrawTarget.NewTrack || ui.target is DrawTarget.NewRoute) askName = true else vm.save(null)
+    }
+    val unnamed = stringResource(R.string.tracks_unnamed)
+    val title =
+        when (val target = ui.target) {
+            is DrawTarget.Track -> target.name ?: unnamed
+            is DrawTarget.Route -> target.name ?: unnamed
+            DrawTarget.NewRoute -> stringResource(R.string.draw_route_band)
+            else -> stringResource(R.string.draw_new_track)
+        }
+    val length = fmt.distance(ui.lengthMeters)
+    // A route that follows the ways shows its figures in the pill at the top of the map (P19).
+    val status =
+        when {
+            ui.routed -> null
+            ui.selected != null -> stringResource(R.string.draw_status_selected, ui.selected + 1, length)
+            else -> stringResource(R.string.draw_status, ui.pointCount, length)
+        }
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        tonalElevation = 6.dp,
-        shadowElevation = 8.dp,
+    ToolPanel(
+        title = title,
+        maxHeight = maxHeight,
+        modifier = modifier,
+        subtitle = status,
+        onClose = quit,
+        closeDescription = stringResource(R.string.draw_quit),
     ) {
-        Column(
-            modifier = Modifier.navigationBarsPadding().padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (route != null && hooks != null && stopsOpen && route.plan.stops.isNotEmpty()) {
+        if (route != null && hooks != null && stopsOpen && route.plan.stops.isNotEmpty()) {
+            Column(Modifier.padding(horizontal = PANEL_INSET)) {
                 StopsSheet(ui = ui, vm = vm, hooks = hooks, onClose = { stopsOpen = false })
-            } else if (route != null && hooks != null && ui.routed) {
-                RoutedPanel(
-                    ui = ui,
+            }
+        } else if (route != null && hooks != null && ui.routed) {
+            RoutedPanel(
+                ui = ui,
+                route = route,
+                vm = vm,
+                hooks = hooks,
+                center = center,
+                onToggle = onToggle,
+                onProfile = { profileOpen = true },
+                onStops = { stopsOpen = true },
+                onChart = { chartOpen = true },
+                onSave = save,
+            )
+        } else {
+            if (route != null) {
+                RoutingSwitchRow(
                     route = route,
-                    vm = vm,
-                    hooks = hooks,
-                    center = center,
                     onToggle = onToggle,
                     onProfile = { profileOpen = true },
-                    onStops = { stopsOpen = true },
-                    onChart = { chartOpen = true },
-                    onQuit = { if (ui.dirty) askQuit = true else vm.cancel() },
-                    onSave = { if (ui.target is DrawTarget.NewRoute) askName = true else vm.save(null) },
+                    onInstall = { hooks?.onInstall?.invoke() },
+                    modifier = Modifier.padding(start = PANEL_INSET, end = 6.dp),
                 )
-            } else {
-                if (route != null) {
-                    RoutingSwitchRow(
-                        route = route,
-                        onToggle = onToggle,
-                        onProfile = { profileOpen = true },
-                        onInstall = { hooks?.onInstall?.invoke() },
-                    )
-                }
-                val length = fmt.distance(ui.lengthMeters)
+            }
+            if (ui.pointCount == 0) {
                 Text(
-                    ui.selected?.let { stringResource(R.string.draw_status_selected, it + 1, length) }
-                        ?: stringResource(R.string.draw_status, ui.pointCount, length),
-                    style = MaterialTheme.typography.titleSmall,
+                    stringResource(R.string.draw_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
-                if (ui.pointCount == 0) {
-                    Text(stringResource(R.string.draw_hint), style = MaterialTheme.typography.bodySmall)
+            }
+            ActionTiles {
+                ActionTile(RouteIcons.AddLocationAlt, stringResource(R.string.draw_add_here), highlighted = true) {
+                    val (lat, lon) = center()
+                    vm.addAt(lat, lon, reach())
                 }
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    OutlinedButton(onClick = vm::undo, enabled = ui.canUndo) {
-                        Text(stringResource(R.string.draw_undo))
-                    }
-                    OutlinedButton(onClick = vm::redo, enabled = ui.canRedo) {
-                        Text(stringResource(R.string.draw_redo))
-                    }
-                    Button(onClick = {
-                        val (lat, lon) = center()
-                        vm.addAt(lat, lon, reach())
-                    }) { Text(stringResource(R.string.draw_add_here)) }
-                    OutlinedButton(
-                        onClick = {
-                            val (lat, lon) = center()
-                            vm.moveSelectedTo(lat, lon)
-                        },
-                        enabled = ui.selected != null,
-                    ) { Text(stringResource(R.string.draw_move_here)) }
-                    OutlinedButton(onClick = vm::deleteSelected, enabled = ui.selected != null) {
-                        Text(stringResource(R.string.draw_delete_point))
-                    }
-                    FilterChip(
-                        selected = ui.freehand,
-                        onClick = { vm.setFreehand(!ui.freehand) },
-                        label = { Text(stringResource(R.string.draw_freehand)) },
-                    )
-                    Box {
-                        OutlinedButton(onClick = { toolsOpen = true }) { Text(stringResource(R.string.draw_tools)) }
-                        DropdownMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
-                            ToolItem(R.string.draw_tool_reverse, ui.pointCount >= 2) {
-                                toolsOpen = false
-                                vm.reverse()
-                            }
-                            ToolItem(R.string.draw_tool_simplify, ui.pointCount >= 3) {
-                                toolsOpen = false
-                                askTolerance = true
-                            }
-                            ToolItem(R.string.draw_tool_trim_before, ui.selected != null) {
-                                toolsOpen = false
-                                vm.trimBeforeSelected()
-                            }
-                            ToolItem(R.string.draw_tool_trim_after, ui.selected != null) {
-                                toolsOpen = false
-                                vm.trimAfterSelected()
-                            }
-                            if (ui.target is DrawTarget.Track) {
-                                ToolItem(R.string.draw_tool_split, ui.selected != null) {
-                                    toolsOpen = false
-                                    vm.splitAtSelected()
-                                }
-                            }
-                            ToolItem(R.string.draw_tool_clear, ui.pointCount > 0) {
-                                toolsOpen = false
-                                vm.clear()
+                ActionTile(RouteIcons.OpenWith, stringResource(R.string.draw_move_here), ui.selected != null) {
+                    val (lat, lon) = center()
+                    vm.moveSelectedTo(lat, lon)
+                }
+                ActionTile(
+                    RouteIcons.Delete,
+                    stringResource(R.string.draw_delete_point),
+                    ui.selected != null,
+                    onClick = vm::deleteSelected,
+                )
+                ActionTile(
+                    RouteIcons.Gesture,
+                    stringResource(R.string.draw_freehand),
+                    selected = ui.freehand,
+                ) { vm.setFreehand(!ui.freehand) }
+            }
+            ToolFooter(
+                onUndo = vm::undo,
+                canUndo = ui.canUndo,
+                onRedo = vm::redo,
+                canRedo = ui.canRedo,
+                menu = {
+                    TextMenu(stringResource(R.string.draw_tools)) { close ->
+                        ToolItem(R.string.draw_tool_reverse, ui.pointCount >= 2) {
+                            close()
+                            vm.reverse()
+                        }
+                        ToolItem(R.string.draw_tool_simplify, ui.pointCount >= 3) {
+                            close()
+                            askTolerance = true
+                        }
+                        ToolItem(R.string.draw_tool_trim_before, ui.selected != null) {
+                            close()
+                            vm.trimBeforeSelected()
+                        }
+                        ToolItem(R.string.draw_tool_trim_after, ui.selected != null) {
+                            close()
+                            vm.trimAfterSelected()
+                        }
+                        if (ui.target is DrawTarget.Track) {
+                            ToolItem(R.string.draw_tool_split, ui.selected != null) {
+                                close()
+                                vm.splitAtSelected()
                             }
                         }
+                        ToolItem(R.string.draw_tool_clear, ui.pointCount > 0) {
+                            close()
+                            vm.clear()
+                        }
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { if (ui.dirty) askQuit = true else vm.cancel() }) {
-                        Text(stringResource(R.string.draw_quit))
-                    }
-                    Button(
-                        onClick = {
-                            if (ui.target is DrawTarget.NewTrack || ui.target is DrawTarget.NewRoute) {
-                                askName = true
-                            } else {
-                                vm.save(null)
-                            }
-                        },
-                        enabled = ui.pointCount >= 2,
-                    ) { Text(stringResource(R.string.draw_save)) }
-                }
-            }
+                },
+                main = {
+                    Button(onClick = save, enabled = ui.pointCount >= 2) { Text(stringResource(R.string.draw_save)) }
+                },
+            )
         }
     }
 
@@ -345,9 +352,10 @@ fun DrawBar(
 private const val MANY_STOPS = 30
 
 /**
- * The panel of a route that follows the ways (screen 2, variant A): the switch and the profile chip; undo, redo and
- * « Ajouter ici » (« Insérer ici » when the crosshair is on the route); move and delete the selected stop; the list of
- * stops and the tools; quit and save. Empty, it says where to start and offers « Depuis ma position ».
+ * The panel of a route that follows the ways (screen 2, variant A; tiles since P29.10): the switch and the profile
+ * chip; « Insérer ici » (« Ajouter ici » when the crosshair is off the route), move and delete the selected stop, the
+ * list of the stops; undo, redo, the tools and « Enregistrer ». Empty, it says where to start and offers « Depuis ma
+ * position ».
  */
 @Composable
 private fun RoutedPanel(
@@ -360,129 +368,131 @@ private fun RoutedPanel(
     onProfile: () -> Unit,
     onStops: () -> Unit,
     onChart: () -> Unit,
-    onQuit: () -> Unit,
     onSave: () -> Unit,
 ) {
-    var toolsOpen by remember { mutableStateOf(false) }
     val empty = route.plan.stops.isEmpty()
     // Follows the camera, but the panel is only composed again when the answer changes.
     val insertLeg by remember(route.plan) { derivedStateOf { hooks.insertLegAt() } }
     if (empty) {
-        Column {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
             Text(
                 stringResource(R.string.route_empty_title),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
             )
-            Text(stringResource(R.string.route_empty_hint), style = MaterialTheme.typography.bodySmall)
+            Text(
+                stringResource(R.string.route_empty_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
-    RoutingSwitchRow(route = route, onToggle = onToggle, onProfile = onProfile, onInstall = hooks.onInstall)
+    RoutingSwitchRow(
+        route = route,
+        onToggle = onToggle,
+        onProfile = onProfile,
+        onInstall = hooks.onInstall,
+        modifier = Modifier.padding(start = PANEL_INSET, end = 6.dp),
+    )
+    val add = {
+        val (lat, lon) = center()
+        val leg = insertLeg
+        if (leg != null) vm.insertAt(leg, lat, lon, hooks.reachMeters()) else vm.addAt(lat, lon, hooks.reachMeters())
+    }
     if (empty) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ActionTiles {
             val position = hooks.position()
             if (position != null) {
-                FilledTonalButton(onClick = { vm.addAt(position.first, position.second, hooks.reachMeters()) }) {
-                    Icon(SettingsIcons.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.route_from_position))
+                ActionTile(SettingsIcons.MyLocation, stringResource(R.string.route_from_position), minHeight = TILE) {
+                    vm.addAt(position.first, position.second, hooks.reachMeters())
                 }
             }
-            Button(onClick = {
-                val (lat, lon) = center()
-                vm.addAt(lat, lon, hooks.reachMeters())
-            }) { Text(stringResource(R.string.draw_add_here)) }
+            ActionTile(
+                RouteIcons.AddLocationAlt,
+                stringResource(R.string.draw_add_here),
+                minHeight = TILE,
+                highlighted = true,
+                onClick = add,
+            )
         }
     } else {
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            OutlinedButton(onClick = vm::undo, enabled = ui.canUndo) { Text(stringResource(R.string.draw_undo)) }
-            OutlinedButton(onClick = vm::redo, enabled = ui.canRedo) { Text(stringResource(R.string.draw_redo)) }
-            val leg = insertLeg
-            Button(onClick = {
+        ActionTiles {
+            val inserting = insertLeg != null
+            ActionTile(
+                if (inserting) SettingsIcons.AltRoute else RouteIcons.AddLocationAlt,
+                stringResource(if (inserting) R.string.route_insert_here else R.string.draw_add_here),
+                minHeight = TILE,
+                highlighted = true,
+                onClick = add,
+            )
+            ActionTile(
+                RouteIcons.OpenWith,
+                stringResource(R.string.draw_move_here),
+                ui.selected != null,
+                minHeight = TILE,
+            ) {
                 val (lat, lon) = center()
-                if (leg !=
-                    null
-                ) {
-                    vm.insertAt(leg, lat, lon, hooks.reachMeters())
-                } else {
-                    vm.addAt(lat, lon, hooks.reachMeters())
-                }
-            }) {
-                if (leg != null) {
-                    Icon(SettingsIcons.AltRoute, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.route_insert_here))
-                } else {
-                    Text(stringResource(R.string.draw_add_here))
-                }
+                vm.moveSelectedTo(lat, lon)
             }
-        }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            OutlinedButton(
-                onClick = {
-                    val (lat, lon) = center()
-                    vm.moveSelectedTo(lat, lon)
-                },
-                enabled = ui.selected != null,
-            ) { Text(stringResource(R.string.draw_move_here)) }
-            OutlinedButton(onClick = vm::deleteSelected, enabled = ui.selected != null) {
-                Text(stringResource(R.string.route_delete_stop))
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(onClick = onStops) {
-                Icon(RouteIcons.FormatListNumbered, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.route_stops, route.plan.stops.size))
-                Icon(RouteIcons.ExpandLess, contentDescription = null, modifier = Modifier.size(18.dp))
-            }
-            Box {
-                OutlinedButton(onClick = { toolsOpen = true }) { Text(stringResource(R.string.draw_tools)) }
-                DropdownMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.route_tool_at_start)) },
-                        leadingIcon = { Checkbox(checked = route.atStart, onCheckedChange = null) },
-                        onClick = {
-                            toolsOpen = false
-                            vm.setAtStart(!route.atStart)
-                        },
-                    )
-                    HorizontalDivider()
-                    RouteTool(R.string.route_tool_reverse, RouteIcons.SwapVert, ui.pointCount >= 2) {
-                        toolsOpen = false
-                        vm.reverse()
-                    }
-                    RouteTool(R.string.route_tool_loop, RouteIcons.Loop, ui.pointCount >= 2) {
-                        toolsOpen = false
-                        vm.loopToStart()
-                    }
-                    RouteTool(R.string.route_tool_out_back, RouteIcons.SyncAlt, ui.pointCount >= 2) {
-                        toolsOpen = false
-                        vm.outAndBack()
-                    }
-                    HorizontalDivider()
-                    RouteTool(R.string.route_tool_profile, RouteIcons.ShowChart, ui.pointCount >= 2) {
-                        toolsOpen = false
-                        onChart()
-                    }
-                    RouteTool(R.string.draw_tool_clear, RouteIcons.DeleteSweep, ui.pointCount > 0) {
-                        toolsOpen = false
-                        vm.clear()
-                    }
-                }
-            }
+            ActionTile(
+                RouteIcons.Delete,
+                stringResource(R.string.route_delete_stop),
+                ui.selected != null,
+                minHeight = TILE,
+                onClick = vm::deleteSelected,
+            )
+            ActionTile(
+                RouteIcons.FormatListNumbered,
+                stringResource(R.string.route_stops, route.plan.stops.size),
+                minHeight = TILE,
+                onClick = onStops,
+            )
         }
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextButton(onClick = onQuit) { Text(stringResource(R.string.draw_quit)) }
-        Button(onClick = onSave, enabled = ui.pointCount >= 2) { Text(stringResource(R.string.draw_save)) }
-    }
+    ToolFooter(
+        onUndo = vm::undo,
+        canUndo = ui.canUndo,
+        onRedo = vm::redo,
+        canRedo = ui.canRedo,
+        menu = {
+            TextMenu(stringResource(R.string.draw_tools), enabled = !empty) { close ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.route_tool_at_start)) },
+                    leadingIcon = { Checkbox(checked = route.atStart, onCheckedChange = null) },
+                    onClick = {
+                        close()
+                        vm.setAtStart(!route.atStart)
+                    },
+                )
+                HorizontalDivider()
+                RouteTool(R.string.route_tool_reverse, RouteIcons.SwapVert, ui.pointCount >= 2) {
+                    close()
+                    vm.reverse()
+                }
+                RouteTool(R.string.route_tool_loop, RouteIcons.Loop, ui.pointCount >= 2) {
+                    close()
+                    vm.loopToStart()
+                }
+                RouteTool(R.string.route_tool_out_back, RouteIcons.SyncAlt, ui.pointCount >= 2) {
+                    close()
+                    vm.outAndBack()
+                }
+                HorizontalDivider()
+                RouteTool(R.string.route_tool_profile, RouteIcons.ShowChart, ui.pointCount >= 2) {
+                    close()
+                    onChart()
+                }
+                RouteTool(R.string.draw_tool_clear, RouteIcons.DeleteSweep, ui.pointCount > 0) {
+                    close()
+                    vm.clear()
+                }
+            }
+        },
+        main = { Button(onClick = onSave, enabled = ui.pointCount >= 2) { Text(stringResource(R.string.draw_save)) } },
+    )
 }
+
+/** The height of the tiles of the route panel: their names may take two lines (« Supprimer l'étape »). */
+private val TILE = 76.dp
 
 @Composable
 private fun RouteTool(

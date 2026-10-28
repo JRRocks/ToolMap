@@ -408,13 +408,15 @@
   <string name="tracks_move_top">Haut de la bibliothèque</string>
   <string name="tracks_move_here">actuel</string>
   <string name="tracks_move_failed">Déplacement impossible : l\'élément ou le dossier n\'existe plus, ou le dossier serait placé dans lui-même.</string>
-  <string name="tracks_delete_ask">Supprimer « %1$s » ? Cette action est définitive.</string>
-  <plurals name="tracks_delete_many_ask">
-    <item quantity="one">Supprimer %d élément ? Cette action est définitive.</item>
-    <item quantity="many">Supprimer %d éléments ? Cette action est définitive.</item>
-    <item quantity="other">Supprimer %d éléments ? Cette action est définitive.</item>
+  <string name="tracks_delete_title">Supprimer « %1$s » ?</string>
+  <string name="tracks_delete_final">Cette action est définitive.</string>
+  <plurals name="tracks_delete_many_title">
+    <item quantity="one">Supprimer %d élément ?</item>
+    <item quantity="many">Supprimer %d éléments ?</item>
+    <item quantity="other">Supprimer %d éléments ?</item>
   </plurals>
-  <string name="tracks_delete_folder_ask">Supprimer le dossier « %1$s » et tout ce qu\'il contient ? Cette action est définitive.</string>
+  <string name="tracks_delete_folder_title">Supprimer le dossier « %1$s » ?</string>
+  <string name="tracks_delete_folder_final">Tout ce qu\'il contient sera supprimé. Cette action est définitive.</string>
 
   <string name="tracks_imported">Importé — traces : %1$d, itinéraires : %2$d, waypoints : %3$d</string>
   <string name="tracks_import_issues">Anomalies corrigées ou ignorées dans le fichier : %1$d.</string>
@@ -478,8 +480,10 @@
   <string name="draw_status">Points : %1$d · %2$s</string>
   <string name="draw_status_selected">Point sélectionné : n° %1$d · %2$s</string>
   <string name="draw_hint">Touchez la carte pour ajouter un point, ou placez le viseur et touchez « Ajouter ici ».</string>
-  <string name="draw_undo">Annuler</string>
   <string name="draw_redo">Rétablir</string>
+  <string name="draw_undo_a11y">Annuler la dernière action</string>
+  <string name="draw_new_track">Nouvelle trace</string>
+  <string name="draw_route_band">Itinéraire</string>
   <string name="draw_add_here">Ajouter ici</string>
   <string name="draw_move_here">Déplacer ici</string>
   <string name="draw_delete_point">Supprimer le point</string>
@@ -1202,7 +1206,6 @@
   <string name="measure_hint">Placez des points : appui sur la carte, ou « Ajouter ici » au centre du viseur.</string>
   <string name="measure_mode_path">Distance</string>
   <string name="measure_mode_area">Surface</string>
-  <string name="measure_points" tools:ignore="PluralsCandidate">%1$d point(s)</string>
   <string name="measure_length">Longueur : %1$s</string>
   <string name="measure_last">Dernier segment : %1$s, cap %2$s</string>
   <string name="measure_bearing">Cap : %1$s</string>
@@ -1211,6 +1214,11 @@
   <string name="measure_perimeter">Périmètre : %1$s</string>
   <string name="measure_area_hint">Il faut au moins trois points pour une surface.</string>
   <string name="measure_keep">Garder…</string>
+  <plurals name="measure_band">
+    <item quantity="one">%1$d point · %2$s</item>
+    <item quantity="many">%1$d points · %2$s</item>
+    <item quantity="other">%1$d points · %2$s</item>
+  </plurals>
   <string name="measure_keep_route">Comme itinéraire</string>
   <string name="measure_keep_track">Comme trace</string>
   <string name="measure_download_area">Télécharger cette zone…</string>

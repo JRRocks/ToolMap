@@ -1,5 +1,6 @@
 package fr.toolmap.draw
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,9 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -61,6 +61,9 @@ import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.core.track.WaypointSymbols
 import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.LocalFormats
+import fr.toolmap.ui.MapPill
+import fr.toolmap.ui.theme.AlertDialog
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.waypoints.WaypointIconBadge
@@ -143,12 +146,7 @@ fun RouteStatsCard(
     sub += pluralStringResource(R.plurals.route_stop_count, route.plan.stops.size, route.plan.stops.size)
     if (s.pendingLegs > 0) sub += pluralStringResource(R.plurals.route_pending_count, s.pendingLegs, s.pendingLegs)
     if (route.atStart) sub += stringResource(R.string.route_at_start_status)
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
-        shadowElevation = 2.dp,
-    ) {
+    MapPill(modifier = modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Text(
                 buildStats(parts),
@@ -189,8 +187,13 @@ fun RoutingSwitchRow(
     onToggle: (Boolean) -> Unit,
     onProfile: () -> Unit,
     onInstall: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        modifier = modifier.heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         Switch(
             checked = route.routing && route.installed,
             onCheckedChange = onToggle,
@@ -223,25 +226,34 @@ fun RoutingSwitchRow(
     }
 }
 
+/**
+ * The profile of the route on a chip (P29.10): the outline and the 12 dp corners of Material's assist chip, 32 dp seen
+ * and 48 dp to touch, with the margins of the preview so that « Suivre les chemins (BRouter) » keeps two lines. It
+ * opens the profiles while the route follows the ways; drawn by hand, it only says which profile the route will take.
+ */
 @Composable
 private fun ProfileChip(
     profile: String,
     dropDown: Boolean,
     onClick: () -> Unit,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier =
-            Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                .clickable(enabled = dropDown, onClick = onClick)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-    ) {
-        Icon(profileIcon(profile), contentDescription = null, modifier = Modifier.size(18.dp))
-        Text(profileLabel(profile), style = MaterialTheme.typography.labelLarge)
-        if (dropDown) Icon(RouteIcons.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+    val content: @Composable () -> Unit = {
+        Row(
+            modifier = Modifier.height(32.dp).padding(start = 8.dp, end = if (dropDown) 4.dp else 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Icon(profileIcon(profile), contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(profileLabel(profile), style = MaterialTheme.typography.labelLarge)
+            if (dropDown) Icon(RouteIcons.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+    }
+    val shape = MaterialTheme.shapes.small
+    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    if (dropDown) {
+        Surface(onClick = onClick, shape = shape, color = Color.Transparent, border = border, content = content)
+    } else {
+        Surface(shape = shape, color = Color.Transparent, border = border, content = content)
     }
 }
 

@@ -187,6 +187,8 @@ fun MapBottomChrome(
     end: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     gap: Dp = CHROME_GAP,
+    /** The room taken above the bar by the panel of a tool (P29.10): the attribution and the end column go above it. */
+    lift: Dp = 0.dp,
 ) {
     Layout(
         contents = listOf({ Box { attribution() } }, { Box { bar() } }, { Box { end() } }),
@@ -205,10 +207,12 @@ fun MapBottomChrome(
             )
         val barTop = height - b.height
         val aboveBar = if (b.height > 0 && a.height > 0) ATTRIBUTION_GAP.roundToPx() else 0
+        val l = lift.roundToPx()
         layout(width, height) {
             b.place(0, barTop)
-            e.place(width - e.width, if (stacked) barTop - g - e.height else height - e.height)
-            a.place(0, barTop - aboveBar - a.height)
+            // Beside the bar (a wide screen), the end column is not under the tool panel: it stays down.
+            e.place(width - e.width, if (stacked) barTop - g - e.height - l else height - e.height)
+            a.place(0, barTop - aboveBar - a.height - l)
         }
     }
 }

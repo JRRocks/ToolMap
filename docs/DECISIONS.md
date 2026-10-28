@@ -1242,3 +1242,40 @@
   `BackupPageTest`, `NavigationBackTest` (Retour de la Sauvegarde sur la page « Stockage ») ; rendus
   `SettingsRenderTest`.
 - **Alternatives rejetées** : variantes A, B, D et E de l'aperçu.
+
+## ADR-083 — Outils en « Équerre » : chaque outil devient un panneau de la barre, menus et dialogues blancs
+- **Date / statut** : 2026-10-28 — Accepté (P29.10 ; aperçu `docs/previews/design-10-outils.html`, variante A ·
+  Équerre, choisie par l'utilisateur le 2026-10-27). Applique ADR-060 (panneaux de la barre) aux outils ; garde les
+  aperçus validés du cadre d'impression (2026-10-26) et de P19 (2026-10-18), ADR-074 (style Crête) et ADR-075.
+- **Contexte** : audit de P29.10 : cinq panneaux d'outil écrits à la main en deux recettes (coins de 16 dp, gris
+  teinté par l'élévation, titres variables), collés en bas sous la barre alors que Cartes, Traces et Position flottent
+  au-dessus ; neuf commandes en mots et deux boutons pleins dans le dessin ; « Annuler » qui veut dire défaire ou
+  renoncer ; bandeaux de cible et de suivi en cartes Material ; menus et dialogues gris-bleu ; orange des alertes
+  d'impression sous le contraste AA ; suppression dont le titre répète le bouton, le bouton destructif semblable à
+  « Annuler ».
+- **Décision** :
+  1. `ToolPanel` (`map/PanelParts.kt`, sur `BarPanel` et `PanelBand`) : dessin, itinéraire, mesure, confirmation
+     d'impression et panneau du cadre sont des panneaux de la barre, au-dessus de la barre du bas restée en bas
+     (12 dp d'écart) ; bandeau pétrole au nom de l'outil (« Nouvelle trace », « Itinéraire » ou le nom de la ligne,
+     « Mesure », « Imprimer à l'échelle ») avec ses chiffres en sous-titre et ✕ pour quitter (« Abandonner les
+     modifications ? » s'il y a des changements) ; pas de ✕ pendant le placement du cadre, où « Annuler » renonce et
+     où la barre reste masquée.
+  2. Actions au réticule en tuiles (`ActionTile`, la principale et les bascules allumées sur la couleur secondaire) ;
+     pied `ToolFooter` : icônes Annuler la dernière action / Rétablir, un menu en texte (`TextMenu` : « Outils »,
+     « Garder… ») et un seul bouton plein (« Enregistrer » ; la mesure n'en a pas) ; Distance | Surface en segmenté.
+  3. MapScreen : `toolLift` remonte les boutons de droite et les crédits au-dessus du panneau d'outil
+     (`MapBottomChrome.lift`) et le message en barre au-dessus de lui ; un panneau de la barre ouvert pendant un outil
+     le remplace, il revient à sa fermeture.
+  4. Ce qui reste posé sur la carte prend l'habillage des pastilles de P29.1 (`ui/MapPill.kt`) : chiffres
+     d'itinéraire, bande du cadre (puces compactes de 32 dp), bandeaux de cible et de suivi (l'alerte garde sa
+     couleur) ; la puce de profil passe à 32 dp vus, 48 dp au toucher.
+  5. Menus et dialogues : enveloppes `AlertDialog` et `DropdownMenu` (`ui/theme/Controls.kt`), blanches de jour
+     (`ToolMapColors.popup`, #1A2F38 de nuit), coins de 18 et 12 dp, sans teinte d'élévation, adoptées par leurs
+     imports dans tout le code. `ConfirmDialog(destructive = true)` met le bouton qui confirme en rouge ; une
+     suppression nomme l'objet dans le titre (« Supprimer « Fort Barraux » ? », « Supprimer 3 éléments ? »,
+     « Supprimer le dossier « … » ? ») et dit « Cette action est définitive. ».
+  6. Alertes de l'impression en couleur tertiaire du thème au lieu de l'orange écrit en dur.
+- **Conséquences** : les outils ont la même coque et la même place que les panneaux de la barre ; le panneau
+  d'itinéraire reste haut (environ 250 dp) ; un outil laisse la barre du bas atteignable. Tests : `ToolPanelsTest`
+  (6), rendus `ToolsRenderTest`.
+- **Alternatives rejetées** : variantes B, C, D et E de l'aperçu.

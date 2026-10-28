@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -51,6 +50,7 @@ import fr.toolmap.data.altitude.AltitudeStatus
 import fr.toolmap.maps.MapsIcons
 import fr.toolmap.ui.LocalAppSettings
 import fr.toolmap.ui.LocalFormats
+import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.toolMap
 
 /**
