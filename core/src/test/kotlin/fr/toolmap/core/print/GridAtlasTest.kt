@@ -227,12 +227,31 @@ class GridAtlasTest {
     }
 
     @Test
-    fun `the graduated band keeps the ticks of each zone and leaves the neighbour's out`() {
-        val graduation = GridPlanner.graduation(frame(45.4274, 6.004), GridKind.WGS84, france)
+    fun `the graduated band follows the grid of the sheet and leaves the neighbour's out`() {
+        val f = frame(45.4274, 6.004)
+        // Only the chosen grid on the sheet (ADR-087): no degrees around a UTM grid, no kilometers around degrees.
+        val graduation = GridPlanner.graduation(f, GridKind.UTM, locale = france)
         assertEquals(GridKind.UTM, graduation.kind)
-        val utm = GridPlanner.plan(frame(45.4274, 6.004), GridKind.UTM, locale = france)
+        val utm = GridPlanner.plan(f, GridKind.UTM, locale = france)
         val own = utm.labels.count { it.side == FrameSide.TOP && !it.neighbour }
         assertEquals(own + 1, graduation.bars.count { it.side == FrameSide.TOP })
+        assertEquals(GridKind.WGS84, GridPlanner.graduation(f, GridKind.WGS84, locale = france).kind)
+        assertEquals(GridKind.LAMBERT93, GridPlanner.graduation(f, GridKind.LAMBERT93, locale = france).kind)
+        assertTrue(GridPlanner.graduation(f, GridKind.NONE, locale = france).bars.isEmpty())
+    }
+
+    @Test
+    fun `MGRS labels are the two figures inside the square, UTM labels keep the hundreds of kilometers`() {
+        val f = frame(45.4274, 6.004)
+        val mgrs = GridPlanner.plan(f, GridKind.MGRS, locale = france).labels
+        assertTrue(mgrs.isNotEmpty())
+        for (label in mgrs) {
+            val parts = assertNotNull(label.parts)
+            assertEquals("", parts.prefix, "$label")
+            assertEquals(2, parts.major.length, "$label")
+        }
+        val utm = GridPlanner.plan(f, GridKind.UTM, locale = france).labels
+        assertTrue(utm.all { it.parts?.prefix?.isNotEmpty() == true }, utm.toString())
     }
 
     // ---- atlas ----------------------------------------------------------------------------------------------------

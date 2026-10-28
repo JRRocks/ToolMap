@@ -827,6 +827,7 @@
   <string name="pdf_not_to_scale">Schéma hors échelle</string>
   <string name="pdf_no_grid">Sans quadrillage</string>
   <string name="pdf_principal_digits">Gros chiffres : kilomètres</string>
+  <string name="pdf_square_kilometers">= %s km dans le carré de 100 km</string>
   <string name="pdf_zone_edge_meridian">Limite des zones %1$s / %2$s : méridien %3$s (trait épais)</string>
   <string name="pdf_zone_edge_parallel">Limite des bandes %1$s / %2$s : parallèle %3$s (trait épais)</string>
   <string name="pdf_neighbour_grid">En bleu dans la marge : quadrillage de la zone voisine</string>
@@ -837,12 +838,13 @@
   <string name="pdf_east_side">est</string>
   <string name="pdf_south_side">sud</string>
   <string name="pdf_north_side">nord</string>
-  <string name="pdf_graduated_degrees">Cadre gradué toutes les %s (lat., long.)</string>
-  <string name="pdf_graduated_kilometers">Cadre gradué tous les %s (UTM)</string>
   <string name="pdf_reference_title">DONNER UNE RÉFÉRENCE (100 m)</string>
   <string name="pdf_reference_step1">1. Lettres du carré de 100 km : %s</string>
   <string name="pdf_reference_step2">2. Ligne verticale à l\'ouest du point : ses 2 gros chiffres, puis les dixièmes vers l\'est</string>
   <string name="pdf_reference_step3">3. Ligne horizontale au sud du point : ses 2 gros chiffres, puis les dixièmes vers le nord</string>
+  <string name="pdf_reference_utm_step1">1. Zone : %s</string>
+  <string name="pdf_reference_meters_step2">2. Ligne verticale à l\'ouest du point : sa valeur en km, puis les centaines de mètres vers l\'est</string>
+  <string name="pdf_reference_meters_step3">3. Ligne horizontale au sud du point : sa valeur en km, puis les centaines de mètres vers le nord</string>
   <string name="pdf_reference_example">Centre de la feuille : %s</string>
   <string name="pdf_scale_heading">ÉCHELLE</string>
   <string name="pdf_north_heading">NORDS</string>

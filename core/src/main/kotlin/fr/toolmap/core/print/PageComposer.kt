@@ -1,7 +1,9 @@
 package fr.toolmap.core.print
 
+import fr.toolmap.core.geo.Lambert93
 import fr.toolmap.core.geo.Mgrs
 import fr.toolmap.core.geo.ScaleBar
+import fr.toolmap.core.geo.Utm
 import fr.toolmap.core.pdf.LineCap
 import fr.toolmap.core.pdf.LineJoin
 import fr.toolmap.core.pdf.PdfColor
@@ -61,7 +63,11 @@ class PageComposer(
                 )
             }
         val graduation =
-            if (overview) Graduation.EMPTY else GridPlanner.graduation(pp.frame, template.grid, locale, style)
+            if (overview) {
+                Graduation.EMPTY
+            } else {
+                GridPlanner.graduation(pp.frame, template.grid, template.gridStep, locale, style)
+            }
         page.save()
         page.translate(setup.frameLeftMm, setup.frameTopMm)
         page.save()
@@ -76,10 +82,13 @@ class PageComposer(
         page.restore()
         drawNeatline(page, graduation)
         val taken = ArrayList<Box>()
-        if (dressing.cornerCoordinates && !overview) drawCorners(page, pp.frame, taken)
+        // The corners are in degrees: only on a sheet whose grid is in degrees, or without a grid (ADR-087).
+        if (dressing.cornerCoordinates && !overview && template.grid in DEGREE_GRIDS) {
+            drawCorners(page, pp.frame, taken)
+        }
         drawGridLabels(page, grid, taken)
         page.restore()
-        drawFooter(page, pp, pageCount, missingTiles, grid, graduation, tracks, waypoints)
+        drawFooter(page, pp, pageCount, missingTiles, grid, tracks, waypoints)
     }
 
     // ---- over the map --------------------------------------------------------------------------------------------
@@ -333,8 +342,8 @@ class PageComposer(
     }
 
     /**
-     * The latitude and longitude of the four corners, in degrees, minutes and seconds: the longitude in the outer row
-     * of the strip above or below, the latitude up the strip on the side.
+     * The latitude and longitude of the four corners, in degrees, minutes and seconds (in decimal degrees on a sheet
+     * whose grid is): the longitude in the outer row of the strip above or below, the latitude up the strip on the side.
      */
     private fun drawCorners(
         page: PdfPage,
@@ -343,11 +352,21 @@ class PageComposer(
     ) {
         val g = PageSetup.GRADUATION_MM
         val cap = capHeight(CORNER_PT)
+        val decimal = template.grid == GridKind.WGS84_DECIMAL
         for (cy in listOf(0.0, frameH)) {
             for (cx in listOf(0.0, frameW)) {
                 val p = frame.toLonLat(cx, cy)
-                val lon = dms(p.lon, texts.east, texts.west)
-                val lat = dms(p.lat, texts.north, texts.south)
+                val lon = if (decimal) degrees(p.lon, texts.east, texts.west) else dms(p.lon, texts.east, texts.west)
+                val lat =
+                    if (decimal) {
+                        degrees(
+                            p.lat,
+                            texts.north,
+                            texts.south,
+                        )
+                    } else {
+                        dms(p.lat, texts.north, texts.south)
+                    }
                 val left = cx == 0.0
                 val top = cy == 0.0
                 // Longitude, horizontal, starting at the outer corner of the frame.
@@ -529,6 +548,8 @@ class PageComposer(
         side: FrameSide,
     ): List<Piece> {
         val parts = label.parts ?: return shortPieces(label)
+        // MGRS writes two figures everywhere, never the whole UTM value (ADR-087).
+        if (template.grid == GridKind.MGRS) return shortPieces(label)
         val axis = if (side == FrameSide.TOP || side == FrameSide.BOTTOM) texts.east else texts.north
         return buildList {
             if (parts.prefix.isNotEmpty()) add(Piece(parts.prefix, PdfFont.REGULAR, SMALL_PT, raised = true))
@@ -643,7 +664,6 @@ class PageComposer(
         pageCount: Int,
         missingTiles: Int,
         grid: GridPlan,
-        graduation: Graduation,
         tracks: List<PrintTrack>,
         waypoints: Int,
     ) {
@@ -663,7 +683,7 @@ class PageComposer(
                     FooterBlock.TITLE -> drawTitleBlock(page, box, pp, pageCount, tracks, waypoints)
                     FooterBlock.SCALE -> drawScaleBlock(page, box, pp.frame.scale)
                     FooterBlock.NORTH -> drawNorthBlock(page, box, pp)
-                    FooterBlock.GRID -> drawGridBlock(page, box, grid, graduation)
+                    FooterBlock.GRID -> drawGridBlock(page, box, grid)
                     FooterBlock.REFERENCE -> drawReferenceBlock(page, box, pp.frame)
                 }
             if (drawn) strokeBox(page, box)
@@ -1099,12 +1119,14 @@ class PageComposer(
 
     private fun angle(degrees: Double): String = PrintFormat.declination(degrees, texts.east, texts.west)
 
-    /** The grid: its system, its squares, how the labels read, and the graduated band. */
+    /**
+     * The grid: its system, its squares and how the labels read. The graduated band follows the grid since ADR-087 and
+     * needs no note of its own.
+     */
     private fun drawGridBlock(
         page: PdfPage,
         box: Box,
         grid: GridPlan,
-        graduation: Graduation,
     ): Boolean {
         val inner = box.inset(BOX_PAD_MM)
         var y = inner.top
@@ -1132,25 +1154,9 @@ class PageComposer(
             if (grid.squares.isNotEmpty()) lines += Triple(squaresLine(grid), PdfFont.REGULAR, REFERENCE_PT)
             if (grid.labels.any { it.neighbour }) lines += Triple(texts.neighbourGrid, PdfFont.REGULAR, REFERENCE_PT)
         }
-        val note =
-            if (graduation.bars.isEmpty()) {
-                emptyList()
-            } else {
-                val format = if (graduation.kind == GridKind.UTM) texts.graduatedKilometers else texts.graduatedDegrees
-                wrap(
-                    page,
-                    String.format(locale, format, graduation.stepText),
-                    PdfFont.REGULAR,
-                    SMALL_TEXT_PT,
-                    inner.width,
-                )
-                    .take(2)
-            }
-        // The note of the graduated band keeps its lines at the bottom of the box.
-        val bottom = inner.bottom - note.size * lineHeight(SMALL_TEXT_PT)
         for ((text, font, size) in lines) {
             for (line in wrap(page, text, font, size, inner.width)) {
-                if (y + lineHeight(size) > bottom + EPSILON_MM) break
+                if (y + lineHeight(size) > inner.bottom + EPSILON_MM) break
                 y += lineHeight(size)
                 page.text(line, inner.left, y - lineGap(size), font, size)
             }
@@ -1164,7 +1170,13 @@ class PageComposer(
             val baseline = y - lineGap(MAJOR_PT)
             drawPieces(page, pieces, inner.left, baseline, cap)
             val w = pieces.sumOf { page.textWidth(it.text, it.font, it.sizePt) }
-            val meaning = "= ${String.format(locale, "%,d", Math.round(sample.value))} m · ${texts.principalDigits}"
+            // MGRS: the kilometers inside the square, not the whole UTM value (ADR-087).
+            val meaning =
+                if (grid.kind == GridKind.MGRS) {
+                    String.format(locale, texts.squareKilometers, sample.parts?.major ?: sample.text)
+                } else {
+                    "= ${String.format(locale, "%,d", Math.round(sample.value))} m · ${texts.principalDigits}"
+                }
             page.text(
                 fit(page, meaning, PdfFont.REGULAR, SMALL_TEXT_PT, inner.width - w - 1.0),
                 inner.left + w + 1.0,
@@ -1172,11 +1184,6 @@ class PageComposer(
                 PdfFont.REGULAR,
                 SMALL_TEXT_PT,
             )
-        }
-        var by = inner.bottom - (note.size - 1) * lineHeight(SMALL_TEXT_PT)
-        for (line in note) {
-            page.text(line, inner.left, by - lineGap(SMALL_TEXT_PT), PdfFont.REGULAR, SMALL_TEXT_PT, MUTED)
-            by += lineHeight(SMALL_TEXT_PT)
         }
         return true
     }
@@ -1216,8 +1223,8 @@ class PageComposer(
     }
 
     /**
-     * NATO: how to give a six-figure grid reference, with the centre of the sheet as the worked example; for a grid
-     * that has no such reference, the centre in the usual systems.
+     * NATO: how to give a grid reference at 100 m, with the centre of the sheet as the worked example, in the grid of
+     * the sheet only (ADR-087): MGRS letters and figures, UTM or Lambert 93 meters, or the latitude and longitude.
      */
     private fun drawReferenceBlock(
         page: PdfPage,
@@ -1228,23 +1235,46 @@ class PageComposer(
         var y = inner.top
         val lines = ArrayList<Pair<String, PdfFont>>()
         lines += texts.referenceTitle to PdfFont.BOLD
+        val lat = frame.centerLat
+        val lon = frame.centerLon
         val example = GridPlanner.exampleReference(frame)
-        val utm = template.grid == GridKind.UTM || template.grid == GridKind.MGRS
-        val square = Mgrs.of(frame.centerLat, frame.centerLon)?.let { "${it.columnLetter}${it.rowLetter}" }
-        if (utm && example != null && square != null) {
-            lines += String.format(locale, texts.referenceStep1, square) to PdfFont.REGULAR
-            lines += texts.referenceStep2 to PdfFont.REGULAR
-            lines += texts.referenceStep3 to PdfFont.REGULAR
-            lines += String.format(locale, texts.referenceExample, example) to PdfFont.BOLD
-        } else {
-            lines +=
-                String.format(
-                    locale,
-                    texts.referenceExample,
-                    dms(frame.centerLat, texts.north, texts.south) + " " + dms(frame.centerLon, texts.east, texts.west),
-                ) to
-                PdfFont.REGULAR
-            example?.let { lines += "MGRS $it" to PdfFont.BOLD }
+        val square = Mgrs.of(lat, lon)?.let { "${it.columnLetter}${it.rowLetter}" }
+        val band = Utm.bandLetter(lat)
+        when {
+            template.grid == GridKind.MGRS && example != null && square != null -> {
+                lines += String.format(locale, texts.referenceStep1, square) to PdfFont.REGULAR
+                lines += texts.referenceStep2 to PdfFont.REGULAR
+                lines += texts.referenceStep3 to PdfFont.REGULAR
+                lines += String.format(locale, texts.referenceExample, example) to PdfFont.BOLD
+            }
+
+            template.grid == GridKind.UTM && band != null -> {
+                val u = Utm.toUtm(lat, lon)
+                lines += String.format(locale, texts.referenceUtmStep1, "${u.zone}$band") to PdfFont.REGULAR
+                lines += texts.referenceMetersStep2 to PdfFont.REGULAR
+                lines += texts.referenceMetersStep3 to PdfFont.REGULAR
+                val meters = "${u.zone}$band ${meters(u.easting, texts.east)} ${meters(u.northing, texts.north)}"
+                lines += String.format(locale, texts.referenceExample, meters) to PdfFont.BOLD
+            }
+
+            template.grid == GridKind.LAMBERT93 -> {
+                val l = Lambert93.toLambert(lat, lon)
+                lines += texts.referenceMetersStep2 to PdfFont.REGULAR
+                lines += texts.referenceMetersStep3 to PdfFont.REGULAR
+                val meters = "${meters(l.easting, texts.east)} ${meters(l.northing, texts.north)}"
+                lines += String.format(locale, texts.referenceExample, meters) to PdfFont.BOLD
+            }
+
+            else -> {
+                val decimal = template.grid == GridKind.WGS84_DECIMAL
+                val centre =
+                    if (decimal) {
+                        degrees(lat, texts.north, texts.south) + " " + degrees(lon, texts.east, texts.west)
+                    } else {
+                        dms(lat, texts.north, texts.south) + " " + dms(lon, texts.east, texts.west)
+                    }
+                lines += String.format(locale, texts.referenceExample, centre) to PdfFont.BOLD
+            }
         }
         for ((text, font) in lines) {
             val size = if (font == PdfFont.BOLD) NOTE_PT else REFERENCE_PT
@@ -1342,6 +1372,23 @@ class PageComposer(
         return String.format(Locale.ROOT, "%d°%02d′%02d″ %s", d, m, s, if (value >= 0) positive else negative)
     }
 
+    /** `265 900 E`: a projected coordinate to 100 m, the thousands set apart as a French map writes them. */
+    private fun meters(
+        value: Double,
+        axis: String,
+    ): String {
+        val digits = (Math.round(value / HECTOMETER) * HECTOMETER.toLong()).toString()
+        val grouped = digits.reversed().chunked(THOUSANDS).joinToString(" ").reversed()
+        return "$grouped $axis"
+    }
+
+    /** `45.50335° N`: an angle in decimal degrees to about a meter, for a sheet whose grid is in decimal degrees. */
+    private fun degrees(
+        value: Double,
+        positive: String,
+        negative: String,
+    ): String = String.format(locale, "%.5f° %s", abs(value), if (value >= 0) positive else negative)
+
     /** `250 m`, `2,5 km`: a ground distance with the page's decimal separator. */
     private fun distance(meters: Double): String =
         ScaleBar.format(meters).replace('.', DecimalFormatSymbols.getInstance(locale).decimalSeparator)
@@ -1421,6 +1468,11 @@ class PageComposer(
         const val DESCENT_MM = 0.4
         const val SECONDS_PER_DEGREE = 3_600.0
         const val SECONDS_PER_MINUTE = 60L
+        const val HECTOMETER = 100.0
+        const val THOUSANDS = 3
+
+        /** The grids whose sheet may carry the corners in degrees (ADR-087). */
+        val DEGREE_GRIDS = setOf(GridKind.NONE, GridKind.WGS84, GridKind.WGS84_DECIMAL)
         const val CM_PER_M = 100.0
 
         const val GRID_LINE_MM = 0.13

@@ -63,6 +63,8 @@ data class PrintTexts(
     val notToScale: String = "Diagram not to scale",
     val noGrid: String = "No grid",
     val principalDigits: String = "Large figures: kilometers",
+    /** MGRS: what the two figures of a line are (ADR-087). */
+    val squareKilometers: String = "= %s km inside the 100 km square",
     val zoneEdgeMeridian: String = "Zones %1\$s / %2\$s boundary: meridian %3\$s (thick line)",
     val zoneEdgeParallel: String = "Bands %1\$s / %2\$s boundary: parallel %3\$s (thick line)",
     val neighbourGrid: String = "In blue in the margin: grid of the neighbouring zone",
@@ -73,12 +75,16 @@ data class PrintTexts(
     val eastSide: String = "east",
     val southSide: String = "south",
     val northSide: String = "north",
-    val graduatedDegrees: String = "Frame graduated every %s (lat., long.)",
-    val graduatedKilometers: String = "Frame graduated every %s (UTM)",
     val referenceTitle: String = "GIVING A GRID REFERENCE (100 m)",
     val referenceStep1: String = "1. Letters of the 100 km square: %s",
     val referenceStep2: String = "2. Vertical line west of the point: its 2 large figures, then tenths eastwards",
     val referenceStep3: String = "3. Horizontal line south of the point: its 2 large figures, then tenths northwards",
+    /** UTM and Lambert 93: a reference in meters (ADR-087). */
+    val referenceUtmStep1: String = "1. Grid zone: %s",
+    val referenceMetersStep2: String =
+        "2. Vertical line west of the point: its kilometers, then hundreds of meters eastwards",
+    val referenceMetersStep3: String =
+        "3. Horizontal line south of the point: its kilometers, then hundreds of meters northwards",
     val referenceExample: String = "Sheet centre: %s",
     val scaleHeading: String = "SCALE",
     val northHeading: String = "NORTHS",

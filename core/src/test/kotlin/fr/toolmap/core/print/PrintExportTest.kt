@@ -220,6 +220,53 @@ class PrintExportTest {
     }
 
     @Test
+    fun `a sheet carries the chosen grid only, never the degrees around a projected grid`() {
+        // The user's UTM and MGRS sheets of 2026-10-28 had the corners and the band in degrees, and MGRS the « 7 » of
+        // the hundreds of km before its two figures (ADR-087).
+        // Corners are written to the second; the declination of the norths box (« 2°15' E ») is not a corner.
+        val corner = Regex("""\d+°\d{2}\D\d{2}""")
+        val base = PrintTemplate(scale = 25_000.0, dpi = 100, dressing = Dressing(cornerCoordinates = true))
+        val pontcharra = PrintArea(45.4274, 6.004)
+
+        fun text(template: PrintTemplate): String =
+            written(PdfProbe(export(plan(template, pontcharra)).second).contentOfPage(0))
+        val utm = text(base.copy(grid = GridKind.UTM))
+        assertTrue(!corner.containsMatchIn(utm), utm)
+        assertTrue(" m E" in utm && " m N" in utm, utm)
+        val mgrs = text(base.copy(grid = GridKind.MGRS))
+        assertTrue(!corner.containsMatchIn(mgrs), mgrs)
+        assertTrue(" m E" !in mgrs && " m N" !in mgrs, mgrs)
+        // No small figure before the two of a line: the hundreds of km (« 7 », « 50 ») are not written.
+        assertTrue(mgrs.lines().none { it == "7" || it == "2" || it == "50" }, mgrs)
+        val lambert = text(base.copy(grid = GridKind.LAMBERT93))
+        assertTrue(!corner.containsMatchIn(lambert), lambert)
+        // The degrees keep their corners; the decimal ones in decimal degrees.
+        assertTrue(corner.containsMatchIn(text(base.copy(grid = GridKind.WGS84))))
+        val decimal = text(base.copy(grid = GridKind.WGS84_DECIMAL))
+        assertTrue(!corner.containsMatchIn(decimal), decimal)
+        assertTrue(Regex("""\d+[.,]\d{5}° [NE]""").containsMatchIn(decimal), decimal)
+    }
+
+    @Test
+    fun `the NATO reference box speaks the grid of the sheet`() {
+        val nato = PrintTemplate(scale = 25_000.0, dpi = 100, page = PageSetup(style = MapStyle.NATO))
+        val area = PrintArea(45.4, 5.85)
+
+        fun text(grid: GridKind): String =
+            written(PdfProbe(export(plan(nato.copy(grid = grid), area)).second).contentOfPage(0))
+        val texts = PrintTexts()
+        val utm = text(GridKind.UTM)
+        assertTrue("MGRS" !in utm, utm)
+        assertTrue(String.format(texts.referenceUtmStep1, "31T") in utm, utm)
+        assertTrue(Regex("""31T \d{3} \d{3} E \d \d{3} \d{3} N""").containsMatchIn(utm), utm)
+        val lambert = text(GridKind.LAMBERT93)
+        assertTrue("MGRS" !in lambert && "31T" !in lambert, lambert)
+        assertTrue(Regex("""\d{3} \d{3} E \d \d{3} \d{3} N""").containsMatchIn(lambert), lambert)
+        val degrees = text(GridKind.WGS84)
+        assertTrue("MGRS" !in degrees, degrees)
+    }
+
+    @Test
     fun `the norths box always shows the three angles with their values, in both styles`() {
         val sheet =
             PrintContent(
@@ -358,7 +405,6 @@ class PrintExportTest {
                 westSide = "ouest",
                 eastSide = "est",
                 west = "O",
-                graduatedDegrees = "Cadre gradué toutes les %s (lat., long.)",
             )
         val frenchSheet = PrintContent(attributions = sheet.attributions, dateText = sheet.dateText, texts = french)
         File(dir, "top25-mgrs-pontcharra.pdf").outputStream().use {

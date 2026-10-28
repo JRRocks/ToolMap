@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-10-28 — Session 72 — [P24.7] Feuille imprimée dans la grille choisie seule, MGRS sans les centaines de km
+- **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`), branche `main` ; poussée sur `JRRocks/ToolMap`.
+- **Objectif** : demande de l'utilisateur, avec ses PDF « UTM », « MGRS », « MGRS OTAN » et « Degré » : « Le PDF est généré avec des valeurs WGS84 et un combo UTM / MGRS écrit en bordure de carte. Restreins au modèle choisi uniquement. Si je prends MGRS, je ne dois pas voir de 7 devant le 33. Génère une carte par modèle de grille, fais-moi vérifier, puis explique leur différence (s'il n'y en a pas, retire l'option inutile). »
+- **Réalisé** :
+  - Versions : suite directe de la session 71. Avant le push : GitHub `main` c1b5f9d en 0.4.110 (`claude/pensive-edison-cgzr8t` en 0.4.102, plus ancienne), Drive 0.4.110 (entrée « Session 71 »), local 0.4.111 avec les changements de cette session : le local fait référence.
+  - Causes relevées dans les PDF de l'utilisateur : coins en degrés-minutes-secondes et cadre gradué en minutes (« l'autre système », ADR-061) sur une grille UTM ou MGRS ; en MGRS, étiquettes d'UTM (centaines de km en petit, « 000 m E ») ; encadré OTAN toujours en MGRS.
+  - Code (ADR-087) : `GridPlanner.graduation` gradue la grille de la feuille à son pas (rien sans grille) ; `ProjectedSystem.parts` sans centaines de km en MGRS ; `PageComposer` : coins seulement pour une grille en degrés ou sans grille (décimaux pour « WGS84 décimal »), étiquettes courtes en MGRS, note du cadre gradué retirée, légende MGRS « = 23 km dans le carré de 100 km », encadré « Donner une référence » selon la grille (MGRS, UTM, Lambert 93, degrés) ; `PrintTexts` et `strings.xml` : 2 textes retirés, 4 ajoutés.
+  - Pas d'aperçu avant le code : l'utilisateur a demandé de coder la restriction puis de vérifier sur les PDF créés (« Fais les restrictions et génère 1 carte par modèle de grille et fais-moi vérifier »).
+  - Docs : ADR-087 ; `PLAN.md` (P24) ; `plan-fonctions-2026-10.md` (P24.7) ; `specs/print-pdf.md` § 8 (bande d'étiquettes, cadre gradué, encadré OTAN).
+- **Décisions (ADR)** : ADR-087.
+- **Tests / vérifications** :
+  - `GridAtlasTest` (cadre gradué selon la grille, MGRS sans centaines de km) et `PrintExportTest` (aucun coin en degrés sur une grille métrique, « m E » absent en MGRS, encadré OTAN dans la grille de la feuille) : `./gradlew :core:test --tests '*print*'` vert.
+  - Émulateur, ToolMap 0.4.111 : même cadre A4 paysage 1:25 000, « Coordonnées des coins » activé, un PDF par grille (UTM, MGRS, Lambert 93, WGS84 DMS, WGS84 décimal) et MGRS, UTM au style OTAN, enregistrés dans Téléchargements, récupérés par `adb pull` et rendus en images : UTM « ⁷**23**⁰⁰⁰ m E » sans coin ni minute ; MGRS « **23** » seul, carré « GL », légende « = 23 km dans le carré de 100 km » ; Lambert 93 « ⁹**23**⁰⁰⁰ m E » ; degrés avec leurs coins (DMS, ou décimaux) ; OTAN UTM : « 1. Zone : 31T », « Centre de la feuille : 31T 726 200 E 5 031 900 N » ; OTAN MGRS : « 31T GL 262 319 ». PDF envoyés à l'utilisateur pour validation (non versés au dépôt).
+  - `./gradlew spotlessApply check assembleDebug` (JDK d'Android Studio) : BUILD SUCCESSFUL en 3 min 22 s (0.4.111), puis après l'entrée du journal en 3 min 23 s, version **0.4.112**, `ToolMap-debug-0.4.112.apk`. Tests : core 897, data 311, p2p 29 (2 ignorés), app 433 (72 ignorés), 0 échec ; lint : 0 erreur, app 64 avertissements et 1 indication, data 1 avertissement.
+- **Problèmes / dette technique** : « Coordonnées des coins » n'a plus d'effet sur une feuille UTM, MGRS ou Lambert 93 (l'option reste affichée).
+- **Prochaine étape recommandée** : validation des PDF par l'utilisateur (P24.7) ; vérifier sur le téléphone le menu, la grille UTM et la reprise d'étape d'itinéraire ; puis la suite de `docs/PLAN.md`.
+
 ## 2026-10-28 — Session 71 — [P29.2b][P24.6] Menu sans « Cartes affichées », chiffres de la grille UTM au bord de l'écran
 - **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`), branche `main` ; poussée sur `JRRocks/ToolMap`.
 - **Objectif** : demandes de l'utilisateur : « Retire “Cartes affichées” du “Menu”. Sur l'émulateur, teste tous les réglages de “Grille et informations” : seule la grille MGRS s'affiche, même si j'utilise d'autres modèles comme UTM. »

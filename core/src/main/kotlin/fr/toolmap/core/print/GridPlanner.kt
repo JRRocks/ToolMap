@@ -131,7 +131,7 @@ data class GraduationBar(
     val black: Boolean,
 )
 
-/** The graduated band: the other coordinate system than the grid's, as alternating bars (Q14). */
+/** The graduated band: the grid of the sheet at its spacing, as alternating bars (Q14, ADR-087). */
 class Graduation(
     val kind: GridKind,
     val step: Double,
@@ -463,17 +463,18 @@ object GridPlanner {
     }
 
     /**
-     * The graduated band of the frame: degrees and minutes when the grid is projected (or absent), UTM kilometers when
-     * the grid is a graticule — the other system, so the page can be read in both.
+     * The graduated band of the frame, in the grid of the sheet and at its spacing: a bar between two of its lines,
+     * black and white in turn. Nothing without a grid. Until 2026-10-28 the band was in the other system (degrees for
+     * a projected grid, UTM kilometers for a graticule); the user wants the chosen grid alone on the sheet (ADR-087).
      */
     fun graduation(
         frame: FrameProjection,
         grid: GridKind,
+        step: Double? = null,
         locale: Locale = Locale.getDefault(),
         style: MapStyle = MapStyle.TOP25,
     ): Graduation {
-        val kind = if (grid == GridKind.WGS84 || grid == GridKind.WGS84_DECIMAL) GridKind.UTM else GridKind.WGS84
-        val plan = plan(frame, kind, null, locale, style)
+        val plan = plan(frame, grid, step, locale, style)
         if (plan.labels.isEmpty()) return Graduation.EMPTY
         val bars = ArrayList<GraduationBar>()
         for (side in FrameSide.entries) {
@@ -500,7 +501,7 @@ object GridPlanner {
                 }
             }
         }
-        return Graduation(kind, plan.step, plan.stepText, bars.filter { it.endMm - it.startMm > 0.01 })
+        return Graduation(grid, plan.step, plan.stepText, bars.filter { it.endMm - it.startMm > 0.01 })
     }
 
     /**
@@ -913,7 +914,8 @@ object GridPlanner {
             val under = Math.floorMod(meters, KM.toLong())
             val hundreds = Math.floorDiv(km, HECTO)
             return LabelParts(
-                prefix = if (hundreds > 0) hundreds.toString() else "",
+                // MGRS reads the kilometers inside the 100 km square: no hundreds of km before them (ADR-087).
+                prefix = if (hundreds > 0 && !mgrs) hundreds.toString() else "",
                 major = Math.floorMod(km, HECTO).toString().padStart(2, '0'),
                 rest = if (under == 0L) "" else under.toString().padStart(3, '0'),
             )
