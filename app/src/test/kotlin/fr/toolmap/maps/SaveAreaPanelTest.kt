@@ -10,7 +10,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextReplacement
 import fr.toolmap.core.download.ZoneShape
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.ui.theme.ToolMapTheme
@@ -80,12 +79,17 @@ class SaveAreaPanelTest {
         rule.onNodeWithText("Largeur de chaque côté").assertExists()
         rule.onNodeWithText("± 500 m").assertExists()
         rule.onNodeWithText("Enregistrer la bande").assertExists()
+        // A touch on the width opens the field to type it.
         rule.onNodeWithText("± 500 m").performClick()
-        rule.onNodeWithText("500").performTextReplacement("750")
-        rule.onNodeWithText("OK").performClick()
+        rule.onAllNodesWithText("Largeur de chaque côté").assertCountEquals(2)
+        rule.onNodeWithText("De 50 à 5 000 m").assertExists()
+        rule.onNodeWithText("Annuler").performClick()
+        rule.onAllNodesWithText("De 50 à 5 000 m").assertCountEquals(0)
+        // A width typed to the meter is shown as typed.
+        fixture.maps.setCorridorRadius(777)
         await { fixture.maps.area.value?.estimating == false }
-        assertEquals(750, fixture.maps.area.value!!.corridor!!.radiusMeters)
-        rule.onNodeWithText("± 750 m").assertExists()
+        assertEquals(777, fixture.maps.area.value!!.corridor!!.radiusMeters)
+        rule.onNodeWithText("± 777 m").assertExists()
     }
 
     @Test

@@ -358,6 +358,7 @@ class MapsViewModelTest {
         assertEquals(100, settings.settings.value.maps.corridorRadius, "kept for the next band")
         vm.setCorridorRadius(9_000)
         assertEquals(5_000, vm.area.value!!.corridor!!.radiusMeters)
+        awaitEstimate()
         vm.setCorridorRadius(100)
         awaitEstimate()
 
