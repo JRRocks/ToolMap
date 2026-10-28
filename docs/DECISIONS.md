@@ -1275,7 +1275,16 @@
      suppression nomme l'objet dans le titre (« Supprimer « Fort Barraux » ? », « Supprimer 3 éléments ? »,
      « Supprimer le dossier « … » ? ») et dit « Cette action est définitive. ».
   6. Alertes de l'impression en couleur tertiaire du thème au lieu de l'orange écrit en dur.
+  7. Recherche (second incrément) : champ « Lieu, coordonnées ou élément » avec loupe et « Effacer » ; l'état de la
+     recherche en cartes sous le champ (aide, hors ligne, aucun résultat, service en panne avec « Réessayer ») ;
+     résultats en groupes blancs (« Sur mon téléphone », « En ligne ») avec une pastille d'icône, la distance en
+     sous-titre et un ⋮ (Voir sur la carte, Aller vers, Enregistrer comme waypoint) ; crédits sur une ligne en pied ;
+     types d'OpenStreetMap en français (`OsmTypes`, `:core`, « Château fort », « Village »).
+  8. Aide et à propos : en-tête ToolMap (tuile, nom, version), « Prise en main » en blocs à icône dans un groupe blanc
+     (le bloc ouvert par le « ? » d'un panneau reste éclairé un instant), vie privée et limites en blocs de texte,
+     données et licences en lignes de liste.
 - **Conséquences** : les outils ont la même coque et la même place que les panneaux de la barre ; le panneau
-  d'itinéraire reste haut (environ 250 dp) ; un outil laisse la barre du bas atteignable. Tests : `ToolPanelsTest`
-  (6), rendus `ToolsRenderTest`.
+  d'itinéraire reste haut (environ 250 dp) ; un outil laisse la barre du bas atteignable ; les actions d'un résultat
+  restent derrière le ⋮ ; l'aide reste longue. Tests : `ToolPanelsTest` (6), `SearchScreenTest` (5), `OsmTypesTest`
+  (2, `:core`) ; rendus `ToolsRenderTest`, `SearchRenderTest`.
 - **Alternatives rejetées** : variantes B, C, D et E de l'aperçu.

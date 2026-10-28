@@ -1120,6 +1120,7 @@
   <string name="about_version">Version %1$s</string>
   <string name="about_intro">ToolMap affiche vos cartes, même hors ligne, enregistre vos traces et partage votre position avec vos proches, sans compte et sans serveur à vous.</string>
   <string name="about_start_title">Prise en main</string>
+  <string name="about_more_title">Outils, partage et sauvegarde</string>
   <string name="about_start_map">Cartes : « Cartes » puis « Cartes disponibles » montre le catalogue ; « Ajouter une carte » puis « Nouvelle carte… » ouvre l\'assistant (adresse d\'un serveur de tuiles, clé d\'API, Referer), « Importer une carte (.aqx)… » reprend un fichier d\'AlpineQuest. Les calques se superposent, avec une opacité et une plage de zoom par calque.</string>
   <string name="about_start_offline">Hors ligne : dans « Cartes », la tuile « Enregistrer une zone » enregistre dans le téléphone les tuiles des cartes cochées ; l\'interrupteur « Hors ligne » n\'utilise plus que ce qui est enregistré. « Stockage » gère l\'espace occupé et importe ou exporte des fichiers .mbtiles.</string>
   <string name="about_start_tracks">Traces : « Traces et waypoints » importe et exporte du GPX ou du KML ; « Ma position » puis « Enregistreur de trace » enregistre avec le GPS écran éteint ; « Dessiner une trace » ou « Dessiner un itinéraire » trace à la main.</string>
@@ -1253,7 +1254,9 @@
   <string name="lock_hint">Maintenez l\'écran pour le déverrouiller</string>
   <string name="lock_action">Déverrouiller l\'écran</string>
   <string name="search_title">Recherche</string>
-  <string name="search_hint">Lieu, adresse, coordonnées ou nom d\'un de mes éléments</string>
+  <string name="search_label">Lieu, coordonnées ou élément</string>
+  <string name="search_clear">Effacer</string>
+  <string name="search_retry">Réessayer</string>
   <string name="search_section_here">Sur mon téléphone</string>
   <string name="search_section_online">En ligne</string>
   <string name="search_empty_hint">Tapez un nom de lieu ou une position (44.84, 5.51 · 31T 452482 E 5011717 N). Mes traces, itinéraires et waypoints sont cherchés au fil de la frappe ; les services en ligne le sont quand vous validez.</string>
@@ -1264,7 +1267,7 @@
   <string name="search_kind_track">Trace</string>
   <string name="search_kind_route">Itinéraire</string>
   <string name="search_kind_waypoint">Waypoint</string>
-  <string name="search_distance">À %1$s du centre de la carte</string>
+  <string name="search_at">à %1$s</string>
   <string name="search_actions">Actions</string>
   <string name="search_action_show">Voir sur la carte</string>
   <string name="search_action_go">Aller vers</string>
@@ -1275,8 +1278,9 @@
   <string name="search_failure_unreadable">%1$s : réponse illisible.</string>
   <string name="search_failure_busy">%1$s : trop de demandes, réessayez dans un instant.</string>
   <string name="search_failure_http">%1$s : erreur %2$d.</string>
-  <string name="search_credit_ign">Recherche : © IGN Géoplateforme</string>
-  <string name="search_credit_osm">Recherche : © contributeurs OpenStreetMap (ODbL)</string>
+  <string name="search_credits">Recherche : %1$s</string>
+  <string name="search_credit_ign">© IGN Géoplateforme</string>
+  <string name="search_credit_osm">© contributeurs OpenStreetMap (ODbL)</string>
   <!-- Alertes et suivi de trace (P9.4) -->
   <string name="alert_channel">Alertes de proximité et de suivi</string>
   <plurals name="alert_service_watching">

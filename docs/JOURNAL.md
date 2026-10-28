@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-10-28 — Session 67 (suite) — [P29.10] Outils en « Équerre » (2/2) : la Recherche et l'Aide rangées
+- **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
+- **Objectif** : finir la variante A · Équerre de P29.10, choisie par l'utilisateur le 2026-10-27 : la Recherche (champ avec loupe et Effacer, état en cartes sous le champ avec « Réessayer », résultats en groupes avec icône, distance et ⋮, types OpenStreetMap en français, crédits en pied) et l'Aide et à propos (en-tête ToolMap, « Prise en main » en blocs à icône, crédits et licences en lignes de liste). Dernière étape de la refonte P29.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/design-10-outils.html`, variante A · Équerre, validée le 2026-10-27.
+  - `SearchScreen` réécrit (cartes d'état `NoticeCard`, groupes `GroupBlock`, ⋮ avec icônes, crédits) ; `OsmTypes` (`:core`) : table française des types de Nominatim, utilisée par `GeocodeParsers`.
+  - `AboutScreen` réécrit : en-tête, blocs à icône, groupes de texte, listes des données et des licences ; le défilement vers la partie du « ? » se mesure dans la colonne qui défile.
+  - Chaînes : 6 ajoutées, 2 retirées, 2 raccourcies (crédits) ; ADR-083 complété (points 7 et 8) ; `docs/specs/ui-index.md` (SEARCH, ABOUT).
+  - Comparaison : `docs/previews/design-10-outils-rendu.html` refaite avec la Recherche et l'Aide. Le menu du point est inchangé ; le dialogue de suppression (fenêtre à part) est vérifié par test.
+- **Décisions (ADR)** : ADR-083 (complété).
+- **Tests / vérifications** :
+  - `SearchScreenTest` (5 : mes éléments et leur distance, résultats en ligne et crédits, ⋮, panne avec « Réessayer », ✕) ; `OsmTypesTest` (2) ; `GeocodeParsersTest` (« Sommet » au lieu de « peak ») ; `SearchRenderTest` (4 rendus).
+  - Le conteneur a redémarré en locale POSIX : le rapport HTML de Gradle refusait un nom de test accentué (« Réessayer ») ; le test est renommé, et les builds tournent avec `LC_ALL=C.UTF-8`.
+  - `./gradlew spotlessApply check assembleDebug --max-workers=2` (avec `LC_ALL=C.UTF-8`) : vert en 0.4.98 ; lint signalait une indication (`mutableFloatStateOf` dans `AboutScreen`), corrigée ; le build suivant (0.4.99) a fait échouer `SearchViewModelTest` « my own items are found as the text changes » (ligne 135), qui passait seul 4 fois sur 4. Cause trouvée : sous `UnconfinedTestDispatcher`, la mise à jour venue de la bibliothèque (thread de Room) calculait les résultats pour le texte d'avant (vide) et les posait sur l'état du texte « ecrin ». Correction dans `SearchViewModel.refreshHere` : un résultat ne s'applique que si le texte n'a pas changé entre-temps (sur le téléphone, tout passe par le fil principal : pas de changement visible). Build final : BUILD SUCCESSFUL en 3 min 20 s, version **0.4.100**, `ToolMap-debug-0.4.100.apk`. Tests : core 886, data 311, p2p 29 (2 ignorés), app 434 (72 ignorés, dont les rendus), 0 échec ; lint : 0 erreur, app 63 avertissements et 1 indication.
+- **Problèmes / dette technique** : captures de l'émulateur à faire sur le poste Windows pour P29.6 à P29.10.
+- **Prochaine étape recommandée** : vérifier P29.2 à P29.10 sur l'émulateur du poste Windows (captures à côté des aperçus validés), puis la suite de `docs/PLAN.md`.
+
 ## 2026-10-28 — Session 67 (suite) — [P29.10] Outils en « Équerre » (1/2) : chaque outil devient un panneau de la barre
 - **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
 - **Objectif** : coder la première moitié de la variante A · Équerre, choisie par l'utilisateur le 2026-10-27 (« P29.10 (Outils) : A · Équerre ») : les outils posés sur la carte (dessin, itinéraire, mesure, cadre et confirmation d'impression) deviennent des panneaux de la barre, au-dessus d'elle, avec un seul bouton plein ; menus et dialogues blancs ; suppression qui nomme l'objet. La Recherche et l'Aide suivent dans un second incrément.

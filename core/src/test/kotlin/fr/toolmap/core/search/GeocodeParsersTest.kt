@@ -56,7 +56,7 @@ class GeocodeParsersTest {
         val peak = results[0]
         assertEquals("Grand Veymont", peak.title)
         assertEquals("Gresse-en-Vercors, Grenoble, Isère, France", peak.subtitle)
-        assertEquals("peak", peak.category)
+        assertEquals("Sommet", peak.category, "the type of OpenStreetMap in French")
         assertEquals(44.8697393, peak.lat, 1e-9, "latitude and longitude come as strings")
         assertEquals(5.5267039, peak.lon, 1e-9)
         assertEquals(SearchSource.OSM, peak.source)

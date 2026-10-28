@@ -76,7 +76,8 @@ object GeocodeParsers {
             } else {
                 rest
             }
-        val category = place.strings("type").firstOrNull()?.replace('_', ' ')
+        // In French since P29.10 (« Château fort », not « castle »).
+        val category = OsmTypes.french(place.strings("type").firstOrNull())
         return SearchResult(
             title = title,
             subtitle = where.joinToString(", "),

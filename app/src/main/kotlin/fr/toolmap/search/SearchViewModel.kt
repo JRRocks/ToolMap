@@ -153,7 +153,8 @@ class SearchViewModel
             val query = mutableUi.value.query
             val position = CoordinateQuery.resolve(query)
             val found = LocalSearch.search(query, items)
-            mutableUi.update { it.copy(here = listOfNotNull(position) + found) }
+            // The library may answer from another thread: what was found for a text since changed is dropped.
+            mutableUi.update { if (it.query == query) it.copy(here = listOfNotNull(position) + found) else it }
         }
 
         private fun TrackLibrary.toItems(): List<LibraryItem> =
