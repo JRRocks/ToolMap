@@ -644,22 +644,36 @@ class ShareControllerTest {
             assertEquals("Perdu", text)
             assertEquals(45.5, where!!.lat, 1e-6)
 
-            // It repeats for two minutes, then stays on, still to be lifted (P22.2).
-            advanceTimeBy(16_000)
-            runCurrent()
+            // It repeats for two minutes, then stays on, still to be lifted (P22.2). The other phone keeps pinging,
+            // or the link would be lost after 45 s and nothing more would go.
+            advanceAlive(remote, 16_000)
             assertEquals(2, remote.sosTexts.size)
-            advanceTimeBy(300_000)
-            runCurrent()
+            advanceAlive(remote, 300_000)
             assertEquals(MeshNode.SOS_SENDS.toInt(), remote.sosTexts.size)
             assertTrue(c.state.value.ownSos)
             c.cancelSos()
             runCurrent()
             assertFalse(c.state.value.ownSos)
             assertEquals(1, remote.lifts)
-            advanceTimeBy(40_000)
-            runCurrent()
+            advanceAlive(remote, 40_000)
             assertEquals(MeshNode.SOS_SENDS.toInt(), remote.sosTexts.size)
+            assertEquals(1, remote.lifts)
         }
+
+    /** Lets [ms] pass second by second with the other phone's node ticking too, as a live phone does. */
+    private fun TestScope.advanceAlive(
+        remote: Remote,
+        ms: Long,
+    ) {
+        var left = ms
+        while (left > 0) {
+            val step = minOf(1_000L, left)
+            advanceTimeBy(step)
+            remote.node.tick()
+            runCurrent()
+            left -= step
+        }
+    }
 
     @Test
     fun `leaving closes the transport and forgets the group`() =
