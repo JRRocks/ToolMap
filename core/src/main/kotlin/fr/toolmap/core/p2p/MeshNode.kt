@@ -104,6 +104,11 @@ class MemberView(
     val trail: List<PeerFix>,
     /** The member's own picture (a small JPEG), once received; `null` when it has none. */
     val picture: ByteArray? = null,
+    /**
+     * Whether it shares its position (`true`) or only listens to the group (`false`, P22.3); `null` until it said so,
+     * as a version without the STATE message never does.
+     */
+    val sharing: Boolean? = null,
 ) {
     /** The opaque colour of the member. */
     val argb: Int get() = MemberLook.argb(color)
@@ -148,6 +153,8 @@ class MeshNode(
         var left = false
         val trail = ArrayDeque<PeerFix>()
         var picture: ByteArray? = null
+        var sharing: Boolean? = null
+        var stateSeq = -1L
     }
 
     private val crypto = GroupCrypto(groupKey, random)
@@ -186,6 +193,9 @@ class MeshNode(
 
     /** The sequence number of the last AVATAR this node sent, sent again unchanged to each new link. */
     private var pictureSeq = 0L
+
+    /** The sequence number of the last STATE this node sent, sent again unchanged to each new link (P22.3). */
+    private var stateSeq = 0L
 
     /** The last message number used, kept by the caller so that the next process starts above it (P21.5 m). */
     val lastSeq: Long get() = synchronized(this) { seq }
@@ -235,6 +245,7 @@ class MeshNode(
         lastFrameMs[peer] = now()
         sendTo(peer, Msg.Hello(selfId, me.name, me.color))
         me.picture?.let { sendTo(peer, Msg.Avatar(selfId, pictureSeq, it)) }
+        me.sharing?.let { sendTo(peer, Msg.State(selfId, stateSeq, it)) }
         sendTo(peer, peersMessage())
         if (missed.isNotEmpty()) sendTo(peer, Msg.Trail(selfId, missed.toList()))
         broadcast(peersMessage(), except = peer)
@@ -399,6 +410,25 @@ class MeshNode(
                 if (alerting.remove(msg.memberId)) events += { listener.onSosLifted(msg.memberId) }
             }
 
+            is Msg.State -> {
+                if (msg.memberId == selfId || !firstTime(msg.memberId, msg.seq)) return
+                EventLog.event(
+                    "mesh.state.in",
+                    "member" to hex(msg.memberId),
+                    "seq" to msg.seq,
+                    "sharing" to msg.sharing,
+                )
+                relay(raw, from)
+                val m = memberOrNew(msg.memberId) ?: return
+                m.lastHeardMs = now()
+                m.left = false
+                if (msg.seq > m.stateSeq) {
+                    m.stateSeq = msg.seq
+                    m.sharing = msg.sharing
+                }
+                changed()
+            }
+
             is Msg.Rekey -> {
                 onRekey(from, msg, raw)
             }
@@ -448,6 +478,7 @@ class MeshNode(
             is Msg.Text -> msg.memberId
             is Msg.Sos -> msg.memberId
             is Msg.SosEnd -> msg.memberId
+            is Msg.State -> msg.memberId
             is Msg.Rekey -> msg.memberId
             is Msg.Bye -> msg.memberId
             is Msg.Avatar -> msg.memberId
@@ -778,6 +809,7 @@ class MeshNode(
                     m.fix,
                     m.trail.toList(),
                     m.picture,
+                    m.sharing,
                 )
             }
         }
@@ -794,6 +826,21 @@ class MeshNode(
         broadcast(Msg.Hello(selfId, name, color))
         changed()
     }
+
+    /**
+     * Tells the group whether this device shares its position or only listens (P22.3): sent at once when it changes,
+     * and to each link that opens.
+     */
+    fun setSharing(on: Boolean) =
+        locked {
+            if (closed || me.sharing == on) return@locked
+            me.sharing = on
+            stateSeq = nextSeq()
+            firstTime(selfId, stateSeq)
+            EventLog.event("mesh.state.out", "seq" to stateSeq, "sharing" to on, "links" to links.size)
+            broadcast(Msg.State(selfId, stateSeq, on))
+            changed()
+        }
 
     /** Shares [picture] (a small JPEG, at most [MemberLook.MAX_PICTURE_BYTES]) with the group; `null` removes it. */
     fun setPicture(picture: ByteArray?) =

@@ -12,6 +12,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- The GPS recorder is a foreground service of type location with a partial wake lock (screen off). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- Listening to the group of the position sharing while in it, screen off included (P22.3, ADR-090). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- The listening comes back after the phone restarts or the app is updated (P22.3). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Position sharing asks to be left out of battery optimization: locked phones otherwise cut its network. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -186,7 +190,20 @@
         <service
             android:name=".share.ShareService"
             android:exported="false"
-            android:foregroundServiceType="location" />
+            android:foregroundServiceType="location|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Receives in real time, screen off, the alerts and messages of a private group of hikers the user joined; no location unless the user shares it (type location then)." />
+        </service>
+
+        <receiver
+            android:name=".share.ShareBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name=".alert.AlertService"

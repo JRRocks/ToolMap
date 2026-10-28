@@ -519,6 +519,24 @@ class ShareControllerTest {
         }
 
     @Test
+    fun `the other phone hears whether this one shares or only listens`() =
+        runTest {
+            val c = controller()
+            c.load()
+            c.createGroup()
+            val remote = connectRemote(c)
+            val me = { remote.node.members().first { !it.isSelf }.sharing }
+            // In a group without sharing: listening, said on the first link (P22.3).
+            assertEquals(false, me())
+            c.setSharing(true)
+            runCurrent()
+            assertEquals(true, me())
+            c.setSharing(false)
+            runCurrent()
+            assertEquals(false, me())
+        }
+
+    @Test
     fun `a new interval asks the GPS again without the sharing going off`() =
         runTest {
             val c = controller()

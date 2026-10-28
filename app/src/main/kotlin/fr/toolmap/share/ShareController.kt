@@ -622,12 +622,14 @@ class ShareController(
                 gps?.cancel()
                 gps = null
                 mutableState.update { it.copy(sharing = false) }
+                node?.setSharing(false)
                 return
             }
             if (group == null) createGroup()
             if (gps != null) return
             lastSent = null
             mutableState.update { it.copy(sharing = true, gpsUnavailable = false) }
+            node?.setSharing(true)
             startFixes()
         }
     }
@@ -642,6 +644,7 @@ class ShareController(
                         EventLog.event("share.gps.error", "error" to e.javaClass.simpleName, "why" to e.message)
                         gps = null
                         mutableState.update { s -> s.copy(sharing = false, gpsUnavailable = true) }
+                        node?.setSharing(false)
                     }.collect { fix -> onFix(fix) }
             }
     }
@@ -813,6 +816,8 @@ class ShareController(
                 seqFloor = store.readSeq()?.let { it + SEQ_MARGIN } ?: 0L,
             )
         node?.setPicture(settings.pictureBytes())
+        // The others see from the first link whether this device shares or only listens (P22.3).
+        node?.setSharing(gps != null)
         networkWatch?.close()
         // Before the connection starts: it then knows the network it opens its stream on, and whether it may.
         networkWatch = relay?.let { network?.start(networkEvents) }

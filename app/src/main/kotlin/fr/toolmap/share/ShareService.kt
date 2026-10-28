@@ -33,11 +33,12 @@ import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 /**
- * Keeps the process alive and foreground while the position is shared (service type `location`, like the recorder),
- * with a partial wake lock so that the GPS fixes and the data channels keep being served with the screen off. The
- * sharing itself is [ShareController]'s; the service stops with it. It is sticky: if the system kills the process
- * while sharing (phone locked, memory), it restarts it and the sharing carries on. The network is watched by the
- * controller, as long as the group exists ([NetworkWatch]).
+ * Keeps the process alive and foreground as long as the device is in a group (P22.3, ADR-090): it listens to the
+ * group (service type `specialUse`) and, while the position is shared, also locates (type `location`, like the
+ * recorder); a partial wake lock keeps the fixes and the connection served with the screen off. The sharing itself is
+ * [ShareController]'s; turning it off goes back to listening, leaving the group stops the service. It is sticky: if
+ * the system kills the process (phone locked, memory), it restarts it, listening again and sharing if the user had not
+ * stopped. The network is watched by the controller, as long as the group exists ([NetworkWatch]).
  */
 @AndroidEntryPoint
 class ShareService : Service() {
@@ -50,6 +51,9 @@ class ShareService : Service() {
     private var lastNotified = 0L
     private var lastText = ""
     private var lastAlert: ShareAlert? = null
+
+    /** The position is shared (types `location` and `specialUse`), not only listened to (`specialUse`). */
+    private var sharingNow = false
     private val notifiedSos = HashSet<Long>()
     private val prefs by lazy { getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
 
@@ -68,50 +72,79 @@ class ShareService : Service() {
         )
     }
 
-    private fun locationServiceType(): Int =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0
-
     override fun onStartCommand(
         intent: Intent?,
         flags: Int,
         startId: Int,
     ): Int {
         val active = prefs.getBoolean(KEY_ACTIVE, false)
+        val action = intent?.action
         EventLog.event(
             "share.service.start",
-            "action" to (intent?.action ?: if (intent == null) "restart" else "start"),
+            "action" to (action ?: if (intent == null) "restart" else "start"),
             "active" to active,
             "flags" to flags,
             "startId" to startId,
         )
-        // A restart by the system (null intent) only carries on a sharing the user did not stop.
-        if (intent == null && !active) return finish()
-        try {
+        controller.load()
+        val inGroup = controller.state.value.inGroup
+        // A restart by the system (null intent) carries on the listening of a group, and a sharing not stopped.
+        if (intent == null && !inGroup) return finish()
+        var share =
+            when {
+                intent == null -> active
+                action == ACTION_STOP -> false
+                action == ACTION_LISTEN -> controller.state.value.sharing
+                else -> true
+            }
+        if (!goForeground(share)) {
+            // Android 12+ may refuse the type `location` from the background (no permission "while in use", or
+            // revoked): the device keeps listening and the user turns the sharing on again from the app.
+            if (!share || !goForeground(false)) return finish()
+            share = false
+        }
+        // Started for nothing (the group was left, or none after a restart of the phone): the notification goes.
+        if (!inGroup && !share) return finish()
+        if (share) {
+            prefs.edit().putBoolean(KEY_ACTIVE, true).apply()
+            controller.setSharing(true)
+        } else {
+            prefs.edit().putBoolean(KEY_ACTIVE, false).apply()
+            if (action == ACTION_STOP) controller.setSharing(false)
+        }
+        observe()
+        return START_STICKY
+    }
+
+    /** Puts the service in the foreground for listening or sharing; `false` when Android refuses it. */
+    private fun goForeground(share: Boolean): Boolean {
+        val ui = controller.state.value
+        return try {
             ServiceCompat.startForeground(
                 this,
                 BackgroundNotification.NOTIFICATION_ID,
-                BackgroundNotification.put(this, BackgroundNotification.Part.SHARING, line()),
-                locationServiceType(),
+                BackgroundNotification.put(this, BackgroundNotification.Part.SHARING, line(ui, share)),
+                foregroundTypes(share),
             )
+            sharingNow = share
+            true
         } catch (e: SecurityException) {
-            // No location permission (revoked, or never granted): nothing can be shared.
-            EventLog.event("share.service.refused", "error" to "SecurityException", "why" to e.message)
-            return finish()
+            EventLog.event(
+                "share.service.refused",
+                "share" to share,
+                "error" to "SecurityException",
+                "why" to e.message,
+            )
+            false
         } catch (e: IllegalStateException) {
-            // Android 12+ may refuse a foreground start from the background (restart without the permission
-            // "while in use"): the user turns the sharing on again from the app.
-            EventLog.event("share.service.refused", "error" to e.javaClass.simpleName, "why" to e.message)
-            return finish()
+            EventLog.event(
+                "share.service.refused",
+                "share" to share,
+                "error" to e.javaClass.simpleName,
+                "why" to e.message,
+            )
+            false
         }
-        controller.load()
-        if (intent?.action == ACTION_STOP) {
-            controller.setSharing(false)
-            return finish()
-        }
-        prefs.edit().putBoolean(KEY_ACTIVE, true).apply()
-        controller.setSharing(true)
-        observe()
-        return START_STICKY
     }
 
     /** Stops for good: the system must not bring the sharing back. */
@@ -129,21 +162,34 @@ class ShareService : Service() {
         observer =
             scope.launch(Dispatchers.Main) {
                 controller.state.collect { ui ->
-                    // Sharing is switched on before the observer starts, so "off" means stopped or no GPS.
-                    if (!ui.sharing) {
+                    // Out of the group (left, or removed by the others): nothing to listen to any more.
+                    if (!ui.inGroup) {
                         finish()
                         return@collect
                     }
-                    updateWakeLock(ui.sharing)
+                    // Sharing is switched on before the observer starts, so "off" means stopped or no GPS: the
+                    // device goes back to listening (P22.3), without the type `location`.
+                    if (sharingNow && !ui.sharing) {
+                        prefs.edit().putBoolean(KEY_ACTIVE, false).apply()
+                        if (!goForeground(false)) {
+                            finish()
+                            return@collect
+                        }
+                    }
+                    updateWakeLock(true)
                     notifySos(ui)
                     val now = System.currentTimeMillis()
-                    val text = textFor(ui)
+                    val text = if (sharingNow) textFor(ui) else listeningText(ui)
                     val alert = ui.alerts.firstOrNull()
                     if (text != lastText || alert != lastAlert || now - lastNotified >= NOTIFY_EVERY_MILLIS) {
                         lastText = text
                         lastAlert = alert
                         lastNotified = now
-                        BackgroundNotification.update(this@ShareService, BackgroundNotification.Part.SHARING, line())
+                        BackgroundNotification.update(
+                            this@ShareService,
+                            BackgroundNotification.Part.SHARING,
+                            line(ui, sharingNow),
+                        )
                     }
                 }
             }
@@ -214,12 +260,30 @@ class ShareService : Service() {
         return resources.getQuantityString(R.plurals.share_notification_members, linked, linked)
     }
 
+    /** « Groupe · 4 membres : à l'écoute », the line of the listening (P22.3, the group has no name). */
+    private fun listeningText(ui: ShareUi): String =
+        resources.getQuantityString(R.plurals.share_listening_line, ui.members.size, ui.members.size)
+
     private fun updateWakeLock(needed: Boolean) {
         if (needed) wakeLock.hold() else wakeLock.release()
     }
 
-    /** The sharing's line in ToolMap's notification (P21.7). */
-    private fun line(): BackgroundNotification.Line {
+    /**
+     * The sharing's line in ToolMap's notification (P21.7), with its stop button; while only listening, the line of
+     * the group without a button (P22.3). A tap opens the sharing screen.
+     */
+    private fun line(
+        ui: ShareUi,
+        share: Boolean,
+    ): BackgroundNotification.Line {
+        val open =
+            PendingIntent.getActivity(
+                this,
+                ACTION_OPEN.hashCode(),
+                Intent(this, MainActivity::class.java).setAction(ACTION_OPEN).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                PendingIntent.FLAG_IMMUTABLE,
+            )
+        if (!share) return BackgroundNotification.Line(listeningText(ui), open = open)
         val stop =
             PendingIntent.getService(
                 this,
@@ -227,13 +291,14 @@ class ShareService : Service() {
                 Intent(this, ShareService::class.java).setAction(ACTION_STOP),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-        val ui = controller.state.value
         // The most serious phone setting that may cut the sharing, on a line of its own (P21.5 o, c).
         val alert = ui.alerts.firstOrNull()?.let { "\n" + getString(it.line) }.orEmpty()
+        val members = if (sharingNow) lastText.ifEmpty { textFor(ui) } else textFor(ui)
         return BackgroundNotification.Line(
-            getString(R.string.background_sharing, lastText.ifEmpty { textFor(ui) }) + alert,
+            getString(R.string.background_sharing, members) + alert,
             getString(R.string.background_stop_sharing),
             stop,
+            open,
         )
     }
 
@@ -252,12 +317,49 @@ class ShareService : Service() {
         private const val LIFTED_NOTIFICATION_MS = 10 * 60_000L
         private const val NOTIFY_EVERY_MILLIS = 10_000L
         private const val ACTION_STOP = "fr.toolmap.share.STOP"
+        private const val ACTION_LISTEN = "fr.toolmap.share.LISTEN"
+
+        /** Opens the sharing screen, from the notification (P22.3). */
+        const val ACTION_OPEN = "fr.toolmap.share.OPEN"
         internal const val PREFS = "share-service"
         internal const val KEY_ACTIVE = "active"
 
         /** Starts the service and, through it, the sharing; the caller must hold the location permission. */
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, ShareService::class.java))
+        }
+
+        /**
+         * Listens to the group with no sharing (P22.3): from the app on screen, or after the phone restarted or the app
+         * was updated. Returns whether Android let the service start.
+         */
+        fun listen(context: Context): Boolean =
+            runCatching {
+                ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, ShareService::class.java).setAction(ACTION_LISTEN),
+                )
+            }.onFailure {
+                EventLog.event("share.listen.refused", "error" to it.javaClass.simpleName, "why" to it.message)
+            }
+                .isSuccess
+
+        /**
+         * The foreground types (ADR-090): `specialUse` to listen to the group (Android 14 and later; none is needed
+         * before), plus `location` while the position is shared.
+         */
+        fun foregroundTypes(
+            share: Boolean,
+            sdk: Int = Build.VERSION.SDK_INT,
+        ): Int {
+            var types = 0
+            if (sdk >=
+                Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+            ) {
+                types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            }
+            if (share && sdk >= Build.VERSION_CODES.Q) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            return types
         }
 
         /**

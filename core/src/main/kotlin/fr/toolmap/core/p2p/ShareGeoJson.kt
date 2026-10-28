@@ -14,7 +14,10 @@ object ShareGeoJson {
     private const val RGB_MASK = 0xFFFFFF
     private const val MS_PER_S = 1000L
 
-    /** One point per other member with a known position; [sos] are the ids that called for help. */
+    /**
+     * One point per other member with a known position; [sos] are the ids that called for help. A member that only
+     * listens (P22.3) has no point, unless its alert brought a position.
+     */
     fun members(
         members: List<MemberView>,
         sos: Set<Long>,
@@ -25,7 +28,7 @@ object ShareGeoJson {
         var first = true
         for (m in members) {
             val fix = m.fix
-            if (m.isSelf || fix == null) continue
+            if (m.isSelf || fix == null || (m.sharing == false && m.id !in sos)) continue
             if (!first) out.append(',')
             first = false
             val old =
@@ -50,7 +53,7 @@ object ShareGeoJson {
         out.append("{\"type\":\"FeatureCollection\",\"features\":[")
         var first = true
         for (m in members) {
-            if (m.isSelf || m.trail.size < 2) continue
+            if (m.isSelf || m.trail.size < 2 || m.sharing == false) continue
             if (!first) out.append(',')
             first = false
             out.append("{\"type\":\"Feature\",\"properties\":{\"color\":\"").append(hex(m.color))

@@ -123,7 +123,8 @@ class ShareGeoJsonTest {
         fix: PeerFix? = null,
         trail: List<PeerFix> = emptyList(),
         color: Int = 0xFFD32F2F.toInt(),
-    ) = MemberView(id, name, color, status, self, now, fix, trail)
+        sharing: Boolean? = null,
+    ) = MemberView(id, name, color, status, self, now, fix, trail, sharing = sharing)
 
     private fun parse(json: String) = kotlinx.serialization.json.Json.parseToJsonElement(json)
 
@@ -151,6 +152,22 @@ class ShareGeoJsonTest {
         val c = f["geometry"]!!.jsonObject["coordinates"]!!.jsonArray
         assertEquals(6.7654321, c[0].jsonPrimitive.double, 1e-9)
         assertEquals(45.1234567, c[1].jsonPrimitive.double, 1e-9)
+    }
+
+    @Test
+    fun `a member that only listens has no point nor trail, unless its alert brought a position`() {
+        val listening =
+            member(2, "Alice", fix = fix(45.1, 6.1), trail = listOf(fix(45.0, 6.0), fix(45.1, 6.1)), sharing = false)
+        val sharing =
+            member(3, "Bruno", fix = fix(45.2, 6.2), trail = listOf(fix(45.0, 6.0), fix(45.2, 6.2)), sharing = true)
+        val names = { json: String ->
+            parse(json).jsonObject["features"]!!.jsonArray.map {
+                it.jsonObject["properties"]!!.jsonObject["name"]?.jsonPrimitive?.content ?: "trail"
+            }
+        }
+        assertEquals(listOf("Bruno"), names(ShareGeoJson.members(listOf(listening, sharing), emptySet(), now)))
+        assertEquals(listOf("Alice", "Bruno"), names(ShareGeoJson.members(listOf(listening, sharing), setOf(2L), now)))
+        assertEquals(1, parse(ShareGeoJson.trails(listOf(listening, sharing))).jsonObject["features"]!!.jsonArray.size)
     }
 
     @Test

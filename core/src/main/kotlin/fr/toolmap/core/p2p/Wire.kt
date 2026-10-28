@@ -75,6 +75,9 @@ enum class MsgType(
 
     /** The author lifted its alert (P22.2); a version without it drops the frame as an unknown type. */
     SOS_END(14),
+
+    /** Whether the sender shares its position or only listens (P22.3, ADR-090); unknown to older versions too. */
+    STATE(15),
     ;
 
     companion object {
@@ -173,6 +176,18 @@ sealed interface Msg {
         val seq: Long,
     ) : Msg {
         override val type get() = MsgType.SOS_END
+    }
+
+    /**
+     * [memberId] shares its position ([sharing]) or only listens to the group (P22.3). Flooded like a text, sent again
+     * unchanged to each new link like [Avatar]; of two, the higher [seq] wins.
+     */
+    class State(
+        val memberId: Long,
+        val seq: Long,
+        val sharing: Boolean,
+    ) : Msg {
+        override val type get() = MsgType.STATE
     }
 
     /** A new group key, sent when [excluded] (0 for nobody) leaves the group. */
@@ -332,6 +347,10 @@ object Wire {
                 w.u64(msg.memberId).u32(msg.seq)
             }
 
+            is Msg.State -> {
+                w.u64(msg.memberId).u32(msg.seq).u8(if (msg.sharing) STATE_SHARING else 0)
+            }
+
             is Msg.Rekey -> {
                 w.u64(msg.memberId).u32(msg.seq).u64(msg.excluded).bytes(msg.key)
             }
@@ -407,6 +426,11 @@ object Wire {
                     Msg.SosEnd(r.u64(), r.u32())
                 }
 
+                MsgType.STATE -> {
+                    // Unknown bits are left for later versions.
+                    Msg.State(r.u64(), r.u32(), r.u8() and STATE_SHARING != 0)
+                }
+
                 MsgType.REKEY -> {
                     Msg.Rekey(r.u64(), r.u32(), r.u64(), r.bytes(GroupCrypto.KEY_BYTES))
                 }
@@ -440,6 +464,7 @@ object Wire {
     }
 
     private const val FRAME_ID_BYTES = 4
+    private const val STATE_SHARING = 1
     private const val MAX_PEERS = 32
     private const val MAX_TRAIL = 60
     private const val TEXT_BYTES = Msg.MAX_TEXT_CHARS * 4

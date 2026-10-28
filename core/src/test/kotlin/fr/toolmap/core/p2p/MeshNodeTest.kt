@@ -488,6 +488,29 @@ class MeshNodeTest {
     }
 
     @Test
+    fun `whether a member shares or only listens reaches everyone, new links included, the latest winning`() {
+        val (a, b, c) = threeMembers()
+        // A member of a version without STATE is unknown, neither sharing nor listening.
+        assertNull(a.view(2).sharing)
+        b.node.setSharing(false)
+        net.pump()
+        assertEquals(false, a.view(2).sharing)
+        assertEquals(false, c.view(2).sharing)
+        assertEquals(false, b.node.members().first { it.isSelf }.sharing)
+        b.node.setSharing(true)
+        net.pump()
+        assertEquals(true, a.view(2).sharing)
+        // A late copy of the earlier state changes nothing.
+        a.node.onFrame(2, Wire.encode(Msg.State(2, 1, sharing = false), GroupCrypto(key)))
+        net.pump()
+        assertEquals(true, a.view(2).sharing)
+        // Someone who joins later hears it on its first link.
+        val d = peer(4, "Denis")
+        net.connect(2, 4)
+        assertEquals(true, d.view(2).sharing)
+    }
+
+    @Test
     fun `a frame of a type this version does not know is dropped and the group goes on`() {
         // What a version without SOS_END (up to 0.4.113, types 1 to 13) does with a lift: its type is unknown to it.
         // Here an unassigned type plays that part for this version.

@@ -14,12 +14,18 @@ import fr.toolmap.core.track.PathStyle
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.data.tracks.TrackRepository
 import fr.toolmap.map.UiMessage
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -57,14 +63,30 @@ class ShareViewModel
         private val mutableMessages = MutableSharedFlow<UiMessage>(extraBufferCapacity = MESSAGE_BUFFER)
         val messages: SharedFlow<UiMessage> = mutableMessages.asSharedFlow()
 
-        /** A pairing link was opened from outside (a message, a browser): the sharing screen should show. */
-        private val mutableOpenRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-        val openRequests: SharedFlow<Unit> = mutableOpenRequests.asSharedFlow()
+        /**
+         * A pairing link was opened from outside (a message, a browser), or the notification touched: the sharing
+         * screen should show. Kept until the screen reads it, as the request can come before it starts.
+         */
+        private val openChannel = Channel<Unit>(Channel.CONFLATED)
+        val openRequests: Flow<Unit> = openChannel.receiveAsFlow()
 
         init {
             controller.load()
-            // The app comes on screen: a sharing cut by a forced stop or an update carries on by itself.
-            ShareService.resumeIfInterrupted(context, ui.value.inGroup, ui.value.sharing)
+            // The app comes on screen: a sharing cut by a forced stop or an update carries on by itself; in a group,
+            // the device listens to it, sharing or not (P22.3), from now on and as soon as a group is made or joined.
+            val resumed = ShareService.resumeIfInterrupted(context, ui.value.inGroup, ui.value.sharing)
+            viewModelScope.launch {
+                ui
+                    .map { it.inGroup }
+                    .distinctUntilChanged()
+                    .drop(if (resumed) 1 else 0)
+                    .collect { inGroup -> if (inGroup) ShareService.listen(context) }
+            }
+        }
+
+        /** The notification of the sharing was touched: the sharing screen should show (P22.3). */
+        fun requestOpen() {
+            openChannel.trySend(Unit)
         }
 
         /** The GeoJSON of the members for the map, from the current state. */
@@ -75,7 +97,8 @@ class ShareViewModel
                 ShareGeoJson.members(state.members, sos, now),
                 if (state.settings.showTrails) ShareGeoJson.trails(state.members) else ShareGeoJson.trails(emptyList()),
                 state.members
-                    .filter { !it.isSelf && it.fix != null }
+                    // A member that only listens has no marker, unless its alert brought a position (P22.3).
+                    .filter { !it.isSelf && it.fix != null && (it.sharing != false || it.id in sos) }
                     .map {
                         MemberMarker(MemberLook.imageKey(it.color, it.name, it.picture), it.color, it.name, it.picture)
                     }
@@ -104,7 +127,7 @@ class ShareViewModel
         /** A `toolmap://pair?d=…` link came from another app. */
         fun onLink(link: String) {
             controller.handleCode(link)
-            mutableOpenRequests.tryEmit(Unit)
+            openChannel.trySend(Unit)
         }
 
         fun clearProblem() = controller.clearProblem()

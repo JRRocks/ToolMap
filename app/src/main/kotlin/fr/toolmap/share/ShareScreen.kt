@@ -582,7 +582,11 @@ internal fun MainPage(
                                             member,
                                             PeerState.of(member, now, up),
                                             onOpen = { onOpenMember(member) },
-                                            onShowOnMap = member.fix?.let { f -> { onShowOnMap(f.lat, f.lon) } },
+                                            // A member that only listens is not on the map (P22.3).
+                                            onShowOnMap =
+                                                member.fix
+                                                    ?.takeIf { member.sharing != false }
+                                                    ?.let { f -> { onShowOnMap(f.lat, f.lon) } },
                                         )
                                     }
                                 },
@@ -664,7 +668,7 @@ private fun SelfSendLine(
                         if (ui.sharing && self != null) {
                             peerStateLabel(PeerState.of(self, now, up))
                         } else {
-                            stringResource(R.string.share_self_silent)
+                            stringResource(R.string.share_peer_listening)
                         },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -731,11 +735,15 @@ private fun MemberLine(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MemberBadge(member.name, member.color, size = 40.dp, picture = member.picture)
+            // Online without sharing: « À l'écoute », with the icon of « En ligne » and no age of position (P22.3).
+            val listening = member.sharing == false && state == PeerState.ONLINE
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
                 Text(member.name, style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    listOfNotNull(peerStateLabel(state), member.fix?.let { ageText(it.timeSec * MS_PER_S) })
-                        .joinToString(" · "),
+                    listOfNotNull(
+                        if (listening) stringResource(R.string.share_peer_listening) else peerStateLabel(state),
+                        member.fix?.takeIf { !listening }?.let { ageText(it.timeSec * MS_PER_S) },
+                    ).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

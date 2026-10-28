@@ -937,7 +937,6 @@
   <string name="share_members">Membres</string>
   <string name="share_no_members">Personne d\'autre pour l\'instant. Invitez quelqu\'un avec un code.</string>
   <string name="share_self">%1$s (vous)</string>
-  <string name="share_self_silent">Position non partagée</string>
   <!-- Peer and server states (P13) -->
   <string name="share_peer_online">En ligne</string>
   <string name="share_peer_paired">Appairé, pas encore de nouvelles</string>
@@ -1045,6 +1044,13 @@
   <string name="group_alert_lifted_title">Alerte levée</string>
   <string name="group_alert_lifted_text">%1$s a annulé son alerte de %2$s.</string>
   <string name="group_alert_channel">Alertes du groupe</string>
+
+  <!-- Écoute permanente du groupe (P22.3, ADR-090 ; aperçu docs/previews/p22-alerte.html validé le 2026-10-28) -->
+  <string name="share_peer_listening">À l\'écoute</string>
+  <plurals name="share_listening_line">
+    <item quantity="one">Groupe · %1$d membre : à l\'écoute</item>
+    <item quantity="other">Groupe · %1$d membres : à l\'écoute</item>
+  </plurals>
 
   <!-- Notification de ToolMap quand il travaille en arrière-plan (P21.7, variante B validée le 2026-10-24) -->
   <string name="background_channel">Activité en arrière-plan</string>

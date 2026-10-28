@@ -86,6 +86,7 @@ import fr.toolmap.settings.SettingsViewModel
 import fr.toolmap.share.AlertLiftedDialog
 import fr.toolmap.share.GroupAlertDialog
 import fr.toolmap.share.ShareScreen
+import fr.toolmap.share.ShareService
 import fr.toolmap.share.ShareViewModel
 import fr.toolmap.sources.UriReader
 import fr.toolmap.storage.StorageMoveActivity
@@ -670,6 +671,10 @@ class MainActivity : ComponentActivity() {
         EventLog.event("app.intent", "action" to intent?.action, "scheme" to data?.scheme)
         if (intent?.action == Intent.ACTION_VIEW && data?.scheme == PAIR_SCHEME) {
             shareViewModel.onLink(data.toString())
+            return
+        }
+        if (intent?.action == ShareService.ACTION_OPEN) {
+            shareViewModel.requestOpen()
             return
         }
         val uri: Uri? =
