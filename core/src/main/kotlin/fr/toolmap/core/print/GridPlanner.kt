@@ -167,19 +167,18 @@ object GridPlanner {
         kind: GridKind,
         step: Double? = null,
         locale: Locale = Locale.getDefault(),
-        style: MapStyle = MapStyle.TOP25,
     ): GridPlan {
         if (kind == GridKind.NONE) return GridPlan.empty()
         if (kind == GridKind.UTM || kind == GridKind.MGRS) {
             if (frame.centerLat > UTM_MAX_LAT || frame.centerLat < UTM_MIN_LAT) {
                 return GridPlan(kind, emptyList(), emptyList(), "", "", GridIssue.OUTSIDE_VALIDITY)
             }
-            return zoned(frame, kind, step?.takeIf { it > 0.0 } ?: GridSpacing.auto(kind, frame.scale, style), locale)
+            return zoned(frame, kind, step?.takeIf { it > 0.0 } ?: GridSpacing.auto(kind, frame.scale), locale)
         }
         val system =
             systemFor(frame, kind)
                 ?: return GridPlan(kind, emptyList(), emptyList(), "", "", GridIssue.OUTSIDE_VALIDITY)
-        val spacing = step?.takeIf { it > 0.0 } ?: GridSpacing.auto(kind, frame.scale, style)
+        val spacing = step?.takeIf { it > 0.0 } ?: GridSpacing.auto(kind, frame.scale)
         val whole = Rect(0.0, 0.0, frame.frameWidthMm, frame.frameHeightMm)
         val lines = ArrayList<GridLine>()
         val labels = ArrayList<GridLabel>()
@@ -472,9 +471,8 @@ object GridPlanner {
         grid: GridKind,
         step: Double? = null,
         locale: Locale = Locale.getDefault(),
-        style: MapStyle = MapStyle.TOP25,
     ): Graduation {
-        val plan = plan(frame, grid, step, locale, style)
+        val plan = plan(frame, grid, step, locale)
         if (plan.labels.isEmpty()) return Graduation.EMPTY
         val bars = ArrayList<GraduationBar>()
         for (side in FrameSide.entries) {
@@ -545,15 +543,6 @@ object GridPlanner {
     /** The 100 km square of the frame centre, for the legend of an MGRS grid (`31T DQ`). */
     fun mgrsSquare(frame: FrameProjection): String? =
         Mgrs.of(frame.centerLat, frame.centerLon)?.let { "${it.zone}${it.band} ${it.columnLetter}${it.rowLetter}" }
-
-    /**
-     * A full MGRS reference of the frame centre at 100 m (`31T FK 453 507`), in the frame's own zone: the worked
-     * example of the grid reference box of a NATO sheet.
-     */
-    fun exampleReference(frame: FrameProjection): String? {
-        val band = Utm.bandLetter(frame.centerLat) ?: return null
-        return Mgrs.of(Utm.toUtm(frame.centerLat, frame.centerLon), band).format(digits = 3)
-    }
 
     private fun isSquareEdge(value: Double): Boolean = abs(value / SQUARE - Math.rint(value / SQUARE)) < 1e-9
 

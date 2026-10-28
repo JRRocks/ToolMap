@@ -184,7 +184,7 @@ class PrintPlannerTest {
     fun `a template survives its JSON, and an old or broken file gives defaults or nothing`() {
         val template =
             PrintTemplate(
-                page = PageSetup(Paper.A3, landscape = false, marginMm = 12.0, style = MapStyle.NATO),
+                page = PageSetup(Paper.A3, landscape = false, marginMm = 12.0),
                 scale = 50_000.0,
                 dpi = 200,
                 title = "Belledonne",
@@ -206,6 +206,9 @@ class PrintPlannerTest {
         val old = assertNotNull(PrintTemplateCodec.decode(oldFile))
         assertNull(old.gridStep)
         assertEquals(false, old.dressing.miniMap)
+        // A template of the NATO style, removed on 2026-10-28 (ADR-088), reads as the same sheet in TOP 25.
+        val nato = """{"scale": 50000, "page": {"paper": "A3", "landscape": false, "style": "NATO"}}"""
+        assertEquals(PageSetup(Paper.A3, landscape = false), assertNotNull(PrintTemplateCodec.decode(nato)).page)
     }
 
     @Test

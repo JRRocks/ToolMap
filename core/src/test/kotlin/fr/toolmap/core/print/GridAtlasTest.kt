@@ -111,10 +111,6 @@ class GridAtlasTest {
         assertEquals("1 km", GridPlanner.plan(frame(scale = 25_000.0), GridKind.UTM).stepText)
         assertEquals("500 m", GridPlanner.plan(frame(scale = 10_000.0), GridKind.UTM).stepText)
         assertEquals("2 km", GridPlanner.plan(frame(scale = 100_000.0), GridKind.UTM).stepText)
-        assertEquals(
-            "1 km",
-            GridPlanner.plan(frame(scale = 100_000.0), GridKind.UTM, style = MapStyle.NATO).stepText,
-        )
         assertEquals("30″", GridPlanner.plan(frame(scale = 25_000.0), GridKind.WGS84).stepText)
         val decimal = GridPlanner.plan(frame(scale = 25_000.0), GridKind.WGS84_DECIMAL, locale = Locale.ROOT)
         assertEquals("0.01°", decimal.stepText)

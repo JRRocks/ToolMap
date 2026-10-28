@@ -1,9 +1,6 @@
 package fr.toolmap.core.print
 
-import fr.toolmap.core.geo.Lambert93
-import fr.toolmap.core.geo.Mgrs
 import fr.toolmap.core.geo.ScaleBar
-import fr.toolmap.core.geo.Utm
 import fr.toolmap.core.pdf.LineCap
 import fr.toolmap.core.pdf.LineJoin
 import fr.toolmap.core.pdf.PdfColor
@@ -19,10 +16,10 @@ import kotlin.math.sign
 
 /**
  * Draws everything of a page but the map tiles, in vector form (docs/specs/print-pdf.md §6). Over the map: grid,
- * 100 km square letters, tracks and waypoints. Around it: the double frame, its band graduated in a second coordinate
- * system, the grid labels with their principal digits and the corner coordinates. Under it: the footer of an IGN
- * TOP 25 sheet — title and legend, scale, the three norths, the grid — plus, for a NATO sheet, angles in mils and the
- * grid reference box. Positions are millimeters from the page's top-left corner; the map starts at
+ * 100 km square letters, tracks and waypoints. Around it: the double frame, its band graduated at the step of the
+ * grid, the grid labels with their principal digits and, for a grid in degrees, the corner coordinates. Under it: the
+ * footer of an IGN TOP 25 sheet — title and legend, scale, the three norths, the grid. Positions are millimeters from
+ * the page's top-left corner; the map starts at
  * ([PageSetup.frameLeftMm], [PageSetup.frameTopMm]), where a point of [FrameProjection] lands where the maths put it.
  */
 class PageComposer(
@@ -31,13 +28,12 @@ class PageComposer(
 ) {
     private val template = plan.template
     private val setup = template.page
-    private val style = setup.style
     private val dressing = template.dressing
     private val texts = content.texts
     private val locale = content.locale
     private val frameW = setup.frameWidthMm
     private val frameH = setup.frameHeightMm
-    private val gridColor = if (style == MapStyle.NATO) PdfColor.BLACK else GRID_BLUE
+    private val gridColor = GRID_BLUE
 
     /**
      * Draws the overlay of [pp] on [page], whose map is already in place. [pageCount] is the number of map pages of the
@@ -59,14 +55,13 @@ class PageComposer(
                     template.grid,
                     template.gridStep,
                     locale,
-                    style,
                 )
             }
         val graduation =
             if (overview) {
                 Graduation.EMPTY
             } else {
-                GridPlanner.graduation(pp.frame, template.grid, template.gridStep, locale, style)
+                GridPlanner.graduation(pp.frame, template.grid, template.gridStep, locale)
             }
         page.save()
         page.translate(setup.frameLeftMm, setup.frameTopMm)
@@ -670,7 +665,7 @@ class PageComposer(
         val ox = setup.marginMm
         val oy = setup.footerTopMm
         val width = setup.widthMm - 2 * setup.marginMm
-        for (block in SheetLayout.place(width, style)) {
+        for (block in SheetLayout.place(width)) {
             val box =
                 Box(
                     ox + block.xMm,
@@ -684,7 +679,6 @@ class PageComposer(
                     FooterBlock.SCALE -> drawScaleBlock(page, box, pp.frame.scale)
                     FooterBlock.NORTH -> drawNorthBlock(page, box, pp)
                     FooterBlock.GRID -> drawGridBlock(page, box, grid)
-                    FooterBlock.REFERENCE -> drawReferenceBlock(page, box, pp.frame)
                 }
             if (drawn) strokeBox(page, box)
         }
@@ -916,11 +910,11 @@ class PageComposer(
         val textLeft = inner.left + NORTH_DIAGRAM_MM + NORTH_TEXT_GAP_MM
         val textWidth = inner.right - textLeft
         val rows = ArrayList<NorthRow>()
-        if (declination != null) rows += NorthRow(texts.declination, withMils(angle(declination), declination))
-        if (convergence != null) rows += NorthRow(texts.gridConvergence, withMils(angle(convergence), convergence))
+        if (declination != null) rows += NorthRow(texts.declination, angle(declination))
+        if (convergence != null) rows += NorthRow(texts.gridConvergence, angle(convergence))
         if (declination != null && convergence != null) {
             val gm = declination - convergence
-            rows += NorthRow(texts.gridMagneticAngle, withMils(angle(gm), gm), PdfFont.BOLD)
+            rows += NorthRow(texts.gridMagneticAngle, angle(gm), PdfFont.BOLD)
         }
         val detail =
             content.declinationYear?.takeIf { declination != null }?.let { year ->
@@ -1107,16 +1101,6 @@ class PageComposer(
         return g to m
     }
 
-    private fun withMils(
-        text: String,
-        degrees: Double,
-    ): String =
-        if (style == MapStyle.NATO) {
-            "$text · ${String.format(locale, texts.mils, PrintFormat.mils(degrees).toString())}"
-        } else {
-            text
-        }
-
     private fun angle(degrees: Double): String = PrintFormat.declination(degrees, texts.east, texts.west)
 
     /**
@@ -1147,12 +1131,12 @@ class PageComposer(
                 String.format(locale, texts.gridSquares, grid.stepText).replaceFirstChar {
                     it.lowercase(locale)
                 }
-            lines += Triple("${systemLine(grid)} — $spacing", PdfFont.BOLD, REFERENCE_PT)
+            lines += Triple("${systemLine(grid)} — $spacing", PdfFont.BOLD, ZONES_NOTE_PT)
             for (edge in grid.zoneEdges.mapNotNull(::edgeLine).distinct()) {
-                lines += Triple(edge, PdfFont.REGULAR, REFERENCE_PT)
+                lines += Triple(edge, PdfFont.REGULAR, ZONES_NOTE_PT)
             }
-            if (grid.squares.isNotEmpty()) lines += Triple(squaresLine(grid), PdfFont.REGULAR, REFERENCE_PT)
-            if (grid.labels.any { it.neighbour }) lines += Triple(texts.neighbourGrid, PdfFont.REGULAR, REFERENCE_PT)
+            if (grid.squares.isNotEmpty()) lines += Triple(squaresLine(grid), PdfFont.REGULAR, ZONES_NOTE_PT)
+            if (grid.labels.any { it.neighbour }) lines += Triple(texts.neighbourGrid, PdfFont.REGULAR, ZONES_NOTE_PT)
         }
         for ((text, font, size) in lines) {
             for (line in wrap(page, text, font, size, inner.width)) {
@@ -1220,71 +1204,6 @@ class PageComposer(
                 squares.joinToString(" · ") + (side?.let { " ($it)" } ?: "")
             }
         return String.format(locale, texts.squaresOfZones, text)
-    }
-
-    /**
-     * NATO: how to give a grid reference at 100 m, with the centre of the sheet as the worked example, in the grid of
-     * the sheet only (ADR-087): MGRS letters and figures, UTM or Lambert 93 meters, or the latitude and longitude.
-     */
-    private fun drawReferenceBlock(
-        page: PdfPage,
-        box: Box,
-        frame: FrameProjection,
-    ): Boolean {
-        val inner = box.inset(BOX_PAD_MM)
-        var y = inner.top
-        val lines = ArrayList<Pair<String, PdfFont>>()
-        lines += texts.referenceTitle to PdfFont.BOLD
-        val lat = frame.centerLat
-        val lon = frame.centerLon
-        val example = GridPlanner.exampleReference(frame)
-        val square = Mgrs.of(lat, lon)?.let { "${it.columnLetter}${it.rowLetter}" }
-        val band = Utm.bandLetter(lat)
-        when {
-            template.grid == GridKind.MGRS && example != null && square != null -> {
-                lines += String.format(locale, texts.referenceStep1, square) to PdfFont.REGULAR
-                lines += texts.referenceStep2 to PdfFont.REGULAR
-                lines += texts.referenceStep3 to PdfFont.REGULAR
-                lines += String.format(locale, texts.referenceExample, example) to PdfFont.BOLD
-            }
-
-            template.grid == GridKind.UTM && band != null -> {
-                val u = Utm.toUtm(lat, lon)
-                lines += String.format(locale, texts.referenceUtmStep1, "${u.zone}$band") to PdfFont.REGULAR
-                lines += texts.referenceMetersStep2 to PdfFont.REGULAR
-                lines += texts.referenceMetersStep3 to PdfFont.REGULAR
-                val meters = "${u.zone}$band ${meters(u.easting, texts.east)} ${meters(u.northing, texts.north)}"
-                lines += String.format(locale, texts.referenceExample, meters) to PdfFont.BOLD
-            }
-
-            template.grid == GridKind.LAMBERT93 -> {
-                val l = Lambert93.toLambert(lat, lon)
-                lines += texts.referenceMetersStep2 to PdfFont.REGULAR
-                lines += texts.referenceMetersStep3 to PdfFont.REGULAR
-                val meters = "${meters(l.easting, texts.east)} ${meters(l.northing, texts.north)}"
-                lines += String.format(locale, texts.referenceExample, meters) to PdfFont.BOLD
-            }
-
-            else -> {
-                val decimal = template.grid == GridKind.WGS84_DECIMAL
-                val centre =
-                    if (decimal) {
-                        degrees(lat, texts.north, texts.south) + " " + degrees(lon, texts.east, texts.west)
-                    } else {
-                        dms(lat, texts.north, texts.south) + " " + dms(lon, texts.east, texts.west)
-                    }
-                lines += String.format(locale, texts.referenceExample, centre) to PdfFont.BOLD
-            }
-        }
-        for ((text, font) in lines) {
-            val size = if (font == PdfFont.BOLD) NOTE_PT else REFERENCE_PT
-            for (line in wrap(page, text, font, size, inner.width)) {
-                if (y + lineHeight(size) > inner.bottom + EPSILON_MM) break
-                y += lineHeight(size)
-                page.text(line, inner.left, y - lineGap(size), font, size)
-            }
-        }
-        return true
     }
 
     /** The credits of the sources (their licences require them) and what went wrong with the tiles. */
@@ -1370,16 +1289,6 @@ class PageComposer(
         val m = (total % SECONDS_PER_DEGREE.toLong()) / SECONDS_PER_MINUTE
         val s = total % SECONDS_PER_MINUTE
         return String.format(Locale.ROOT, "%d°%02d′%02d″ %s", d, m, s, if (value >= 0) positive else negative)
-    }
-
-    /** `265 900 E`: a projected coordinate to 100 m, the thousands set apart as a French map writes them. */
-    private fun meters(
-        value: Double,
-        axis: String,
-    ): String {
-        val digits = (Math.round(value / HECTOMETER) * HECTOMETER.toLong()).toString()
-        val grouped = digits.reversed().chunked(THOUSANDS).joinToString(" ").reversed()
-        return "$grouped $axis"
     }
 
     /** `45.50335° N`: an angle in decimal degrees to about a meter, for a sheet whose grid is in decimal degrees. */
@@ -1468,8 +1377,6 @@ class PageComposer(
         const val DESCENT_MM = 0.4
         const val SECONDS_PER_DEGREE = 3_600.0
         const val SECONDS_PER_MINUTE = 60L
-        const val HECTOMETER = 100.0
-        const val THOUSANDS = 3
 
         /** The grids whose sheet may carry the corners in degrees (ADR-087). */
         val DEGREE_GRIDS = setOf(GridKind.NONE, GridKind.WGS84, GridKind.WGS84_DECIMAL)
@@ -1537,7 +1444,7 @@ class PageComposer(
         const val TEXT_PT = 6.0
         const val SMALL_TEXT_PT = 4.8
         const val NOTE_PT = 5.4
-        const val REFERENCE_PT = 4.9
+        const val ZONES_NOTE_PT = 4.9
 
         const val LEGEND_GAP_MM = 0.6
         const val LEGEND_SAMPLE_MM = 5.0

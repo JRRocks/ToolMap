@@ -24,16 +24,10 @@ enum class Paper(
 }
 
 /**
- * The look of the sheet around the map (P17, Q9): an IGN TOP 25 sheet, or the same with what NATO maps add for the
- * field (angles in mils, the grid reference box, the 100 km squares).
- */
-@Serializable
-enum class MapStyle { TOP25, NATO }
-
-/**
- * The sheet: format, orientation, the printer margin and the style of the sheet. From the paper edge inwards: the
- * margin, a strip for the grid labels, the graduated band of the double frame, then the map; under the map, the same
- * band and strip, then the footer that holds title, scale, norths, grid and legend (docs/specs/print-pdf.md §6).
+ * The sheet, in the IGN TOP 25 style (the NATO style was removed, ADR-088): format, orientation and the printer
+ * margin. From the paper edge inwards: the margin, a strip for the grid labels, the graduated band of the double
+ * frame, then the map; under the map, the same band and strip, then the footer that holds title, scale, norths, grid
+ * and legend (docs/specs/print-pdf.md §6).
  */
 @Serializable
 data class PageSetup(
@@ -44,7 +38,6 @@ data class PageSetup(
     /** Used when [paper] is [Paper.CUSTOM] (portrait width and height). */
     val customWidthMm: Double = Paper.CUSTOM.widthMm,
     val customHeightMm: Double = Paper.CUSTOM.heightMm,
-    val style: MapStyle = MapStyle.TOP25,
 ) {
     private val portraitWidth: Double get() = if (paper == Paper.CUSTOM) customWidthMm else paper.widthMm
     private val portraitHeight: Double get() = if (paper == Paper.CUSTOM) customHeightMm else paper.heightMm
@@ -58,7 +51,7 @@ data class PageSetup(
     val borderMm: Double get() = marginMm + LABEL_STRIP_MM + GRADUATION_MM
 
     /** The footer under the map: its rows of boxes and the credits line (see [SheetLayout]). */
-    val footerHeightMm: Double get() = SheetLayout.footerHeight(widthMm - 2 * marginMm, style)
+    val footerHeightMm: Double get() = SheetLayout.footerHeight(widthMm - 2 * marginMm)
 
     /** The map frame: where it starts on the page and its size. */
     val frameLeftMm: Double get() = borderMm
@@ -106,7 +99,14 @@ data class PageSetup(
 enum class PageIssue { MARGIN_RANGE, CUSTOM_SIZE, FRAME_TOO_SMALL }
 
 /** The boxes of the footer, left to right (spec §6). */
-enum class FooterBlock { TITLE, SCALE, NORTH, GRID, REFERENCE }
+enum class FooterBlock(
+    val widthMm: Double,
+) {
+    TITLE(40.0),
+    SCALE(50.0),
+    NORTH(46.0),
+    GRID(46.0),
+}
 
 /** A box of the footer, in millimeters from the footer's top-left corner. */
 data class PlacedBlock(
@@ -130,37 +130,13 @@ object SheetLayout {
     /** The line of credits (© of the sources, warnings) under the boxes. */
     const val CREDITS_MM = 3.6
 
-    private const val TITLE_MIN_MM = 40.0
-
-    // The NATO norths add the angles in mils: a wider box.
-    private fun widthOf(
-        block: FooterBlock,
-        style: MapStyle,
-    ): Double =
-        when (block) {
-            FooterBlock.TITLE -> TITLE_MIN_MM
-            FooterBlock.SCALE -> 50.0
-            FooterBlock.NORTH -> if (style == MapStyle.NATO) 54.0 else 46.0
-            FooterBlock.GRID -> 46.0
-            FooterBlock.REFERENCE -> 56.0
-        }
-
-    fun blocksOf(style: MapStyle): List<FooterBlock> =
-        when (style) {
-            MapStyle.TOP25 -> listOf(FooterBlock.TITLE, FooterBlock.SCALE, FooterBlock.NORTH, FooterBlock.GRID)
-            MapStyle.NATO -> FooterBlock.entries.toList()
-        }
-
     /** The boxes of a footer [widthMm] wide (the sheet minus its margins). */
-    fun place(
-        widthMm: Double,
-        style: MapStyle,
-    ): List<PlacedBlock> {
+    fun place(widthMm: Double): List<PlacedBlock> {
         val inner = widthMm - 2 * PAD_MM
         val rows = ArrayList<MutableList<FooterBlock>>()
         var used = 0.0
-        for (block in blocksOf(style)) {
-            val w = widthOf(block, style)
+        for (block in FooterBlock.entries) {
+            val w = block.widthMm
             val row = rows.lastOrNull()
             if (row == null || used + GAP_MM + w > inner) {
                 rows += mutableListOf(block)
@@ -172,12 +148,12 @@ object SheetLayout {
         }
         val out = ArrayList<PlacedBlock>()
         rows.forEachIndexed { r, row ->
-            val fixed = row.sumOf { widthOf(it, style) } + GAP_MM * (row.size - 1)
+            val fixed = row.sumOf { it.widthMm } + GAP_MM * (row.size - 1)
             val spare = (inner - fixed).coerceAtLeast(0.0)
             var x = PAD_MM
             val y = PAD_MM + r * (BLOCK_HEIGHT_MM + GAP_MM)
             for (block in row) {
-                val w = widthOf(block, style) + if (block == FooterBlock.TITLE) spare else 0.0
+                val w = block.widthMm + if (block == FooterBlock.TITLE) spare else 0.0
                 out += PlacedBlock(block, x, y, w, BLOCK_HEIGHT_MM)
                 x += w + GAP_MM
             }
@@ -185,16 +161,10 @@ object SheetLayout {
         return out
     }
 
-    fun rows(
-        widthMm: Double,
-        style: MapStyle,
-    ): Int = place(widthMm, style).map { it.yMm }.distinct().size
+    fun rows(widthMm: Double): Int = place(widthMm).map { it.yMm }.distinct().size
 
-    fun footerHeight(
-        widthMm: Double,
-        style: MapStyle,
-    ): Double {
-        val rows = rows(widthMm, style)
+    fun footerHeight(widthMm: Double): Double {
+        val rows = rows(widthMm)
         return 2 * PAD_MM + rows * BLOCK_HEIGHT_MM + (rows - 1) * GAP_MM + CREDITS_MM
     }
 }

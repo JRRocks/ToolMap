@@ -1335,3 +1335,14 @@
   5. « WGS84 » reste dans « UTM 31N · WGS84 » : c'est le système géodésique de la grille, pas une coordonnée.
 - **Conséquences** : une feuille ne montre plus qu'un système de coordonnées ; la position d'un point en degrés n'est plus lisible sur une feuille UTM ou MGRS (choisir « WGS84 » pour cela). Les options UTM et MGRS restent distinctes : étiquettes et lecture différentes. Tests : `GridAtlasTest` (cadre gradué selon la grille, MGRS sans centaines de km), `PrintExportTest` (aucun coin en degrés sur une grille métrique, encadré OTAN selon la grille).
 - **Alternatives rejetées** : coins dans la grille choisie (répètent la première étiquette de chaque côté) ; retirer l'option MGRS (elle se lit autrement qu'UTM et donne les lettres du carré).
+
+## ADR-088 — Impression : style OTAN retiré, feuille IGN TOP 25 seule
+
+- **Date / statut** : 2026-10-28 — Accepté (demande de l'utilisateur après les feuilles de test d'ADR-087 : « Oui pour les grilles, je ne vois pas de différence impactant entre style IGN et OTAN, garde celui de IGN et retire le moteur de génération de OTAN, ensuite retire l'option du menu »). **Remplace** le choix du style d'ADR-061 (Q9) et de P17.3, et le point 4 d'ADR-087 (encadré « Donner une référence » selon la grille).
+- **Contexte** : le style OTAN ne changeait que la présentation de la feuille : quadrillage noir au lieu de bleu, angles des nords aussi en millièmes, encadré « Donner une référence (100 m) », carreaux de 1 km au lieu de 2 km au 1:100 000, case des nords plus large. Les lettres du carré de 100 km, la grille par zone et la rangée de la zone voisine sont communes aux deux styles.
+- **Décision** :
+  1. **Moteur** : `MapStyle` et `PageSetup.style` disparaissent ; `SheetLayout` place toujours les quatre cases (titre, échelle, nords, quadrillage), largeurs portées par `FooterBlock` ; `PageComposer` sans millièmes, sans encadré de référence, quadrillage bleu ; `GridSpacing` et `GridPlanner` sans style (2 km au 1:100 000) ; `GridPlanner.exampleReference`, `PrintFormat.mils` et 9 textes de `PrintTexts` retirés.
+  2. **Écran** : la rubrique « Style de la feuille » (IGN TOP 25 / OTAN et sa phrase d'aide) est retirée de « Plus d'options » avec ses 5 textes ; 9 textes `pdf_…` de la feuille OTAN retirés.
+  3. **Modèles enregistrés** : un modèle de la dernière impression en OTAN se relit sans erreur et donne la même feuille en TOP 25 (`ignoreUnknownKeys` du codec).
+- **Conséquences** : une seule présentation à maintenir et à tester ; une feuille A4 portrait tient sur une rangée de cases. Les angles en millièmes et l'exemple de référence ne sont plus imprimés. Tests : `PrintExportTest` (mise en page, nords), `PrintPlannerTest` (modèle OTAN relu en TOP 25), `GridAtlasTest`.
+- **Alternatives rejetées** : garder le moteur sans l'option (code mort) ; garder l'encadré « Donner une référence » dans la feuille TOP 25 (l'utilisateur garde la feuille IGN telle quelle).

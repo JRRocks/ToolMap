@@ -59,7 +59,6 @@ data class PrintTexts(
     val trueNorthName: String = "true north",
     val annualChange: String = "annual change %s",
     val gridMagneticAngle: String = "Grid–magnetic angle",
-    val mils: String = "%s mils",
     val notToScale: String = "Diagram not to scale",
     val noGrid: String = "No grid",
     val principalDigits: String = "Large figures: kilometers",
@@ -75,17 +74,6 @@ data class PrintTexts(
     val eastSide: String = "east",
     val southSide: String = "south",
     val northSide: String = "north",
-    val referenceTitle: String = "GIVING A GRID REFERENCE (100 m)",
-    val referenceStep1: String = "1. Letters of the 100 km square: %s",
-    val referenceStep2: String = "2. Vertical line west of the point: its 2 large figures, then tenths eastwards",
-    val referenceStep3: String = "3. Horizontal line south of the point: its 2 large figures, then tenths northwards",
-    /** UTM and Lambert 93: a reference in meters (ADR-087). */
-    val referenceUtmStep1: String = "1. Grid zone: %s",
-    val referenceMetersStep2: String =
-        "2. Vertical line west of the point: its kilometers, then hundreds of meters eastwards",
-    val referenceMetersStep3: String =
-        "3. Horizontal line south of the point: its kilometers, then hundreds of meters northwards",
-    val referenceExample: String = "Sheet centre: %s",
     val scaleHeading: String = "SCALE",
     val northHeading: String = "NORTHS",
     val gridHeading: String = "GRID",
@@ -161,9 +149,6 @@ object PrintFormat {
         return side(widthMeters) to side(heightMeters)
     }
 
-    /** NATO mils (6 400 to the turn), rounded: 2°15′ → 40. */
-    fun mils(degrees: Double): Long = Math.round(Math.abs(degrees) * MILS_PER_DEGREE)
-
     /**
      * A file name for the PDF: `ToolMap_Belledonne_1-25000_2026-10-02.pdf`. Characters a file system or a share sheet
      * dislikes become `_`; a blank title gives "carte".
@@ -188,5 +173,4 @@ object PrintFormat {
     private const val WHOLE_KM_FROM_M = 100_000.0
     private const val MAX_TITLE_IN_NAME = 48
     private const val MINUTES_PER_DEGREE = 60.0
-    private const val MILS_PER_DEGREE = 6_400.0 / 360.0
 }

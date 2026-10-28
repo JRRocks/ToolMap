@@ -64,7 +64,7 @@ data class PrintTemplate(
         )
 
     /** The grid spacing actually drawn: the one chosen, or the one of the scale. */
-    val effectiveGridStep: Double get() = gridStep ?: GridSpacing.auto(grid, scale, page.style)
+    val effectiveGridStep: Double get() = gridStep ?: GridSpacing.auto(grid, scale)
 
     companion object {
         const val DEFAULT_SCALE = 25_000.0

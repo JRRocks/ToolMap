@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.core.print.Dressing
 import fr.toolmap.core.print.GridKind
-import fr.toolmap.core.print.MapStyle
 import fr.toolmap.core.print.Paper
 import fr.toolmap.core.print.PrintFormat
 import fr.toolmap.core.print.PrintIssue
@@ -336,31 +335,6 @@ private fun MoreOptions(
     actions: PrintActions,
 ) {
     val d = template.dressing
-    SectionTitle(R.string.print_section_style)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (style in MapStyle.entries) {
-            FilterChip(
-                selected = template.page.style == style,
-                onClick = { actions.onUpdate { it.copy(page = it.page.copy(style = style), gridStep = null) } },
-                label = {
-                    val name = if (style == MapStyle.NATO) R.string.print_style_nato else R.string.print_style_top25
-                    Text(stringResource(name))
-                },
-            )
-        }
-    }
-    val hint =
-        if (template.page.style ==
-            MapStyle.NATO
-        ) {
-            R.string.print_style_nato_hint
-        } else {
-            R.string.print_style_top25_hint
-        }
-    Text(
-        stringResource(hint),
-        style = MaterialTheme.typography.bodySmall,
-    )
     SectionTitle(R.string.print_section_quality)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for (dpi in PrintTemplate.DPIS) {

@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-10-28 — Session 73 — [P17.6] Style OTAN retiré de l'impression, feuille IGN TOP 25 seule
+- **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`), branche `main` ; poussée sur `JRRocks/ToolMap`.
+- **Objectif** : demande de l'utilisateur après les feuilles de test de la session 72 : « Oui pour les grilles, je ne vois pas de différence impactant entre style IGN et OTAN, garde celui de IGN et retire le moteur de génération de OTAN, ensuite retire l'option du menu. Tu peux commit dans la foulée de la correction. »
+- **Réalisé** :
+  - Versions : suite directe de la session 72 (GitHub `main` 3f2327d, Drive et local en **0.4.112**, identiques).
+  - P24.7 validé par l'utilisateur (« Oui pour les grilles ») : passé à ✅.
+  - Moteur (ADR-088) : `MapStyle` et `PageSetup.style` retirés ; `SheetLayout` sans style, largeurs des cases dans `FooterBlock` (case REFERENCE retirée) ; `PageComposer` sans millièmes ni encadré « Donner une référence », quadrillage toujours bleu ; `GridSpacing` (2 km au 1:100 000) et `GridPlanner` sans style ; `GridPlanner.exampleReference`, `PrintFormat.mils` et 9 textes de `PrintTexts` retirés.
+  - Écran : rubrique « Style de la feuille » (IGN TOP 25 / OTAN et sa phrase) retirée de « Plus d'options » ; 14 textes retirés de `strings.xml`. Pas d'aperçu avant le code : la demande décrit l'état voulu (option retirée) et l'utilisateur a demandé de committer dans la foulée ; captures avant / après ci-dessous.
+  - Docs : ADR-088 ; `PLAN.md` (P17.3, P17.6, P24) ; `plan-fonctions-2026-10.md` (P24.7 ✅) ; `specs/print-pdf.md` (style, pas au 1:100 000) ; `specs/ui-index.md` (T3).
+- **Décisions (ADR)** : ADR-088.
+- **Tests / vérifications** :
+  - `PrintExportTest` (cases du bas sur une rangée en A4 paysage et portrait, deux en A5 portrait ; trois angles des nords), `PrintPlannerTest` (un modèle enregistré en OTAN se relit en TOP 25), `GridAtlasTest` : `./gradlew :core:test --tests '*print*' :app:compileDebugKotlin` vert.
+  - `./gradlew spotlessApply check assembleDebug` (JDK d'Android Studio) : BUILD SUCCESSFUL en 2 min 45 s, version **0.4.113**, `ToolMap-debug-0.4.113.apk`. Tests : core 895 (2 tests OTAN retirés), data 311, p2p 29 (2 ignorés), app 433 (72 ignorés), 0 échec ; lint : 0 erreur, app 64 avertissements et 1 indication, data 1 avertissement.
+  - Émulateur : capture de « Plus d'options » en 0.4.111 (« Style de la feuille », IGN TOP 25 / OTAN), puis 0.4.113 installée par-dessus : le modèle de la dernière impression, enregistré en OTAN (`files/print/last.json`), se relit sans erreur ; « Plus d'options » commence par « Qualité », sans le style. PDF MGRS du même cadre : même taille (738 933 octets) que la feuille TOP 25 de la session 72, quadrillage bleu, pas de millièmes ni d'encadré. Le dernier modèle enregistré ne porte plus de style.
+- **Problèmes / dette technique** : « Coordonnées des coins » reste sans effet sur une feuille UTM, MGRS ou Lambert 93 (session 72).
+- **Prochaine étape recommandée** : vérifier sur le téléphone le menu, la grille UTM, la reprise d'étape d'itinéraire et une impression ; puis la suite de `docs/PLAN.md`.
+
 ## 2026-10-28 — Session 72 — [P24.7] Feuille imprimée dans la grille choisie seule, MGRS sans les centaines de km
 - **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`), branche `main` ; poussée sur `JRRocks/ToolMap`.
 - **Objectif** : demande de l'utilisateur, avec ses PDF « UTM », « MGRS », « MGRS OTAN » et « Degré » : « Le PDF est généré avec des valeurs WGS84 et un combo UTM / MGRS écrit en bordure de carte. Restreins au modèle choisi uniquement. Si je prends MGRS, je ne dois pas voir de 7 devant le 33. Génère une carte par modèle de grille, fais-moi vérifier, puis explique leur différence (s'il n'y en a pas, retire l'option inutile). »

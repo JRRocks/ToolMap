@@ -9,17 +9,16 @@ package fr.toolmap.core.print
  * | 1:10 000         | 500 m                | 15″  | 0.005°  |
  * | 1:20 000–25 000  | 1 km                 | 30″  | 0.01°   |
  * | 1:50 000         | 1 km                 | 1′   | 0.02°   |
- * | 1:100 000        | 2 km (NATO: 1 km)    | 2′   | 0.05°   |
+ * | 1:100 000        | 2 km                 | 2′   | 0.05°   |
  * | 1:250 000        | 10 km                | 5′   | 0.1°    |
  */
 object GridSpacing {
     fun auto(
         kind: GridKind,
         scale: Double,
-        style: MapStyle = MapStyle.TOP25,
     ): Double =
         when (kind) {
-            GridKind.NONE, GridKind.UTM, GridKind.MGRS, GridKind.LAMBERT93 -> meters(scale, style)
+            GridKind.NONE, GridKind.UTM, GridKind.MGRS, GridKind.LAMBERT93 -> meters(scale)
             GridKind.WGS84 -> dms(scale)
             GridKind.WGS84_DECIMAL -> decimal(scale)
         }
@@ -33,15 +32,12 @@ object GridSpacing {
             GridKind.WGS84_DECIMAL -> DECIMAL
         }
 
-    private fun meters(
-        scale: Double,
-        style: MapStyle,
-    ): Double =
+    private fun meters(scale: Double): Double =
         when {
             scale <= 7_500 -> 200.0
             scale <= 15_000 -> 500.0
             scale <= 75_000 -> 1_000.0
-            scale <= 175_000 -> if (style == MapStyle.NATO) 1_000.0 else 2_000.0
+            scale <= 175_000 -> 2_000.0
             scale <= 600_000 -> 10_000.0
             else -> 100_000.0
         }

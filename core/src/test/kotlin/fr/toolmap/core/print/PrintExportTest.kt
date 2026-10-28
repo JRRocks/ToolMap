@@ -181,42 +181,18 @@ class PrintExportTest {
         // 8 mm margin, 7 mm of labels, 1.6 mm of graduated band on each side.
         assertEquals(16.6, setup.frameLeftMm, 1e-9)
         assertEquals(297.0 - 2 * 16.6, setup.frameWidthMm, 1e-9)
-        assertEquals(1, SheetLayout.rows(297.0 - 16.0, MapStyle.TOP25))
-        assertEquals(1, SheetLayout.rows(297.0 - 16.0, MapStyle.NATO))
+        assertEquals(1, SheetLayout.rows(297.0 - 16.0))
+        assertEquals(1, SheetLayout.rows(210.0 - 16.0))
         assertEquals(setup.footerTopMm + setup.footerHeightMm, 210.0 - 8.0, 1e-9)
         assertTrue(setup.frameHeightMm > 140.0, "${setup.frameHeightMm}")
         // A narrow sheet takes a second row of boxes rather than smaller letters.
-        assertEquals(2, SheetLayout.rows(210.0 - 16.0, MapStyle.NATO))
-        val portrait = PageSetup(landscape = false, style = MapStyle.NATO)
+        assertEquals(2, SheetLayout.rows(148.0 - 16.0))
+        val portrait = PageSetup(Paper.A5, landscape = false)
         assertTrue(portrait.footerHeightMm > setup.footerHeightMm)
-        val blocks = SheetLayout.place(297.0 - 16.0, MapStyle.NATO)
+        val blocks = SheetLayout.place(297.0 - 16.0)
         assertEquals(FooterBlock.entries.toList(), blocks.map { it.block })
         for ((a, b) in blocks.zipWithNext()) assertTrue(a.xMm + a.widthMm < b.xMm, "$a overlaps $b")
         assertTrue(blocks.last().xMm + blocks.last().widthMm <= 297.0 - 16.0 - SheetLayout.PAD_MM + 1e-9)
-    }
-
-    @Test
-    fun `a NATO sheet adds the mils and the grid reference box, a TOP 25 sheet does not`() {
-        val base =
-            PrintTemplate(
-                scale = 25_000.0,
-                dpi = 100,
-                title = "Chartreuse",
-                grid = GridKind.MGRS,
-            )
-        val nato = base.copy(page = PageSetup(style = MapStyle.NATO))
-        val natoContent = PdfProbe(export(plan(nato, PrintArea(45.4, 5.85))).second).contentOfPage(0)
-        val top25Content = PdfProbe(export(plan(base, PrintArea(45.4, 5.85))).second).contentOfPage(0)
-        val texts = PrintTexts()
-        assertTrue(shown(texts.referenceTitle) in natoContent, "reference box missing")
-        assertTrue(shown(texts.referenceTitle) !in top25Content)
-        assertTrue(" mils" in written(natoContent), written(natoContent))
-        assertTrue(" mils" !in written(top25Content))
-        // The worked example is the MGRS reference of the centre, at 100 m.
-        val example =
-            assertNotNull(GridPlanner.exampleReference(plan(nato, PrintArea(45.4, 5.85)).pages.single().frame))
-        assertTrue(Regex("31T [A-Z]{2} \\d{3} \\d{3}").matches(example), example)
-        assertTrue(String.format(texts.referenceExample, example) in written(natoContent))
     }
 
     @Test
@@ -248,26 +224,7 @@ class PrintExportTest {
     }
 
     @Test
-    fun `the NATO reference box speaks the grid of the sheet`() {
-        val nato = PrintTemplate(scale = 25_000.0, dpi = 100, page = PageSetup(style = MapStyle.NATO))
-        val area = PrintArea(45.4, 5.85)
-
-        fun text(grid: GridKind): String =
-            written(PdfProbe(export(plan(nato.copy(grid = grid), area)).second).contentOfPage(0))
-        val texts = PrintTexts()
-        val utm = text(GridKind.UTM)
-        assertTrue("MGRS" !in utm, utm)
-        assertTrue(String.format(texts.referenceUtmStep1, "31T") in utm, utm)
-        assertTrue(Regex("""31T \d{3} \d{3} E \d \d{3} \d{3} N""").containsMatchIn(utm), utm)
-        val lambert = text(GridKind.LAMBERT93)
-        assertTrue("MGRS" !in lambert && "31T" !in lambert, lambert)
-        assertTrue(Regex("""\d{3} \d{3} E \d \d{3} \d{3} N""").containsMatchIn(lambert), lambert)
-        val degrees = text(GridKind.WGS84)
-        assertTrue("MGRS" !in degrees, degrees)
-    }
-
-    @Test
-    fun `the norths box always shows the three angles with their values, in both styles`() {
+    fun `the norths box always shows the three angles with their values`() {
         val sheet =
             PrintContent(
                 declinationDegrees = 3.2,
@@ -275,29 +232,20 @@ class PrintExportTest {
                 declinationAnnualDegrees = 0.13,
             )
         val texts = PrintTexts()
-        for (style in MapStyle.entries) {
-            val template =
-                PrintTemplate(
-                    scale = 25_000.0,
-                    dpi = 100,
-                    grid = GridKind.UTM,
-                    page = PageSetup(style = style),
-                )
-            val p = plan(template, PrintArea(45.6, 5.95))
-            val shownTexts = written(PdfProbe(export(p, content = sheet).second).contentOfPage(0)).lines()
-            val convergence = assertNotNull(GridPlanner.convergenceDegrees(p.pages.single().frame, GridKind.UTM))
-            // As written on the page: the prime of the minutes becomes an apostrophe in Windows-1252.
-            val angle = { d: Double ->
-                String(PdfPage.encode(PrintFormat.declination(d, texts.east, texts.west)), charset("windows-1252"))
-            }
-            for ((label, degrees) in listOf(
-                texts.declination to 3.2,
-                texts.gridConvergence to convergence,
-                texts.gridMagneticAngle to 3.2 - convergence,
-            )) {
-                assertTrue(shownTexts.any { it.startsWith(label) }, "$style: $label missing in $shownTexts")
-                assertTrue(shownTexts.any { it.startsWith(angle(degrees)) }, "$style: ${angle(degrees)} missing")
-            }
+        val p = plan(PrintTemplate(scale = 25_000.0, dpi = 100, grid = GridKind.UTM), PrintArea(45.6, 5.95))
+        val shownTexts = written(PdfProbe(export(p, content = sheet).second).contentOfPage(0)).lines()
+        val convergence = assertNotNull(GridPlanner.convergenceDegrees(p.pages.single().frame, GridKind.UTM))
+        // As written on the page: the prime of the minutes becomes an apostrophe in Windows-1252.
+        val angle = { d: Double ->
+            String(PdfPage.encode(PrintFormat.declination(d, texts.east, texts.west)), charset("windows-1252"))
+        }
+        for ((label, degrees) in listOf(
+            texts.declination to 3.2,
+            texts.gridConvergence to convergence,
+            texts.gridMagneticAngle to 3.2 - convergence,
+        )) {
+            assertTrue(shownTexts.any { it.startsWith(label) }, "$label missing in $shownTexts")
+            assertTrue(shownTexts.any { it.startsWith(angle(degrees)) }, "${angle(degrees)} missing")
         }
     }
 
@@ -383,14 +331,14 @@ class PrintExportTest {
             )
         val p = plan(top25)
         File(dir, "top25-utm-25000.pdf").outputStream().use { PrintExporter(SyntheticRenderer()).export(p, sheet, it) }
-        val nato = top25.copy(scale = 50_000.0, page = PageSetup(style = MapStyle.NATO), grid = GridKind.MGRS)
-        File(dir, "nato-mgrs-50000.pdf").outputStream().use {
-            PrintExporter(SyntheticRenderer()).export(plan(nato), sheet, it)
+        val mgrs = top25.copy(scale = 50_000.0, grid = GridKind.MGRS)
+        File(dir, "top25-mgrs-50000.pdf").outputStream().use {
+            PrintExporter(SyntheticRenderer()).export(plan(mgrs), sheet, it)
         }
-        // Across zones 31 and 32 at Pontcharra (P24.4): the NATO sheet of the P24.0 preview, the TOP 25 of the user.
+        // Across zones 31 and 32 at Pontcharra (P24.4), in portrait as the P24.0 preview.
         val pontcharra = PrintArea(45.4274, 6.004)
-        val straddling = nato.copy(scale = 25_000.0, page = PageSetup(landscape = false, style = MapStyle.NATO))
-        File(dir, "nato-mgrs-pontcharra.pdf").outputStream().use {
+        val straddling = mgrs.copy(scale = 25_000.0, page = PageSetup(landscape = false))
+        File(dir, "top25-mgrs-pontcharra-portrait.pdf").outputStream().use {
             PrintExporter(SyntheticRenderer()).export(plan(straddling, pontcharra), sheet, it)
         }
         // The user's sheet, with the French words of the grid box, the longest it gets.
@@ -411,8 +359,8 @@ class PrintExportTest {
             val top25Mgrs = top25.copy(grid = GridKind.MGRS)
             PrintExporter(SyntheticRenderer()).export(plan(top25Mgrs, PrintArea(45.48625, 5.99694)), frenchSheet, it)
         }
-        val portrait = nato.copy(page = PageSetup(landscape = false, style = MapStyle.NATO), grid = GridKind.WGS84)
-        File(dir, "nato-wgs84-portrait.pdf").outputStream().use {
+        val portrait = mgrs.copy(page = PageSetup(landscape = false), grid = GridKind.WGS84)
+        File(dir, "top25-wgs84-portrait.pdf").outputStream().use {
             PrintExporter(SyntheticRenderer()).export(plan(portrait), sheet, it)
         }
         val single = p.pages.single()

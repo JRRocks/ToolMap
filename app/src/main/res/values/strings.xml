@@ -719,11 +719,6 @@
   <string name="print_next">Suivant</string>
   <string name="print_back_to_zone">Retour à la zone</string>
   <string name="print_more_options">Plus d\'options</string>
-  <string name="print_section_style">Style de la feuille</string>
-  <string name="print_style_top25">IGN TOP 25</string>
-  <string name="print_style_nato">OTAN</string>
-  <string name="print_style_top25_hint">Feuille à la façon des cartes IGN : quadrillage bleu, angles en degrés.</string>
-  <string name="print_style_nato_hint">Feuille militaire : quadrillage noir, angles en millièmes, carrés de 100 km et encadré « Donner une référence ».</string>
   <string name="print_section_quality">Qualité</string>
   <string name="print_dpi" tools:ignore="PluralsCandidate">%1$d dpi</string>
   <string name="print_lighter">Fichier plus léger (tuiles d\'un niveau de zoom en moins)</string>
@@ -823,7 +818,6 @@
   <string name="pdf_true_north_name">nord géographique</string>
   <string name="pdf_annual_change">variation annuelle %s</string>
   <string name="pdf_grid_magnetic_angle">Angle quadrillage–magnétique</string>
-  <string name="pdf_mils">%s millièmes</string>
   <string name="pdf_not_to_scale">Schéma hors échelle</string>
   <string name="pdf_no_grid">Sans quadrillage</string>
   <string name="pdf_principal_digits">Gros chiffres : kilomètres</string>
@@ -838,14 +832,6 @@
   <string name="pdf_east_side">est</string>
   <string name="pdf_south_side">sud</string>
   <string name="pdf_north_side">nord</string>
-  <string name="pdf_reference_title">DONNER UNE RÉFÉRENCE (100 m)</string>
-  <string name="pdf_reference_step1">1. Lettres du carré de 100 km : %s</string>
-  <string name="pdf_reference_step2">2. Ligne verticale à l\'ouest du point : ses 2 gros chiffres, puis les dixièmes vers l\'est</string>
-  <string name="pdf_reference_step3">3. Ligne horizontale au sud du point : ses 2 gros chiffres, puis les dixièmes vers le nord</string>
-  <string name="pdf_reference_utm_step1">1. Zone : %s</string>
-  <string name="pdf_reference_meters_step2">2. Ligne verticale à l\'ouest du point : sa valeur en km, puis les centaines de mètres vers l\'est</string>
-  <string name="pdf_reference_meters_step3">3. Ligne horizontale au sud du point : sa valeur en km, puis les centaines de mètres vers le nord</string>
-  <string name="pdf_reference_example">Centre de la feuille : %s</string>
   <string name="pdf_scale_heading">ÉCHELLE</string>
   <string name="pdf_north_heading">NORDS</string>
   <string name="pdf_grid_heading">QUADRILLAGE</string>

@@ -12,7 +12,7 @@
 | Orientation | portrait, paysage ; bouton ⟲ pour tourner la feuille |
 | Marges | mm (défaut 8), dans « Plus d'options » |
 | Échelle | 1:10 000, 1:20 000, 1:25 000 (défaut), 1:50 000, 1:100 000, 1:250 000, autre (1:500 à 1:10 000 000) |
-| Style | IGN TOP 25 (défaut) ou OTAN (§8) |
+| Style | IGN TOP 25 seul (style OTAN retiré le 2026-10-28, ADR-088) |
 | Résolution | 150, 200, 300 dpi |
 | Calques | ceux de la pile courante, avec leurs plages de zoom (N3) |
 | Habillage | titre (prérempli « carte · date »), sous-titre, échelle chiffrée, barre d'échelle, nords et déclinaison, légende, date et source, coordonnées des coins, traces, waypoints et leurs noms (chacun activable) |
@@ -110,15 +110,7 @@ Une page par impression. De l'extérieur vers la carte :
 | Waypoints | disque de 4 mm à la couleur de l'icône avec son glyphe blanc (image avec masque alpha, écrite une fois par document), nom noir détouré de blanc (masquable) | `PrintWaypoint.iconId`, `PdfImage.rgba` |
 | Traces | 0,6 mm environ, à leur couleur | `PageComposer` |
 
-**Styles** (« Plus d'options », mémorisé avec la dernière impression) :
-
-| | IGN TOP 25 (défaut) | OTAN |
-|---|---|---|
-| Quadrillage | bleu | noir |
-| Angles des nords | degrés | degrés et **millièmes** (6 400 au tour) |
-| Carré de 100 km | — | lettres affichées (MGRS) |
-| Encadré | — | « DONNER UNE RÉFÉRENCE (100 m) » : les étapes et l'exemple du centre de la feuille dans la grille choisie (ADR-087) : MGRS « 32T KQ 635 873 », UTM « 31T 732 600 E 5 033 400 N », Lambert 93 en mètres, degrés en DMS ou décimal |
-| Pas à 1:100 000 | 2 km | 1 km |
+**Style** : celui des cartes IGN TOP 25 seul (quadrillage bleu, angles des nords en degrés). Le style OTAN (quadrillage noir, angles aussi en millièmes, encadré « Donner une référence (100 m) », carreaux de 1 km au 1:100 000) a été retiré le 2026-10-28 à la demande de l'utilisateur, qui n'y voyait pas de différence utile (ADR-088) ; les lettres du carré de 100 km restent dans la case QUADRILLAGE d'une feuille MGRS.
 
 **Pas automatique** (`GridSpacing`, modifiable dans « Plus d'options ») : carreaux de 2 à 5 cm sur le papier.
 
@@ -127,9 +119,9 @@ Une page par impression. De l'extérieur vers la carte :
 | 1:10 000 | 500 m | 15″ | 0,005° |
 | 1:20 000 – 1:25 000 | 1 km | 30″ | 0,01° |
 | 1:50 000 | 1 km | 1′ | 0,02° |
-| 1:100 000 | 2 km (OTAN : 1 km) | 2′ | 0,05° |
+| 1:100 000 | 2 km | 2′ | 0,05° |
 | 1:250 000 | 10 km | 5′ | 0,1° |
 
 **Place de la carte** : une A4 paysage (marge 8 mm) montre 263,8 × 148,2 mm de carte, soit 6,6 × 3,7 km au 1:25 000 et 13,2 × 7,4 km au 1:50 000. La déclinaison est celle du jour (`GeomagneticField`) ; sa variation annuelle est la différence avec la valeur dans un an.
 
-**Vérifié** : tests JVM de `:core` (mise en page, pas de grille, graticule décimal, encadré OTAN, chiffres principaux, trois angles des nords écrits dans les deux styles), feuilles d'essai relues à l'écran, deux PDF A4 de contrôle faits sur l'émulateur (OTAN / MGRS / OpenTopoMap 1:50 000, TOP 25 / UTM / IGN SCAN 25 Touristique 1:25 000), relus et **validés par l'utilisateur** (2026-10-17). **Reste** : la mesure à la règle sur une feuille imprimée à 100 %.
+**Vérifié** : tests JVM de `:core` (mise en page, pas de grille, graticule décimal, chiffres principaux, trois angles des nords écrits ; encadré OTAN jusqu'au 2026-10-28), feuilles d'essai relues à l'écran, deux PDF A4 de contrôle faits sur l'émulateur (OTAN / MGRS / OpenTopoMap 1:50 000, TOP 25 / UTM / IGN SCAN 25 Touristique 1:25 000), relus et **validés par l'utilisateur** (2026-10-17). **Reste** : la mesure à la règle sur une feuille imprimée à 100 %.
