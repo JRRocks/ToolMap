@@ -627,6 +627,23 @@ class ShareControllerTest {
             val lifted = c.state.value.sosLifted.single()
             assertEquals(PEER_ID, lifted.memberId)
             assertEquals("Bob", lifted.name)
+            // Lifted before it was seen: « Alerte levée » waits for « OK », past the minute.
+            assertTrue(lifted.dialog)
+            advanceTimeBy(62_000)
+            runCurrent()
+            assertEquals(1, c.state.value.sosLifted.size)
+            c.acknowledgeLift(PEER_ID)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertTrue(c.state.value.sosLifted.isEmpty())
+
+            // Seen, then lifted: no dialog, the lift goes after a minute.
+            remote.node.startSos(null, "Encore")
+            runCurrent()
+            c.acknowledgeSos(PEER_ID)
+            remote.node.cancelSos()
+            runCurrent()
+            assertFalse(c.state.value.sosLifted.single().dialog)
             advanceTimeBy(30_000)
             runCurrent()
             assertEquals(1, c.state.value.sosLifted.size)
@@ -634,7 +651,8 @@ class ShareControllerTest {
             runCurrent()
             assertTrue(c.state.value.sosLifted.isEmpty())
 
-            remote.node.startSos(null, "Encore")
+            // A new alert after a lift comes back, and takes the place of the lift.
+            remote.node.startSos(null, "Encore une")
             runCurrent()
             remote.node.cancelSos()
             runCurrent()
