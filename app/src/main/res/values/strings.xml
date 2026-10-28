@@ -727,6 +727,39 @@
   <string name="target_gps_failed">Le GPS n\'a pas pu démarrer : autorisez la position pour voir la distance.</string>
   <string name="target_arrived">Arrivé</string>
   <string name="target_clear">Annuler la cible</string>
+  <!-- « Aller vers un point » par BRouter (P30.3, variante C de docs/previews/p30-itineraires.html) -->
+  <string name="goto_title">Vers %1$s</string>
+  <string name="goto_sheet_title">Aller vers %1$s</string>
+  <string name="goto_by_ways">Par les chemins</string>
+  <string name="goto_straight">À vol d\'oiseau</string>
+  <string name="goto_go">Partir</string>
+  <string name="goto_stop">Arrêter</string>
+  <string name="goto_minutes">%1$d min</string>
+  <string name="goto_by_ways_left">%1$s par les chemins</string>
+  <string name="goto_ascent">↑ %1$s</string>
+  <string name="goto_arrival">arrivée %1$s</string>
+  <string name="goto_next">recalcul dans %1$s</string>
+  <string name="goto_just_now">recalculé à l\'instant</string>
+  <string name="goto_computing">Calcul du chemin…</string>
+  <string name="goto_computing_short">calcul du chemin…</string>
+  <string name="goto_retry">nouvel essai dans %1$s</string>
+  <string name="goto_no_data">Pas de données BRouter ici</string>
+  <string name="goto_no_path">BRouter ne trouve pas de chemin : à vol d\'oiseau</string>
+  <string name="goto_failed">BRouter n\'a pas pu calculer le chemin : à vol d\'oiseau</string>
+  <string name="goto_off_route">Hors du chemin (%1$s) : calcul d\'un nouveau chemin…</string>
+  <string name="goto_rerouted">Hors du chemin (%1$s) : nouveau chemin calculé</string>
+  <string name="goto_profile">Profil : %1$s</string>
+  <string name="goto_background">Vers %1$s · %2$s</string>
+  <string name="goto_background_eta">Vers %1$s · %2$s · arrivée %3$s</string>
+  <string name="goto_background_arrived">Arrivé : %1$s</string>
+  <string name="goto_background_waiting">Vers %1$s · en attente de la position</string>
+  <string name="settings_goto">Aller vers un point</string>
+  <string name="settings_goto_routed">Par les chemins (BRouter)</string>
+  <string name="settings_goto_routed_hint">Sinon : à vol d\'oiseau, comme avant</string>
+  <string name="settings_goto_profile">Profil</string>
+  <string name="settings_goto_interval">Recalculer toutes les</string>
+  <string name="settings_goto_off_route">Recalculer si je m\'écarte de plus de</string>
+  <string name="settings_goto_vibrate">Vibrer en quittant le chemin</string>
 
   <!-- P7 : export PDF à l'échelle -->
   <string name="menu_print">Imprimer à l\'échelle…</string>

@@ -542,7 +542,10 @@ class MainActivity : ComponentActivity() {
                                                 },
                                                 mapCenter = { viewModel.state.value.camera.let { it.lat to it.lon } },
                                                 onGoTo = { w ->
-                                                    navigationViewModel.setTarget(NavTarget(w.lat, w.lon, w.name))
+                                                    // « Aller vers ce point »: the start sheet on the map (P30.3).
+                                                    navigationViewModel.askTarget(
+                                                        NavTarget(w.lat, w.lon, w.name, w.sym),
+                                                    )
                                                     toMap()
                                                 },
                                             )

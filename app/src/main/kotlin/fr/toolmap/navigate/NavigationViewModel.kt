@@ -5,75 +5,57 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.toolmap.core.geo.Guidance
 import fr.toolmap.core.geo.NavTarget
-import fr.toolmap.core.geo.Navigation
 import fr.toolmap.core.record.Fix
-import fr.toolmap.record.LocationSource
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
-/** The place the user is walking to, and the distance and bearing from the current position. */
+/**
+ * The place the user is walking to, and how to get there: the screen's side of [GoToController], which keeps the
+ * navigation for the whole process (P30.3), with the screen off too.
+ */
 @HiltViewModel
 class NavigationViewModel
     @Inject
     constructor(
-        private val location: LocationSource,
+        private val goTo: GoToController,
     ) : ViewModel() {
-        private val mutableTarget = MutableStateFlow<NavTarget?>(null)
-        val target: StateFlow<NavTarget?> = mutableTarget.asStateFlow()
+        /** The whole state of « Aller vers un point »: the way, what remains of it, the start sheet. */
+        val ui: StateFlow<GoToUi> = goTo.ui
 
-        private val mutableFix = MutableStateFlow<Fix?>(null)
+        val target: StateFlow<NavTarget?> = derived { it.target }
 
         /** The last position received while a target was set. */
-        val position: StateFlow<Fix?> = mutableFix.asStateFlow()
+        val position: StateFlow<Fix?> = derived { it.position }
 
-        private val mutableGuidance = MutableStateFlow<Guidance?>(null)
-
-        /** `null` without a target or before the first position. */
-        val guidance: StateFlow<Guidance?> = mutableGuidance.asStateFlow()
-
-        private val mutableGpsFailed = MutableStateFlow(false)
+        /** The straight line to the target; `null` without a target or before the first position. */
+        val guidance: StateFlow<Guidance?> = derived { it.guidance }
 
         /** The GPS could not be started: the target is shown but the distance cannot be computed. */
-        val gpsFailed: StateFlow<Boolean> = mutableGpsFailed.asStateFlow()
+        val gpsFailed: StateFlow<Boolean> = derived { it.gpsFailed }
 
-        private var listening: Job? = null
+        /** « Aller vers » straight away, with the choices of the settings. */
+        fun setTarget(target: NavTarget) = goTo.start(target)
 
-        fun setTarget(target: NavTarget) {
-            mutableTarget.value = target
-            mutableGpsFailed.value = false
-            mutableGuidance.value = mutableFix.value?.let { guide(it, target) }
-            if (listening == null) {
-                listening =
-                    viewModelScope.launch {
-                        location
-                            .fixes(UPDATE_MILLIS, 0f)
-                            .catch { mutableGpsFailed.value = true }
-                            .collect { fix ->
-                                mutableFix.value = fix
-                                mutableTarget.value?.let { mutableGuidance.value = guide(fix, it) }
-                            }
-                    }
-            }
-        }
+        /** « Aller vers ce point » of a waypoint: the start sheet first (variant C). */
+        fun askTarget(target: NavTarget) = goTo.preview(target)
 
-        fun clearTarget() {
-            mutableTarget.value = null
-            mutableGuidance.value = null
-            listening?.cancel()
-            listening = null
-        }
+        fun choose(
+            routed: Boolean,
+            profile: String,
+            intervalMinutes: Int,
+        ) = goTo.choose(routed, profile, intervalMinutes)
 
-        private fun guide(
-            fix: Fix,
-            target: NavTarget,
-        ): Guidance = Navigation.guide(fix.lat, fix.lon, target)
+        /** « Partir » of the start sheet. */
+        fun go() = goTo.go()
 
-        private companion object {
-            const val UPDATE_MILLIS = 1_000L
-        }
+        /** The start sheet closed without « Partir ». */
+        fun cancelStart() = goTo.cancelPreview()
+
+        fun clearTarget() = goTo.stop()
+
+        private fun <T> derived(pick: (GoToUi) -> T): StateFlow<T> =
+            goTo.ui.map(pick).stateIn(viewModelScope, SharingStarted.Eagerly, pick(goTo.ui.value))
     }

@@ -141,6 +141,17 @@ internal fun RowTexts(
     }
 }
 
+/** The name of a block of settings in a page (« Aller vers un point », P30.3), in the colour of the titles. */
+@Composable
+internal fun GroupCaption(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+    )
+}
+
 /** One setting: a grey icon, its name, its second line, a control on the right or under the texts. */
 @Composable
 internal fun SettingRow(

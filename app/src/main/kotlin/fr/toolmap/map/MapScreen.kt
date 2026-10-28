@@ -159,6 +159,7 @@ import fr.toolmap.maps.SaveRefusal
 import fr.toolmap.maps.tilesText
 import fr.toolmap.measure.MeasureBar
 import fr.toolmap.measure.MeasureViewModel
+import fr.toolmap.navigate.GoToStartSheet
 import fr.toolmap.navigate.NavigationViewModel
 import fr.toolmap.navigate.TargetHud
 import fr.toolmap.perf.MapPerfLog
@@ -254,7 +255,7 @@ fun MapScreen(
     val navTarget by navigation.target.collectAsStateWithLifecycle()
     val navGuidance by navigation.guidance.collectAsStateWithLifecycle()
     val navPosition by navigation.position.collectAsStateWithLifecycle()
-    val gpsFailed by navigation.gpsFailed.collectAsStateWithLifecycle()
+    val goToUi by navigation.ui.collectAsStateWithLifecycle()
     val alertUi by alerts.ui.collectAsStateWithLifecycle()
     val altitudeStatus by altitude.status.collectAsStateWithLifecycle()
     var showAltitude by remember { mutableStateOf(false) }
@@ -567,11 +568,16 @@ fun MapScreen(
             snackbar.showSnackbar(resources.getString(message.resId, *message.args.toTypedArray()))
         }
     }
-    LaunchedEffect(controller.isReady, navTarget, navPosition) {
+    // The target, and the way to it while « Aller vers un point » follows the ways (P30.3), grey while off it.
+    val goToWay = goToUi.remaining?.takeIf { goToUi.routed && !goToUi.arrived }
+    val goToPale = goToUi.routed && goToUi.progress?.offRoute == true
+    LaunchedEffect(controller.isReady, navTarget, navPosition, goToWay, goToPale) {
         if (controller.isReady) {
             controller.showTarget(
                 navPosition?.let { it.lat to it.lon },
                 navTarget?.let { it.lat to it.lon },
+                goToWay,
+                goToPale,
             )
         }
     }
@@ -1450,7 +1456,13 @@ fun MapScreen(
                             baseMaxZoom = baseMaxZoom,
                             gps = altitudeStatus.takeIf { controller.locationOn },
                             satellites = satellites?.used,
-                            targetMeters = if (navTarget != null) navGuidance?.distanceMeters else null,
+                            targetMeters =
+                                if (navTarget != null) {
+                                    goToUi.progress?.takeIf { goToUi.routed }?.remainingMeters
+                                        ?: navGuidance?.distanceMeters
+                                } else {
+                                    null
+                                },
                             heading = headingText,
                             onAltitudeClick = { showAltitude = true },
                             positionActions =
@@ -1492,13 +1504,14 @@ fun MapScreen(
                             sosOnly = framing,
                         )
                         if (!framing) {
-                            navTarget?.let { target ->
+                            if (navTarget != null && !goToUi.previewing) {
                                 TargetHud(
-                                    target = target,
-                                    guidance = navGuidance,
-                                    gpsFailed = gpsFailed,
+                                    ui = goToUi,
                                     mapBearing = controller.liveCamera.bearing,
-                                    onClear = navigation::clearTarget,
+                                    onStop = navigation::clearTarget,
+                                    onProfile = { profile ->
+                                        navigation.choose(true, profile, goToUi.intervalMinutes)
+                                    },
                                 )
                             }
                             FollowHud(
@@ -1994,7 +2007,10 @@ fun MapScreen(
                 onGoTo = { ref ->
                     tracks.onMapTap(null)
                     scope.launch {
-                        tracks.waypoint(ref.id)?.let { navigation.setTarget(NavTarget(it.lat, it.lon, it.name)) }
+                        // « Aller vers ce point »: the start sheet first (P30.3, variant C).
+                        tracks.waypoint(ref.id)?.let {
+                            navigation.askTarget(NavTarget(it.lat, it.lon, it.name, it.sym))
+                        }
                     }
                 },
                 alerts = alertUi,
@@ -2054,6 +2070,15 @@ fun MapScreen(
                 onDismiss = { watchDraft = null },
             )
         }
+        // « Aller vers ce point » of a waypoint: the start sheet, the way drawn behind it (P30.3, variant C).
+        if (goToUi.previewing) {
+            GoToStartSheet(
+                ui = goToUi,
+                onChoose = navigation::choose,
+                onGo = navigation::go,
+                onDismiss = navigation::cancelStart,
+            )
+        }
         waypointDraft?.let { draft ->
             val defaultName =
                 remember(draft) {
@@ -2075,7 +2100,7 @@ fun MapScreen(
                 onSaveAndGo = { waypoint ->
                     waypointDraft = null
                     tracks.saveWaypoint(draft.existing?.first, waypoint)
-                    navigation.setTarget(NavTarget(waypoint.lat, waypoint.lon, waypoint.name))
+                    navigation.setTarget(NavTarget(waypoint.lat, waypoint.lon, waypoint.name, waypoint.sym))
                 },
                 onDismiss = { waypointDraft = null },
             )

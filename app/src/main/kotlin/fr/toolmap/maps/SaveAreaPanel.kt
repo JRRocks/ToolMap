@@ -425,20 +425,32 @@ internal fun CorridorWidthDialog(
     onDone: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var text by rememberSaveable { mutableStateOf(radius.toString()) }
+    var text by remember { mutableStateOf(radius.toString()) }
     val meters = text.trim().toIntOrNull()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.sa_corridor_width)) },
         text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { value -> text = value.filter(Char::isDigit).take(MAX_DIGITS) },
-                singleLine = true,
-                suffix = { Text("m") },
-                supportingText = { Text(stringResource(R.string.sa_corridor_bounds)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
+            // The unit and the bounds beside and under the field rather than in its `suffix` and `supportingText`:
+            // with them, the dialog never let Robolectric idle (`AppNotIdleException`, CorridorWidthDialogTest).
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { value -> text = value.filter(Char::isDigit).take(MAX_DIGITS) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text("m", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 8.dp))
+                }
+                Text(
+                    stringResource(R.string.sa_corridor_bounds),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                )
+            }
         },
         confirmButton = {
             TextButton(onClick = { meters?.let { onDone(CorridorWidth.clamp(it)) } }, enabled = meters != null) {

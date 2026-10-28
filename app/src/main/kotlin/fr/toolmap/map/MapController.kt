@@ -68,6 +68,14 @@ enum class LocationMode {
         }
 }
 
+/** What [MapController.showTarget] last drew, drawn again with a new style or new placemark settings. */
+private class NavShown(
+    val from: Pair<Double, Double>?,
+    val target: Pair<Double, Double>?,
+    val way: List<TrackPoint>?,
+    val pale: Boolean,
+)
+
 /**
  * The thin layer between the Compose UI and MapLibre (ADR-011): everything MapLibre-specific for the main map
  * lives here, so the rest of the app talks to it with plain types. Single-threaded: used from the main thread.
@@ -115,7 +123,7 @@ class MapController(
     private var tracks: DisplayData? = null
     private var cursor: TrackPoint? = null
     private var edit: EditShown? = null
-    private var nav: Pair<Pair<Double, Double>?, Pair<Double, Double>?>? = null
+    private var nav: NavShown? = null
     private var share: ShareMapData? = null
     private var measure: Triple<String, String, String>? = null
     private var grid: Pair<String, String>? = null
@@ -364,14 +372,19 @@ class MapController(
         val zones: String?,
     )
 
-    /** The ring on the target and the line to it from [from]; a `null` [target] hides both. */
+    /**
+     * The ring on the target and the line to it from [from], or the [way] to it (P30.3, [pale] while the walker is
+     * off it); a `null` [target] hides them all.
+     */
     fun showTarget(
         from: Pair<Double, Double>?,
         target: Pair<Double, Double>?,
+        way: List<TrackPoint>? = null,
+        pale: Boolean = false,
     ) {
-        nav = from to target
+        nav = NavShown(from, target, way, pale)
         val s = style ?: return
-        runCatching { NavLayers.show(s, from, target, placemarks.targetColor) }
+        runCatching { NavLayers.show(s, from, target, placemarks.targetColor, way, pale) }
             .onFailure { Log.e(TAG, "Target overlay failed", it) }
     }
 
@@ -513,7 +526,7 @@ class MapController(
         tracks?.let(::showTracks)
         showCursor(cursor)
         edit?.let { drawEdit(s, it, keepLine = false) }
-        nav?.let { showTarget(it.first, it.second) }
+        nav?.let { showTarget(it.from, it.target, it.way, it.pale) }
         share?.let(::showShare)
         measure?.let { showMeasure(it.first, it.second, it.third) }
         grid?.let { showGrid(it.first, it.second) }
@@ -687,7 +700,7 @@ class MapController(
             TrackOverlay.applyStyle(it, settings)
             ShareLayers.showLabels(it, settings.labels)
         }
-        nav?.let { showTarget(it.first, it.second) }
+        nav?.let { showTarget(it.from, it.target, it.way, it.pale) }
     }
 
     /** Brings the gestures in line with the « Map canvas settings » (pinch zoom, manual rotation, perspective). */

@@ -66,6 +66,20 @@ class BackgroundNotificationTest {
     }
 
     @Test
+    fun `the way to a target has its line between the recording and the alerts`() {
+        BackgroundNotification.put(app, BackgroundNotification.Part.ALERTS, line("Alertes", "Arrêter les alertes"))
+        BackgroundNotification.put(app, BackgroundNotification.Part.RECORDING, line("Enregistrement", "Arrêter l'enr."))
+        val all =
+            BackgroundNotification.put(
+                app,
+                BackgroundNotification.Part.GOTO,
+                line("Vers Refuge du Pré · 3,1 km · arrivée 15:20", "Arrêter"),
+            )
+        assertEquals("Enregistrement\nVers Refuge du Pré · 3,1 km · arrivée 15:20\nAlertes", all.text())
+        assertEquals(listOf("Arrêter l'enr.", "Arrêter", "Arrêter les alertes"), all.buttons())
+    }
+
+    @Test
     fun `a stopped work leaves the line of the others, and the last one leaves nothing`() {
         BackgroundNotification.put(app, BackgroundNotification.Part.SHARING, line("Partage", "Arrêter le partage"))
         BackgroundNotification.put(app, BackgroundNotification.Part.ALERTS, line("Alertes", "Arrêter les alertes"))

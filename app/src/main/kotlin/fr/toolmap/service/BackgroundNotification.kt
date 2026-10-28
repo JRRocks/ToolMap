@@ -20,8 +20,11 @@ import java.util.EnumMap
  * vibration.
  */
 internal object BackgroundNotification {
-    /** The services that share the notification, in the order of their lines and buttons (three at most). */
-    enum class Part { SHARING, RECORDING, ALERTS }
+    /**
+     * The services that share the notification, in the order of their lines and buttons; « Aller vers un point »
+     * (P30.3) before the alerts. Android shows three buttons at most: with all four at work, the alerts' has none.
+     */
+    enum class Part { SHARING, RECORDING, GOTO, ALERTS }
 
     /**
      * What one service shows: its line, and its stop button (none for the listening to the group, P22.3); [open] is

@@ -107,7 +107,7 @@ fun profileLabel(profile: String): String =
     }
 
 @Composable
-private fun profileIcon(profile: String): Painter =
+internal fun profileIcon(profile: String): Painter =
     when (profile) {
         RoutingProfiles.HIKING -> {
             rememberVectorPainter(SettingsIcons.Hiking)

@@ -20,6 +20,7 @@ import fr.toolmap.core.geo.CoordinateSystem
 import fr.toolmap.core.geo.TileSharpness
 import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.print.GridKind
+import fr.toolmap.core.route.GoToRules
 import fr.toolmap.core.settings.AltitudeMode
 import fr.toolmap.core.settings.AppSettings
 import fr.toolmap.core.settings.BearingUnit
@@ -32,6 +33,7 @@ import fr.toolmap.core.settings.InfoBoxSize
 import fr.toolmap.core.settings.LongPressAction
 import fr.toolmap.core.settings.MapDisplaySettings
 import fr.toolmap.core.settings.NorthReference
+import fr.toolmap.core.settings.PlacemarkSettings
 import fr.toolmap.core.settings.PlacemarkSize
 import fr.toolmap.core.settings.PressureUnit
 import fr.toolmap.core.settings.RoutingNoData
@@ -41,6 +43,7 @@ import fr.toolmap.core.settings.ThemeMode
 import fr.toolmap.core.settings.UnitSystem
 import fr.toolmap.core.settings.ZoomStep
 import fr.toolmap.core.tiles.ScalingPolicy
+import fr.toolmap.draw.profileLabel
 import fr.toolmap.map.MenuIcons
 import fr.toolmap.map.pointApps
 import fr.toolmap.ui.LocalFormats
@@ -475,24 +478,83 @@ private fun placemarkEntries(
         routingEntry(placemarks.routingNoData) { v ->
             vm.update { it.copy(placemarks = it.placemarks.copy(routingNoData = v)) }
         },
+    ) + goToEntries(placemarks, vm) +
+        listOf(
+            switchEntry(
+                SettingsIcons.Label,
+                R.string.settings_labels,
+                placemarks.labels,
+                R.string.settings_labels_hint,
+            ) { on ->
+                vm.update { it.copy(placemarks = it.placemarks.copy(labels = on)) }
+            },
+            switchEntry(
+                SettingsIcons.BorderStyle,
+                R.string.settings_borders,
+                placemarks.borders,
+                R.string.settings_borders_hint,
+            ) { on -> vm.update { it.copy(placemarks = it.placemarks.copy(borders = on)) } },
+            switchEntry(SettingsIcons.BlurOn, R.string.settings_shadows, placemarks.shadows) { on ->
+                vm.update { it.copy(placemarks = it.placemarks.copy(shadows = on)) }
+            },
+        )
+}
+
+/**
+ * « Aller vers un point » (P30.3, `docs/previews/p30-itineraires.html`): by the ways of BRouter or in a straight line,
+ * the profile, how often the way is computed again and how far off it it is computed at once, the vibration.
+ */
+@Composable
+private fun goToEntries(
+    placemarks: PlacemarkSettings,
+    vm: SettingsViewModel,
+): List<SettingEntry> {
+    val fmt = LocalFormats.current
+    return listOf(
+        captionEntry(R.string.settings_goto),
         switchEntry(
-            SettingsIcons.Label,
-            R.string.settings_labels,
-            placemarks.labels,
-            R.string.settings_labels_hint,
-        ) { on ->
-            vm.update { it.copy(placemarks = it.placemarks.copy(labels = on)) }
-        },
-        switchEntry(
-            SettingsIcons.BorderStyle,
-            R.string.settings_borders,
-            placemarks.borders,
-            R.string.settings_borders_hint,
-        ) { on -> vm.update { it.copy(placemarks = it.placemarks.copy(borders = on)) } },
-        switchEntry(SettingsIcons.BlurOn, R.string.settings_shadows, placemarks.shadows) { on ->
-            vm.update { it.copy(placemarks = it.placemarks.copy(shadows = on)) }
+            SettingsIcons.AltRoute,
+            R.string.settings_goto_routed,
+            placemarks.goToRouted,
+            R.string.settings_goto_routed_hint,
+        ) { on -> vm.update { it.copy(placemarks = it.placemarks.copy(goToRouted = on)) } },
+        choiceEntry(
+            icon = SettingsIcons.Hiking,
+            title = R.string.settings_goto_profile,
+            options = GoToRules.PROFILES,
+            selected = placemarks.goToProfile,
+            label = { profileLabel(it) },
+            onSelect = { v -> vm.update { it.copy(placemarks = it.placemarks.copy(goToProfile = v)) } },
+        ),
+        choiceEntry(
+            icon = SettingsIcons.Replay,
+            title = R.string.settings_goto_interval,
+            options = GoToRules.INTERVAL_MINUTES,
+            selected = placemarks.goToIntervalMinutes,
+            label = { stringResource(R.string.goto_minutes, it) },
+            onSelect = { v -> vm.update { it.copy(placemarks = it.placemarks.copy(goToIntervalMinutes = v)) } },
+        ),
+        choiceEntry(
+            icon = SettingsIcons.SocialDistance,
+            title = R.string.settings_goto_off_route,
+            options = GoToRules.OFF_ROUTE_METERS,
+            selected = placemarks.goToOffRouteMeters,
+            label = { fmt.distance(it.toDouble()) },
+            onSelect = { v -> vm.update { it.copy(placemarks = it.placemarks.copy(goToOffRouteMeters = v)) } },
+        ),
+        switchEntry(SettingsIcons.Vibration, R.string.settings_goto_vibrate, placemarks.goToVibrate) { on ->
+            vm.update { it.copy(placemarks = it.placemarks.copy(goToVibrate = on)) }
         },
     )
+}
+
+/** The name of a block of settings (« Aller vers un point »): never found by the search, its settings are. */
+@Composable
+private fun captionEntry(
+    @StringRes title: Int,
+): SettingEntry {
+    val name = stringResource(title)
+    return SettingEntry(title, emptyList()) { GroupCaption(name) }
 }
 
 /** Positioning and heading: how the course and the altitude are shown, how the map follows, what the trail shows. */

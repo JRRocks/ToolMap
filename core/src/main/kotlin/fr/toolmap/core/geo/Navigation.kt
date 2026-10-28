@@ -7,6 +7,8 @@ data class NavTarget(
     val lat: Double,
     val lon: Double,
     val name: String? = null,
+    /** GPX symbol of a waypoint target: its icon at the top of the start sheet (P30.3). */
+    val sym: String? = null,
 )
 
 /** How to get from here to a [NavTarget]. [relativeDegrees] is `null` while the device heading is unknown. */

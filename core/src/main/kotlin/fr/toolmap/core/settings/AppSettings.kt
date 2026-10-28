@@ -5,6 +5,7 @@ import fr.toolmap.core.geo.TileSharpness
 import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.maps.CorridorWidth
 import fr.toolmap.core.print.GridKind
+import fr.toolmap.core.route.GoToRules
 import fr.toolmap.core.route.RoutingProfiles
 import fr.toolmap.core.tiles.ScalingPolicy
 import fr.toolmap.core.track.LibraryFilter
@@ -240,7 +241,20 @@ data class PlacemarkSettings(
     val routingProfiles: List<String> = emptyList(),
     /** Radius in meters of the last zone to avoid (P19.8), offered first for the next one. */
     val routingAvoidRadius: Int = 250,
+    /** « Aller vers un point » by the ways BRouter computes (P30.3); otherwise in a straight line, as before. */
+    val goToRouted: Boolean = true,
+    /** BRouter profile of « Aller vers un point ». */
+    val goToProfile: String = RoutingProfiles.HIKING,
+    /** Minutes between two computations of the way to the target (one of [GoToRules.INTERVAL_MINUTES]). */
+    val goToIntervalMinutes: Int = 2,
+    /** Meters off the way that have it computed again at once (one of [GoToRules.OFF_ROUTE_METERS]). */
+    val goToOffRouteMeters: Int = 50,
+    /** A vibration when the walker leaves the way to the target. */
+    val goToVibrate: Boolean = true,
 ) {
+    /** The rules of « Aller vers un point » these settings give. */
+    val goToRules: GoToRules get() = GoToRules.of(goToIntervalMinutes, goToOffRouteMeters)
+
     companion object {
         const val TARGET_COLOR: Int = 0xFFD81B60.toInt()
     }
