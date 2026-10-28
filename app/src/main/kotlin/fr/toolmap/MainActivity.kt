@@ -83,9 +83,10 @@ import fr.toolmap.search.SearchScreen
 import fr.toolmap.search.SearchViewModel
 import fr.toolmap.settings.SettingsScreen
 import fr.toolmap.settings.SettingsViewModel
+import fr.toolmap.share.AlertLiftedDialog
+import fr.toolmap.share.GroupAlertDialog
 import fr.toolmap.share.ShareScreen
 import fr.toolmap.share.ShareViewModel
-import fr.toolmap.share.SosAlertDialog
 import fr.toolmap.sources.UriReader
 import fr.toolmap.storage.StorageMoveActivity
 import fr.toolmap.storage.StorageScreen
@@ -629,10 +630,15 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                        // An SOS from the group comes before everything else, on whichever screen is showing.
+                        // An alert of the group comes before everything else, on whichever screen is showing; once
+                        // lifted before it was seen, « Alerte levée » takes its place until « OK » (P22, variant C).
+                        shareUi.sosLifted.firstOrNull { it.dialog }?.let { lifted ->
+                            AlertLiftedDialog(lifted, onOk = { shareViewModel.acknowledgeLift(lifted.memberId) })
+                        }
                         shareUi.sos.firstOrNull { !it.acknowledged }?.let { alert ->
-                            SosAlertDialog(
+                            GroupAlertDialog(
                                 alert = alert,
+                                from = shareUi.self?.fix,
                                 onAcknowledge = { shareViewModel.acknowledgeSos(alert.memberId) },
                                 onShowOnMap =
                                     alert.fix?.let { f ->

@@ -27,6 +27,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 /**
@@ -55,15 +58,14 @@ class ShareService : Service() {
     override fun onCreate() {
         super.onCreate()
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (manager.getNotificationChannel(SOS_CHANNEL_ID) == null) {
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    SOS_CHANNEL_ID,
-                    getString(R.string.share_sos_channel),
-                    NotificationManager.IMPORTANCE_HIGH,
-                ),
-            )
-        }
+        // Created once with its importance; its name follows the app's (« Alertes du groupe » since P22).
+        manager.createNotificationChannel(
+            NotificationChannel(
+                SOS_CHANNEL_ID,
+                getString(R.string.group_alert_channel),
+                NotificationManager.IMPORTANCE_HIGH,
+            ),
+        )
     }
 
     private fun locationServiceType(): Int =
@@ -147,25 +149,28 @@ class ShareService : Service() {
             }
     }
 
-    /** A high-priority notification for each SOS not yet seen, taken back once it is. */
+    /**
+     * A high-priority notification for each alert of the group not yet seen, taken back once it is; an alert lifted
+     * while notified is replaced by « Alerte levée par … », without sound, gone after [LIFTED_NOTIFICATION_MS] (P22).
+     */
     private fun notifySos(ui: ShareUi) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val open =
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                PendingIntent.FLAG_IMMUTABLE,
+            )
         val pending = ui.sos.filter { !it.acknowledged }
         for (alert in pending) {
             if (!notifiedSos.add(alert.memberId)) continue
-            val open =
-                PendingIntent.getActivity(
-                    this,
-                    0,
-                    Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                    PendingIntent.FLAG_IMMUTABLE,
-                )
             manager.notify(
                 sosNotificationId(alert.memberId),
                 NotificationCompat
                     .Builder(this, SOS_CHANNEL_ID)
                     .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                    .setContentTitle(getString(R.string.share_sos_notification, alert.name))
+                    .setContentTitle(getString(R.string.group_alert_from, alert.name))
                     .setContentText(alert.text)
                     .setContentIntent(open)
                     .setAutoCancel(true)
@@ -175,11 +180,29 @@ class ShareService : Service() {
             )
         }
         val still = pending.map { it.memberId }.toSet()
+        val time = DateTimeFormatter.ofPattern("HH:mm")
         for (id in notifiedSos.toList()) {
-            if (id !in still) {
+            if (id in still) continue
+            val lifted = ui.sosLifted.firstOrNull { it.memberId == id }
+            if (lifted != null) {
+                val at = time.format(Instant.ofEpochMilli(lifted.alertAtMs).atZone(ZoneId.systemDefault()))
+                manager.notify(
+                    sosNotificationId(id),
+                    NotificationCompat
+                        .Builder(this, SOS_CHANNEL_ID)
+                        .setSmallIcon(android.R.drawable.ic_dialog_info)
+                        .setContentTitle(getString(R.string.group_alert_lifted_by, lifted.name))
+                        .setContentText(getString(R.string.group_alert_lifted_text, lifted.name, at))
+                        .setContentIntent(open)
+                        .setAutoCancel(true)
+                        .setSilent(true)
+                        .setTimeoutAfter(LIFTED_NOTIFICATION_MS)
+                        .build(),
+                )
+            } else {
                 manager.cancel(sosNotificationId(id))
-                if (ui.sos.none { it.memberId == id }) notifiedSos.remove(id)
             }
+            if (ui.sos.none { it.memberId == id }) notifiedSos.remove(id)
         }
     }
 
@@ -226,6 +249,7 @@ class ShareService : Service() {
         private const val SOS_CHANNEL_ID = "sharing-sos"
         private const val SOS_NOTIFICATION_BASE = 4200
         private const val SOS_ID_MASK = 0xFF
+        private const val LIFTED_NOTIFICATION_MS = 10 * 60_000L
         private const val NOTIFY_EVERY_MILLIS = 10_000L
         private const val ACTION_STOP = "fr.toolmap.share.STOP"
         internal const val PREFS = "share-service"

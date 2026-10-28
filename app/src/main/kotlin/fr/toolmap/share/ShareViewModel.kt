@@ -137,10 +137,11 @@ class ShareViewModel
 
         fun startSos(text: String) = controller.startSos(text)
 
-        // Named after the button of today's screen until the texts of P22.1 change it to « Annuler l'alerte ».
-        fun stopSos() = controller.cancelSos()
+        fun cancelSos() = controller.cancelSos()
 
         fun acknowledgeSos(memberId: Long) = controller.acknowledgeSos(memberId)
+
+        fun acknowledgeLift(memberId: Long) = controller.acknowledgeLift(memberId)
 
         /** Keeps the recent positions of [member] as a track of the library. */
         fun saveTrail(member: MemberView) {

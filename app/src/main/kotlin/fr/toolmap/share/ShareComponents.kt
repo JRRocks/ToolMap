@@ -45,9 +45,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -68,7 +65,6 @@ import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.TextButton
-import java.util.Locale
 
 /** A QR code on a white square with its quiet zone (4 modules), which scanners need to find it. */
 @Composable
@@ -327,39 +323,10 @@ fun MemberSheet(
     }
 }
 
-/** An SOS that was just received: it comes back for nothing until acknowledged. */
-@Composable
-fun SosAlertDialog(
-    alert: SosAlert,
-    onAcknowledge: () -> Unit,
-    onShowOnMap: (() -> Unit)?,
-) {
-    AlertDialog(
-        onDismissRequest = onAcknowledge,
-        title = { Text(stringResource(R.string.share_sos_received_title, alert.name), color = Color(SOS_RED)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (alert.text.isNotBlank()) Text(alert.text, style = MaterialTheme.typography.titleMedium)
-                alert.fix?.let {
-                    Text(String.format(Locale.ROOT, "%.5f, %.5f", it.lat, it.lon))
-                    Text(stringResource(R.string.share_last_position, ageText(it.timeSec * MS_PER_S)))
-                } ?: Text(stringResource(R.string.share_no_position))
-            }
-        },
-        confirmButton = { TextButton(onClick = onAcknowledge) { Text(stringResource(R.string.share_sos_seen)) } },
-        dismissButton =
-            onShowOnMap?.let {
-                {
-                    TextButton(onClick = {
-                        onAcknowledge()
-                        it()
-                    }) { Text(stringResource(R.string.share_show_on_map)) }
-                }
-            },
-    )
-}
-
-/** The strip on the map: SOS in progress and the state of the sharing ([sosOnly]: the SOS alone, frame placement). */
+/**
+ * The strip on the map: the alerts of the group and their lifts (P22), then the state of the sharing ([sosOnly]: the
+ * alerts alone, frame placement).
+ */
 @Composable
 fun ShareHud(
     ui: ShareUi,
@@ -370,20 +337,8 @@ fun ShareHud(
 ) {
     if (!ui.inGroup) return
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        for (alert in ui.sos) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(SOS_RED)),
-                onClick = { onShowSos(alert) },
-                modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Assertive },
-            ) {
-                Text(
-                    stringResource(R.string.share_sos_banner, alert.name, alert.text),
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                )
-            }
-        }
+        for (alert in ui.sos) AlertBanner(alert, onClick = { onShowSos(alert) })
+        for (lifted in ui.sosLifted) LiftedBanner(lifted)
         if (!sosOnly && (ui.sharing || ui.others.isNotEmpty())) {
             // Amber with a warning sign while a phone setting may cut the sharing (P21.5 o, c).
             val warn = ui.sharing && ui.alerts.isNotEmpty()
@@ -435,4 +390,3 @@ private val BADGE_SIZE = 36.dp
 private const val ICON_SHARE = 0.6f
 private const val RING_SHARE = 0.08f
 private const val MS_PER_S = 1000L
-private const val SOS_RED = 0xFFD32F2F

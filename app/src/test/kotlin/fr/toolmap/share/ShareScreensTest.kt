@@ -24,7 +24,8 @@ import kotlin.test.assertEquals
 
 /**
  * The sharing screen in « Cordée » (P29.8): your line first, out of a group and in one; the others with a map button;
- * the line of the messages; the SOS in the bar and the rest in its ⋮; the sheet of a member with its confirmation.
+ * the line of the messages; the alert line under yours (P22) and the rest in the ⋮; the sheet of a member with its
+ * confirmation.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class, qualifiers = "w412dp-h2000dp")
@@ -45,7 +46,7 @@ class ShareScreensTest {
                         onBack = {},
                         onToggle = { calls += "toggle $it" },
                         onSos = { calls += "sos" },
-                        onStopSos = { calls += "stop" },
+                        onCancelSos = { calls += "cancel" },
                         onInvite = { calls += "invite" },
                         onScan = { calls += "scan" },
                         onPaste = { calls += "paste" },
@@ -74,7 +75,7 @@ class ShareScreensTest {
         rule.onNodeWithText("Scanner un code").performClick()
         rule.onNodeWithText("Coller un lien").performClick()
         assertEquals(listOf("profile", "invite", "scan", "paste"), calls)
-        rule.onAllNodesWithContentDescription("Envoyer un SOS").assertCountEquals(0)
+        rule.onAllNodesWithText("Envoyer une alerte au groupe").assertCountEquals(0)
     }
 
     @Test
@@ -106,9 +107,9 @@ class ShareScreensTest {
     }
 
     @Test
-    fun `in a group the SOS is in the bar and scan, paste, settings, help and leave in its menu`() {
+    fun `in a group the alert line is under yours and scan, paste, settings, help and leave in the menu`() {
         main(inGroup = true)
-        rule.onNodeWithContentDescription("Envoyer un SOS").performClick()
+        rule.onNodeWithText("Envoyer une alerte au groupe").performClick()
         rule.onNodeWithContentDescription("Plus d'options du partage").performClick()
         listOf("Scanner un code", "Coller un lien", "Réglages du partage", "Aide").forEach {
             rule.onNodeWithText(it).assertExists()
