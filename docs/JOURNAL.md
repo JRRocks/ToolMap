@@ -31,7 +31,7 @@
   - Drive : même règle ajoutée au `CLAUDE.md` commun de `2 - Jean/Claude Code/`, puis miroir du projet et de l'APK.
 - **Décisions (ADR)** : aucune (règle de travail, pas d'architecture).
 - **Tests / vérifications** : `./gradlew spotlessApply check assembleDebug` (JDK d'Android Studio) : BUILD SUCCESSFUL en 9 min 29 s, version **0.4.102**, `ToolMap-debug-0.4.102.apk`. Tests : core 886, data 311, p2p 29 (2 ignorés), app 434 (72 ignorés), 0 échec ; lint : 0 erreur, app 63 avertissements, data 1. `spotlessApply` avait passé 614 fichiers en CRLF (Windows, `core.autocrlf=false`) : annulé, seules les fins de ligne changeaient. CI : voir le message de fin de session.
-- **Problèmes / dette technique** : sous Windows, `spotlessApply` réécrit les fichiers en CRLF ; lancer `check` sans `spotlessApply` sur ce poste, ou annuler ces changements avant le commit. `main` reste en 0.4.81 : la refonte P29 n'existe que sur `claude/pensive-edison-cgzr8t` (fusion à décider par l'utilisateur).
+- **Problèmes / dette technique** : sous Windows, `spotlessApply` réécrit les fichiers en CRLF ; lancer `check` sans `spotlessApply` sur ce poste, ou annuler ces changements avant le commit. `main` était resté en 0.4.81 ; à la demande de l'utilisateur (« Oui, fusionner », 2026-10-28), `claude/pensive-edison-cgzr8t` (refonte P29 et cette session) est fusionnée en avance rapide dans `main`, poussée : `main` en 0.4.102.
 - **Prochaine étape recommandée** : vérifier P29.2 à P29.10 sur l'émulateur du poste Windows (captures à côté des aperçus validés), puis la suite de `docs/PLAN.md`.
 
 ## 2026-10-28 — Session 67 (suite) — Règle du push : Claude pousse lui-même sur GitHub
