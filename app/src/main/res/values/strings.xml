@@ -888,7 +888,6 @@
   <string name="share_paste">Coller un lien</string>
   <string name="share_help">Aide</string>
   <string name="share_more">Plus d\'options du partage</string>
-  <string name="share_sos_ongoing">Votre SOS est envoyé au groupe</string>
   <string name="share_messages_last">%1$s : %2$s</string>
   <string name="share_messages_none">Aucun message pour l\'instant.</string>
   <plurals name="share_messages_unread">
@@ -948,7 +947,6 @@
   <string name="share_members">Membres</string>
   <string name="share_no_members">Personne d\'autre pour l\'instant. Invitez quelqu\'un avec un code.</string>
   <string name="share_self">%1$s (vous)</string>
-  <string name="share_self_silent">Position non partagée</string>
   <!-- Peer and server states (P13) -->
   <string name="share_peer_online">En ligne</string>
   <string name="share_peer_paired">Appairé, pas encore de nouvelles</string>
@@ -1017,22 +1015,52 @@
   <string name="share_problem_timeout">La connexion n\'a pas abouti. Les deux téléphones doivent avoir du réseau ; recommencez avec une nouvelle invitation.</string>
   <string name="share_excluded_title">Retiré du groupe</string>
   <string name="share_excluded_text">Les autres membres vous ont retiré du groupe : vous ne recevez plus rien. Il faudra une nouvelle invitation pour revenir.</string>
-  <string name="share_sos_send">SOS</string>
-  <string name="share_sos_send_title">Envoyer un SOS</string>
-  <string name="share_sos_send_text">Tout le groupe est alerté avec votre dernière position, et le message se répète jusqu\'à ce que vous l\'arrêtiez. Cela ne remplace pas les secours (112).</string>
-  <string name="share_sos_hint">Message (facultatif)</string>
-  <string name="share_sos_stop">Arrêter le SOS</string>
-  <string name="share_sos_received_title">SOS de %1$s</string>
-  <string name="share_sos_seen">Vu</string>
-  <string name="share_sos_banner">SOS %1$s : %2$s</string>
   <string name="share_hud_sharing" tools:ignore="PluralsCandidate">Partage actif · %1$d connecté(s)</string>
   <string name="share_hud_watching" tools:ignore="PluralsCandidate">Groupe · %1$d membre(s)</string>
   <plurals name="share_notification_members">
     <item quantity="one">%1$d membre connecté</item>
     <item quantity="other">%1$d membres connectés</item>
   </plurals>
-  <string name="share_sos_channel">Alertes SOS</string>
-  <string name="share_sos_notification">SOS de %1$s</string>
+
+  <!-- Alerte au groupe, ex-SOS (P22 : aperçu docs/previews/p22-alerte.html validé le 2026-10-28, « B pour la page "Envoi", C pour le reste ») -->
+  <string name="group_alert_send">Envoyer une alerte au groupe</string>
+  <string name="group_alert_send_text">Avec votre dernière position · répétée 2 min · annulable</string>
+  <string name="group_alert_hint">Message (facultatif)</string>
+  <string name="group_alert_hold">Maintenez pour envoyer</string>
+  <string name="group_alert_send_action">Envoyer l\'alerte</string>
+  <string name="group_alert_ongoing">Alerte en cours</string>
+  <string name="group_alert_left_min">Répétée encore %1$d min %2$d s</string>
+  <string name="group_alert_left_s">Répétée encore %1$d s</string>
+  <string name="group_alert_sent_at">Envoyée à %1$s</string>
+  <string name="group_alert_cancel">Annuler l\'alerte</string>
+  <string name="group_alert_cancel_title">Annuler l\'alerte ?</string>
+  <string name="group_alert_cancel_text">Le groupe verra « Alerte levée par %1$s ».</string>
+  <string name="group_alert_keep">Garder l\'alerte</string>
+  <string name="group_alert_from">Alerte de %1$s</string>
+  <string name="group_alert_seen">Vu</string>
+  <string name="group_alert_last_position">Dernière position %1$s</string>
+  <string name="group_alert_where">%1$s %2$s</string>
+  <string-array name="group_alert_directions">
+    <item>au nord</item>
+    <item>au nord-est</item>
+    <item>à l\'est</item>
+    <item>au sud-est</item>
+    <item>au sud</item>
+    <item>au sud-ouest</item>
+    <item>à l\'ouest</item>
+    <item>au nord-ouest</item>
+  </string-array>
+  <string name="group_alert_lifted_by">Alerte levée par %1$s</string>
+  <string name="group_alert_lifted_title">Alerte levée</string>
+  <string name="group_alert_lifted_text">%1$s a annulé son alerte de %2$s.</string>
+  <string name="group_alert_channel">Alertes du groupe</string>
+
+  <!-- Écoute permanente du groupe (P22.3, ADR-090 ; aperçu docs/previews/p22-alerte.html validé le 2026-10-28) -->
+  <string name="share_peer_listening">À l\'écoute</string>
+  <plurals name="share_listening_line">
+    <item quantity="one">Groupe · %1$d membre : à l\'écoute</item>
+    <item quantity="other">Groupe · %1$d membres : à l\'écoute</item>
+  </plurals>
 
   <!-- Notification de ToolMap quand il travaille en arrière-plan (P21.7, variante B validée le 2026-10-24) -->
   <string name="background_channel">Activité en arrière-plan</string>

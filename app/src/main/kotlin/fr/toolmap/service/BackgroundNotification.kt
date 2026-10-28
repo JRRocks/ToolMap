@@ -23,11 +23,15 @@ internal object BackgroundNotification {
     /** The services that share the notification, in the order of their lines and buttons (three at most). */
     enum class Part { SHARING, RECORDING, ALERTS }
 
-    /** What one service shows: its line, and its stop button. */
+    /**
+     * What one service shows: its line, and its stop button (none for the listening to the group, P22.3); [open] is
+     * what a tap on the notification opens when this line comes first, the app otherwise.
+     */
     class Line(
         val text: String,
-        val stopLabel: String,
-        val stop: PendingIntent,
+        val stopLabel: String? = null,
+        val stop: PendingIntent? = null,
+        val open: PendingIntent? = null,
     )
 
     const val NOTIFICATION_ID = 4100
@@ -81,7 +85,7 @@ internal object BackgroundNotification {
         val shown = lines.values.toList()
         val text = shown.joinToString("\n") { it.text }
         val open =
-            PendingIntent.getActivity(
+            shown.firstOrNull()?.open ?: PendingIntent.getActivity(
                 context,
                 0,
                 Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -101,7 +105,9 @@ internal object BackgroundNotification {
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 // Shown at once: Android 12+ may otherwise hold a service's notification back for 10 s.
                 .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-        for (line in shown) builder.addAction(0, line.stopLabel, line.stop)
+        for (line in shown) {
+            if (line.stopLabel != null && line.stop != null) builder.addAction(0, line.stopLabel, line.stop)
+        }
         return builder.build()
     }
 

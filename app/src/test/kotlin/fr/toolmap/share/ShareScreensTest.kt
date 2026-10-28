@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import fr.toolmap.core.p2p.MemberView
 import fr.toolmap.core.p2p.PeerState
 import fr.toolmap.ui.Formats
 import fr.toolmap.ui.LocalFormats
@@ -24,7 +25,8 @@ import kotlin.test.assertEquals
 
 /**
  * The sharing screen in « Cordée » (P29.8): your line first, out of a group and in one; the others with a map button;
- * the line of the messages; the SOS in the bar and the rest in its ⋮; the sheet of a member with its confirmation.
+ * the line of the messages; the alert line under yours (P22) and the rest in the ⋮; the sheet of a member with its
+ * confirmation.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class, qualifiers = "w412dp-h2000dp")
@@ -35,17 +37,20 @@ class ShareScreensTest {
     private val now = System.currentTimeMillis()
     private val calls = ArrayList<String>()
 
-    private fun main(inGroup: Boolean) {
+    private fun main(
+        inGroup: Boolean,
+        ui: ShareUi = ShareSamples.ui(now, inGroup),
+    ) {
         rule.setContent {
             ToolMapTheme {
                 CompositionLocalProvider(LocalFormats provides Formats()) {
                     MainPage(
-                        ui = ShareSamples.ui(now, inGroup),
+                        ui = ui,
                         snackbar = SnackbarHostState(),
                         onBack = {},
                         onToggle = { calls += "toggle $it" },
                         onSos = { calls += "sos" },
-                        onStopSos = { calls += "stop" },
+                        onCancelSos = { calls += "cancel" },
                         onInvite = { calls += "invite" },
                         onScan = { calls += "scan" },
                         onPaste = { calls += "paste" },
@@ -74,7 +79,7 @@ class ShareScreensTest {
         rule.onNodeWithText("Scanner un code").performClick()
         rule.onNodeWithText("Coller un lien").performClick()
         assertEquals(listOf("profile", "invite", "scan", "paste"), calls)
-        rule.onAllNodesWithContentDescription("Envoyer un SOS").assertCountEquals(0)
+        rule.onAllNodesWithText("Envoyer une alerte au groupe").assertCountEquals(0)
     }
 
     @Test
@@ -106,15 +111,40 @@ class ShareScreensTest {
     }
 
     @Test
-    fun `in a group the SOS is in the bar and scan, paste, settings, help and leave in its menu`() {
+    fun `in a group the alert line is under yours and scan, paste, settings, help and leave in the menu`() {
         main(inGroup = true)
-        rule.onNodeWithContentDescription("Envoyer un SOS").performClick()
+        rule.onNodeWithText("Envoyer une alerte au groupe").performClick()
         rule.onNodeWithContentDescription("Plus d'options du partage").performClick()
         listOf("Scanner un code", "Coller un lien", "Réglages du partage", "Aide").forEach {
             rule.onNodeWithText(it).assertExists()
         }
         rule.onNodeWithText("Quitter le groupe").performClick()
         assertEquals(listOf("sos", "leave"), calls)
+    }
+
+    @Test
+    fun `a member that only listens reads À l'écoute with no map button, and so do you without sharing`() {
+        val base = ShareSamples.ui(now, inGroup = true)
+        val a54 = ShareSamples.a54(now)
+        val listening =
+            MemberView(
+                a54.id,
+                a54.name,
+                a54.color,
+                a54.status,
+                false,
+                a54.lastHeardMs,
+                a54.fix,
+                a54.trail,
+                sharing = false,
+            )
+        main(
+            inGroup = true,
+            ui = base.copy(sharing = false, members = base.members.map { if (it.id == a54.id) listening else it }),
+        )
+        rule.onNodeWithText("Pixel 7 (vous) · À l'écoute").assertExists()
+        rule.onNodeWithText("À l'écoute").assertExists()
+        rule.onNodeWithContentDescription("Voir Galaxy A54 sur la carte").assertIsNotEnabled()
     }
 
     @Test

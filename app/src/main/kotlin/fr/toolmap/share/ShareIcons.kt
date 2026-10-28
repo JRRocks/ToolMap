@@ -52,7 +52,7 @@ object ShareIcons {
         )
     }
 
-    /** « emergency_share »: « Envoyer un SOS », in the bar. */
+    /** « emergency_share »: « Envoyer une alerte au groupe » and the alert in progress (P22). */
     val EmergencyShare: ImageVector by lazy {
         icon(
             "EmergencyShare",

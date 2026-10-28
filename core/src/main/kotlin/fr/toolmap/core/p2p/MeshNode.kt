@@ -61,6 +61,9 @@ interface MeshListener {
         text: String,
     ) {}
 
+    /** [member] lifted the alert last given to [onSos] (P22.2): called once per alert, however often it is repeated. */
+    fun onSosLifted(member: Long) {}
+
     /** The group key changed: persist it. */
     fun onRekeyed(key: ByteArray) {}
 
@@ -101,6 +104,11 @@ class MemberView(
     val trail: List<PeerFix>,
     /** The member's own picture (a small JPEG), once received; `null` when it has none. */
     val picture: ByteArray? = null,
+    /**
+     * Whether it shares its position (`true`) or only listens to the group (`false`, P22.3); `null` until it said so,
+     * as a version without the STATE message never does.
+     */
+    val sharing: Boolean? = null,
 ) {
     /** The opaque colour of the member. */
     val argb: Int get() = MemberLook.argb(color)
@@ -116,7 +124,8 @@ class MemberView(
  *
  * Rules (`docs/specs/p2p-sharing.md` §4, §5): every member should end up linked to every other; of two members the
  * one with the smaller id makes the offer; offers and answers are relayed as SIGNAL messages along the links that
- * exist; positions, texts and SOS are flooded with a time to live and are never handled twice.
+ * exist; positions, texts and SOS are flooded with a time to live and are never handled twice. An alert and its lift
+ * are repeated for [SOS_REPEAT_FOR_S] seconds (P22.2); of the two, the one with the higher number wins.
  */
 class MeshNode(
     val groupId: ByteArray,
@@ -144,6 +153,8 @@ class MeshNode(
         var left = false
         val trail = ArrayDeque<PeerFix>()
         var picture: ByteArray? = null
+        var sharing: Boolean? = null
+        var stateSeq = -1L
     }
 
     private val crypto = GroupCrypto(groupKey, random)
@@ -160,14 +171,31 @@ class MeshNode(
     private var seq = maxOf(clock() / MS_PER_S, seqFloor)
     private var lastPingMs = 0L
     private var lastEnsureMs = 0L
+
+    /** This device's alert, on until [cancelSos] even once its repeats are over. */
     private var sos: Pair<PeerFix?, String>? = null
+    private var sosSendsLeft = 0L
     private var lastSosMs = 0L
+
+    /** Sends of the lift of this device's alert still to make. */
+    private var liftSendsLeft = 0L
+    private var lastLiftMs = 0L
+
+    /** The highest numbers of the alerts and lifts heard of each member: a frame overtaken by the other is over. */
+    private val alertSeq = HashMap<Long, Long>()
+    private val liftSeq = HashMap<Long, Long>()
+
+    /** The members whose alert was handed to the listener and not lifted since. */
+    private val alerting = HashSet<Long>()
     private var closed = false
 
     private val me = Member(selfId, selfName, selfColor).also { members[selfId] = it }
 
     /** The sequence number of the last AVATAR this node sent, sent again unchanged to each new link. */
     private var pictureSeq = 0L
+
+    /** The sequence number of the last STATE this node sent, sent again unchanged to each new link (P22.3). */
+    private var stateSeq = 0L
 
     /** The last message number used, kept by the caller so that the next process starts above it (P21.5 m). */
     val lastSeq: Long get() = synchronized(this) { seq }
@@ -217,6 +245,7 @@ class MeshNode(
         lastFrameMs[peer] = now()
         sendTo(peer, Msg.Hello(selfId, me.name, me.color))
         me.picture?.let { sendTo(peer, Msg.Avatar(selfId, pictureSeq, it)) }
+        me.sharing?.let { sendTo(peer, Msg.State(selfId, stateSeq, it)) }
         sendTo(peer, peersMessage())
         if (missed.isNotEmpty()) sendTo(peer, Msg.Trail(selfId, missed.toList()))
         broadcast(peersMessage(), except = peer)
@@ -346,16 +375,58 @@ class MeshNode(
 
             is Msg.Sos -> {
                 if (msg.memberId == selfId || !firstTime(msg.memberId, msg.seq)) return
+                val lifted = msg.seq < (liftSeq[msg.memberId] ?: -1L)
                 EventLog.event(
                     "mesh.sos.in",
                     "member" to hex(msg.memberId),
                     "seq" to msg.seq,
                     "fix" to (msg.fix != null),
+                    "lifted" to lifted,
                 )
                 touch(msg.memberId)
-                msg.fix?.let { recordFix(msg.memberId, it) }
-                events += { listener.onSos(msg.memberId, msg.fix, msg.text) }
                 relay(raw, from)
+                // A repeat that a lift of the same member overtook on the way (P22.2).
+                if (lifted) return
+                msg.fix?.let { recordFix(msg.memberId, it) }
+                alertSeq[msg.memberId] = maxOf(msg.seq, alertSeq[msg.memberId] ?: 0L)
+                alerting.add(msg.memberId)
+                events += { listener.onSos(msg.memberId, msg.fix, msg.text) }
+            }
+
+            is Msg.SosEnd -> {
+                if (msg.memberId == selfId || !firstTime(msg.memberId, msg.seq)) return
+                // A lift older than an alert already heard belongs to a previous alert.
+                val stale = msg.seq < (alertSeq[msg.memberId] ?: -1L)
+                EventLog.event(
+                    "mesh.sos.end.in",
+                    "member" to hex(msg.memberId),
+                    "seq" to msg.seq,
+                    "stale" to stale,
+                )
+                touch(msg.memberId)
+                relay(raw, from)
+                if (stale) return
+                liftSeq[msg.memberId] = maxOf(msg.seq, liftSeq[msg.memberId] ?: 0L)
+                if (alerting.remove(msg.memberId)) events += { listener.onSosLifted(msg.memberId) }
+            }
+
+            is Msg.State -> {
+                if (msg.memberId == selfId || !firstTime(msg.memberId, msg.seq)) return
+                EventLog.event(
+                    "mesh.state.in",
+                    "member" to hex(msg.memberId),
+                    "seq" to msg.seq,
+                    "sharing" to msg.sharing,
+                )
+                relay(raw, from)
+                val m = memberOrNew(msg.memberId) ?: return
+                m.lastHeardMs = now()
+                m.left = false
+                if (msg.seq > m.stateSeq) {
+                    m.stateSeq = msg.seq
+                    m.sharing = msg.sharing
+                }
+                changed()
             }
 
             is Msg.Rekey -> {
@@ -406,6 +477,8 @@ class MeshNode(
             is Msg.Ping -> msg.memberId
             is Msg.Text -> msg.memberId
             is Msg.Sos -> msg.memberId
+            is Msg.SosEnd -> msg.memberId
+            is Msg.State -> msg.memberId
             is Msg.Rekey -> msg.memberId
             is Msg.Bye -> msg.memberId
             is Msg.Avatar -> msg.memberId
@@ -474,22 +547,56 @@ class MeshNode(
             broadcast(msg) != null
         }
 
-    /** Starts an SOS: sent now and again every [SOS_REPEAT_S] seconds until [stopSos]. */
+    /**
+     * Starts an alert: sent now, then every [SOS_REPEAT_S] seconds for [SOS_REPEAT_FOR_S] seconds (P22.2). Only the
+     * sends that reach a neighbour count: with no link, it goes as soon as one opens. It stays on until [cancelSos].
+     */
     fun startSos(
         fix: PeerFix?,
         text: String,
     ) = locked {
         if (closed) return@locked
         sos = fix to text
+        sosSendsLeft = SOS_SENDS
+        liftSendsLeft = 0L
+        lastSosMs = 0L
         sendSosNow()
     }
 
-    fun stopSos() = locked { sos = null }
+    /**
+     * Lifts this device's alert, even once its repeats are over: the others are told now and again for
+     * [SOS_REPEAT_FOR_S] seconds, like the alert. Nothing is sent when no alert is on.
+     */
+    fun cancelSos() =
+        locked {
+            if (closed || sos == null) return@locked
+            sos = null
+            sosSendsLeft = 0L
+            liftSendsLeft = SOS_SENDS
+            lastLiftMs = 0L
+            sendLiftNow()
+        }
+
+    /** `true` from [startSos] to [cancelSos]. */
+    val sosActive: Boolean get() = synchronized(this) { sos != null }
 
     private fun sendSosNow() {
         val (fix, text) = sos ?: return
+        if (links.isEmpty()) return
         lastSosMs = now()
-        broadcast(Msg.Sos(selfId, nextSeq(), fix ?: me.fix, text))
+        sosSendsLeft--
+        val msg = Msg.Sos(selfId, nextSeq(), fix ?: me.fix, text)
+        EventLog.event("mesh.sos.out", "seq" to msg.seq, "left" to sosSendsLeft, "links" to links.size)
+        broadcast(msg)
+    }
+
+    private fun sendLiftNow() {
+        if (links.isEmpty()) return
+        lastLiftMs = now()
+        liftSendsLeft--
+        val msg = Msg.SosEnd(selfId, nextSeq())
+        EventLog.event("mesh.sos.end.out", "seq" to msg.seq, "left" to liftSendsLeft, "links" to links.size)
+        broadcast(msg)
     }
 
     // ---- signalling ---------------------------------------------------------------------------------------------
@@ -614,6 +721,9 @@ class MeshNode(
         negotiating.remove(id)
         transport.drop(id)
         members.remove(id)
+        alertSeq.remove(id)
+        liftSeq.remove(id)
+        alerting.remove(id)
     }
 
     /** Leaves the group: tells the neighbours and closes every link. */
@@ -664,7 +774,8 @@ class MeshNode(
                 }
             }
             if (due(lastEnsureMs, t, ENSURE_EVERY_S)) ensureLinks()
-            if (sos != null && due(lastSosMs, t, SOS_REPEAT_S)) sendSosNow()
+            if (sos != null && sosSendsLeft > 0 && due(lastSosMs, t, SOS_REPEAT_S)) sendSosNow()
+            if (liftSendsLeft > 0 && due(lastLiftMs, t, SOS_REPEAT_S)) sendLiftNow()
         }
 
     /** `true` when [everyS] seconds passed since [last], or when the clock went back past it (P21.5 n). */
@@ -698,6 +809,7 @@ class MeshNode(
                     m.fix,
                     m.trail.toList(),
                     m.picture,
+                    m.sharing,
                 )
             }
         }
@@ -714,6 +826,21 @@ class MeshNode(
         broadcast(Msg.Hello(selfId, name, color))
         changed()
     }
+
+    /**
+     * Tells the group whether this device shares its position or only listens (P22.3): sent at once when it changes,
+     * and to each link that opens.
+     */
+    fun setSharing(on: Boolean) =
+        locked {
+            if (closed || me.sharing == on) return@locked
+            me.sharing = on
+            stateSeq = nextSeq()
+            firstTime(selfId, stateSeq)
+            EventLog.event("mesh.state.out", "seq" to stateSeq, "sharing" to on, "links" to links.size)
+            broadcast(Msg.State(selfId, stateSeq, on))
+            changed()
+        }
 
     /** Shares [picture] (a small JPEG, at most [MemberLook.MAX_PICTURE_BYTES]) with the group; `null` removes it. */
     fun setPicture(picture: ByteArray?) =
@@ -836,6 +963,12 @@ class MeshNode(
         const val ENSURE_EVERY_S = 20L
         const val NEGOTIATION_TIMEOUT_S = 30L
         const val SOS_REPEAT_S = 15L
+
+        /** How long an alert, and then its lift, is repeated (P22.2): two minutes. */
+        const val SOS_REPEAT_FOR_S = 120L
+
+        /** Sends of an alert or of its lift: the first one, then one every [SOS_REPEAT_S] for [SOS_REPEAT_FOR_S]. */
+        const val SOS_SENDS = 1 + SOS_REPEAT_FOR_S / SOS_REPEAT_S
         private const val MS_PER_S = 1000L
         private const val SEEN_CAP = 4096
         private const val MAX_TRAIL = 200

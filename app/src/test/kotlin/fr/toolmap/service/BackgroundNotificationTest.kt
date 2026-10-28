@@ -91,6 +91,25 @@ class BackgroundNotificationTest {
     }
 
     @Test
+    fun `the listening to the group has a line but no button, and a tap opens what its line says`() {
+        val openShare = PendingIntent.getBroadcast(app, 1, Intent("open-share"), PendingIntent.FLAG_IMMUTABLE)
+        BackgroundNotification.put(
+            app,
+            BackgroundNotification.Part.SHARING,
+            BackgroundNotification.Line("Groupe · 4 membres : à l'écoute", open = openShare),
+        )
+        val both =
+            BackgroundNotification.put(
+                app,
+                BackgroundNotification.Part.RECORDING,
+                line("Enregistrement · 3,2 km · 1 h 05", "Arrêter l'enregistrement"),
+            )
+        assertEquals("Groupe · 4 membres : à l'écoute\nEnregistrement · 3,2 km · 1 h 05", both.text())
+        assertEquals(listOf("Arrêter l'enregistrement"), both.buttons())
+        assertEquals(openShare, both.contentIntent)
+    }
+
+    @Test
     fun `hidden when the notifications or its channel are turned off`() {
         assertTrue(BackgroundNotification.visible(app))
         shadowOf(manager).setNotificationsEnabled(false)

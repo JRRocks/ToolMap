@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -222,7 +221,7 @@ fun ShareScreen(
                 onBack = onBack,
                 onToggle = toggle,
                 onSos = { sosDialog = true },
-                onStopSos = vm::stopSos,
+                onCancelSos = vm::cancelSos,
                 onInvite = vm::invite,
                 onScan = { scanning = true },
                 onPaste = { pasting = true },
@@ -361,7 +360,7 @@ fun ShareScreen(
         )
     }
     if (sosDialog) {
-        SosSendDialog(
+        AlertSendSheet(
             onSend = {
                 sosDialog = false
                 vm.startSos(it)
@@ -428,7 +427,7 @@ internal fun MainPage(
     onBack: () -> Unit,
     onToggle: (Boolean) -> Unit,
     onSos: () -> Unit,
-    onStopSos: () -> Unit,
+    onCancelSos: () -> Unit,
     onInvite: () -> Unit,
     onScan: () -> Unit,
     onPaste: () -> Unit,
@@ -450,14 +449,6 @@ internal fun MainPage(
                 subtitle = if (ui.inGroup) hudText(ui) else null,
                 onBack = onBack,
                 actions = {
-                    if (ui.inGroup && !ui.ownSos) {
-                        IconButton(onClick = onSos) {
-                            Icon(
-                                ShareIcons.EmergencyShare,
-                                contentDescription = stringResource(R.string.share_sos_send_title),
-                            )
-                        }
-                    }
                     Box {
                         IconButton(onClick = { menu = true }) {
                             Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.share_more))
@@ -513,7 +504,6 @@ internal fun MainPage(
                     .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (ui.ownSos) OwnSosLine(onStopSos)
             if (!ui.inGroup) {
                 GroupBlock(rows = listOf({ SelfLookLine(ui, onProfile) }))
                 NoGroup()
@@ -543,6 +533,12 @@ internal fun MainPage(
                             SelfSendLine(ui, now, up, onOpen = { ui.self?.let(onOpenMember) }, onToggle = onToggle)
                         }),
                 )
+                // The alert of the group (P22, variant C): the line that sends it, or your alert in progress.
+                if (ui.ownSos) {
+                    OwnAlertCard(sinceMs = ui.ownSosAtMs, myName = ui.myName, onCancel = onCancelSos)
+                } else {
+                    GroupBlock(rows = listOf({ SendAlertLine(onSos) }))
+                }
                 if (ui.gpsUnavailable) {
                     Text(stringResource(R.string.share_gps_unavailable), color = MaterialTheme.colorScheme.error)
                 }
@@ -586,7 +582,11 @@ internal fun MainPage(
                                             member,
                                             PeerState.of(member, now, up),
                                             onOpen = { onOpenMember(member) },
-                                            onShowOnMap = member.fix?.let { f -> { onShowOnMap(f.lat, f.lon) } },
+                                            // A member that only listens is not on the map (P22.3).
+                                            onShowOnMap =
+                                                member.fix
+                                                    ?.takeIf { member.sharing != false }
+                                                    ?.let { f -> { onShowOnMap(f.lat, f.lon) } },
                                         )
                                     }
                                 },
@@ -607,31 +607,6 @@ private fun hudText(ui: ShareUi): String =
     } else {
         stringResource(R.string.share_hud_watching, ui.others.size)
     }
-
-/** Your own SOS going: a red line at the top of the page, with « Arrêter le SOS ». */
-@Composable
-private fun OwnSosLine(onStop: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.colorScheme.errorContainer)
-            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(ShareIcons.EmergencyShare, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
-        Text(
-            stringResource(R.string.share_sos_ongoing),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.weight(1f).padding(start = 12.dp),
-        )
-        TextButton(
-            onClick = onStop,
-            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-        ) { Text(stringResource(R.string.share_sos_stop)) }
-    }
-}
 
 /** Out of a group: your token and name as the others will see them; the line opens « Ce que les autres voient ». */
 @Composable
@@ -693,7 +668,7 @@ private fun SelfSendLine(
                         if (ui.sharing && self != null) {
                             peerStateLabel(PeerState.of(self, now, up))
                         } else {
-                            stringResource(R.string.share_self_silent)
+                            stringResource(R.string.share_peer_listening)
                         },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -760,11 +735,15 @@ private fun MemberLine(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MemberBadge(member.name, member.color, size = 40.dp, picture = member.picture)
+            // Online without sharing: « À l'écoute », with the icon of « En ligne » and no age of position (P22.3).
+            val listening = member.sharing == false && state == PeerState.ONLINE
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
                 Text(member.name, style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    listOfNotNull(peerStateLabel(state), member.fix?.let { ageText(it.timeSec * MS_PER_S) })
-                        .joinToString(" · "),
+                    listOfNotNull(
+                        if (listening) stringResource(R.string.share_peer_listening) else peerStateLabel(state),
+                        member.fix?.takeIf { !listening }?.let { ageText(it.timeSec * MS_PER_S) },
+                    ).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1385,37 +1364,6 @@ private fun PasteDialog(
         dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
-
-@Composable
-private fun SosSendDialog(
-    onSend: (String) -> Unit,
-    onClose: () -> Unit,
-) {
-    var text by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onClose,
-        title = { Text(stringResource(R.string.share_sos_send_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.share_sos_send_text))
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it.take(MAX_DRAFT) },
-                    placeholder = { Text(stringResource(R.string.share_sos_hint)) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSend(text) }) {
-                Text(stringResource(R.string.share_sos_send), color = Color(SOS_RED))
-            }
-        },
-        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } },
-    )
-}
-
-private const val SOS_RED = 0xFFD32F2F
 
 /** The height of the main buttons of the screen (create, join), as in the preview of P29.0. */
 private val MAIN_BUTTON_HEIGHT = 52.dp

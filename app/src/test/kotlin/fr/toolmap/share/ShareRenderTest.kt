@@ -85,7 +85,7 @@ class ShareRenderTest {
                     onBack = {},
                     onToggle = {},
                     onSos = {},
-                    onStopSos = {},
+                    onCancelSos = {},
                     onInvite = {},
                     onScan = {},
                     onPaste = {},

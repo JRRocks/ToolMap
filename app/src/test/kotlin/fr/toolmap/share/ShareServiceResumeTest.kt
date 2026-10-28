@@ -42,6 +42,15 @@ class ShareServiceResumeTest {
     }
 
     @Test
+    fun `listening to the group starts the service without the location permission`() {
+        shadowOf(app).denyPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        assertTrue(ShareService.listen(app))
+        val started = shadowOf(app).nextStartedService
+        assertEquals(ShareService::class.java.name, started?.component?.className)
+        assertEquals("fr.toolmap.share.LISTEN", started?.action)
+    }
+
+    @Test
     fun `nothing starts once stopped, while sharing, out of a group or without the location permission`() {
         shadowOf(app).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
         leftActive(false)
