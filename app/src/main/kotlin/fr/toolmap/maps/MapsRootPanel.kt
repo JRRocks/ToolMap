@@ -451,33 +451,6 @@ private fun RowScope.NavTile(
     }
 }
 
-/** The thumbnails of the maps shown ([layers]: id and name, top first), overlapping, at most three. */
-@Composable
-fun StackThumbnails(
-    layers: List<Pair<String, String>>,
-    thumbnails: MapThumbnails,
-) {
-    val shown = layers.take(MAX_THUMBNAILS)
-    if (shown.isEmpty()) {
-        Box(Modifier.size(THUMBNAIL), contentAlignment = Alignment.Center) {
-            Icon(MapsIcons.Layers, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        }
-        return
-    }
-    Box(Modifier.width(THUMBNAIL + THUMBNAIL_STEP * (shown.size - 1))) {
-        // The bottom map first, so that the top one is drawn over it, at the start.
-        shown.asReversed().forEachIndexed { index, (id, name) ->
-            MapThumbnail(
-                sourceId = id,
-                name = name,
-                thumbnails = thumbnails,
-                size = THUMBNAIL,
-                modifier = Modifier.offset(x = THUMBNAIL_STEP * (shown.size - 1 - index)),
-            )
-        }
-    }
-}
-
 @Composable
 private fun SaveFavoriteDialog(
     empty: Boolean,
@@ -509,7 +482,3 @@ private fun SaveFavoriteDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
-
-private val THUMBNAIL = 40.dp
-private val THUMBNAIL_STEP = 14.dp
-private const val MAX_THUMBNAILS = 3

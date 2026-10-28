@@ -65,9 +65,10 @@ import fr.toolmap.ui.theme.toolMap
  * The main menu and the bottom bar, laid out as in AlpineQuest (P11.6, ADR-034): a bar at the bottom (menu, maps,
  * tracks and waypoints, position), zoom buttons at the bottom right, and a panel that opens above the bar. Since P29.2
  * (« Portée », docs/previews/design-02-menu.html, variant B) the panel rises from the bar: the four tiles of the
- * frequent commands are its fixed foot, next to the thumb; above them come the night mode, the information on screen,
- * the block of the maps shown and « Réglages… »; at the top, far from the finger, the folded « Plus » row and
- * « Quitter » (ADR-075). The settings are not repeated in it: « Réglages… » is the way to them (P11.11, ADR-039).
+ * frequent commands are its fixed foot, next to the thumb; above them come the night mode, the information on screen
+ * and « Réglages… »; at the top, far from the finger, the folded « Plus » row and « Quitter » (ADR-075). The settings
+ * are not repeated in it: « Réglages… » is the way to them (P11.11, ADR-039). The block of the maps shown left it on
+ * 2026-10-28 (`docs/previews/menu-sans-cartes.html`): the Maps item of the bar opens the same panel.
  */
 
 /** Commands of the main menu; the screen runs them and closes the menu. */
@@ -87,7 +88,6 @@ enum class MenuAction {
     DIAGNOSTICS,
     WHATS_NEW,
     REPORT_ERROR,
-    MAPS,
     IMPORT_TRACKS,
 }
 
@@ -97,10 +97,6 @@ data class MainMenuState(
     /** « Mode nuit » (F14): the maps darkened by [nightPercent]. */
     val nightMode: Boolean = false,
     val nightPercent: Int = 60,
-    /** The favourite that the maps shown match, if one does. */
-    val favorite: String? = null,
-    /** The names of the maps shown, top first; empty when none is. */
-    val displayLayers: List<String>,
     val measureAllowed: Boolean,
     val printAllowed: Boolean,
     /** « Diagnostic des tuiles », a tool for developers: shown in debug builds only (N4). */
@@ -110,7 +106,7 @@ data class MainMenuState(
 /**
  * The panel of the main menu, opened from the bar. It has at most [maxHeight]: the band and the tiles stay, the rows
  * between them scroll. The « ? » of the band opens the help. « Plus » unfolds in place (Back folds it before it closes
- * the menu). [displayPreview] draws the thumbnails of the maps shown, at the start of the block that names them.
+ * the menu).
  */
 @Composable
 fun MainMenuPanel(
@@ -120,7 +116,6 @@ fun MainMenuPanel(
     maxHeight: Dp,
     modifier: Modifier = Modifier,
     onNightMode: (Boolean) -> Unit = {},
-    displayPreview: @Composable () -> Unit = {},
 ) {
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     // Registered after the screen's own handler, so that it comes first: the row folds, then the menu closes.
@@ -180,8 +175,6 @@ fun MainMenuPanel(
         ) {
             onAction(MenuAction.SETTINGS)
         }
-        // What is shown, and the way to change it: the favourites are in « Cartes et calques » (R2).
-        DisplayCard(state, displayPreview) { onAction(MenuAction.MAPS) }
         MenuRow(
             stringResource(R.string.menu_info_coordinates),
             icon = SettingsIcons.Dashboard,
@@ -290,44 +283,6 @@ private fun PanelExpand(open: Boolean) {
         contentDescription = null,
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 4.dp),
-    )
-}
-
-/**
- * The block of the maps shown (P29.2): the favourite they match, with the maps on the grey line (« Cartes affichées ·
- * Pentes + Plan IGN »); without a favourite, the maps themselves, and « Carte affichée · sans favori ».
- */
-@Composable
-private fun DisplayCard(
-    state: MainMenuState,
-    preview: @Composable () -> Unit,
-    onClick: () -> Unit,
-) {
-    val maps = state.displayLayers.joinToString(" + ")
-    val overline =
-        stringResource(
-            if (state.displayLayers.size >
-                1
-            ) {
-                R.string.menu_display_overline_many
-            } else {
-                R.string.menu_display_overline
-            },
-        )
-    StateCard(
-        title = state.favorite ?: maps.ifEmpty { stringResource(R.string.menu_display_none) },
-        overline = if (state.displayLayers.isEmpty()) null else overline,
-        subtitle =
-            if (state.favorite !=
-                null
-            ) {
-                maps.ifEmpty { null }
-            } else {
-                stringResource(R.string.menu_display_no_favorite)
-            },
-        leading = preview,
-        trailing = { PanelChevron() },
-        onClick = onClick,
     )
 }
 

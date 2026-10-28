@@ -63,6 +63,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -152,7 +154,6 @@ import fr.toolmap.maps.MapsViewModel
 import fr.toolmap.maps.SaveAreaOverlay
 import fr.toolmap.maps.SaveAreaPanel
 import fr.toolmap.maps.SaveRefusal
-import fr.toolmap.maps.StackThumbnails
 import fr.toolmap.maps.tilesText
 import fr.toolmap.measure.MeasureBar
 import fr.toolmap.measure.MeasureViewModel
@@ -357,6 +358,10 @@ fun MapScreen(
     // point goes while a drawing or measuring tool is open (`docs/previews/p19-reticule.html`).
     var topChromeBottom by remember { mutableIntStateOf(0) }
     var toolPanelTop by remember { mutableIntStateOf(0) }
+    // The top of the bar and the buttons over the map, in the root: the figures of the UTM grid keep clear of them.
+    var barTop by remember { mutableIntStateOf(0) }
+    var endButtons by remember { mutableStateOf(Rect.Zero) }
+    var leftZoom by remember { mutableStateOf(Rect.Zero) }
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val safe = WindowInsets.safeDrawing.asPaddingValues()
@@ -884,19 +889,11 @@ fun MapScreen(
         }
 
     // The main menu (P11.6): what it shows, and what its commands and options do. A command closes the menu.
-    val workspaces by vm.favorites.collectAsStateWithLifecycle()
-    // The maps shown, top first, with their names: the block of the main menu and its thumbnails (P14.10).
-    val shownMaps =
-        state.stack.topToBottom().map { layer ->
-            layer.sourceId to (sources.firstOrNull { it.id == layer.sourceId }?.name ?: layer.sourceId)
-        }
     val menuState =
         MainMenuState(
             showCoordinates = appSettings.showCoordinates,
             nightMode = appSettings.maps.nightMode,
             nightPercent = appSettings.maps.nightPercent,
-            favorite = workspaces.firstOrNull { it.matches(state.stack) }?.name,
-            displayLayers = shownMaps.map { it.second },
             measureAllowed = !drawUi.active && !measureUi.active && !printUi.active,
             printAllowed = !drawUi.active && !measureUi.active && !printUi.active,
             diagnostics = BuildConfig.DEBUG,
@@ -1102,10 +1099,6 @@ fun MapScreen(
                 onOpenDiagnostics()
             }
 
-            MenuAction.MAPS -> {
-                maps.open(MapsPage.ROOT)
-            }
-
             MenuAction.IMPORT_TRACKS -> {
                 onImportTracks()
             }
@@ -1279,6 +1272,43 @@ fun MapScreen(
                 }
             },
         )
+        val figureLines = gridPlan?.figureLines.orEmpty()
+        if (figureLines.isNotEmpty() && !framing && mapsPage != MapsPage.SAVE_AREA) {
+            // The boxes, the bar and the buttons are measured in the root; the map view starts at rootTop.
+            val shift = Offset(0f, -rootTop.toFloat())
+            val leftZoomShown = chromeShown && appSettings.canvas.zoomButtons && appSettings.canvas.menusLeftHanded
+            val frame =
+                with(density) {
+                    GridFigureFrame(
+                        left = safe.calculateStartPadding(layoutDirection).toPx() + FIGURE_MARGIN.toPx(),
+                        top = (topChromeBottom - rootTop) + FIGURE_MARGIN.toPx(),
+                        right =
+                            rootSize.width -
+                                safe.calculateEndPadding(
+                                    layoutDirection,
+                                ).toPx() - FIGURE_MARGIN.toPx(),
+                        bottom =
+                            if (barTop > 0) {
+                                (barTop - rootTop).toFloat()
+                            } else {
+                                rootSize.height - safe.calculateBottomPadding().toPx()
+                            },
+                        blocked =
+                            listOfNotNull(
+                                endButtons.translate(shift),
+                                leftZoom.translate(shift).takeIf {
+                                    leftZoomShown
+                                },
+                            ),
+                    )
+                }
+            GridFigures(
+                camera = controller.liveCamera,
+                lines = figureLines,
+                project = controller::latLonToScreen,
+                frame = frame,
+            )
+        }
         if (printUi.stage == PrintStage.FRAME || printUi.stage == PrintStage.CONFIRM) {
             PrintFrameLayer(controller, printUi, print)
         }
@@ -1435,7 +1465,8 @@ fun MapScreen(
                 MapZoomButtons(
                     onZoomIn = { controller.zoomBy(appSettings.canvas.zoomStep.levels) },
                     onZoomOut = { controller.zoomBy(-appSettings.canvas.zoomStep.levels) },
-                    modifier = Modifier.align(Alignment.CenterStart),
+                    modifier =
+                        Modifier.align(Alignment.CenterStart).onGloballyPositioned { leftZoom = it.boundsInRoot() },
                 )
             }
             MapBottomChrome(
@@ -1445,7 +1476,13 @@ fun MapScreen(
                 bar = {
                     when {
                         locked -> {
-                            LockedPill(onUnlock = { locked = false })
+                            LockedPill(
+                                onUnlock = { locked = false },
+                                modifier =
+                                    Modifier.onGloballyPositioned {
+                                        barTop = it.boundsInRoot().top.roundToInt()
+                                    },
+                            )
                         }
 
                         framing -> {}
@@ -1456,7 +1493,10 @@ fun MapScreen(
                         chromeHidden -> {
                             MenuLogoButton(
                                 onClick = { chromeHidden = false },
-                                modifier = Modifier.onSizeChanged { barHeight = it.height },
+                                modifier =
+                                    Modifier.onSizeChanged { barHeight = it.height }.onGloballyPositioned {
+                                        barTop = it.boundsInRoot().top.roundToInt()
+                                    },
                             )
                         }
 
@@ -1480,17 +1520,21 @@ fun MapScreen(
                                 onPositionLongPress = onPositionLongPress,
                                 bottomBleed = bottomBleed,
                                 modifier =
-                                    Modifier.onSizeChanged { barHeight = it.height }.bleed(
-                                        start = safe.calculateStartPadding(layoutDirection) + 12.dp,
-                                        end = safe.calculateEndPadding(layoutDirection) + 12.dp,
-                                        bottom = bottomBleed,
-                                    ),
+                                    Modifier
+                                        .onSizeChanged { barHeight = it.height }
+                                        .onGloballyPositioned { barTop = it.boundsInRoot().top.roundToInt() }
+                                        .bleed(
+                                            start = safe.calculateStartPadding(layoutDirection) + 12.dp,
+                                            end = safe.calculateEndPadding(layoutDirection) + 12.dp,
+                                            bottom = bottomBleed,
+                                        ),
                             )
                         }
                     }
                 },
                 end = {
                     Column(
+                        modifier = Modifier.onGloballyPositioned { endButtons = it.boundsInRoot() },
                         horizontalAlignment = Alignment.End,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -1546,7 +1590,6 @@ fun MapScreen(
                     onCoordinates = onCoordinates,
                     onNightMode = { on -> vm.updateSettings { it.copy(maps = it.maps.copy(nightMode = on)) } },
                     maxHeight = menuMaxHeight,
-                    displayPreview = { StackThumbnails(shownMaps, maps.thumbnails) },
                     modifier =
                         Modifier
                             .align(Alignment.BottomStart)
@@ -2137,5 +2180,8 @@ private val TOOL_PANEL_MIN_HEIGHT = 200.dp
 
 /** Below this much map between the top boxes and a tool panel, the centre point stays in the middle of the screen. */
 private val CENTRE_MIN_ROOM = 96.dp
+
+/** The figures of the UTM grid keep this far from the edge of the screen and from the boxes (variant A, 2026-10-28). */
+private val FIGURE_MARGIN = 5.dp
 
 private const val METERS_PER_DEGREE_OF_LATITUDE = 111_320.0

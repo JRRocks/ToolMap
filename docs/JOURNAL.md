@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-10-28 — Session 71 — [P29.2b][P24.6] Menu sans « Cartes affichées », chiffres de la grille UTM au bord de l'écran
+- **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`), branche `main` ; poussée sur `JRRocks/ToolMap`.
+- **Objectif** : demandes de l'utilisateur : « Retire “Cartes affichées” du “Menu”. Sur l'émulateur, teste tous les réglages de “Grille et informations” : seule la grille MGRS s'affiche, même si j'utilise d'autres modèles comme UTM. »
+- **Réalisé** :
+  - Versions : suite directe de la session 70. Avant le push : GitHub `main` 3f5b385 en 0.4.106 (`claude/pensive-edison-cgzr8t` en 0.4.102, plus ancienne), Drive 0.4.106 (entrée « Session 70 »), local 0.4.109 avec les changements de cette session : le local fait référence.
+  - **Menu** : aperçu `docs/previews/menu-sans-cartes.html` (capture actuelle et capture sans le bloc), **validé le 2026-10-28** (« Oui, retire-le ») ; bloc retiré avec son code (`MainMenuState.favorite` et `displayLayers`, `MenuAction.MAPS`, `DisplayCard`, `StackThumbnails`, 4 textes de `strings.xml`) ; tests du menu mis à jour. Comparaison : `docs/previews/menu-sans-cartes-emulateur.html`.
+  - **Grille** : tous les réglages de « Grille et informations » essayés sur l'émulateur (0.4.106) : les quatre grilles, la densité, les traits, la taille et le fond des boîtes changent bien. Cause de la remarque : UTM et MGRS tracent les mêmes lignes à partir de 1 km, seul le nom au centre différait (« 31T » / « 31T GL »). Aperçu `docs/previews/p24-utm-reperes.html` (actuel UTM et MGRS, variantes A, B, C) ; **variante A choisie le 2026-10-28**, avec « retire la pastille » (le « 31T » au-dessus du réticule).
+  - Code (ADR-086) : `ScreenGridPlan.figureLines` et `GridFigureLine` (`:core`, lignes du kilomètre en UTM, coupe « 50 » / « 45 ») ; `ScreenGrid` sans noms en UTM sauf sur une vue trop large ; `map/GridFigures.kt` (projection à chaque mouvement de caméra, ordonnées à gauche, abscisses au-dessus de la barre, chiffres sautés s'ils touchent un autre chiffre, un bouton ou les boîtes) ; `MapScreen` relève le haut de la barre et les boutons. Le halo blanc sortait noir (le contour restait sur le pinceau de Compose) : second dessin forcé en `Fill`. Comparaison : `docs/previews/p24-utm-reperes-emulateur.html`.
+  - Docs : ADR-086 ; `PLAN.md` (P24, P29.2b) ; `plan-fonctions-2026-10.md` (P24.6) ; `specs/ui-index.md` (menu, M7, Grille et informations).
+- **Décisions (ADR)** : ADR-086.
+- **Tests / vérifications** :
+  - `./gradlew :core:test --tests '*ScreenGrid*'` : 27 tests, 0 échec (3 nouveaux : lignes du kilomètre et coupe des chiffres, rien de près, coupe d'une valeur courte) ; `./gradlew :app:testDebugUnitTest --tests '*MainMenu*'` vert.
+  - Émulateur, ToolMap 0.4.107 : Menu ouvert, plus de bloc des cartes, le reste comme l'aperçu. ToolMap 0.4.109, grille UTM (réglage écrit dans `settings.json` par `run-as`) : 1:85 000, « 50**45** » et « 50**40** » à gauche, « 7**25** » en bas, plus de « 31T » ; 1:21 000, lignes du kilomètre toutes chiffrées ; 1:10 600, lignes à 500 m, seules celles du kilomètre chiffrées ; 1:2 650 (zoom 18), aucun chiffre ; pendant un glissement, l'abscisse suit sa ligne.
+  - `./gradlew check assembleDebug` (JDK d'Android Studio) : BUILD SUCCESSFUL en 4 min 10 s, version **0.4.110**, `ToolMap-debug-0.4.110.apk`. Tests : core 894, data 311, p2p 29 (2 ignorés), app 433 (72 ignorés), 0 échec ; lint : 0 erreur, app 64 avertissements et 1 indication, data 1 avertissement. CI : voir le message de fin de session.
+- **Problèmes / dette technique** : pendant un glissement, les ordonnées disparaissent quand leur ligne sort de la partie calculée (lignes recalculées à l'arrêt de la carte) ; carte tournée de 90° : pas d'abscisse en bas.
+- **Prochaine étape recommandée** : vérifier le menu et la grille UTM sur le téléphone ; puis P29.2 à P29.10 sur l'émulateur du poste Windows (captures à côté des aperçus validés), puis la suite de `docs/PLAN.md`.
+
 ## 2026-10-28 — Session 70 — [P19.14] Reprendre une étape d'itinéraire au réticule
 - **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`), branche `main` ; poussée sur `JRRocks/ToolMap`.
 - **Objectif** : demande de l'utilisateur : « Tracer un itinéraire, pouvoir récupérer la main sur un point en le survolant, même mécanique que “Ajouter ici” qui se transforme en “Insérer ici” en survolant l'itinéraire. »

@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
 /**
  * The main menu does not repeat the settings: « Réglages… » leads to them (P11.11). Since P29.2 (« Portée ») the four
  * tiles are its fixed foot, « Plus » unfolds in place (no page of its own) and « Quitter » is at the top, far from the
- * thumb; the block of the maps shown names the favourite or the maps, never « Pile personnalisée ».
+ * thumb. The block of the maps shown left the menu on 2026-10-28: the Maps item of the bar shows them.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
@@ -74,19 +74,11 @@ class MainMenuPanelTest {
     }
 
     @Test
-    fun `with a favourite the block names it and lists the maps, and opens the maps panel`() {
-        setContent(favorite = "IGN Topo")
-        rule.onNodeWithText("IGN Topo").assertExists()
-        rule.onNodeWithText("Cartes affichées · Pentes + Plan IGN").performScrollTo().performClick()
-        assertEquals(listOf(MenuAction.MAPS), actions)
-        rule.onAllNodesWithText("Pile personnalisée").assertCountEquals(0)
-    }
-
-    @Test
-    fun `without a favourite the block names the maps and says there is none`() {
-        setContent(favorite = null, layers = listOf("IGN Cartes"))
-        rule.onNodeWithText("IGN Cartes").assertExists()
-        rule.onNodeWithText("Carte affichée · sans favori").assertExists()
+    fun `the maps shown are not in the menu, the Maps item of the bar leads to them`() {
+        setContent()
+        rule.onAllNodesWithText("Cartes affichées", substring = true).assertCountEquals(0)
+        rule.onAllNodesWithText("Carte affichée", substring = true).assertCountEquals(0)
+        rule.onAllNodesWithText("sans favori", substring = true).assertCountEquals(0)
     }
 
     @Test
@@ -182,8 +174,6 @@ class MainMenuPanelTest {
     private fun setContent(
         diagnostics: Boolean = false,
         toolsAllowed: Boolean = true,
-        favorite: String? = "IGN Topo",
-        layers: List<String> = listOf("Pentes", "Plan IGN"),
         night: Boolean = false,
         maxHeight: Int = 2000,
         onCoordinates: (Boolean) -> Unit = {},
@@ -194,8 +184,6 @@ class MainMenuPanelTest {
                     MainMenuState(
                         showCoordinates = false,
                         nightMode = night,
-                        favorite = favorite,
-                        displayLayers = layers,
                         measureAllowed = toolsAllowed,
                         printAllowed = toolsAllowed,
                         diagnostics = diagnostics,

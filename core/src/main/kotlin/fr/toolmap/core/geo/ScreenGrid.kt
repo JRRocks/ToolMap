@@ -35,6 +35,11 @@ class ScreenGridPlan(
      * when the chip is not shown or the grid has none there.
      */
     val convergenceDegrees: Double? = null,
+    /**
+     * UTM: the kilometre lines in view, whose values are written where they leave the screen (variant A of
+     * `docs/previews/p24-utm-reperes.html`).
+     */
+    val figureLines: List<GridFigureLine> = emptyList(),
 ) {
     val isEmpty: Boolean get() = stepText.isEmpty()
 
@@ -45,6 +50,28 @@ class ScreenGridPlan(
             kind: GridKind = GridKind.NONE,
             issue: ScreenGridIssue = ScreenGridIssue.NONE,
         ) = ScreenGridPlan(kind, EMPTY_GEOJSON, "", "", issue)
+    }
+}
+
+/**
+ * A kilometre line of the UTM grid, cut at the edges of its zone and of the region: its value is written where it
+ * leaves the screen, the eastings at the bottom and the northings on the left, as on a paper map.
+ */
+class GridFigureLine(
+    /** A line of constant easting, running north-south. */
+    val easting: Boolean,
+    val meters: Double,
+    val points: List<LonLat>,
+) {
+    /** « 50 » and « 45 » for 5045 km: the figures before the last two, written smaller, and the last two. */
+    val figures: Pair<String, String>
+        get() {
+            val km = Math.round(meters / KM).toString()
+            return if (km.length <= 2) "" to km else km.dropLast(2) to km.takeLast(2)
+        }
+
+    private companion object {
+        const val KM = 1000.0
     }
 }
 
@@ -242,6 +269,7 @@ object ScreenGrid {
                 }
             }
         val features = ArrayList<String>()
+        val figures = ArrayList<GridFigureLine>()
         for (piece in GridZones.pieces(area)) {
             // The piece in the longitudes of its zone, those of the screen less the shift of its world copy.
             val own =
@@ -252,9 +280,18 @@ object ScreenGrid {
                 val p = Utm.toLonLat(UtmCoordinate(piece.zone, north, x, y))
                 LonLat(meridian + Utm.normalizeLon(p.lon - meridian), p.lat)
             }
-            for ((points, value) in straightLines(extent(own, utmForward(piece.zone, north)), step, inverse)) {
+            for ((points, value, constantX) in straightLines(
+                extent(own, utmForward(piece.zone, north)),
+                step,
+                inverse,
+            )) {
                 for (part in clip(points, own)) {
-                    features += line(part.map { LonLat(it.lon + piece.shift, it.lat) }, level(value))
+                    val shown = part.map { LonLat(it.lon + piece.shift, it.lat) }
+                    features += line(shown, level(value))
+                    // Variant A of the UTM preview: the kilometre lines only, so none is left on a very close view.
+                    if (kind == GridKind.UTM && isMultiple(value, MGRS_MIN_STEP)) {
+                        figures += GridFigureLine(constantX, value, shown)
+                    }
                 }
             }
         }
@@ -264,8 +301,10 @@ object ScreenGrid {
             geoJson = collection(features),
             stepText = ScaleBar.format(step),
             systemText = name,
-            labelsGeoJson = labels,
+            // UTM: the figures at the edge take the place of the zone names (2026-10-28).
+            labelsGeoJson = if (kind == GridKind.UTM) ScreenGridPlan.EMPTY_GEOJSON else labels,
             convergenceDegrees = GridPlanner.convergenceDegrees(kind, centerLat, centerLon),
+            figureLines = figures,
         )
     }
 
@@ -291,7 +330,8 @@ object ScreenGrid {
      * The names of the zones and of the MGRS squares in view, placed as in the P24.0 preview: the screen is sampled
      * (13 points across its narrower side); a zone with one square in view is named with it (« 31T GL ») above the
      * middle of the square, otherwise the zone is named in the middle of its part of the screen (« 31T ») and each
-     * square that takes enough of it is named below its middle (« GL »). UTM names the zones only.
+     * square that takes enough of it is named below its middle (« GL »). UTM names the zones only, and keeps them only
+     * on a view too wide for its lines: closer, the figures at the edge of the screen take their place.
      */
     private fun zoneLabels(
         kind: GridKind,
@@ -426,18 +466,27 @@ object ScreenGrid {
         return Extent(xs.min(), xs.max(), ys.min(), ys.max())
     }
 
+    /** A straight line of the grid in longitude and latitude, with its value; [constantX] for an easting. */
+    private data class Straight(
+        val points: List<LonLat>,
+        val value: Double,
+        val constantX: Boolean,
+    )
+
     /** Lines of constant x and of constant y at [step] over [extent], in longitude and latitude, with their value. */
     private fun straightLines(
         extent: Extent,
         step: Double,
         inverse: (x: Double, y: Double) -> LonLat,
-    ): List<Pair<List<LonLat>, Double>> {
-        val lines = ArrayList<Pair<List<LonLat>, Double>>()
+    ): List<Straight> {
+        val lines = ArrayList<Straight>()
         for (x in multiples(extent.minX, extent.maxX, step)) {
-            lines += List(SAMPLES + 1) { i -> inverse(x, extent.minY + (extent.maxY - extent.minY) * i / SAMPLES) } to x
+            val points = List(SAMPLES + 1) { i -> inverse(x, extent.minY + (extent.maxY - extent.minY) * i / SAMPLES) }
+            lines += Straight(points, x, constantX = true)
         }
         for (y in multiples(extent.minY, extent.maxY, step)) {
-            lines += List(SAMPLES + 1) { i -> inverse(extent.minX + (extent.maxX - extent.minX) * i / SAMPLES, y) } to y
+            val points = List(SAMPLES + 1) { i -> inverse(extent.minX + (extent.maxX - extent.minX) * i / SAMPLES, y) }
+            lines += Straight(points, y, constantX = false)
         }
         return lines
     }

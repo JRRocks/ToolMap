@@ -368,9 +368,12 @@ class ScreenGridTest {
         for (label in all) {
             assertEquals(label.text, Mgrs.of(label.at.lat, label.at.lon)!!.format(0), "${label.text} at ${label.at}")
         }
-        // UTM names the zones only.
-        val utm = labels(ScreenGrid.plan(GridKind.UTM, pontcharra))
-        assertEquals(setOf("31T", "32T"), utm.map { it.text }.toSet())
+        // UTM writes the figures of its lines at the edge of the screen instead of the zone names (2026-10-28).
+        assertTrue(labels(ScreenGrid.plan(GridKind.UTM, pontcharra)).isEmpty())
+        // On a view too wide for lines, it names the zones only.
+        val wide = labels(ScreenGrid.plan(GridKind.UTM, Bounds(-20.0, 20.0, 40.0, 60.0)))
+        assertTrue(wide.isNotEmpty() && wide.all { '0' <= it.text.first() && it.text.first() <= '9' })
+        assertTrue(wide.none { ' ' in it.text }, "${wide.map { it.text }}")
     }
 
     @Test
@@ -396,6 +399,46 @@ class ScreenGridTest {
         assertEquals(null, world.convergenceDegrees)
         val names = labels(world).filter { it.kind == GridLabelKind.ZONE }.map { it.text }
         assertTrue("32T" in names && "33U" in names, "$names")
+    }
+
+    @Test
+    fun `UTM gives its kilometre lines for the figures at the edge, split before the last two`() {
+        val plan = ScreenGrid.plan(GridKind.UTM, grenoble)
+        val figures = plan.figureLines
+        assertTrue(figures.any { it.easting } && figures.any { !it.easting }, "${figures.size} lines")
+        for (line in figures) {
+            assertEquals(0.0, distanceToMultiple(line.meters, 1000.0), 1e-6)
+            val value = gridValue(Line(line.points, 0), 31, north = true)
+            assertEquals(line.easting, value.vertical)
+            assertEquals(line.meters.roundToLong(), value.meters)
+            val (small, big) = line.figures
+            assertEquals(2, big.length)
+            assertEquals((line.meters / 1000).roundToLong().toString(), small + big)
+        }
+        // Each figure line is a line of the grid.
+        assertTrue(figures.size <= lines(plan).count { !it.isEdge })
+        // MGRS keeps its names, without figures.
+        assertTrue(ScreenGrid.plan(GridKind.MGRS, grenoble).figureLines.isEmpty())
+    }
+
+    @Test
+    fun `a close view under 1 km gives the kilometre lines alone, often none`() {
+        // About 1:2 000, lines every 50 m: no kilometre line in view, nothing to write (zoom 18 or 19).
+        val close = Bounds(5.7210, 45.1910, 5.7230, 45.1940)
+        val plan = ScreenGrid.plan(GridKind.UTM, close)
+        assertTrue(stepMeters(plan) < 1000.0, plan.stepText)
+        for (line in plan.figureLines) assertEquals(0.0, distanceToMultiple(line.meters, 1000.0), 1e-6)
+        // About 1:25 000, lines every 500 m: one in two is written.
+        val mid = ScreenGrid.plan(GridKind.UTM, Bounds(5.70, 45.17, 5.73, 45.19))
+        val grid = lines(mid).count { !it.isEdge }
+        assertTrue(mid.figureLines.isNotEmpty() && mid.figureLines.size < grid, "${mid.figureLines.size} of $grid")
+    }
+
+    @Test
+    fun `figures of a short value are not split`() {
+        assertEquals("" to "25", GridFigureLine(true, 25_000.0, emptyList()).figures)
+        assertEquals("7" to "25", GridFigureLine(true, 725_000.0, emptyList()).figures)
+        assertEquals("50" to "45", GridFigureLine(false, 5_045_000.0, emptyList()).figures)
     }
 
     @Test

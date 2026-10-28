@@ -1799,8 +1799,6 @@
   <string name="menu_tile_lock">Verrouiller</string>
   <string name="menu_tile_print">Imprimer</string>
   <string name="menu_tile_measure">Mesurer</string>
-  <string name="menu_display_overline">Carte affichée</string>
-  <string name="menu_display_none">Aucune carte</string>
   <string name="menu_info_coordinates_sub">Position, échelle, GPS</string>
   <string name="menu_more_sub">Nouveautés, signaler une erreur</string>
   <string name="menu_more_unfold">déplier</string>
@@ -1811,8 +1809,6 @@
   <string name="menu_report_error_sub">Vous choisissez à qui l\'envoyer</string>
   <string name="menu_diagnostics_sub">APK de debug seulement</string>
   <string name="menu_night_mode_sub_off">Assombrit la carte à %1$d %%</string>
-  <string name="menu_display_overline_many">Cartes affichées</string>
-  <string name="menu_display_no_favorite">sans favori</string>
   <string name="exit_running">Ceci continue en arrière-plan :</string>
   <string name="exit_recording">Enregistrement de trace</string>
   <string name="exit_recording_paused">Enregistrement en pause</string>
