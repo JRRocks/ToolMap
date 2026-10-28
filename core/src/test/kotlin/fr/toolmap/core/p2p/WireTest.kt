@@ -122,6 +122,10 @@ class WireTest {
         assertNotNull(sos.fix)
         assertNull((roundTrip(Msg.Sos(3, 7, null, "")).msg as Msg.Sos).fix)
 
+        val end = roundTrip(Msg.SosEnd(3, 8)).msg as Msg.SosEnd
+        assertEquals(3, end.memberId)
+        assertEquals(8, end.seq)
+
         val newKey = GroupCrypto.randomKey()
         val rekey = roundTrip(Msg.Rekey(1, 9, 5, newKey)).msg as Msg.Rekey
         assertEquals(5, rekey.excluded)
@@ -150,6 +154,23 @@ class WireTest {
     }
 
     @Test
+    fun `the lift of an alert has a type of its own after the last one older versions know`() {
+        // Versions up to 0.4.113 know the types 1 to 13: they drop a frame of type 14 as unknown (MeshNodeTest).
+        assertEquals(14, MsgType.SOS_END.code)
+        assertEquals(MsgType.SOS_END, MsgType.of(14))
+        assertEquals(8, MsgType.SOS.code)
+        val frame = Wire.encode(Msg.SosEnd(0x1234_5678_9ABCL, 0xFFFF_FFFFL), crypto)
+        assertEquals(MsgType.SOS_END, Wire.typeOf(frame))
+        val back = Wire.decode(frame, crypto).msg as Msg.SosEnd
+        assertEquals(0x1234_5678_9ABCL, back.memberId)
+        assertEquals(0xFFFF_FFFFL, back.seq)
+        // A lift and an alert are not interchangeable: the type is authenticated.
+        assertFailsWith<WireException> {
+            Wire.decode(frame.copyOf().also { it[0] = MsgType.SOS.code.toByte() }, crypto)
+        }
+    }
+
+    @Test
     fun `texts are cut at 140 characters and names at 24 bytes`() {
         val long = "x".repeat(300)
         assertEquals(140, ((roundTrip(Msg.Text(1, 1, long)).msg) as Msg.Text).text.length)
@@ -163,6 +184,7 @@ class WireTest {
         assertTrue(Msg.Ping(1, 1).onPositionChannel)
         assertTrue(!Msg.Text(1, 1, "").onPositionChannel)
         assertTrue(!Msg.Sos(1, 1, null, "").onPositionChannel)
+        assertTrue(!Msg.SosEnd(1, 1).onPositionChannel)
         assertTrue(!Msg.Signal(1, 1, 2, ByteArray(0)).onPositionChannel)
     }
 

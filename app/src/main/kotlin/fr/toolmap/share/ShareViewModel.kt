@@ -137,7 +137,8 @@ class ShareViewModel
 
         fun startSos(text: String) = controller.startSos(text)
 
-        fun stopSos() = controller.stopSos()
+        // Named after the button of today's screen until the texts of P22.1 change it to « Annuler l'alerte ».
+        fun stopSos() = controller.cancelSos()
 
         fun acknowledgeSos(memberId: Long) = controller.acknowledgeSos(memberId)
 

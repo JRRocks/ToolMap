@@ -72,6 +72,9 @@ enum class MsgType(
     KICK(11),
     AVATAR(12),
     DIAG(13),
+
+    /** The author lifted its alert (P22.2); a version without it drops the frame as an unknown type. */
+    SOS_END(14),
     ;
 
     companion object {
@@ -159,6 +162,17 @@ sealed interface Msg {
         val text: String,
     ) : Msg {
         override val type get() = MsgType.SOS
+    }
+
+    /**
+     * [memberId] lifted its alert: every [Sos] of it numbered below [seq] is over. Repeated like the alert itself
+     * ([MeshNode.SOS_REPEAT_FOR_S]), for the members who come back within the two minutes.
+     */
+    class SosEnd(
+        val memberId: Long,
+        val seq: Long,
+    ) : Msg {
+        override val type get() = MsgType.SOS_END
     }
 
     /** A new group key, sent when [excluded] (0 for nobody) leaves the group. */
@@ -314,6 +328,10 @@ object Wire {
                 w.longStr(msg.text.take(Msg.MAX_TEXT_CHARS), TEXT_BYTES)
             }
 
+            is Msg.SosEnd -> {
+                w.u64(msg.memberId).u32(msg.seq)
+            }
+
             is Msg.Rekey -> {
                 w.u64(msg.memberId).u32(msg.seq).u64(msg.excluded).bytes(msg.key)
             }
@@ -383,6 +401,10 @@ object Wire {
                     val seq = r.u32()
                     val fix = if (r.u8() == 1) PeerFix.read(r) else null
                     Msg.Sos(member, seq, fix, r.longStr())
+                }
+
+                MsgType.SOS_END -> {
+                    Msg.SosEnd(r.u64(), r.u32())
                 }
 
                 MsgType.REKEY -> {

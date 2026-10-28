@@ -76,7 +76,8 @@ Enveloppe : `type (1) | nonce (12) | AES-256-GCM(payload) | tag (16)`. La clé d
 | `TRAIL` | ctrl | (option) positions accumulées pendant une coupure, envoyées à la reconnexion |
 | `PING` | pos | toutes les 15 s ; un membre est déclaré perdu après 45 s sans nouvelles ; par le serveur, il passe avec les messages de contrôle (`c`), pas dans la case de la position (P21.5 b) |
 | `MSG` | ctrl | texte court (≤ 140 caractères) |
-| `SOS` | ctrl | position + texte ; diffusion immédiate, alerte sonore et vibrante chez les autres |
+| `SOS` | ctrl | memberId, seq, position facultative, texte ; « alerte au groupe » dans l'interface depuis P22. Diffusion immédiate puis toutes les 15 s **pendant 2 min** (9 envois ; seuls comptent ceux qui partent vers au moins un voisin : sans liaison, l'alerte part dès qu'une s'ouvre). Elle reste active chez l'auteur jusqu'à sa levée. Chez les autres, elle reste jusqu'à « Vu », puis jusqu'à 2 min après la dernière répétition (P22.2). Une version jusqu'à 0.4.113 répète sans fin jusqu'à « Arrêter le SOS », qui n'envoie rien |
+| `SOS_END` | ctrl | (type 14, ajouté en P22.2) memberId, seq : l'auteur lève son alerte (« Annuler l'alerte ») ; répétée comme l'alerte, 9 envois sur 2 min, pour les membres qui reviennent. Entre une alerte et une levée d'un même membre, le plus grand `seq` l'emporte : une répétition doublée en route par la levée est ignorée, une levée plus ancienne qu'une nouvelle alerte aussi. Chez les autres, l'alerte est remplacée par « Alerte levée par … » pendant 1 min (seulement si elle avait été reçue). Une version jusqu'à 0.4.113 ne connaît pas ce type : elle jette la trame (`mesh.frame.bad`, sans erreur) et ne la relaie pas ; chez elle l'alerte s'efface 2 min après la dernière répétition |
 | `REKEY` | ctrl | nouvelle clé de groupe |
 | `BYE` | ctrl | départ volontaire |
 | `KICK` | ctrl | (ajouté en P8) envoyé à l'exclu sur sa propre liaison, chiffré avec l'**ancienne** clé : sinon il ignorerait qu'il est dehors |
@@ -112,7 +113,7 @@ Enveloppe : `type (1) | nonce (12) | AES-256-GCM(payload) | tag (16)`. La clé d
 | Sujet | Réalisé | Où |
 |---|---|---|
 | Codecs | Base45 (vecteurs RFC 9285), charge d'appairage binaire + deflate, lien base64 URL-safe, péremption à 10 min, élagage des candidats, reconstruction SDP | `Base45`, `Pairing`, `Sdp` |
-| Messages et chiffrement | 11 types dont `KICK`, enveloppe AES-256-GCM, clé HKDF-SHA256, TTL 4, relais sans rechiffrer | `Wire`, `GroupCrypto` |
+| Messages et chiffrement | 11 types dont `KICK` (puis `AVATAR`, `DIAG`, et `SOS_END` en P22.2), enveloppe AES-256-GCM, clé HKDF-SHA256, TTL 4, relais sans rechiffrer | `Wire`, `GroupCrypto` |
 | Maillage | liaisons manquantes négociées par `SIGNAL` relayé (le plus petit id offre), inondation + déduplication, pings 15 s, perdu après 45 s, réessais exponentiels, rejeu de la traînée manquée à la reconnexion, retrait avec nouvelle clé | `MeshNode` |
 | Cadence | intervalle ≥ 5 s, déplacement minimal, envoi forcé après 5 intervalles | `ShareCadence`, `ShareController` |
 | WebRTC | deux canaux prénégociés, ICE non progressif (5 s), STUN activable | `WebRtcLinks` (`:p2p`) |

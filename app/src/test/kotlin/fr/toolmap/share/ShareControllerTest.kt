@@ -160,6 +160,7 @@ private class Remote(
     val positions = ArrayList<PeerFix>()
     val texts = ArrayList<String>()
     val sosTexts = ArrayList<Pair<String, PeerFix?>>()
+    var lifts = 0
     var kicked = false
     var toController: ((ByteArray) -> Unit)? = null
 
@@ -208,6 +209,10 @@ private class Remote(
                         text: String,
                     ) {
                         sosTexts += text to fix
+                    }
+
+                    override fun onSosLifted(member: Long) {
+                        lifts++
                     }
 
                     override fun onExcluded() {
@@ -560,7 +565,7 @@ class ShareControllerTest {
         }
 
     @Test
-    fun `an SOS raises an alert that stays until it is acknowledged and goes when it stops repeating`() =
+    fun `an alert of the group stays until it is seen, then until two minutes after its last repeat`() =
         runTest {
             val c = controller()
             c.load()
@@ -574,14 +579,51 @@ class ShareControllerTest {
             assertFalse(alert.acknowledged)
             assertEquals(45.1, alert.fix!!.lat, 1e-6)
 
+            // No repeat comes (the remote node is not ticked), and the alert not seen yet stays (P22.2).
+            advanceTimeBy(300_000)
+            runCurrent()
+            assertFalse(c.state.value.sos.single().acknowledged)
+
+            // Seen five minutes after its last repeat: it goes at once.
             c.acknowledgeSos(PEER_ID)
             assertTrue(c.state.value.sos.single().acknowledged)
-
-            // The sender stops: nothing repeats and the alert disappears after two minutes.
-            remote.node.stopSos()
-            advanceTimeBy(125_000)
+            advanceTimeBy(2_000)
             runCurrent()
             assertTrue(c.state.value.sos.isEmpty())
+        }
+
+    @Test
+    fun `a lifted alert gives way to its lift for a minute, and a new alert comes back`() =
+        runTest {
+            val c = controller()
+            c.load()
+            c.createGroup()
+            val remote = connectRemote(c)
+            remote.node.startSos(null, "Cheville")
+            runCurrent()
+            assertEquals(1, c.state.value.sos.size)
+
+            remote.node.cancelSos()
+            runCurrent()
+            assertTrue(c.state.value.sos.isEmpty())
+            val lifted = c.state.value.sosLifted.single()
+            assertEquals(PEER_ID, lifted.memberId)
+            assertEquals("Bob", lifted.name)
+            advanceTimeBy(30_000)
+            runCurrent()
+            assertEquals(1, c.state.value.sosLifted.size)
+            advanceTimeBy(32_000)
+            runCurrent()
+            assertTrue(c.state.value.sosLifted.isEmpty())
+
+            remote.node.startSos(null, "Encore")
+            runCurrent()
+            remote.node.cancelSos()
+            runCurrent()
+            remote.node.startSos(null, "Vraiment")
+            runCurrent()
+            assertEquals("Vraiment", c.state.value.sos.single().text)
+            assertTrue(c.state.value.sosLifted.isEmpty())
         }
 
     @Test
@@ -602,15 +644,21 @@ class ShareControllerTest {
             assertEquals("Perdu", text)
             assertEquals(45.5, where!!.lat, 1e-6)
 
-            // It repeats until stopped.
+            // It repeats for two minutes, then stays on, still to be lifted (P22.2).
             advanceTimeBy(16_000)
             runCurrent()
             assertEquals(2, remote.sosTexts.size)
-            c.stopSos()
+            advanceTimeBy(300_000)
+            runCurrent()
+            assertEquals(MeshNode.SOS_SENDS.toInt(), remote.sosTexts.size)
+            assertTrue(c.state.value.ownSos)
+            c.cancelSos()
+            runCurrent()
             assertFalse(c.state.value.ownSos)
+            assertEquals(1, remote.lifts)
             advanceTimeBy(40_000)
             runCurrent()
-            assertEquals(2, remote.sosTexts.size)
+            assertEquals(MeshNode.SOS_SENDS.toInt(), remote.sosTexts.size)
         }
 
     @Test

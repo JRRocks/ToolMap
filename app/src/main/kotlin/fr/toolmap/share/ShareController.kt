@@ -81,8 +81,18 @@ class SosAlert(
     val fix: PeerFix?,
     val text: String,
     val receivedAtMs: Long,
-    /** The user saw it: the dialog does not come back for the repeats, the banner stays while they last. */
+    /**
+     * The user saw it: the dialog does not come back for the repeats, the banner stays while they last. Until then the
+     * alert stays, however long ago it came (P22.2).
+     */
     val acknowledged: Boolean,
+)
+
+/** An alert of the group that its author lifted (P22.2): it takes the place of the alert for a minute. */
+class SosLifted(
+    val memberId: Long,
+    val name: String,
+    val atMs: Long,
 )
 
 class ShareMessage(
@@ -113,6 +123,9 @@ data class ShareUi(
     val pairing: Boolean = false,
     val problem: ShareProblem? = null,
     val sos: List<SosAlert> = emptyList(),
+    /** The alerts lifted by their authors a moment ago (P22.2). */
+    val sosLifted: List<SosLifted> = emptyList(),
+    /** This device's alert is on, from « Envoyer » to « Annuler l'alerte », past its two minutes of repeats. */
     val ownSos: Boolean = false,
     val messages: List<ShareMessage> = emptyList(),
     /** The others removed this device from the group. */
@@ -177,6 +190,9 @@ class ShareController(
     private var pairingSince = 0L
     private var loaded = false
     private val sosAlerts = LinkedHashMap<Long, SosAlert>()
+
+    /** Guarded by [sosAlerts], like it. */
+    private val liftedAlerts = LinkedHashMap<Long, SosLifted>()
     private val messages = ArrayList<ShareMessage>()
 
     /** Messages of the others received since their page was last open (P29.8). */
@@ -309,6 +325,17 @@ class ShareController(
                 synchronized(sosAlerts) {
                     val before = sosAlerts[member]
                     sosAlerts[member] = SosAlert(member, name, fix, text, clockMs(), before?.acknowledged ?: false)
+                    liftedAlerts.remove(member)
+                }
+                refresh()
+            }
+
+            override fun onSosLifted(member: Long) {
+                val name = node?.members()?.firstOrNull { it.id == member }?.name ?: "?"
+                EventLog.event("share.sos.lifted", "member" to MeshNode.hex(member))
+                synchronized(sosAlerts) {
+                    sosAlerts.remove(member)
+                    liftedAlerts[member] = SosLifted(member, name, clockMs())
                 }
                 refresh()
             }
@@ -386,7 +413,10 @@ class ShareController(
         EventLog.event("share.member.remove", "member" to MeshNode.hex(memberId))
         relay?.ban(memberId)
         node?.remove(memberId)
-        synchronized(sosAlerts) { sosAlerts.remove(memberId) }
+        synchronized(sosAlerts) {
+            sosAlerts.remove(memberId)
+            liftedAlerts.remove(memberId)
+        }
         refresh()
     }
 
@@ -656,16 +686,17 @@ class ShareController(
         refresh()
     }
 
-    /** Sends an SOS with the last known position, again every few seconds until [stopSos]. */
+    /** Sends an alert with the last known position, repeated for two minutes; it stays on until [cancelSos] (P22.2). */
     fun startSos(text: String) {
         EventLog.event("share.sos.start", "fix" to (lastFix != null))
         node?.startSos(lastFix, text.trim())
         mutableState.update { it.copy(ownSos = true) }
     }
 
-    fun stopSos() {
-        EventLog.event("share.sos.stop")
-        node?.stopSos()
+    /** « Annuler l'alerte »: the others are told it is lifted (P22.2). */
+    fun cancelSos() {
+        EventLog.event("share.sos.cancel")
+        node?.cancelSos()
         mutableState.update { it.copy(ownSos = false) }
     }
 
@@ -784,7 +815,9 @@ class ShareController(
             recheckPhone()
         }
         synchronized(sosAlerts) {
-            sosAlerts.entries.removeAll { now - it.value.receivedAtMs > SOS_STALE_MS }
+            // An alert not seen yet stays (P22.2); a seen one goes two minutes after its last repeat.
+            sosAlerts.entries.removeAll { it.value.acknowledged && now - it.value.receivedAtMs > SOS_STALE_MS }
+            liftedAlerts.entries.removeAll { now - it.value.atMs > LIFTED_SHOW_MS }
         }
         val expired = state.value.invitation?.let { it.expiresAtSec <= now / MS_PER_S } == true
         if (expired) cancelInvitation()
@@ -836,7 +869,10 @@ class ShareController(
         node = null
         group = null
         lastSent = null
-        synchronized(sosAlerts) { sosAlerts.clear() }
+        synchronized(sosAlerts) {
+            sosAlerts.clear()
+            liftedAlerts.clear()
+        }
         synchronized(messages) {
             messages.clear()
             unreadCount = 0
@@ -853,6 +889,7 @@ class ShareController(
         val members = n?.members().orEmpty()
         logStatusChanges(members)
         val alerts = synchronized(sosAlerts) { sosAlerts.values.toList() }
+        val lifted = synchronized(sosAlerts) { liftedAlerts.values.toList() }
         val texts = synchronized(messages) { messages.toList() }
         mutableState.update {
             it.copy(
@@ -860,6 +897,7 @@ class ShareController(
                 inGroup = n != null,
                 selfId = group?.selfId ?: 0L,
                 sos = alerts,
+                sosLifted = lifted,
                 messages = texts,
                 settings = settings,
                 onServer = relay != null,
@@ -931,6 +969,9 @@ class ShareController(
         const val MS_PER_S = 1_000L
         const val MAX_MESSAGES = 50
         const val SOS_STALE_MS = 120_000L
+
+        /** How long « Alerte levée par … » stays (P22.2). */
+        const val LIFTED_SHOW_MS = 60_000L
         const val PAIRING_TIMEOUT_MS = 45_000L
     }
 }

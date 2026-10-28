@@ -114,6 +114,7 @@ private class Peer(
     val positions = ArrayList<Pair<Long, PeerFix>>()
     val texts = ArrayList<Pair<Long, String>>()
     val sos = ArrayList<Pair<Long, String>>()
+    val lifted = ArrayList<Long>()
     val diags = ArrayList<Pair<Long, ByteArray>>()
     var rekeyed: ByteArray? = null
     var excluded = false
@@ -205,6 +206,10 @@ private class Peer(
         text: String,
     ) {
         sos += member to text
+    }
+
+    override fun onSosLifted(member: Long) {
+        lifted += member
     }
 
     override fun onDiag(
@@ -384,7 +389,7 @@ class MeshNodeTest {
     }
 
     @Test
-    fun `texts and SOS are flooded, the SOS repeated until stopped`() {
+    fun `texts and SOS are flooded, the SOS repeated until lifted`() {
         val (a, b, c) = threeMembers()
         b.node.sendText("On y va")
         net.pump()
@@ -397,10 +402,104 @@ class MeshNodeTest {
         assertEquals(1, c.sos.size)
         net.tickAll(16)
         assertEquals(2, a.sos.size)
-        b.node.stopSos()
+        b.node.cancelSos()
+        net.pump()
+        assertEquals(listOf(2L), a.lifted)
+        assertEquals(listOf(2L), c.lifted)
         net.tickAll(40)
         assertEquals(2, a.sos.size)
         assertEquals(45.3, a.view(2).fix!!.lat, 1e-6)
+    }
+
+    @Test
+    fun `an alert is repeated for two minutes, stays on after them and is lifted once however often the lift comes`() {
+        val (a, b, _) = threeMembers()
+        b.node.startSos(fix(), "Cheville")
+        net.tickAll(300)
+        // The first send, then one every 15 s for 120 s.
+        assertEquals(MeshNode.SOS_SENDS.toInt(), a.sos.size)
+        assertEquals(9, a.sos.size)
+        assertTrue(b.node.sosActive)
+
+        b.node.cancelSos()
+        net.tickAll(300)
+        assertFalse(b.node.sosActive)
+        assertEquals(listOf(2L), a.lifted)
+        assertEquals(9, a.sos.size)
+        // Nothing to lift any more: a second cancel sends nothing.
+        b.node.cancelSos()
+        net.tickAll(30)
+        assertEquals(listOf(2L), a.lifted)
+    }
+
+    @Test
+    fun `a member cut off when the alert was lifted hears the lift when it comes back within two minutes`() {
+        val (a, b, c) = threeMembers()
+        net.connect(2, 3)
+        b.node.startSos(fix(), "Perdu")
+        net.pump()
+        assertEquals(1, c.sos.size)
+        net.disconnect(1, 3)
+        net.disconnect(2, 3)
+        b.node.cancelSos()
+        net.tickAll(30)
+        assertEquals(listOf(2L), a.lifted)
+        assertTrue(c.lifted.isEmpty())
+        net.connect(1, 3)
+        net.tickAll(16)
+        assertEquals(listOf(2L), c.lifted)
+    }
+
+    @Test
+    fun `an alert sent with no link goes as soon as a link opens, and its two minutes start then`() {
+        val a = peer(1, "Alice")
+        val b = peer(2, "Bruno")
+        b.node.startSos(fix(), "Aide")
+        net.tickAll(60)
+        net.connect(1, 2)
+        net.tickAll(1)
+        assertEquals(1, a.sos.size)
+        net.tickAll(300)
+        assertEquals(9, a.sos.size)
+    }
+
+    @Test
+    fun `a repeat overtaken by the lift, and a lift older than a new alert, are ignored`() {
+        val (a, _, _) = threeMembers()
+        val crypto = GroupCrypto(key)
+
+        fun from2(msg: Msg) {
+            a.node.onFrame(2, Wire.encode(msg, crypto))
+            net.pump()
+        }
+        // The lift of an alert this node never heard: nothing to lift.
+        from2(Msg.SosEnd(2, 105))
+        assertTrue(a.lifted.isEmpty())
+        // A repeat of that alert arriving after its lift is over already.
+        from2(Msg.Sos(2, 103, null, "ancienne"))
+        assertTrue(a.sos.isEmpty())
+        // A new alert, then a late repeat of the previous lift: the alert stays.
+        from2(Msg.Sos(2, 110, null, "nouvelle"))
+        from2(Msg.SosEnd(2, 107))
+        assertEquals(listOf(2L to "nouvelle"), a.sos)
+        assertTrue(a.lifted.isEmpty())
+        from2(Msg.SosEnd(2, 112))
+        assertEquals(listOf(2L), a.lifted)
+    }
+
+    @Test
+    fun `a frame of a type this version does not know is dropped and the group goes on`() {
+        // What a version without SOS_END (up to 0.4.113, types 1 to 13) does with a lift: its type is unknown to it.
+        // Here an unassigned type plays that part for this version.
+        val (a, b, _) = threeMembers()
+        val lift = Wire.encode(Msg.SosEnd(2, 1), GroupCrypto(key))
+        a.node.onFrame(2, lift.copyOf().also { it[0] = 0x7F })
+        net.pump()
+        assertTrue(a.lifted.isEmpty())
+        b.node.sendText("Toujours là")
+        net.pump()
+        assertEquals(listOf(2L to "Toujours là"), a.texts)
+        assertEquals(MemberStatus.DIRECT, a.status(2))
     }
 
     @Test
