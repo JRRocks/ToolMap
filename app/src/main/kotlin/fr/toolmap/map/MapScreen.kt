@@ -60,6 +60,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.boundsInRoot
@@ -506,8 +507,14 @@ fun MapScreen(
                 editOverlay?.lineGeoJson,
                 editOverlay?.handlesGeoJson,
                 editOverlay?.icons ?: emptySet(),
+                editOverlay?.elasticGeoJson,
             )
         }
+    }
+    // A stop taken at the crosshair (« Prendre l'étape ») follows the camera until it is put down.
+    LaunchedEffect(drawUi.taken) {
+        if (drawUi.taken == null) return@LaunchedEffect
+        snapshotFlow { controller.liveCamera }.collect { draw.followCrosshair(it.lat, it.lon) }
     }
     // The labels of the legs drawn by hand or being computed, in the language of the app (P19).
     val legComputing = stringResource(R.string.route_leg_computing)
@@ -1757,6 +1764,10 @@ fun MapScreen(
                                 insertLegAt = {
                                     val camera = controller.liveCamera
                                     draw.insertLegAt(camera.lat, camera.lon, controller.metersFor(TAP_REACH_DP))
+                                },
+                                stopUnder = {
+                                    val camera = controller.liveCamera
+                                    draw.stopUnder(camera.lat, camera.lon, controller.metersFor(TAP_REACH_DP))
                                 },
                                 reachMeters = { controller.metersFor(TAP_REACH_DP) },
                                 position = { navPosition?.let { it.lat to it.lon } ?: controller.lastPosition() },

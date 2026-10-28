@@ -123,6 +123,7 @@ class ToolsRenderTest {
         val hooks =
             RouteHooks(
                 insertLegAt = { 1 },
+                stopUnder = { null },
                 reachMeters = { 10.0 },
                 position = { null },
                 onCenter = { _, _ -> },

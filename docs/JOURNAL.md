@@ -20,6 +20,22 @@
 
 ---
 
+## 2026-10-28 — Session 70 — [P19.14] Reprendre une étape d'itinéraire au réticule
+- **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`), branche `main` ; poussée sur `JRRocks/ToolMap`.
+- **Objectif** : demande de l'utilisateur : « Tracer un itinéraire, pouvoir récupérer la main sur un point en le survolant, même mécanique que “Ajouter ici” qui se transforme en “Insérer ici” en survolant l'itinéraire. »
+- **Réalisé** :
+  - Versions : suite directe de la session 69 (GitHub `main` 228b6c7, Drive et local en **0.4.104**, identiques).
+  - Aperçu `docs/previews/p19-reprendre-etape.html` : état actuel et 3 variantes (A : « Prendre l'étape », lignes élastiques, « Poser ici » ; B : sans lignes élastiques ; C : le survol sélectionne, puis « Déplacer ici ») ; **variante A validée le 2026-10-28**.
+  - Code (ADR-085) : `RoutePlanEditor.move` ; `RoutePlanGeoJson` (tronçons pâles `g`, poignée déplacée, `elastic`) ; `EditLayers` (couche des tronçons pâles, source et couche des lignes élastiques) ; `MapController.showEdit` ne renvoie pas une ligne inchangée ; `DrawViewModel` (`stopUnder`, `take`, `followCrosshair`, `putDown`, `cancelTake`, `DrawUi.taken`) ; `RoutedPanel` : tuile « Prendre l'étape N », panneau « Étape N en main » (Poser ici, Annuler, Supprimer l'étape ; ✕ et Retour annulent) ; `ActionTile(weight)` ; icônes `PanTool` et `PinDrop`.
+  - Docs : ADR-085, `PLAN.md` (P19.14), `specs/routing.md` §5.3 (opération 4b), `specs/ui-index.md` (T1b) ; rendu `docs/previews/p19-reprendre-etape-emulateur.html`.
+- **Décisions (ADR)** : ADR-085.
+- **Tests / vérifications** :
+  - `RoutePlanEditorTest` et `RoutePlanGeoJsonTest` (un test de plus chacun) verts (`./gradlew :core:test --tests 'fr.toolmap.core.route.*'`).
+  - Émulateur, ToolMap 0.4.105, BRouter 1.7.10 : 3 étapes posées au réticule ; réticule sur l'étape 1 : « Prendre l'étape 1 » ; prise puis carte déplacée : panneau « Étape 1 en main », l'étape sous le réticule, deux lignes pointillées vers ses voisines, anciens tronçons pâlis ; « Poser ici » : tronçons recalculés (2,89 → 3,14 km) ; nouvelle prise puis « Annuler » : 3,14 km inchangé et panneau normal ; un « Annuler la dernière action » : 2,89 km.
+  - `./gradlew check assembleDebug` (JDK d'Android Studio) : BUILD SUCCESSFUL en 3 min 53 s, version **0.4.106**, `ToolMap-debug-0.4.106.apk`. Tests : core 891, data 311, p2p 29 (2 ignorés), app 434 (72 ignorés), 0 échec ; lint : 0 erreur, app 64 avertissements, data 1. Un premier essai avait échoué à la compilation de `ToolsRenderTest` (paramètre `stopUnder` de `RouteHooks` absent) : corrigé. CI : voir le message de fin de session.
+- **Problèmes / dette technique** : aucun nouveau.
+- **Prochaine étape recommandée** : vérifier la prise d'étape sur le téléphone ; puis P29.2 à P29.10 sur l'émulateur du poste Windows (captures à côté des aperçus validés), puis la suite de `docs/PLAN.md`.
+
 ## 2026-10-28 — Session 69 — [P19.13] Réticule de « Ajouter ici » visible, crédits passagers sur une ligne
 - **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`), branche `main` ; poussée sur `JRRocks/ToolMap`.
 - **Objectif** : demande de l'utilisateur (« Travail sur l'itinéraire avec BRouter. 3 points placés à des endroits aléatoires, doit générer un tracé GPX autre que 2 lignes droites »), puis, l'itinéraire marchant chez lui, « le point pour visée “Ajouter ici” est invisible » et « le réticule est actuellement caché derrière les crédits de carte (à retirer car occupant trop d'espace) ».

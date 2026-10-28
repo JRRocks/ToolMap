@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import fr.toolmap.R
+import fr.toolmap.core.route.RouteMarkers
+import fr.toolmap.core.route.RoutePlan
 import fr.toolmap.core.track.ElevationProfile
 import fr.toolmap.core.track.NameDates
 import fr.toolmap.core.track.TrackFormat
@@ -102,9 +104,14 @@ fun DrawBar(
     var routeAfterSimplify by remember { mutableStateOf(false) }
     val route = ui.route
     val quit = { if (ui.dirty) askQuit = true else vm.cancel() }
-    // Back leaves the drawing as ✕ does: unsaved changes are not lost without asking.
+    // Back leaves the drawing as ✕ does: unsaved changes are not lost without asking. A stop taken at the crosshair
+    // is put back first.
     BackHandler(enabled = backEnabled) {
-        if (stopsOpen) stopsOpen = false else quit()
+        when {
+            ui.taken != null -> vm.cancelTake()
+            stopsOpen -> stopsOpen = false
+            else -> quit()
+        }
     }
     if (route != null) {
         // BRouter may have been installed (« Installer ») while the user was away.
@@ -125,11 +132,14 @@ fun DrawBar(
         if (ui.target is DrawTarget.NewTrack || ui.target is DrawTarget.NewRoute) askName = true else vm.save(null)
     }
     val unnamed = stringResource(R.string.tracks_unnamed)
+    val takenLabel = route?.let { r -> ui.taken?.let { stopLabel(r.plan, it) } }
+    val target = ui.target
     val title =
-        when (val target = ui.target) {
-            is DrawTarget.Track -> target.name ?: unnamed
-            is DrawTarget.Route -> target.name ?: unnamed
-            DrawTarget.NewRoute -> stringResource(R.string.draw_route_band)
+        when {
+            takenLabel != null -> stringResource(R.string.route_taken_title, takenLabel)
+            target is DrawTarget.Track -> target.name ?: unnamed
+            target is DrawTarget.Route -> target.name ?: unnamed
+            target == DrawTarget.NewRoute -> stringResource(R.string.draw_route_band)
             else -> stringResource(R.string.draw_new_track)
         }
     val length = fmt.distance(ui.lengthMeters)
@@ -146,8 +156,8 @@ fun DrawBar(
         maxHeight = maxHeight,
         modifier = modifier,
         subtitle = status,
-        onClose = quit,
-        closeDescription = stringResource(R.string.draw_quit),
+        onClose = { if (ui.taken != null) vm.cancelTake() else quit() },
+        closeDescription = stringResource(if (ui.taken != null) R.string.action_cancel else R.string.draw_quit),
     ) {
         if (route != null && hooks != null && stopsOpen && route.plan.stops.isNotEmpty()) {
             Column(Modifier.padding(horizontal = PANEL_INSET)) {
@@ -353,9 +363,10 @@ private const val MANY_STOPS = 30
 
 /**
  * The panel of a route that follows the ways (screen 2, variant A; tiles since P29.10): the switch and the profile
- * chip; « Insérer ici » (« Ajouter ici » when the crosshair is off the route), move and delete the selected stop, the
- * list of the stops; undo, redo, the tools and « Enregistrer ». Empty, it says where to start and offers « Depuis ma
- * position ».
+ * chip; « Insérer ici » (« Ajouter ici » when the crosshair is off the route, « Prendre l'étape » when it is on a stop),
+ * move and delete the selected stop, the list of the stops; undo, redo, the tools and « Enregistrer ». Empty, it says
+ * where to start and offers « Depuis ma position ». While a stop is taken (variant A of
+ * `docs/previews/p19-reprendre-etape.html`), only « Poser ici », « Annuler » and « Supprimer l'étape » stay.
  */
 @Composable
 private fun RoutedPanel(
@@ -373,7 +384,9 @@ private fun RoutedPanel(
     val empty = route.plan.stops.isEmpty()
     // Follows the camera, but the panel is only composed again when the answer changes.
     val insertLeg by remember(route.plan) { derivedStateOf { hooks.insertLegAt() } }
-    if (empty) {
+    val under by remember(route.plan) { derivedStateOf { hooks.stopUnder() } }
+    val taken = ui.taken
+    if (empty && taken == null) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
             Text(
                 stringResource(R.string.route_empty_title),
@@ -386,19 +399,23 @@ private fun RoutedPanel(
             )
         }
     }
-    RoutingSwitchRow(
-        route = route,
-        onToggle = onToggle,
-        onProfile = onProfile,
-        onInstall = hooks.onInstall,
-        modifier = Modifier.padding(start = PANEL_INSET, end = 6.dp),
-    )
+    if (taken == null) {
+        RoutingSwitchRow(
+            route = route,
+            onToggle = onToggle,
+            onProfile = onProfile,
+            onInstall = hooks.onInstall,
+            modifier = Modifier.padding(start = PANEL_INSET, end = 6.dp),
+        )
+    }
     val add = {
         val (lat, lon) = center()
         val leg = insertLeg
         if (leg != null) vm.insertAt(leg, lat, lon, hooks.reachMeters()) else vm.addAt(lat, lon, hooks.reachMeters())
     }
-    if (empty) {
+    if (taken != null) {
+        TakenStopTiles(vm, center)
+    } else if (empty) {
         ActionTiles {
             val position = hooks.position()
             if (position != null) {
@@ -416,14 +433,28 @@ private fun RoutedPanel(
         }
     } else {
         ActionTiles {
+            val stop = under
             val inserting = insertLeg != null
-            ActionTile(
-                if (inserting) SettingsIcons.AltRoute else RouteIcons.AddLocationAlt,
-                stringResource(if (inserting) R.string.route_insert_here else R.string.draw_add_here),
-                minHeight = TILE,
-                highlighted = true,
-                onClick = add,
-            )
+            if (stop != null) {
+                // The crosshair on a stop: take it, as « Ajouter ici » becomes « Insérer ici » on the route.
+                ActionTile(
+                    RouteIcons.PanTool,
+                    stringResource(R.string.route_take_stop, stopLabel(route.plan, stop)),
+                    minHeight = TILE,
+                    highlighted = true,
+                ) {
+                    val (lat, lon) = center()
+                    vm.take(stop, lat, lon)
+                }
+            } else {
+                ActionTile(
+                    if (inserting) SettingsIcons.AltRoute else RouteIcons.AddLocationAlt,
+                    stringResource(if (inserting) R.string.route_insert_here else R.string.draw_add_here),
+                    minHeight = TILE,
+                    highlighted = true,
+                    onClick = add,
+                )
+            }
             ActionTile(
                 RouteIcons.OpenWith,
                 stringResource(R.string.draw_move_here),
@@ -493,6 +524,50 @@ private fun RoutedPanel(
 
 /** The height of the tiles of the route panel: their names may take two lines (« Supprimer l'étape »). */
 private val TILE = 76.dp
+
+/** A stop taken at the crosshair: « Poser ici » (the main action, twice as wide), « Annuler », « Supprimer l'étape ». */
+@Composable
+private fun TakenStopTiles(
+    vm: DrawViewModel,
+    center: () -> Pair<Double, Double>,
+) {
+    Text(
+        stringResource(R.string.route_taken_hint),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    ActionTiles {
+        ActionTile(
+            RouteIcons.PinDrop,
+            stringResource(R.string.route_put_down),
+            minHeight = TILE,
+            highlighted = true,
+            weight = 2f,
+        ) {
+            val (lat, lon) = center()
+            vm.putDown(lat, lon)
+        }
+        ActionTile(RouteIcons.Undo, stringResource(R.string.action_cancel), minHeight = TILE, onClick = vm::cancelTake)
+        ActionTile(
+            RouteIcons.Delete,
+            stringResource(R.string.route_delete_stop),
+            minHeight = TILE,
+            onClick = vm::deleteSelected,
+        )
+    }
+}
+
+/** How the panel names stop [i]: its letter at the ends (as on the map), else its number. */
+private fun stopLabel(
+    plan: RoutePlan,
+    i: Int,
+): String =
+    when {
+        i == 0 || (i == plan.stops.lastIndex && plan.isLoop) -> RouteMarkers.letter(0)
+        i == plan.stops.lastIndex -> RouteMarkers.letter(i)
+        else -> i.toString()
+    }
 
 @Composable
 private fun RouteTool(

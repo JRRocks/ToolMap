@@ -11,7 +11,8 @@ import fr.toolmap.core.xml.JsonText
 /**
  * GeoJSON of a route being edited (`docs/specs/routing.md` §5.7), for the editing layers of the map.
  *
- * Lines: one feature per leg, whose `st` is `r` (routed), `h` (by hand: dashed) or `p` (computing: grey dots); legs
+ * Lines: one feature per leg, whose `st` is `r` (routed), `h` (by hand: dashed), `p` (computing: grey dots) or `g`
+ * (pale: the legs of a stop being moved, whose [elastic] lines join it to the crosshair); legs
  * by hand or computing also get a point at their middle carrying a `label` (none when that label is empty: a route
  * drawn all by hand needs no « à la main »). Handles: one feature per stop, whose `kind` is `start` (green, letter), `end` (red, letter), `named` (colour and icon of its symbol, with its `name`),
  * `pass` (small white disc) or `pass-sel`; `sel` marks the selected stop, `i` its index.
@@ -32,20 +33,23 @@ object RoutePlanGeoJson {
         return out
     }
 
+    /** With [taken], the legs on both sides of that stop are `g` (pale): it is being moved (« Prendre l'étape »). */
     fun lines(
         plan: RoutePlan,
         computingLabel: String,
         byHandLabel: String,
+        taken: Int? = null,
     ): String {
         if (plan.legs.isEmpty()) return EMPTY
         val out = StringBuilder(plan.legs.sumOf { it.points.size } * 24 + 128)
         out.append("{\"type\":\"FeatureCollection\",\"features\":[")
         var first = true
         val labels = ArrayList<Pair<TrackPoint, String>>()
-        for (leg in plan.legs) {
-            if (leg.points.size < 2) continue
+        plan.legs.forEachIndexed { k, leg ->
+            if (leg.points.size < 2) return@forEachIndexed
             val st =
                 when {
+                    taken != null && (k == taken - 1 || k == taken) -> "g"
                     leg.state == LegState.PENDING -> "p"
                     leg.isByHand -> "h"
                     else -> "r"
@@ -60,7 +64,7 @@ object RoutePlanGeoJson {
             }
             out.append("]}}")
             val label = if (st == "p") computingLabel else byHandLabel
-            if (st != "r" && label.isNotEmpty()) {
+            if ((st == "p" || st == "h") && label.isNotEmpty()) {
                 val path = TrackPath(listOf(leg.points))
                 path.interpolate(path.length / 2)?.let { labels += it to label }
             }
@@ -76,10 +80,12 @@ object RoutePlanGeoJson {
         return out.append("]}").toString()
     }
 
+    /** With [moved], the [selected] stop is drawn there instead of at its place: it follows the crosshair. */
     fun handles(
         plan: RoutePlan,
         selected: Int?,
         midpoints: Boolean = false,
+        moved: TrackPoint? = null,
     ): String {
         if (plan.stops.isEmpty()) return EMPTY
         val all = plan.stops.size <= EditorGeoJson.MAX_HANDLES
@@ -134,10 +140,32 @@ object RoutePlanGeoJson {
             }
             s.name?.takeIf { it.isNotBlank() }?.let { out.append(",\"name\":").append(JsonText.quote(it)) }
             out.append("},\"geometry\":{\"type\":\"Point\",\"coordinates\":")
-            position(out, s.lat, s.lon)
+            val at = if (sel && moved != null) moved else s.point
+            position(out, at.lat, at.lon)
             out.append("}}")
         }
         return out.append("]}").toString()
+    }
+
+    /**
+     * The elastic lines of a stop being moved: from the stop before [taken] to [to] (the crosshair) and on to the stop
+     * after it, as one line; the map draws them dashed until the stop is put down and its legs computed.
+     */
+    fun elastic(
+        plan: RoutePlan,
+        taken: Int,
+        to: TrackPoint,
+    ): String {
+        val ends = listOfNotNull(plan.stops.getOrNull(taken - 1)?.point, to, plan.stops.getOrNull(taken + 1)?.point)
+        if (taken !in plan.stops.indices || ends.size < 2) return EMPTY
+        val out = StringBuilder(128)
+        out.append("{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{}")
+        out.append(",\"geometry\":{\"type\":\"LineString\",\"coordinates\":[")
+        ends.forEachIndexed { i, p ->
+            if (i > 0) out.append(',')
+            position(out, p.lat, p.lon)
+        }
+        return out.append("]}}]}").toString()
     }
 
     /** The middle of the straight line of leg [leg] (where its midpoint handle stands). */

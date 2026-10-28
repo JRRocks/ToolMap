@@ -81,6 +81,7 @@ Panneau du drapeau ▸ tuile **Itinéraire** (inchangée) → mode dessin d'itin
 | 2 | **Ajouter au début** | Outils ▸ « Ajouter au début » (bascule ; le bandeau dit « Ajout au début ») | le nouveau |
 | 3 | **Insérer une étape au milieu** (déviation, « passer par ici ») | réticule à moins de 24 dp de la géométrie : le bouton devient « Insérer ici » | le tronçon coupé, devenu deux |
 | 4 | **Déplacer une étape** | étape sélectionnée (réticule dessus ou ligne de la liste) ▸ « Déplacer ici » | les deux voisins |
+| 4b | **Reprendre une étape au réticule** (ADR-085) | réticule à moins de 24 dp d'une étape : le bouton devient « Prendre l'étape N » (une étape passe avant le tracé : jamais « Insérer ici » sur elle) ▸ l'étape suit le réticule, reliée à ses voisines par des lignes pointillées, ses deux tronçons pâlis ; panneau « Étape N en main » : « Poser ici » · « Annuler » (aussi ✕ et Retour) · « Supprimer l'étape » | les deux voisins, à la pose seulement |
 | 5 | **Supprimer une étape** | étape sélectionnée ▸ « Supprimer » ou ⋮ de l'étape | les deux voisins fusionnés en un |
 | 6 | **Tronçon en ligne droite** (hors sentier) | ⋮ ▸ « Tronçon suivant en ligne droite » (et retour « … routé ») | celui-ci |
 | 7 | **Profil par tronçon** | ⋮ ▸ « Profil du tronçon suivant » | celui-ci |

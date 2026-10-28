@@ -25,6 +25,9 @@ object EditLayers {
     private const val LINE_LAYER = "tm-e-line-layer"
     private const val BY_HAND_LAYER = "tm-e-line-hand"
     private const val PENDING_LAYER = "tm-e-line-pending"
+    private const val TAKEN_LAYER = "tm-e-line-taken"
+    private const val ELASTIC_SOURCE = "tm-e-elastic"
+    private const val ELASTIC_LAYER = "tm-e-elastic-layer"
     private const val LEG_LABEL_LAYER = "tm-e-leg-label"
     private const val HANDLES_LAYER = "tm-e-handles-layer"
     private const val HANDLES_ICON_LAYER = "tm-e-handles-icon"
@@ -43,6 +46,8 @@ object EditLayers {
     private const val SELECTED_STROKE = 3.5f
     private const val LEG_LABEL_SIZE = 11f
     private const val LEG_LABEL_HALO = 2.5f
+    private const val TAKEN_OPACITY = 0.35f
+    private const val ELASTIC_WIDTH = 3f
     private const val ORANGE_HEX = "#ff6f00"
     private const val PENDING_HEX = "#9aa0ae"
 
@@ -50,13 +55,17 @@ object EditLayers {
         if (style.getSource(LINE_SOURCE) != null) return
         style.addSource(GeoJsonSource(LINE_SOURCE, EMPTY))
         style.addSource(GeoJsonSource(HANDLES_SOURCE, EMPTY))
+        style.addSource(GeoJsonSource(ELASTIC_SOURCE, EMPTY))
         val st = Expression.get("st")
         val byHand = Expression.eq(st, Expression.literal("h"))
         val pending = Expression.eq(st, Expression.literal("p"))
+        val taken = Expression.eq(st, Expression.literal("g"))
         val isLine = Expression.eq(Expression.geometryType(), Expression.literal("LineString"))
         style.addLayer(
             LineLayer(LINE_LAYER, LINE_SOURCE)
-                .withFilter(Expression.all(isLine, Expression.not(byHand), Expression.not(pending)))
+                .withFilter(
+                    Expression.all(isLine, Expression.not(byHand), Expression.not(pending), Expression.not(taken)),
+                )
                 .withProperties(
                     PropertyFactory.lineColor(ORANGE_HEX),
                     PropertyFactory.lineWidth(LINE_WIDTH),
@@ -84,6 +93,27 @@ object EditLayers {
                     PropertyFactory.lineDasharray(arrayOf(0.5f, 1.5f)),
                     PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
                 ),
+        )
+        // A stop taken at the crosshair (variant A of `docs/previews/p19-reprendre-etape.html`): its legs pale, and the
+        // dashed elastic lines that join its neighbours to the crosshair until it is put down.
+        style.addLayer(
+            LineLayer(TAKEN_LAYER, LINE_SOURCE)
+                .withFilter(Expression.all(isLine, taken))
+                .withProperties(
+                    PropertyFactory.lineColor(ORANGE_HEX),
+                    PropertyFactory.lineWidth(LINE_WIDTH),
+                    PropertyFactory.lineOpacity(TAKEN_OPACITY),
+                    PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                    PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                ),
+        )
+        style.addLayer(
+            LineLayer(ELASTIC_LAYER, ELASTIC_SOURCE).withProperties(
+                PropertyFactory.lineColor(ORANGE_HEX),
+                PropertyFactory.lineWidth(ELASTIC_WIDTH),
+                PropertyFactory.lineDasharray(arrayOf(2f, 1.5f)),
+                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            ),
         )
         style.addLayer(
             SymbolLayer(LEG_LABEL_LAYER, LINE_SOURCE)
@@ -182,13 +212,17 @@ object EditLayers {
         )
     }
 
+    /** A `null` [lineGeoJson] with [keepLine] leaves the line as it is: only the handles follow the crosshair. */
     fun show(
         style: Style,
         lineGeoJson: String?,
         handlesGeoJson: String?,
+        elasticGeoJson: String? = null,
+        keepLine: Boolean = false,
     ) {
-        style.getSourceAs<GeoJsonSource>(LINE_SOURCE)?.setGeoJson(lineGeoJson ?: EMPTY)
+        if (!keepLine) style.getSourceAs<GeoJsonSource>(LINE_SOURCE)?.setGeoJson(lineGeoJson ?: EMPTY)
         style.getSourceAs<GeoJsonSource>(HANDLES_SOURCE)?.setGeoJson(handlesGeoJson ?: EMPTY)
+        style.getSourceAs<GeoJsonSource>(ELASTIC_SOURCE)?.setGeoJson(elasticGeoJson ?: EMPTY)
     }
 
     private const val WHITE = 0xFFFFFFFF.toInt()

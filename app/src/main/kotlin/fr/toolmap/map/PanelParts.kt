@@ -272,6 +272,8 @@ internal fun RowScope.ActionTile(
     minHeight: Dp = TILE_HEIGHT,
     highlighted: Boolean = false,
     selected: Boolean? = null,
+    /** Share of the row: 2 for the one main action of a short row (« Poser ici »). */
+    weight: Float = 1f,
     onClick: () -> Unit,
 ) {
     val lit = highlighted || selected == true
@@ -283,7 +285,7 @@ internal fun RowScope.ActionTile(
         contentColor = if (lit) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.toolMap.onTile,
         modifier =
             Modifier
-                .weight(1f)
+                .weight(weight)
                 .heightIn(min = minHeight)
                 .alpha(if (enabled) 1f else DISABLED_ALPHA)
                 .then(if (selected != null) Modifier.semantics { this.selected = selected } else Modifier),

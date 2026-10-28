@@ -73,6 +73,8 @@ import fr.toolmap.waypoints.WaypointIconPicker
 class RouteHooks(
     /** The leg « Insérer ici » would cut at the crosshair, read from the camera: `null` for « Ajouter ici ». */
     val insertLegAt: () -> Int?,
+    /** The stop « Prendre l'étape » would take at the crosshair, read from the camera: `null` when it is on none. */
+    val stopUnder: () -> Int?,
     /** 24 dp in meters at the current zoom: how close the crosshair must be to a waypoint to take it. */
     val reachMeters: () -> Double,
     /** The last known position, `null` when the location is off. */

@@ -106,6 +106,22 @@ class RoutePlanGeoJsonTest {
     }
 
     @Test
+    fun `a stop being moved pales its legs, follows the crosshair and is joined to it by elastic lines`() {
+        val to = TrackPoint(45.015, 6.02)
+        val lines = RoutePlanGeoJson.lines(plan(), "calcul…", "à la main", taken = 2)
+        assertEquals(2, count(lines, "\"st\":\"g\""))
+        assertTrue("\"st\":\"r\"" in lines)
+        assertEquals(0, count(lines, "\"label\""))
+        val handles = RoutePlanGeoJson.handles(plan(), selected = 2, moved = to)
+        assertTrue("\"i\":2,\"sel\":true},\"geometry\":{\"type\":\"Point\",\"coordinates\":[6.02,45.015]" in handles)
+        val elastic = RoutePlanGeoJson.elastic(plan(), 2, to)
+        assertTrue("[[6,45.01],[6.02,45.015],[6,45.03]]" in elastic)
+        // The start has one neighbour: one stretch only.
+        assertEquals(1, count(RoutePlanGeoJson.elastic(plan(), 0, to), "],["))
+        assertEquals("""{"type":"FeatureCollection","features":[]}""", RoutePlanGeoJson.elastic(plan(), 9, to))
+    }
+
+    @Test
     fun `drawing by hand shows the middle of the straight legs only`() {
         val text = RoutePlanGeoJson.handles(plan(), null, midpoints = true)
         assertEquals(1, count(text, "\"kind\":\"m\""))

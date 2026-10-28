@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reprendre une étape</title>
+<style>
+:root{--pg-bg:#ffffff;--pg-on:#1d1d1b;--pg-on2:#5f5e5a;--pg-line:#d9d9d4;--pg-btn-line:#b5b5ae}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pg-bg:#16191b;--pg-on:#e8e8e3;--pg-on2:#a9a9a2;--pg-line:#3a3d3f;--pg-btn-line:#5a5d5f}}
+:root[data-theme="dark"]{--pg-bg:#16191b;--pg-on:#e8e8e3;--pg-on2:#a9a9a2;--pg-line:#3a3d3f;--pg-btn-line:#5a5d5f}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;margin:16px auto;max-width:1060px;padding:0 16px;background:var(--pg-bg);color:var(--pg-on)}
+h1{font-size:19px;font-weight:600;margin:8px 0 6px}
+h2{font-size:16px;font-weight:600;margin:28px 0 8px}
+p,li{font-size:14px;line-height:1.55;color:var(--pg-on2)}
+p b,li b{color:var(--pg-on);font-weight:600}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px 14px;padding:8px 0}
+.ph{width:200px;height:422px;border-radius:18px;border:1px solid var(--pg-btn-line);overflow:hidden;position:relative;background:#eef1e4;margin:0 auto;font-family:Roboto,system-ui,sans-serif}
+.ph>svg{position:absolute;left:0;top:0}
+.cap{font-size:13px;color:var(--pg-on2);text-align:center;margin:6px auto 0;line-height:1.4;max-width:220px}
+.cap b{font-weight:600;color:var(--pg-on)}
+.tb{position:absolute;left:6px;top:6px;background:#10232b;border-radius:8px;padding:4px 7px;font-size:11px;color:#e6eef0;line-height:1.25;white-space:nowrap}
+.tb.s2{top:30px}
+.nb{position:absolute;left:0;right:0;bottom:0;height:44px;background:#173a4a;display:flex;justify-content:space-around;align-items:center;color:#fff;font-size:11px}
+.pn{position:absolute;left:6px;right:6px;bottom:50px;height:158px;background:#0f2129;border-radius:12px;overflow:hidden;color:#e6eef0;font-size:11px}
+.hd{background:#17394a;color:#fff;font-size:12.5px;padding:6px 9px;display:flex;justify-content:space-between}
+.rw{display:flex;align-items:center;gap:5px;padding:5px 8px}
+.sw{width:22px;height:12px;border-radius:6px;background:#6fd0c5;flex:none}
+.chip{border:1px solid #6d8590;border-radius:7px;padding:2px 5px;white-space:nowrap}
+.mut{color:#a3b6bd}
+.sv{margin-left:auto;background:#1f343d;color:#a3b6bd;border-radius:7px;padding:4px 8px}
+.tl{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:2px 6px}
+.tl div{background:#1a2f37;border-radius:8px;height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:9.5px;line-height:1.1;text-align:center;color:#e6eef0}
+.tl div i{font-style:normal;font-size:14px}
+.tl div.hi{background:#10504c;color:#bdeee9}
+.tl div.off{color:#8fa2a8;background:#14262d}
+.col{position:absolute;right:6px;display:flex;flex-direction:column;gap:5px}
+.col span{width:26px;height:26px;border-radius:50%;background:#10232b;color:#e6eef0;display:flex;align-items:center;justify-content:center;font-size:13px}
+.col span.on{background:#2c5d6c}
+.arrow{font-size:22px;color:var(--pg-on2);text-align:center;align-self:center}
+.seq{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+.seq>div{width:206px}
+.box{border:1px solid var(--pg-line);border-radius:14px;padding:6px 10px 14px;margin:12px 0}
+.box h2{margin-top:10px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <g id="bg">
+   <rect x="-20" y="-20" width="260" height="460" fill="#eef1e4"/>
+   <path d="M-10 40 Q60 20 90 90 T200 120 L220 440 L-10 440Z" fill="#d5e8bd"/>
+   <path d="M130 -20 Q150 60 230 80 L230 -20Z" fill="#c2dca6"/>
+   <path d="M-10 170 Q50 150 80 190 T150 210 T230 170" stroke="#c9813a" stroke-width="1.2" stroke-dasharray="3 2" fill="none"/>
+   <path d="M20 -20 Q50 80 100 131 T120 440" stroke="#e8a33a" stroke-width="2" fill="none"/>
+   <path d="M150 -20 Q140 80 165 92 T150 440" stroke="#555" stroke-width="1" fill="none"/>
+   <path d="M60 140 Q110 150 150 175" stroke="#555" stroke-width="1" fill="none"/>
+  </g>
+  <!-- route A -> 1 -> B, stop 1 at the crosshair (100,131) -->
+  <path id="route" d="M40 62 Q50 80 70 100 Q85 118 100 131 Q125 118 140 104 Q155 96 165 92" stroke="#f07a1a" stroke-width="2.6" fill="none"/>
+  <g id="sA"><circle r="7" fill="#3f9b4a" stroke="#fff" stroke-width="1.5"/><text y="3.5" font-size="8" fill="#fff" text-anchor="middle" font-weight="700">A</text></g>
+  <g id="sB"><circle r="7" fill="#d9442b" stroke="#fff" stroke-width="1.5"/><text y="3.5" font-size="8" fill="#fff" text-anchor="middle" font-weight="700">B</text></g>
+  <g id="s1"><circle r="6" fill="#1f6fb2" stroke="#fff" stroke-width="1.5"/><text y="3" font-size="7.5" fill="#fff" text-anchor="middle" font-weight="700">1</text></g>
+  <g id="ring"><circle r="9.5" fill="none" stroke="#fff" stroke-width="3.6"/><circle r="9.5" fill="none" stroke="#147a78" stroke-width="1.6"/></g>
+  <g id="sel"><circle r="10" fill="none" stroke="#ffd54a" stroke-width="2.4"/></g>
+ </defs>
+</svg>
+
+<h1>Reprendre une étape au réticule : 3 variantes</h1>
+<p>Demande de l'utilisateur (2026-10-28) : dans « Itinéraire », pouvoir reprendre la main sur une étape en la survolant avec le réticule, avec la même mécanique que « Ajouter ici » qui devient « Insérer ici » quand le réticule survole le tracé.</p>
+<p><b>Aujourd'hui</b>, le réticule posé sur une étape laisse le bouton sur « Ajouter ici » (une nouvelle étape en fin d'itinéraire, posée sur l'ancienne). Pour déplacer l'étape, il faut la toucher du doigt pour la sélectionner, déplacer la carte, puis toucher « Déplacer ici ».</p>
+<p><b>Commun à toutes les variantes</b> : le survol est repéré comme pour « Insérer ici », à la même distance (24 dp autour du réticule). Une étape passe avant le tracé : sur une étape, jamais « Insérer ici ». Le déplacement compte pour un seul « Annuler ». Les maquettes sont au thème sombre, avec l'itinéraire A → 1 → B ; le réticule est sur l'étape 1.</p>
+
+<h2>Actuel</h2>
+<div class="g">
+ <div>
+  <div class="ph">
+   <svg width="200" height="422"><use href="#bg"/><use href="#route"/><use href="#sA" x="40" y="62"/><use href="#sB" x="165" y="92"/><use href="#s1" x="100" y="131"/><use href="#ring" x="100" y="131"/></svg>
+   <div class="col" style="top:52px"><span>⌃</span><span class="on">⇄</span><span>+</span><span>−</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire · 4,2 km</span><span>✕</span></div><div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins</span><span class="chip">Randonnée ▾</span></div>
+    <div class="tl"><div class="hi"><i>⊕</i>Ajouter ici</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>≡</i>Étapes (3)</div></div>
+    <div class="rw"><span class="mut">↶ ↷ Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="tb">45.21000, 5.98000</div><div class="tb s2">1:25 000 · 200 m</div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>Actuel, réticule sur l'étape 1</b><br>le bouton reste « Ajouter ici » ; « Déplacer ici » est grisé tant que l'étape n'a pas été touchée du doigt</div>
+ </div>
+</div>
+
+<div class="box">
+<h2>A · « Prendre l'étape », l'étape suit le réticule avec des lignes élastiques, puis « Poser ici »</h2>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="200" height="422"><use href="#bg"/><use href="#route"/><use href="#sA" x="40" y="62"/><use href="#sB" x="165" y="92"/><use href="#s1" x="100" y="131"/><use href="#ring" x="100" y="131"/></svg>
+   <div class="col" style="top:52px"><span>⌃</span><span class="on">⇄</span><span>+</span><span>−</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire · 4,2 km</span><span>✕</span></div><div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins</span><span class="chip">Randonnée ▾</span></div>
+    <div class="tl"><div class="hi"><i>✋</i>Prendre l'étape 1</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>≡</i>Étapes (3)</div></div>
+    <div class="rw"><span class="mut">↶ ↷ Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="tb">45.21000, 5.98000</div><div class="tb s2">1:25 000 · 200 m</div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · Survol</b><br>le bouton devient « Prendre l'étape 1 », comme « Ajouter ici » devient « Insérer ici »</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="200" height="422"><g transform="translate(-30,25)"><use href="#bg"/><use href="#route" opacity=".35"/><use href="#sA" x="40" y="62"/><use href="#sB" x="165" y="92"/></g>
+    <path d="M10 87 L100 131 L135 117" stroke="#f07a1a" stroke-width="2" stroke-dasharray="5 3" fill="none"/>
+    <use href="#s1" x="100" y="131"/><use href="#ring" x="100" y="131"/></svg>
+   <div class="col" style="top:52px"><span>⌃</span><span class="on">⇄</span><span>+</span><span>−</span></div>
+   <div class="pn"><div class="hd"><span>Étape 1 en main</span><span>✕</span></div><div class="rw" style="display:block"><span class="mut">Déplacez la carte, puis « Poser ici ».</span></div>
+    <div class="tl" style="grid-template-columns:2fr 1fr 1fr"><div class="hi"><i>📍</i>Poser ici</div><div><i>↩</i>Annuler</div><div><i>🗑</i>Supprimer l'étape</div></div>
+    <div class="rw"><span class="mut">↶ ↷ Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="tb">45.21150, 5.98370</div><div class="tb s2">1:25 000 · 200 m</div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>2 · Étape en main</b><br>la carte glisse, l'étape 1 reste sous le réticule ; deux lignes pointillées la relient à A et B ; l'ancien tracé pâlit</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="200" height="422"><g transform="translate(-30,25)"><use href="#bg"/><use href="#sA" x="40" y="62"/><use href="#sB" x="165" y="92"/></g>
+    <path d="M10 87 Q40 100 60 118 Q80 136 100 131 Q115 122 135 117" stroke="#f07a1a" stroke-width="2.6" fill="none"/>
+    <use href="#s1" x="100" y="131"/><use href="#ring" x="100" y="131"/></svg>
+   <div class="col" style="top:52px"><span>⌃</span><span class="on">⇄</span><span>+</span><span>−</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire · 4,6 km</span><span>✕</span></div><div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins</span><span class="chip">Randonnée ▾</span></div>
+    <div class="tl"><div class="hi"><i>✋</i>Prendre l'étape 1</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>≡</i>Étapes (3)</div></div>
+    <div class="rw"><span class="mut">↶ ↷ Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="tb">45.21150, 5.98370</div><div class="tb s2">1:25 000 · 200 m</div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>3 · Posée</b><br>BRouter recalcule les deux tronçons voisins ; le panneau revient à l'état normal</div>
+ </div>
+</div>
+<p>« Annuler » ou ✕ remet l'étape à sa place, sans rien changer. Pendant la prise, les autres boutons (Ajouter, Insérer, Étapes) sont cachés : une seule chose à faire. Le calcul ne se fait qu'à la pose, pas pendant le glissement (BRouter met 0,5 à 2 s par tronçon).</p>
+</div>
+
+<div class="box">
+<h2>B · Même chose, sans lignes élastiques</h2>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="200" height="422"><g transform="translate(-30,25)"><use href="#bg"/><use href="#route"/><use href="#sA" x="40" y="62"/><use href="#sB" x="165" y="92"/><circle cx="100" cy="131" r="6" fill="none" stroke="#1f6fb2" stroke-width="1.5" stroke-dasharray="2 2"/></g>
+    <use href="#s1" x="100" y="131"/><use href="#ring" x="100" y="131"/></svg>
+   <div class="col" style="top:52px"><span>⌃</span><span class="on">⇄</span><span>+</span><span>−</span></div>
+   <div class="pn"><div class="hd"><span>Étape 1 en main</span><span>✕</span></div><div class="rw" style="display:block"><span class="mut">Déplacez la carte, puis « Poser ici ».</span></div>
+    <div class="tl" style="grid-template-columns:2fr 1fr 1fr"><div class="hi"><i>📍</i>Poser ici</div><div><i>↩</i>Annuler</div><div><i>🗑</i>Supprimer l'étape</div></div>
+    <div class="rw"><span class="mut">↶ ↷ Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="tb">45.21150, 5.98370</div><div class="tb s2">1:25 000 · 200 m</div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>Étape en main</b><br>survol et pose comme A ; pendant la prise, l'ancien tracé reste tel quel, l'ancienne place est un cercle pointillé et l'étape suit le réticule</div>
+ </div>
+</div>
+<p>Plus sobre que A, mais on ne voit pas par où passera le nouveau tracé avant de poser.</p>
+</div>
+
+<div class="box">
+<h2>C · Le survol sélectionne, « Déplacer ici » existant fait le reste</h2>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="200" height="422"><use href="#bg"/><use href="#route"/><use href="#sA" x="40" y="62"/><use href="#sB" x="165" y="92"/><use href="#s1" x="100" y="131"/><use href="#ring" x="100" y="131"/></svg>
+   <div class="col" style="top:52px"><span>⌃</span><span class="on">⇄</span><span>+</span><span>−</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire · 4,2 km</span><span>✕</span></div><div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins</span><span class="chip">Randonnée ▾</span></div>
+    <div class="tl"><div class="hi"><i>☝</i>Sélectionner l'étape 1</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>≡</i>Étapes (3)</div></div>
+    <div class="rw"><span class="mut">↶ ↷ Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="tb">45.21000, 5.98000</div><div class="tb s2">1:25 000 · 200 m</div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · Survol</b><br>le bouton devient « Sélectionner l'étape 1 »</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="200" height="422"><g transform="translate(-30,25)"><use href="#bg"/><use href="#route"/><use href="#sA" x="40" y="62"/><use href="#sB" x="165" y="92"/><use href="#s1" x="100" y="131"/><use href="#sel" x="100" y="131"/></g>
+    <use href="#ring" x="100" y="131"/></svg>
+   <div class="col" style="top:52px"><span>⌃</span><span class="on">⇄</span><span>+</span><span>−</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire · 4,2 km</span><span>✕</span></div><div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins</span><span class="chip">Randonnée ▾</span></div>
+    <div class="tl"><div><i>⊕</i>Ajouter ici</div><div class="hi"><i>✥</i>Déplacer ici</div><div><i>🗑</i>Supprimer l'étape</div><div><i>≡</i>Étapes (3)</div></div>
+    <div class="rw"><span class="mut">↶ ↷ Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="tb">45.21150, 5.98370</div><div class="tb s2">1:25 000 · 200 m</div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>2 · Sélectionnée, carte déplacée</b><br>l'étape 1 reste en place, entourée de jaune ; « Déplacer ici » passe en bouton principal</div>
+ </div>
+</div>
+<p>Le plus proche de l'existant (même chose qu'un appui du doigt sur l'étape), mais l'étape ne suit pas le réticule et « Ajouter ici » reste à côté, au risque de se tromper de bouton.</p>
+</div>
+
+</body>
+</html>

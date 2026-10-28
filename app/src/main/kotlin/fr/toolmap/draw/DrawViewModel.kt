@@ -103,6 +103,8 @@ data class DrawUi(
     val dirty: Boolean = false,
     /** Set while a route is edited (with or without BRouter). */
     val route: RouteUi? = null,
+    /** The stop taken at the crosshair (« Prendre l'étape »), which follows it until « Poser ici ». */
+    val taken: Int? = null,
 ) {
     val isRoute: Boolean get() = target is DrawTarget.NewRoute || target is DrawTarget.Route
 
@@ -116,6 +118,8 @@ class EditOverlay(
     val handlesGeoJson: String,
     /** Glyphs the handles use (letters of the ends, icons of the named stops), loaded by the map. */
     val icons: Set<String> = emptySet(),
+    /** The dashed lines that join a stop being moved to its neighbours; `null` when none is. */
+    val elasticGeoJson: String? = null,
 )
 
 /** What BRouter's answers make the screen say, with the shortcuts of the message (`docs/specs/routing.md` §3). */
@@ -165,6 +169,10 @@ class DrawViewModel
 
         /** Only one message about BRouter's answers per edit of the user. */
         private var noticeGiven = false
+
+        /** The stop taken at the crosshair and where the crosshair is (variant A of `p19-reprendre-etape.html`). */
+        private var taken: Int? = null
+        private var takenAt: TrackPoint? = null
 
         private val queue = RoutingQueue(viewModelScope, brouter, ::onLegResult)
 
@@ -312,7 +320,7 @@ class DrawViewModel
             lon: Double,
             reachMeters: Double,
         ) {
-            if (!mutableUi.value.active || mutableUi.value.chooseSegment != null) return
+            if (!mutableUi.value.active || mutableUi.value.chooseSegment != null || taken != null) return
             val e = route
             if (e != null) {
                 routeTap(e, lat, lon, reachMeters)
@@ -394,6 +402,66 @@ class DrawViewModel
             if (plan.nearestStop(lat, lon, reachMeters) != null) return null
             val (leg, distance) = plan.nearestLeg(lat, lon) ?: return null
             return leg.takeIf { distance <= reachMeters }
+        }
+
+        /** The stop under the crosshair that « Prendre l'étape » would take; `null` elsewhere. */
+        fun stopUnder(
+            lat: Double,
+            lon: Double,
+            reachMeters: Double,
+        ): Int? = route?.plan?.nearestStop(lat, lon, reachMeters)
+
+        /** « Prendre l'étape »: stop [index] follows the crosshair, at [lat], [lon] now, until [putDown]. */
+        fun take(
+            index: Int,
+            lat: Double,
+            lon: Double,
+        ) {
+            val e = route ?: return
+            if (index !in e.plan.stops.indices) return
+            e.select(index)
+            taken = index
+            takenAt = TrackPoint(lat, lon)
+            publish()
+        }
+
+        /** The crosshair moved while a stop is taken: only its handle and its elastic lines are drawn again. */
+        fun followCrosshair(
+            lat: Double,
+            lon: Double,
+        ) {
+            val e = route ?: return
+            val i = taken ?: return
+            val at = TrackPoint(lat, lon)
+            takenAt = at
+            val shown = mutableOverlay.value ?: return
+            mutableOverlay.value =
+                EditOverlay(
+                    shown.lineGeoJson,
+                    RoutePlanGeoJson.handles(e.plan, i, midpoints = !e.routing, moved = at),
+                    shown.icons,
+                    RoutePlanGeoJson.elastic(e.plan, i, at),
+                )
+        }
+
+        /** « Poser ici »: the stop taken goes to the crosshair, and its legs are computed again. */
+        fun putDown(
+            lat: Double,
+            lon: Double,
+        ) {
+            val e = route ?: return
+            val i = taken ?: return
+            taken = null
+            takenAt = null
+            if (!edited(e.move(i, lat, lon))) publish()
+        }
+
+        /** « Annuler » (or ✕, or back) while a stop is taken: it stays where it was. */
+        fun cancelTake() {
+            if (taken == null) return
+            taken = null
+            takenAt = null
+            publish()
         }
 
         /** "Add here" at the crosshair; on a route, a waypoint under it becomes a named stop. */
@@ -723,6 +791,9 @@ class DrawViewModel
         private fun edited(changed: Boolean): Boolean {
             if (!changed) return false
             noticeGiven = false
+            // Any edit (undo, delete…) lets go of a stop taken at the crosshair: the indices may have changed.
+            taken = null
+            takenAt = null
             publish()
             return true
         }
@@ -887,6 +958,8 @@ class DrawViewModel
             queue.cancel()
             elevating?.cancel()
             route = null
+            taken = null
+            takenAt = null
             editor = PolylineEditor()
             pendingTrack = null
             mutableUi.value = DrawUi()
@@ -945,12 +1018,16 @@ class DrawViewModel
                             atStart = atStart,
                             summary = summary,
                         ),
+                    taken = taken,
                 )
+            val t = taken
+            val at = takenAt?.takeIf { t != null }
             mutableOverlay.value =
                 EditOverlay(
-                    RoutePlanGeoJson.lines(plan, legLabels.first, if (e.routing) legLabels.second else ""),
-                    RoutePlanGeoJson.handles(plan, e.selected, midpoints = !e.routing),
+                    RoutePlanGeoJson.lines(plan, legLabels.first, if (e.routing) legLabels.second else "", t),
+                    RoutePlanGeoJson.handles(plan, e.selected, midpoints = !e.routing, moved = at),
                     RoutePlanGeoJson.icons(plan),
+                    if (t != null && at != null) RoutePlanGeoJson.elastic(plan, t, at) else null,
                 )
             schedule()
             elevate()

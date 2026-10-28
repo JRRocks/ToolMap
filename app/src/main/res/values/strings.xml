@@ -519,6 +519,10 @@
   <string name="route_not_installed">BRouter n\'est pas installé.</string>
   <string name="route_install">Installer</string>
   <string name="route_insert_here">Insérer ici</string>
+  <string name="route_take_stop">Prendre l\'étape %1$s</string>
+  <string name="route_taken_title">Étape %1$s en main</string>
+  <string name="route_taken_hint">Déplacez la carte, puis « Poser ici ».</string>
+  <string name="route_put_down">Poser ici</string>
   <string name="route_delete_stop">Supprimer l\'étape</string>
   <string name="route_stops">Étapes (%1$d)</string>
   <string name="route_empty_title">Aucune étape</string>

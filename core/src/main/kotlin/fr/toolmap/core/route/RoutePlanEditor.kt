@@ -107,6 +107,16 @@ class RoutePlanEditor(
         lon: Double,
     ): Boolean {
         val i = selected ?: return false
+        return move(i, lat, lon)
+    }
+
+    /** Puts stop [i] somewhere else (« Poser ici » of a stop taken at the crosshair); it becomes the selected one. */
+    fun move(
+        i: Int,
+        lat: Double,
+        lon: Double,
+    ): Boolean {
+        if (i !in plan.stops.indices) return false
         val stops = plan.stops.toMutableList()
         stops[i] = stops[i].copy(lat = lat, lon = lon)
         val legs = plan.legs.toMutableList()

@@ -114,7 +114,7 @@ class MapController(
     private var coverageSourceId: String? = null
     private var tracks: DisplayData? = null
     private var cursor: TrackPoint? = null
-    private var edit: Triple<String, String, Set<String>>? = null
+    private var edit: EditShown? = null
     private var nav: Pair<Pair<Double, Double>?, Pair<Double, Double>?>? = null
     private var share: ShareMapData? = null
     private var measure: Triple<String, String, String>? = null
@@ -317,19 +317,50 @@ class MapController(
             .onFailure { Log.e(TAG, "Cursor overlay failed", it) }
     }
 
-    /** The line being drawn and its handles; `null` clears them. */
+    /**
+     * The line being drawn, its handles and the elastic lines of a stop being moved; `null` clears them. A line that is
+     * the same string as before is not sent again: while a stop follows the crosshair, only its handle and elastic lines
+     * change.
+     */
     fun showEdit(
         lineGeoJson: String?,
         handlesGeoJson: String?,
         icons: Set<String> = emptySet(),
+        elasticGeoJson: String? = null,
     ) {
-        edit = if (lineGeoJson != null && handlesGeoJson != null) Triple(lineGeoJson, handlesGeoJson, icons) else null
+        val before = edit
+        val next =
+            if (lineGeoJson != null && handlesGeoJson != null) {
+                EditShown(lineGeoJson, handlesGeoJson, icons, elasticGeoJson)
+            } else {
+                null
+            }
+        edit = next
         val s = style ?: return
+        if (next == null) {
+            runCatching { EditLayers.show(s, null, null) }.onFailure { Log.e(TAG, "Edit overlay failed", it) }
+        } else {
+            drawEdit(s, next, keepLine = next.line === before?.line)
+        }
+    }
+
+    private fun drawEdit(
+        s: Style,
+        e: EditShown,
+        keepLine: Boolean,
+    ) {
         runCatching {
-            TrackOverlay.addGlyphs(s, icons) { WaypointGlyphs.render(appContext, it) }
-            EditLayers.show(s, lineGeoJson, handlesGeoJson)
+            TrackOverlay.addGlyphs(s, e.icons) { WaypointGlyphs.render(appContext, it) }
+            EditLayers.show(s, e.line, e.handles, e.elastic, keepLine)
         }.onFailure { Log.e(TAG, "Edit overlay failed", it) }
     }
+
+    private class EditShown(
+        val line: String,
+        val handles: String,
+        val icons: Set<String>,
+        val elastic: String?,
+    )
 
     /** The ring on the target and the line to it from [from]; a `null` [target] hides both. */
     fun showTarget(
@@ -461,7 +492,7 @@ class MapController(
         runCatching { AlertLayers.install(s) }.onFailure { Log.e(TAG, "Watch overlay install failed", it) }
         tracks?.let(::showTracks)
         showCursor(cursor)
-        edit?.let { showEdit(it.first, it.second, it.third) }
+        edit?.let { drawEdit(s, it, keepLine = false) }
         nav?.let { showTarget(it.first, it.second) }
         share?.let(::showShare)
         measure?.let { showMeasure(it.first, it.second, it.third) }

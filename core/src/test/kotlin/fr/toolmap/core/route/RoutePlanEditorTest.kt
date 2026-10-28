@@ -131,6 +131,20 @@ class RoutePlanEditorTest {
     }
 
     @Test
+    fun `a stop taken at the crosshair is put down in one undoable step`() {
+        val e = editorWith(3)
+        e.computeAll()
+        val before = e.plan
+        assertTrue(e.move(1, 45.04, 6.04))
+        assertEquals(45.04, e.plan.stops[1].lat)
+        assertEquals(1, e.selected)
+        assertEquals(listOf(0, 1), e.plan.pending)
+        assertFalse(e.move(3, 45.0, 6.0))
+        assertTrue(e.undo())
+        assertEquals(before, e.plan)
+    }
+
+    @Test
     fun `deleting a stop merges the two legs into one`() {
         val e = editorWith(4)
         e.select(2)
