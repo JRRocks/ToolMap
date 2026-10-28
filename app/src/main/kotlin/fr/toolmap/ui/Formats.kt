@@ -38,6 +38,10 @@ data class Formats(
 
     fun distance(meters: Double): String = TrackFormat.distance(meters, units = units)
 
+    /** A round size the user picks (a zone to avoid, a band to save): « 1 km » rather than « 1.00 km », not a measure. */
+    fun size(meters: Int): String =
+        if (units == UnitSystem.METRIC && meters % 1000 == 0) "${meters / 1000} km" else distance(meters.toDouble())
+
     fun elevation(meters: Double): String = TrackFormat.elevation(meters, units = units)
 
     fun speed(metersPerSecond: Double): String = TrackFormat.speed(metersPerSecond, units = units)

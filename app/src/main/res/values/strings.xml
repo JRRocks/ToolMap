@@ -460,7 +460,6 @@
   <string name="tracks_download_around">Télécharger autour de cette trace</string>
   <string name="tracks_print_along">Imprimer le long de cette trace…</string>
   <string name="tracks_print_along_hint">Un PDF de plusieurs pages à l\'échelle, qui suivent la trace</string>
-  <string name="tracks_download_radius_ask">Largeur de la bande de chaque côté de la trace :</string>
   <string name="tracks_map_card_details">Statistiques</string>
   <string name="tracks_map_card_hide">Masquer</string>
 
@@ -1558,6 +1557,15 @@
   <string name="sa_no_maps">Aucune carte à enregistrer : affichez une carte qui a un serveur.</string>
   <string name="sa_handle">Poignée de la zone</string>
   <string name="sa_close">Quitter la sélection de zone</string>
+  <!-- Télécharger autour d'un tracé (P30.2, variante B de docs/previews/p30-itineraires.html) -->
+  <string name="tracks_download_around_tile">Télécharger autour</string>
+  <string name="sa_band_corridor">Enregistrer autour du tracé</string>
+  <string name="sa_download_corridor">Enregistrer la bande</string>
+  <string name="sa_corridor_width">Largeur de chaque côté</string>
+  <string name="sa_corridor_value">± %1$s</string>
+  <string name="sa_corridor_type">Taper la largeur</string>
+  <string name="sa_corridor_bounds">De 50 à 5 000 m</string>
+  <string name="sa_job_corridor">Autour de « %1$s »</string>
 
   <!-- Cartes partagées et multi-zoom (P12, ADR-031) -->
   <plurals name="storage_tiles">

@@ -3,6 +3,7 @@ package fr.toolmap.core.settings
 import fr.toolmap.core.geo.CoordinateSystem
 import fr.toolmap.core.geo.TileSharpness
 import fr.toolmap.core.geo.ZoomMapping
+import fr.toolmap.core.maps.CorridorWidth
 import fr.toolmap.core.print.GridKind
 import fr.toolmap.core.route.RoutingProfiles
 import fr.toolmap.core.tiles.ScalingPolicy
@@ -163,6 +164,8 @@ data class MapDisplaySettings(
     val nightMode: Boolean = false,
     /** « Intensité » of « Mode nuit de la carte » (Réglages ▸ Affichage): how much darker, in percent. */
     val nightPercent: Int = DEFAULT_NIGHT_PERCENT,
+    /** Width in meters on each side of the last band saved around a track or a route (P30.2), offered again. */
+    val corridorRadius: Int = CorridorWidth.DEFAULT,
 ) {
     val scaling: ScalingPolicy get() = ScalingPolicy(overscalingLevels.coerceIn(0, ScalingPolicy.MAX_LEVELS))
 

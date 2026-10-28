@@ -45,7 +45,6 @@ import fr.toolmap.alert.AlertController
 import fr.toolmap.altitude.AltitudeController
 import fr.toolmap.backup.BackupScreen
 import fr.toolmap.backup.BackupViewModel
-import fr.toolmap.core.download.ZoneShape
 import fr.toolmap.core.eventlog.EventLog
 import fr.toolmap.core.geo.CoordinateSystem
 import fr.toolmap.core.geo.LonLat
@@ -558,8 +557,8 @@ class MainActivity : ComponentActivity() {
                                                     tracksViewModel.fitMapTo(request)
                                                     toMap()
                                                 },
-                                                onDownloadAround = { id, radius ->
-                                                    downloadAround(id, radius) { open(Screen.DOWNLOADS) }
+                                                onDownloadAround = { id, name ->
+                                                    downloadAround(id, name) { toMap() }
                                                 },
                                                 onPrintAlong = { id ->
                                                     printAlong(id, settings.coordinates) { toMap() }
@@ -721,17 +720,20 @@ class MainActivity : ComponentActivity() {
         if (tracksOnly) tracksViewModel.reportReadError(reason) else viewModel.reportImportReadError(reason)
     }
 
-    /** Opens the download form for a band around a track, for the layers on screen. */
+    /**
+     * « Télécharger autour de cette trace » (P30.2): the track is shown and the band around it opens in « Enregistrer
+     * une zone » on the map, for the layers on screen.
+     */
     private fun downloadAround(
         trackId: Long,
-        radiusMeters: Double,
+        name: String,
         onReady: () -> Unit,
     ) {
         lifecycleScope.launch {
             val path = tracksViewModel.corridorPath(trackId)
             if (path.size < 2) return@launch
-            val shape = ZoneShape.Corridor(path.map { ZoneShape.Point(it.lon, it.lat) }, radiusMeters)
-            downloadViewModel.prepare(viewModel.pendingZone(shape, CORRIDOR_MIN_ZOOM, CORRIDOR_MAX_ZOOM))
+            tracksViewModel.setVisible(ItemRef(ItemKind.TRACK, trackId), true)
+            mapsViewModel.openCorridor(name, path, viewModel.state.value.stack)
             onReady()
         }
     }
@@ -784,6 +786,6 @@ private const val PAIR_SCHEME = "toolmap"
 /** No track selected in the statistics screen. */
 private const val NO_TRACK = -1L
 
-/** A corridor download starts at the zooms a walker uses (the form lets the user change them). */
+/** A zone sent to the download form (the polygon of the measure) starts at the zooms a walker uses. */
 private const val CORRIDOR_MIN_ZOOM = 12
 private const val CORRIDOR_MAX_ZOOM = 16

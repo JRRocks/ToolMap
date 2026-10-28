@@ -14,14 +14,17 @@ import fr.toolmap.core.download.ZoomLimit
 import fr.toolmap.core.elevation.DemWindow
 import fr.toolmap.core.layers.LayerStack
 import fr.toolmap.core.maps.AreaCorner
+import fr.toolmap.core.maps.AreaCorridor
 import fr.toolmap.core.maps.AreaSelection
 import fr.toolmap.core.maps.CatalogEntry
 import fr.toolmap.core.maps.CatalogGroup
+import fr.toolmap.core.maps.CorridorWidth
 import fr.toolmap.core.maps.MapCatalog
 import fr.toolmap.core.maps.MapGroup
 import fr.toolmap.core.maps.OnlineCatalog
 import fr.toolmap.core.maps.ZoneStrips
 import fr.toolmap.core.source.TileSource
+import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.core.wizard.SourceIds
 import fr.toolmap.data.elevation.SourceElevationTiles
 import fr.toolmap.data.settings.SettingsStore
@@ -83,7 +86,10 @@ data class AreaRow(
     val isElevation: Boolean get() = forMaps.isNotEmpty()
 }
 
-/** State of the "Select and save an area" mode. */
+/**
+ * State of the "Select and save an area" mode. With a [corridor] (« Télécharger autour », P30.2), the zone is the band
+ * around a track or a route instead of the rectangle; [selection] is then the rectangle around the band.
+ */
 data class SaveAreaUi(
     val selection: AreaSelection,
     val rows: List<AreaRow>,
@@ -92,6 +98,7 @@ data class SaveAreaUi(
     /** `null` while the figures are being computed. */
     val estimate: ZoneEstimate? = null,
     val estimating: Boolean = true,
+    val corridor: AreaCorridor? = null,
 ) {
     /** Something to fetch: a zone already stored in full has nothing left to save. */
     val canSave: Boolean
@@ -285,7 +292,11 @@ class MapsViewModel
         init {
             viewModelScope.launch {
                 mutableArea
-                    .map { ui -> ui?.let { EstimateInput(it.selection, it.rows.filter(AreaRow::checked), it.maxZoom) } }
+                    .map { ui ->
+                        ui?.let {
+                            EstimateInput(it.selection, it.rows.filter(AreaRow::checked), it.maxZoom, it.corridor)
+                        }
+                    }
                     .distinctUntilChanged()
                     .debounce(ESTIMATE_DEBOUNCE_MS)
                     .collect { input -> if (input != null) recompute(input) }
@@ -366,6 +377,77 @@ class MapsViewModel
             tileZoom: Int,
             stack: LayerStack,
         ) {
+            val (all, sliderMax) = areaRows(stack)
+            val upper =
+                ZoneShape.Rectangle(
+                    visible.west,
+                    visible.north - (visible.north - visible.south) * UPPER_PART,
+                    visible.east,
+                    visible.north,
+                )
+            mutableArea.value =
+                SaveAreaUi(
+                    selection = AreaSelection.centered(upper, START_FRACTION),
+                    rows = all,
+                    maxZoom = ZoneStrips.defaultMax(tileZoom, EXTRA_ZOOMS, sliderMax),
+                    sliderMax = sliderMax,
+                )
+            mutablePage.value = MapsPage.SAVE_AREA
+            // The room left on the phone, beside the weight of the zone (P29.7).
+            refreshStorage()
+        }
+
+        /**
+         * « Télécharger autour » of a track or a route (P30.2, variant B of `docs/previews/p30-itineraires.html`): the
+         * same panel as for a rectangle, over the band of the last width around [path] (thinned for the planner), up to
+         * zoom 16. The map is fitted to the band by the screen.
+         */
+        fun openCorridor(
+            name: String,
+            path: List<TrackPoint>,
+            stack: LayerStack,
+        ) {
+            if (path.size < 2) return
+            onlyMap = null
+            val (all, sliderMax) = areaRows(stack)
+            val radius = CorridorWidth.clamp(settingsStore.settings.value.maps.corridorRadius)
+            val corridor = AreaCorridor(name, path.map { ZoneShape.Point(it.lon, it.lat) }, radius)
+            mutableArea.value =
+                SaveAreaUi(
+                    selection = corridor.bounds(),
+                    rows = all,
+                    maxZoom = CORRIDOR_MAX_ZOOM.coerceAtMost(sliderMax),
+                    sliderMax = sliderMax,
+                    corridor = corridor,
+                )
+            mutablePage.value = MapsPage.SAVE_AREA
+            refreshStorage()
+        }
+
+        /** The width of the band on each side, from its slider or typed: kept for the next band. */
+        fun setCorridorRadius(meters: Int) {
+            val radius = CorridorWidth.clamp(meters)
+            mutableArea.update { ui ->
+                val band = ui?.corridor
+                if (ui == null || band == null || band.radiusMeters == radius) {
+                    ui
+                } else {
+                    ui.copy(
+                        corridor = band.copy(radiusMeters = radius),
+                        selection = band.bounds(radius),
+                        estimating = true,
+                    )
+                }
+            }
+            settingsStore.update { s -> s.copy(maps = s.maps.copy(corridorRadius = radius)) }
+        }
+
+        /**
+         * The maps offered to save and the end of the zoom slider: those of [stack] that have a server, the visible
+         * ones checked; asked from the catalogue for one map, that map comes first and alone checked. The « Altitudes »
+         * row follows them when maps are drawn in an elevation band.
+         */
+        private fun areaRows(stack: LayerStack): Pair<List<AreaRow>, Int> {
             val only = onlyMap?.let(repository::find)?.takeIf { it.isSupported && !it.isLocalOnly }
             onlyMap = null
             val shown =
@@ -385,24 +467,7 @@ class MapsViewModel
                     listOf(AreaRow(only, checked = true)) + shown.filter { it.source.id != only.id }
                 }
             val sliderMax = ZoneStrips.sliderMax(rows.map { it.source.maxZoom })
-            val all = listOfNotNull(elevationRow(stack, rows)).let { rows + it }
-            val upper =
-                ZoneShape.Rectangle(
-                    visible.west,
-                    visible.north - (visible.north - visible.south) * UPPER_PART,
-                    visible.east,
-                    visible.north,
-                )
-            mutableArea.value =
-                SaveAreaUi(
-                    selection = AreaSelection.centered(upper, START_FRACTION),
-                    rows = all,
-                    maxZoom = ZoneStrips.defaultMax(tileZoom, EXTRA_ZOOMS, sliderMax),
-                    sliderMax = sliderMax,
-                )
-            mutablePage.value = MapsPage.SAVE_AREA
-            // The room left on the phone, beside the weight of the zone (P29.7).
-            refreshStorage()
+            return listOfNotNull(elevationRow(stack, rows)).let { rows + it } to sliderMax
         }
 
         /**
@@ -459,7 +524,7 @@ class MapsViewModel
             val checked = ui.rows.filter { it.checked }
             if (checked.isEmpty() || ui.estimate !is ZoneEstimate.Ready) return SaveRefusal.NOTHING
             if (offlineMode.isOffline()) return SaveRefusal.OFFLINE
-            queue.start(request(ui.selection, checked, ui.maxZoom, name))
+            queue.start(request(ui.selection, checked, ui.maxZoom, name, ui.corridor))
             return null
         }
 
@@ -476,7 +541,7 @@ class MapsViewModel
             }
             val result =
                 estimator.estimate(
-                    request(input.selection, input.rows, input.maxZoom, "estimate"),
+                    request(input.selection, input.rows, input.maxZoom, "estimate", input.corridor),
                 )
             mutableArea.update { ui ->
                 // A newer edit already replaced the inputs: its own estimate is on the way.
@@ -489,13 +554,14 @@ class MapsViewModel
             rows: List<AreaRow>,
             maxZoom: Int,
             name: String,
+            corridor: AreaCorridor?,
         ) = ZoneRequest(
             id = UUID.randomUUID().toString(),
             name = name,
             sourceIds = rows.map { it.source.id },
             minZoom = 0,
             maxZoom = maxZoom.coerceIn(0, ZoneRequest.MAX_ZOOM),
-            shape = selection.toShape(),
+            shape = corridor?.toShape() ?: selection.toShape(),
             createdAtMillis = System.currentTimeMillis(),
             // The « Altitudes » row keeps to the zooms the masks read.
             zoomLimits =
@@ -508,9 +574,11 @@ class MapsViewModel
             val selection: AreaSelection,
             val rows: List<AreaRow>,
             val maxZoom: Int,
+            val corridor: AreaCorridor?,
         ) {
             fun matches(ui: SaveAreaUi) =
-                selection == ui.selection && maxZoom == ui.maxZoom && rows == ui.rows.filter(AreaRow::checked)
+                selection == ui.selection && maxZoom == ui.maxZoom && rows == ui.rows.filter(AreaRow::checked) &&
+                    corridor == ui.corridor
         }
 
         private companion object {
@@ -518,5 +586,8 @@ class MapsViewModel
             const val UPPER_PART = 0.55
             const val START_FRACTION = 0.7
             const val EXTRA_ZOOMS = 3
+
+            /** The deepest zoom a band starts with, as the old form around a track did (`MainActivity`, 12 to 16). */
+            const val CORRIDOR_MAX_ZOOM = 16
         }
     }

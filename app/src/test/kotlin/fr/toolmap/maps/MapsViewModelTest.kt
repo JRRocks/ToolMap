@@ -11,6 +11,7 @@ import fr.toolmap.core.source.LevelDef
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.source.ZoomSet
 import fr.toolmap.core.tiles.TilePlanner
+import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.data.download.ZoneDownloader
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.data.sources.SourceRepository
@@ -332,6 +333,38 @@ class MapsViewModelTest {
         offline.set(false)
         assertNull(vm.saveArea("zone"))
         assertEquals(1, queued.size)
+    }
+
+    @Test
+    fun `a band around a track counts and saves its tiles only, at the last width`() {
+        // A line across Paris, 70 km long, from south-west to north-east.
+        val line = listOf(TrackPoint(48.6, 1.9), TrackPoint(48.8, 2.3), TrackPoint(49.0, 2.7))
+        settings.update { it.copy(maps = it.maps.copy(corridorRadius = 1_000)) }
+        vm.openCorridor("Traversée", line, stack("osm"))
+        val opened = vm.area.value!!
+        assertEquals(MapsPage.SAVE_AREA, vm.page.value)
+        val band = assertNotNull(opened.corridor)
+        assertEquals(1_000, band.radiusMeters)
+        assertEquals(minOf(16, opened.sliderMax), opened.maxZoom)
+        vm.setAreaMaxZoom(12)
+        val wide = assertIs<ZoneEstimate.Ready>(awaitEstimate().estimate)
+        // Fewer tiles than the rectangle around the band.
+        val box = TilePlanner.count(opened.selection.toShape().toArea(), 0..12).values.sum()
+        assertTrue(wide.tiles in 1 until box, "${wide.tiles} tiles in the band, $box in its rectangle")
+
+        vm.setCorridorRadius(100)
+        val narrow = assertIs<ZoneEstimate.Ready>(awaitEstimate().estimate)
+        assertTrue(narrow.tiles < wide.tiles)
+        assertEquals(100, settings.settings.value.maps.corridorRadius, "kept for the next band")
+        vm.setCorridorRadius(9_000)
+        assertEquals(5_000, vm.area.value!!.corridor!!.radiusMeters)
+        vm.setCorridorRadius(100)
+        awaitEstimate()
+
+        assertNull(vm.saveArea("Autour de « Traversée »"))
+        val shape = assertIs<ZoneShape.Corridor>(queued.single().shape)
+        assertEquals(100.0, shape.radiusMeters)
+        assertEquals(line.map { ZoneShape.Point(it.lon, it.lat) }, shape.points)
     }
 
     @Test

@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.core.route.AvoidZone
-import fr.toolmap.core.settings.UnitSystem
 import fr.toolmap.core.state.CameraState
 import fr.toolmap.core.track.Geodesy
 import fr.toolmap.core.track.TrackPoint
@@ -80,7 +79,7 @@ fun ZoneSizeHandle(
     val latestUnproject by rememberUpdatedState(unproject)
     val latestPreview by rememberUpdatedState(onPreview)
     val latestResize by rememberUpdatedState(onResize)
-    val sizeText = zoneSize(radius)
+    val sizeText = LocalFormats.current.size(radius)
     val description = stringResource(R.string.route_zone_handle)
     val grow = stringResource(R.string.route_zone_grow)
     val shrink = stringResource(R.string.route_zone_shrink)
@@ -169,16 +168,5 @@ fun ZoneSizeHandle(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
             )
         }
-    }
-}
-
-/** A size of zone as the chips write it: « 1 km » rather than « 1,00 km », a round size and not a measure. */
-@Composable
-fun zoneSize(meters: Int): String {
-    val fmt = LocalFormats.current
-    return if (fmt.units == UnitSystem.METRIC && meters % 1000 == 0) {
-        "${meters / 1000} km"
-    } else {
-        fmt.distance(meters.toDouble())
     }
 }

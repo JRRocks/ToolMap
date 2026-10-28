@@ -60,6 +60,7 @@ import fr.toolmap.map.ActionTiles
 import fr.toolmap.map.MenuIcons
 import fr.toolmap.map.PANEL_INSET
 import fr.toolmap.map.StateIcon
+import fr.toolmap.maps.MapsIcons
 import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.LocalAppSettings
 import fr.toolmap.ui.LocalFormats
@@ -94,8 +95,10 @@ fun TappedItemSheet(
     onStopFollowing: () -> Unit,
     onWatch: (ItemRef) -> Unit,
     onDismiss: () -> Unit,
-    /** « Convertir en trace » of a route, with the name shown in the message. */
+    /** « Convertir en trace » of a route (in its ⋮ since P30.2), with the name shown in the message. */
     onConvert: (ItemRef, String) -> Unit = { _, _ -> },
+    /** « Télécharger autour » of a track or a route (P30.2): the band around it in « Enregistrer une zone ». */
+    onDownloadAround: (ItemRef, String) -> Unit = { _, _ -> },
     /** The profile of a track, for the small one of its sheet. */
     profileOf: suspend (Long) -> ElevationProfile? = { null },
 ) {
@@ -187,9 +190,12 @@ fun TappedItemSheet(
                         )
                     }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        listOf<Pair<Int, () -> Unit>>(
+                        listOfNotNull<Pair<Int, () -> Unit>>(
                             R.string.tracks_share to { onShare(ref, name) },
                             R.string.tracks_sheet_export to { onExport(ref, name) },
+                            // Its tile went to « Télécharger autour » (P30.2, variant B of p30-itineraires.html).
+                            (R.string.route_convert_track to { onConvert(ref, name ?: unnamed) })
+                                .takeIf { ref.kind == ItemKind.ROUTE },
                             R.string.tracks_map_card_hide to { onHide(ref) },
                             R.string.tracks_delete to { askDelete = true },
                         ).forEach { (label, action) ->
@@ -251,6 +257,9 @@ fun TappedItemSheet(
                             onDetails(ref.id)
                         }
                         ActionTile(Icons.Filled.Edit, stringResource(R.string.tracks_edit_path)) { onEdit(ref) }
+                        ActionTile(MapsIcons.Download, stringResource(R.string.tracks_download_around_tile)) {
+                            onDownloadAround(ref, name ?: unnamed)
+                        }
                     }
                 }
 
@@ -258,8 +267,8 @@ fun TappedItemSheet(
                     FollowAction(followed, stringResource(R.string.tracks_follow_route), ref, onFollow, onStopFollowing)
                     ActionTiles {
                         ActionTile(Icons.Filled.Edit, stringResource(R.string.tracks_edit_path)) { onEdit(ref) }
-                        ActionTile(SettingsIcons.Timeline, stringResource(R.string.route_convert_track)) {
-                            onConvert(ref, name ?: unnamed)
+                        ActionTile(MapsIcons.Download, stringResource(R.string.tracks_download_around_tile)) {
+                            onDownloadAround(ref, name ?: unnamed)
                         }
                     }
                 }

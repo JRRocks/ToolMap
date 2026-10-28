@@ -37,7 +37,8 @@ import kotlin.test.assertEquals
 /**
  * The sheet of a saved route (P19.6, screen 6 of `docs/previews/p19-routing.html`): the line « km · ↑ · ↓ · durée ·
  * profil » read from the plan kept in the GPX extensions. Since P29.4 (« Repère ») « Suivre cet itinéraire » is its one
- * filled action, « Modifier le tracé » and « Convertir en trace » its tiles, and the rest is in its ⋮.
+ * filled action, « Modifier le tracé » and « Télécharger autour » its tiles (P30.2), and the rest is in its ⋮, with
+ * « Convertir en trace ».
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
@@ -86,6 +87,7 @@ class RouteSheetTest {
     private fun show(
         route: RouteEntity,
         onConvert: (ItemRef, String) -> Unit = { _, _ -> },
+        onDownloadAround: (ItemRef, String) -> Unit = { _, _ -> },
     ) {
         rule.setContent {
             ToolMapTheme {
@@ -107,6 +109,7 @@ class RouteSheetTest {
                         onWatch = {},
                         onDismiss = {},
                         onConvert = onConvert,
+                        onDownloadAround = onDownloadAround,
                     )
                 }
             }
@@ -133,13 +136,23 @@ class RouteSheetTest {
     }
 
     @Test
-    fun `one filled action and two tiles, and « Convertir en trace » converts this route`() {
-        val converted = ArrayList<Pair<ItemRef, String>>()
-        show(route(plan.geometry, null)) { ref, label -> converted += ref to label }
-        listOf("Suivre cet itinéraire", "Modifier le tracé", "Convertir en trace").forEach {
+    fun `one filled action and two tiles, Télécharger autour taking the place of Convertir en trace`() {
+        val around = ArrayList<Pair<ItemRef, String>>()
+        show(route(plan.geometry, null), onDownloadAround = { ref, label -> around += ref to label })
+        listOf("Suivre cet itinéraire", "Modifier le tracé", "Télécharger autour").forEach {
             rule.onNodeWithText(it).assertExists()
         }
         rule.onAllNodesWithText("Statistiques").assertCountEquals(0)
+        rule.onAllNodesWithText("Convertir en trace").assertCountEquals(0)
+        rule.onNodeWithText("Télécharger autour").performClick()
+        assertEquals(listOf(ItemRef(ItemKind.ROUTE, 7) to "Col du Granier"), around)
+    }
+
+    @Test
+    fun `« Convertir en trace » of the menu converts this route`() {
+        val converted = ArrayList<Pair<ItemRef, String>>()
+        show(route(plan.geometry, null), onConvert = { ref, label -> converted += ref to label })
+        rule.onNodeWithContentDescription("Menu").performClick()
         rule.onNodeWithText("Convertir en trace").performClick()
         assertEquals(listOf(ItemRef(ItemKind.ROUTE, 7) to "Col du Granier"), converted)
     }
@@ -149,6 +162,8 @@ class RouteSheetTest {
         show(route(plan.geometry, null))
         rule.onAllNodesWithText("Partager").assertCountEquals(0)
         rule.onNodeWithContentDescription("Menu").performClick()
-        listOf("Partager", "Exporter", "Masquer", "Supprimer").forEach { rule.onNodeWithText(it).assertExists() }
+        listOf("Partager", "Exporter", "Convertir en trace", "Masquer", "Supprimer").forEach {
+            rule.onNodeWithText(it).assertExists()
+        }
     }
 }

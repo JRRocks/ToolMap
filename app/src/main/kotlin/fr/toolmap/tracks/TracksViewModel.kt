@@ -451,6 +451,28 @@ class TracksViewModel
                 track.segments.flatMap { fr.toolmap.core.track.PathSimplifier.simplify(it, CORRIDOR_TOLERANCE_METERS) }
             }
 
+        /** The line of a track or a route as the download planner wants it (« Télécharger autour », P30.2). */
+        suspend fun corridorPath(ref: ItemRef): List<TrackPoint> =
+            when (ref.kind) {
+                ItemKind.TRACK -> {
+                    corridorPath(ref.id)
+                }
+
+                ItemKind.ROUTE -> {
+                    withContext(Dispatchers.Default) {
+                        val route = repository.loadRoute(ref.id) ?: return@withContext emptyList()
+                        fr.toolmap.core.track.PathSimplifier.simplify(
+                            route.points.map { TrackPoint(it.lat, it.lon) },
+                            CORRIDOR_TOLERANCE_METERS,
+                        )
+                    }
+                }
+
+                ItemKind.WAYPOINT -> {
+                    emptyList()
+                }
+            }
+
         private fun launch(block: suspend () -> Unit) {
             viewModelScope.launch(Dispatchers.IO) { block() }
         }

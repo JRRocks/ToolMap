@@ -241,6 +241,7 @@ class TracksScreensTest {
         sheetOf(ItemRef(ItemKind.TRACK, fixture.fbt), from = null, alerts = followed)
         rule.onNodeWithText("Ne plus suivre").assertExists()
         rule.onNodeWithText("Statistiques").assertExists()
+        rule.onNodeWithText("Télécharger autour").assertExists()
         rule.waitUntil(5_000) {
             rule.onAllNodes(
                 hasContentDescription("Profil d'altitude de", substring = true),

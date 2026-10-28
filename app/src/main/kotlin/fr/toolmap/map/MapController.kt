@@ -479,6 +479,24 @@ class MapController(
         m.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
     }
 
+    /**
+     * Frames a box in the part of the map left between [top] and [bottom] pixels of the view (the boxes above, a panel
+     * below): the band of « Télécharger autour » over « Enregistrer une zone » (P30.2).
+     */
+    fun fitBoundsInside(
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double,
+        top: Int,
+        bottom: Int,
+    ) {
+        val m = map ?: return
+        val bounds = LatLngBounds.Builder().include(LatLng(south, west)).include(LatLng(north, east)).build()
+        val padding = (FIT_PADDING_DP * appContext.resources.displayMetrics.density).toInt()
+        m.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding, top + padding, padding, bottom + padding))
+    }
+
     private fun installTracks(
         m: MapLibreMap,
         s: Style,

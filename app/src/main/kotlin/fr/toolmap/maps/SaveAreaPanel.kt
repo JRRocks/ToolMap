@@ -2,11 +2,13 @@ package fr.toolmap.maps
 
 import android.content.res.Resources
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,9 +16,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -26,11 +30,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -43,10 +49,15 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
@@ -54,18 +65,25 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.maps.AreaCorner
+import fr.toolmap.core.maps.AreaCorridor
 import fr.toolmap.core.maps.AreaSelection
+import fr.toolmap.core.maps.CorridorWidth
 import fr.toolmap.core.maps.ZoneStrips
 import fr.toolmap.core.maps.ZoomCell
 import fr.toolmap.core.maps.ZoomSpan
+import fr.toolmap.core.route.AvoidZone
 import fr.toolmap.core.state.CameraState
+import fr.toolmap.core.track.PathSimplifier
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.download.SourceEstimate
 import fr.toolmap.download.ZoneEstimate
@@ -73,7 +91,10 @@ import fr.toolmap.download.formatBytes
 import fr.toolmap.map.MenuIcons
 import fr.toolmap.map.PanelBand
 import fr.toolmap.ui.CheckRow
+import fr.toolmap.ui.LocalFormats
+import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
 import kotlin.math.roundToInt
 
@@ -134,6 +155,65 @@ fun SaveAreaOverlay(
         CornerHandle(corner, position, unproject, onDrag, description)
     }
 }
+
+/**
+ * The band around a track or a route over the map (« Télécharger autour », P30.2): outside it dimmed as for the
+ * rectangle, its edge in the colour of the panel, the line itself left to the map. It is fixed on the ground, so it is
+ * drawn again from [camera] each time the map moves; it takes no touch.
+ */
+@Composable
+fun SaveCorridorOverlay(
+    corridor: AreaCorridor,
+    camera: CameraState,
+    project: (lat: Double, lon: Double) -> Offset?,
+) {
+    // A line thinned to a fifth of the width draws the band as well, and keeps a long track light to project.
+    val drawn =
+        remember(corridor.path, corridor.radiusMeters) {
+            PathSimplifier.simplify(
+                corridor.path.map { TrackPoint(it.lat, it.lon) },
+                (corridor.radiusMeters / BAND_THINNING).coerceAtLeast(MIN_THINNING_METERS),
+            )
+        }
+    // The camera is a key only: when it changes the map moved, and the line is projected again.
+    val points = remember(drawn, camera) { drawn.mapNotNull { project(it.lat, it.lon) } }
+    val halfWidth =
+        remember(drawn, corridor.radiusMeters, camera) {
+            val p = drawn[drawn.size / 2]
+            val east = AvoidZone(p.lat, p.lon, corridor.radiusMeters).east()
+            val a = project(p.lat, p.lon)
+            val b = project(east.lat, east.lon)
+            if (a == null || b == null) 0f else (b - a).getDistance()
+        }
+    if (points.size < 2) return
+    val scrim = Color.Black.copy(alpha = SCRIM_ALPHA)
+    val line = MaterialTheme.colorScheme.primary
+    Canvas(Modifier.fillMaxSize().graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
+        val path =
+            Path().apply {
+                points.forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }
+            }
+        val edge = 2.dp.toPx()
+        drawRect(scrim)
+        // The edge, then the inside of the band cleared: only the edge is left of the stroke, the map shows inside.
+        drawPath(
+            path,
+            line,
+            style = Stroke(width = 2 * halfWidth + 2 * edge, cap = StrokeCap.Round, join = StrokeJoin.Round),
+            blendMode = BlendMode.Src,
+        )
+        drawPath(
+            path,
+            Color.Black,
+            style = Stroke(width = 2 * halfWidth, cap = StrokeCap.Round, join = StrokeJoin.Round),
+            blendMode = BlendMode.Clear,
+        )
+    }
+}
+
+/** The band is drawn on its line thinned to its width divided by this (at least [MIN_THINNING_METERS]). */
+private const val BAND_THINNING = 5.0
+private const val MIN_THINNING_METERS = 25.0
 
 @Composable
 private fun CornerHandle(
@@ -199,7 +279,8 @@ fun SaveAreaPanel(
         shadowElevation = 8.dp,
     ) {
         Column {
-            PanelBand(title = stringResource(R.string.sa_band)) {
+            val band = ui.corridor
+            PanelBand(title = stringResource(if (band != null) R.string.sa_band_corridor else R.string.sa_band)) {
                 IconButton(onClick = onHelp) {
                     Icon(MenuIcons.Help, contentDescription = stringResource(R.string.menu_help))
                 }
@@ -208,6 +289,7 @@ fun SaveAreaPanel(
                 }
             }
             Weight(ui, figures?.freeBytes)
+            if (band != null) CorridorWidthRow(band.radiusMeters, maps::setCorridorRadius)
             if (ui.sliderMax > 0) {
                 Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -261,11 +343,113 @@ fun SaveAreaPanel(
                         .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp)
                         .heightIn(min = 48.dp),
             ) {
-                Text(stringResource(R.string.sa_download))
+                Text(stringResource(if (band != null) R.string.sa_download_corridor else R.string.sa_download))
             }
         }
     }
 }
+
+/**
+ * « Largeur de chaque côté » of a band around a track or a route (P30.2, variant B of
+ * `docs/previews/p30-itineraires.html`): a slider from 50 m to 5 km on a logarithmic scale, the width over it, which a
+ * touch opens to type it. The band (and its weight) follow when the slider is let go.
+ */
+@Composable
+private fun CorridorWidthRow(
+    radius: Int,
+    onWidth: (Int) -> Unit,
+) {
+    val fmt = LocalFormats.current
+    var typing by rememberSaveable { mutableStateOf(false) }
+    var fraction by remember(radius) { mutableFloatStateOf(CorridorWidth.toFraction(radius).toFloat()) }
+    // A typed width (« 777 m ») stays as typed until the slider moves.
+    var moved by remember(radius) { mutableStateOf(false) }
+    val shown = if (moved) CorridorWidth.fromFraction(fraction.toDouble()) else radius
+    val width = stringResource(R.string.sa_corridor_value, fmt.size(shown))
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.sa_corridor_width),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                width,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline,
+                modifier =
+                    Modifier
+                        .clickable(
+                            role = Role.Button,
+                            onClickLabel = stringResource(R.string.sa_corridor_type),
+                        ) { typing = true }
+                        .heightIn(min = 40.dp)
+                        .wrapContentHeight(),
+            )
+        }
+        Slider(
+            value = fraction,
+            onValueChange = {
+                fraction = it
+                moved = true
+            },
+            onValueChangeFinished = { onWidth(CorridorWidth.fromFraction(fraction.toDouble())) },
+            modifier = Modifier.semantics { stateDescription = width },
+        )
+        Row {
+            Text(fmt.size(CorridorWidth.MIN), style = MaterialTheme.typography.bodySmall, color = muted)
+            Spacer(Modifier.weight(1f))
+            Text(fmt.size(CorridorWidth.DEFAULT), style = MaterialTheme.typography.bodySmall, color = muted)
+            Spacer(Modifier.weight(1f))
+            Text(fmt.size(CorridorWidth.MAX), style = MaterialTheme.typography.bodySmall, color = muted)
+        }
+    }
+    if (typing) {
+        CorridorWidthDialog(
+            radius = radius,
+            onDone = { meters ->
+                typing = false
+                onWidth(meters)
+            },
+            onDismiss = { typing = false },
+        )
+    }
+}
+
+/** The width of the band typed in meters (P30.2): kept to the meter, from 50 m to 5 km. */
+@Composable
+private fun CorridorWidthDialog(
+    radius: Int,
+    onDone: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by rememberSaveable { mutableStateOf(radius.toString()) }
+    val meters = text.trim().toIntOrNull()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.sa_corridor_width)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { value -> text = value.filter(Char::isDigit).take(MAX_DIGITS) },
+                singleLine = true,
+                suffix = { Text("m") },
+                supportingText = { Text(stringResource(R.string.sa_corridor_bounds)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { meters?.let { onDone(CorridorWidth.clamp(it)) } }, enabled = meters != null) {
+                Text(stringResource(R.string.action_ok))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+private const val MAX_DIGITS = 5
 
 /**
  * « 9,5 Mo » in large with « 5,0 Go libres », then « 415 tuiles à télécharger · 31 déjà stockées »; a state of the total

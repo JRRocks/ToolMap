@@ -633,7 +633,7 @@ private fun ZoneTiles(
             FilterChip(
                 selected = meters == radius,
                 onClick = { vm.setZoneRadius(meters) },
-                label = { Text(zoneSize(meters)) },
+                label = { Text(LocalFormats.current.size(meters)) },
             )
         }
     }

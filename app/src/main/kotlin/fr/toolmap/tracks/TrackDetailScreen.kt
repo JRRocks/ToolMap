@@ -93,7 +93,8 @@ fun TrackDetailScreen(
     trackId: Long,
     onBack: () -> Unit,
     onShowOnMap: (MapRequest) -> Unit,
-    onDownloadAround: (trackId: Long, radiusMeters: Double) -> Unit,
+    /** « Télécharger autour de cette trace »: the band around it on the map, in « Enregistrer une zone » (P30.2). */
+    onDownloadAround: (trackId: Long, name: String) -> Unit,
     /** « Imprimer le long de cette trace… » (F9): the print, with pages chained along the track. */
     onPrintAlong: (trackId: Long) -> Unit,
     onEdit: (trackId: Long) -> Unit,
@@ -268,7 +269,7 @@ fun TrackDetailScreen(
                     listOf<@Composable () -> Unit>(
                         {
                             MenuRow(stringResource(R.string.tracks_download_around), icon = MapsIcons.Download) {
-                                ask = Ask.RADIUS
+                                onDownloadAround(trackId, entity.name ?: unnamed)
                             }
                         },
                         {
@@ -338,7 +339,6 @@ fun TrackDetailScreen(
             entity = entity,
             library = library,
             vm = vm,
-            onDownloadAround = onDownloadAround,
             onDeleted = onBack,
             onDone = { ask = null },
         )
@@ -346,7 +346,7 @@ fun TrackDetailScreen(
 }
 
 /** What the screen asks about: a confirmation, a choice or a name. */
-private enum class Ask { RADIUS, REVERSE, SIMPLIFY, MERGE, RENAME, STYLE, DESCRIBE, MOVE, EXPORT, DELETE }
+private enum class Ask { REVERSE, SIMPLIFY, MERGE, RENAME, STYLE, DESCRIBE, MOVE, EXPORT, DELETE }
 
 /** The dialogs of the tools and of the ⋮; [onDone] closes them. */
 @Composable
@@ -356,7 +356,6 @@ private fun TrackDialogs(
     entity: TrackEntity?,
     library: TrackLibrary?,
     vm: TracksViewModel,
-    onDownloadAround: (trackId: Long, radiusMeters: Double) -> Unit,
     onDeleted: () -> Unit,
     onDone: () -> Unit,
 ) {
@@ -365,19 +364,6 @@ private fun TrackDialogs(
     val ref = ItemRef(ItemKind.TRACK, trackId)
     val name = entity?.name ?: unnamed
     when (what) {
-        Ask.RADIUS -> {
-            ChoiceDialog(
-                title = stringResource(R.string.tracks_download_around),
-                ask = stringResource(R.string.tracks_download_radius_ask),
-                choices = RADII.map { fmt.distance(it) to it },
-                onPick = { radius ->
-                    onDone()
-                    onDownloadAround(trackId, radius)
-                },
-                onDismiss = onDone,
-            )
-        }
-
         Ask.REVERSE -> {
             ConfirmDialog(
                 title = stringResource(R.string.tracks_reverse),
@@ -636,7 +622,5 @@ private fun fullDate(track: TrackEntity): String =
         .format(FULL_DATE)
 
 private val FULL_DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.FRENCH)
-
-private val RADII = listOf(500.0, 1000.0, 2000.0, 5000.0)
 
 private val SIMPLIFY_TOLERANCES = listOf(1.0, 2.0, 5.0, 10.0, 25.0)

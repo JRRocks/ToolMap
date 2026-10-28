@@ -108,7 +108,6 @@ import fr.toolmap.core.geo.ScreenGrid
 import fr.toolmap.core.geo.ScreenGridPlan
 import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.layers.StackToStyle
-import fr.toolmap.core.maps.AreaSelection
 import fr.toolmap.core.p2p.MemberStatus
 import fr.toolmap.core.p2p.PeerState
 import fr.toolmap.core.print.CameraFit
@@ -154,6 +153,8 @@ import fr.toolmap.maps.MapsRootPanel
 import fr.toolmap.maps.MapsViewModel
 import fr.toolmap.maps.SaveAreaOverlay
 import fr.toolmap.maps.SaveAreaPanel
+import fr.toolmap.maps.SaveAreaUi
+import fr.toolmap.maps.SaveCorridorOverlay
 import fr.toolmap.maps.SaveRefusal
 import fr.toolmap.maps.tilesText
 import fr.toolmap.measure.MeasureBar
@@ -1267,6 +1268,21 @@ fun MapScreen(
     // left between the top boxes and the panel, so that the panel never covers the point « Ajouter ici » aims at.
     var rootTop by remember { mutableIntStateOf(0) }
     val centreTop = (topChromeBottom - rootTop).coerceAtLeast(0)
+    // « Télécharger autour » (P30.2): the map is fitted once to the band, in the room the boxes and the panel leave.
+    val corridorPath = saveArea?.corridor?.path
+    LaunchedEffect(corridorPath, saveAreaPanelHeight > 0, controller.isReady) {
+        val box = saveArea?.selection
+        if (corridorPath != null && box != null && saveAreaPanelHeight > 0 && controller.isReady) {
+            controller.fitBoundsInside(
+                box.south,
+                box.west,
+                box.north,
+                box.east,
+                top = centreTop,
+                bottom = saveAreaPanelHeight,
+            )
+        }
+    }
     val centreBottom = (rootSize.height - (toolPanelTop - rootTop)).coerceAtLeast(0)
     val centreShifted =
         toolShown && (drawUi.active || measureUi.active) && toolPanelTop > 0 &&
@@ -1408,7 +1424,7 @@ fun MapScreen(
         }
 
         saveArea?.takeIf { mapsPage == MapsPage.SAVE_AREA }?.let { area ->
-            SaveAreaLayer(controller, area.selection, maps, handles = false)
+            SaveAreaLayer(controller, area, maps, handles = false)
         }
 
         Box(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(12.dp)) {
@@ -1612,7 +1628,7 @@ fun MapScreen(
         }
         // The handles of the zone stand over the info boxes, so that a corner taken under them can still be moved (V2).
         saveArea?.takeIf { mapsPage == MapsPage.SAVE_AREA }?.let { area ->
-            SaveAreaLayer(controller, area.selection, maps, shade = false)
+            SaveAreaLayer(controller, area, maps, shade = false)
         }
         if (showMenu) {
             Box(
@@ -1735,10 +1751,8 @@ fun MapScreen(
                 maps = maps,
                 onSave = {
                     val name =
-                        resources.getString(
-                            R.string.sa_job_name,
-                            NameDates.format(System.currentTimeMillis()),
-                        )
+                        area.corridor?.let { resources.getString(R.string.sa_job_corridor, it.name) }
+                            ?: resources.getString(R.string.sa_job_name, NameDates.format(System.currentTimeMillis()))
                     when (maps.saveArea(name)) {
                         null -> {
                             val ready = area.estimate as? ZoneEstimate.Ready
@@ -1993,6 +2007,13 @@ fun MapScreen(
                         }
                     }
                 },
+                onDownloadAround = { ref, label ->
+                    tracks.onMapTap(null)
+                    scope.launch {
+                        val path = tracks.corridorPath(ref)
+                        if (path.size >= 2) maps.openCorridor(label, path, vm.state.value.stack)
+                    }
+                },
                 onDismiss = { tracks.onMapTap(null) },
                 profileOf = tracks::profileOf,
             )
@@ -2157,17 +2178,25 @@ private fun PrintFrameLayer(
     )
 }
 
-/** The zone being saved, with its corners projected on the screen: it reads the camera itself (P15.7). */
+/**
+ * The zone being saved, with its corners projected on the screen: it reads the camera itself (P15.7). A band around a
+ * track or a route (P30.2) has no handles: its width is set in the panel.
+ */
 @Composable
 private fun SaveAreaLayer(
     controller: MapController,
-    selection: AreaSelection,
+    area: SaveAreaUi,
     maps: MapsViewModel,
     shade: Boolean = true,
     handles: Boolean = true,
 ) {
+    val corridor = area.corridor
+    if (corridor != null) {
+        if (shade) SaveCorridorOverlay(corridor, controller.liveCamera, controller::latLonToScreen)
+        return
+    }
     SaveAreaOverlay(
-        selection = selection,
+        selection = area.selection,
         camera = controller.liveCamera,
         project = controller::latLonToScreen,
         unproject = controller::screenToLatLon,

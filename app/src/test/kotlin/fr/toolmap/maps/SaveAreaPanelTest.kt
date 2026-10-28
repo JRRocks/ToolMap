@@ -10,7 +10,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import fr.toolmap.core.download.ZoneShape
+import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.ui.theme.ToolMapTheme
 import org.junit.After
 import org.junit.Rule
@@ -18,6 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.test.assertEquals
 
 /**
  * The sheet of « Enregistrer une zone » since P29.7 (« Poids »): the weight in large with the room left, the maximal
@@ -57,6 +60,32 @@ class SaveAreaPanelTest {
             Thread.sleep(50)
         }
         rule.waitForIdle()
+    }
+
+    @Test
+    fun `a band around a track has its width, which a touch lets type`() {
+        val line = listOf(TrackPoint(45.40, 5.90), TrackPoint(45.45, 5.95), TrackPoint(45.42, 6.00))
+        fixture.maps.openCorridor("Tour du Granier", line, fixture.vm.state.value.stack)
+        rule.setContent {
+            ToolMapTheme {
+                val area by fixture.maps.area.collectAsState()
+                area?.let { ui ->
+                    SaveAreaPanel(ui = ui, currentTileZoom = 12.0, maps = fixture.maps, onSave = {
+                    }, onClose = {}, onHelp = {})
+                }
+            }
+        }
+        await { fixture.maps.area.value?.estimating == false }
+        rule.onNodeWithText("Enregistrer autour du tracé").assertExists()
+        rule.onNodeWithText("Largeur de chaque côté").assertExists()
+        rule.onNodeWithText("± 500 m").assertExists()
+        rule.onNodeWithText("Enregistrer la bande").assertExists()
+        rule.onNodeWithText("± 500 m").performClick()
+        rule.onNodeWithText("500").performTextReplacement("750")
+        rule.onNodeWithText("OK").performClick()
+        await { fixture.maps.area.value?.estimating == false }
+        assertEquals(750, fixture.maps.area.value!!.corridor!!.radiusMeters)
+        rule.onNodeWithText("± 750 m").assertExists()
     }
 
     @Test
