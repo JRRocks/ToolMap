@@ -52,10 +52,10 @@ du canal) postée seulement pendant `ShareService`. Hors partage, Android bloque
 
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
-| P22.0 | ⬜ | Aperçu : bouton et dialogue Alerte, bandeau, « Annuler l'alerte », « Alerte levée », ligne « à l'écoute » de la notification, « À l'écoute » dans la liste des membres | Validation explicite, date au journal |
+| P22.0 | ✅ | Aperçu : bouton et dialogue Alerte, bandeau, « Annuler l'alerte », « Alerte levée », ligne « à l'écoute » de la notification, « À l'écoute » dans la liste des membres. Montré le 2026-10-28 (session 75) : `docs/previews/p22-alerte.html` (état actuel, variantes A Balise, B Feuille, C Compte à rebours, D Bandeau de carte, E Plein écran). **Validé le 2026-10-28** : « B pour la page "Envoi", C pour le reste » ; nom du groupe sans réponse, texte de l'aperçu gardé (« Groupe · 4 membres : à l'écoute ») | Validation explicite, date au journal |
 | P22.1 | ⬜ | Textes : SOS → Alerte, retrait du 112 et de « Arrêter le SOS » | Plus aucun « SOS » visible (test de rendu) |
-| P22.2 | ⬜ | Répétition de 2 min et levée de l'alerte (codec, `MeshNode`, `ShareController`) | `WireTest`, `MeshNodeTest` : levée reçue, alerte retirée, ancienne version sans erreur |
-| P22.3 | ⬜ | Écoute permanente : service (ADR), réception hors partage, ligne de notification, état « À l'écoute » | `ShareControllerTest` ; émulateur : partage coupé, appli en arrière-plan, alerte et message reçus |
+| P22.2 | ✅ | Répétition de 2 min et levée de l'alerte (codec, `MeshNode`, `ShareController`). Fait le 2026-10-28 (session 75, ADR-089) : type `SOS_END` (14), 9 envois sur 2 min pour l'alerte et pour sa levée, le plus grand numéro l'emporte, alerte non vue gardée, `ShareUi.sosLifted` 1 min ; l'écran garde ses textes jusqu'à P22.1 | `WireTest`, `MeshNodeTest` : levée reçue, alerte retirée, ancienne version sans erreur |
+| P22.3 | ⬜ | Écoute permanente : service (ADR), réception hors partage, ligne de notification, état « À l'écoute ». ADR-090 écrit le 2026-10-28 (`ShareService` tant qu'on est dans un groupe, type `specialUse`, message `STATE`) ; code d'après l'aperçu validé (C) | `ShareControllerTest` ; émulateur : partage coupé, appli en arrière-plan, alerte et message reçus |
 | P22.4 | ⬜ | Vérification sur téléphone | Alerte reçue écran éteint sans partager ; batterie de l'écoute sur 1 h consignée |
 
 ---
