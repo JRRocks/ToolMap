@@ -81,7 +81,8 @@ class SaveAreaPanelTest {
         rule.onNodeWithText("Largeur de chaque côté").assertExists()
         rule.onNodeWithText("± 500 m").assertExists()
         rule.onNodeWithText("Enregistrer la bande").assertExists()
-        // A touch on the width opens the field to type it (the field itself: CorridorWidthDialogTest).
+        // A touch on the width opens the field to type it. The field itself is not opened here: under
+        // createComposeRule() a dialog that holds a text field never lets Robolectric idle (journal, session 77).
         rule.onNodeWithText("± 500 m").assert(hasClickAction())
         // A width typed to the meter is shown as typed.
         fixture.maps.setCorridorRadius(777)
