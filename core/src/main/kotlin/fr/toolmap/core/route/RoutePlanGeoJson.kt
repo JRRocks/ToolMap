@@ -34,6 +34,7 @@ object RoutePlanGeoJson {
                 "named" -> out += WaypointSymbols.iconOf(s.sym).id
             }
         }
+        plan.pois.forEach { out += WaypointSymbols.iconOf(it.sym).id }
         return out
     }
 
@@ -88,19 +89,37 @@ object RoutePlanGeoJson {
         return out.append("]}").toString()
     }
 
-    /** With [moved], the [selected] stop is drawn there instead of at its place: it follows the crosshair. */
+    /**
+     * With [moved], the [selected] stop is drawn there instead of at its place: it follows the crosshair. The points of
+     * interest (P30.1) come first, under the stops (`kind` = `poi`, `p` their index); with [poiMoved], point of interest
+     * [poiMoved] is drawn at [poiAt] instead.
+     */
     fun handles(
         plan: RoutePlan,
         selected: Int?,
         midpoints: Boolean = false,
         moved: TrackPoint? = null,
+        poiMoved: Int? = null,
+        poiAt: TrackPoint? = null,
     ): String {
-        if (plan.stops.isEmpty()) return EMPTY
+        if (plan.stops.isEmpty() && plan.pois.isEmpty()) return EMPTY
         val all = plan.stops.size <= EditorGeoJson.MAX_HANDLES
         val loop = plan.isLoop
-        val out = StringBuilder(plan.stops.size * 160 + 64)
+        val out = StringBuilder((plan.stops.size + plan.pois.size) * 160 + 64)
         out.append("{\"type\":\"FeatureCollection\",\"features\":[")
         var first = true
+        plan.pois.forEachIndexed { k, p ->
+            if (!first) out.append(',')
+            first = false
+            out.append("{\"type\":\"Feature\",\"properties\":{\"kind\":\"poi\",\"p\":").append(k)
+            out.append(",\"sel\":false,\"color\":\"").append(hex(WaypointSymbols.colorOf(p.sym))).append('"')
+            out.append(",\"icon\":\"").append(WaypointSymbols.iconOf(p.sym).id).append('"')
+            p.name?.takeIf { it.isNotBlank() }?.let { out.append(",\"name\":").append(JsonText.quote(it)) }
+            out.append("},\"geometry\":{\"type\":\"Point\",\"coordinates\":")
+            val at = if (k == poiMoved && poiAt != null) poiAt else p.point
+            position(out, at.lat, at.lon)
+            out.append("}}")
+        }
         // Drawing by hand: the middle of each straight leg is a handle that inserts a stop there (as for a track).
         if (all && midpoints) {
             plan.legs.forEachIndexed { k, leg ->

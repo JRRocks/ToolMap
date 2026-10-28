@@ -1,10 +1,19 @@
 package fr.toolmap.data.tracks
 
+import fr.toolmap.core.route.LegMode
+import fr.toolmap.core.route.LegState
+import fr.toolmap.core.route.RouteLeg
+import fr.toolmap.core.route.RoutePlan
+import fr.toolmap.core.route.RoutePlanGpx
+import fr.toolmap.core.route.RoutePoi
+import fr.toolmap.core.route.RouteStop
+import fr.toolmap.core.route.RoutingProfiles
 import fr.toolmap.core.track.GpxReader
 import fr.toolmap.core.track.GpxWriter
 import fr.toolmap.core.track.KmlReader
 import fr.toolmap.core.track.PathStyle
 import fr.toolmap.core.track.RawXml
+import fr.toolmap.core.track.Route
 import fr.toolmap.core.track.Track
 import fr.toolmap.core.track.TrackDocument
 import fr.toolmap.core.track.TrackPoint
@@ -324,5 +333,32 @@ class TrackRepositoryTest {
             repo.reverseTrack(id)
             val reversed = display.data.first().linesGeoJson
             assertTrue(reversed != grown, "the reversed line is still the old one")
+        }
+
+    @Test
+    fun `the points of interest of a route go out as waypoints too, and come back in the route only`() =
+        runDb {
+            val a = RouteStop(45.0, 6.0)
+            val b = RouteStop(45.01, 6.0)
+            val plan =
+                RoutePlan(
+                    listOf(a, b),
+                    listOf(RouteLeg.straight(a, b, RoutingProfiles.HIKING, LegMode.ROUTED, LegState.OK)),
+                    pois = listOf(RoutePoi(45.005, 6.001, "Source", "Spring")),
+                )
+            val route =
+                Route(
+                    name = "Tour",
+                    points = RoutePlanGpx.routePoints(plan),
+                    extras = RoutePlanGpx.attach(emptyList(), plan),
+                )
+            val first = repo.import(TrackDocument(routes = listOf(route)), "tour.gpx")
+            val exported = repo.document(TrackSelection(folderIds = listOf(first.folderId)))
+            assertEquals(listOf("Source"), exported.waypoints.map { it.name })
+            val bytes = GpxWriter.toBytes(exported, "ToolMap")
+            // Imported again: the route keeps its point of interest, which is not a waypoint of the library as well.
+            val again = repo.import(GpxReader.read(bytes), "tour.gpx")
+            assertEquals(0, again.waypoints)
+            assertTrue(repo.library.first().waypoints.isEmpty())
         }
 }

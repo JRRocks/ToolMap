@@ -161,6 +161,7 @@ object EditLayers {
                 Expression.eq(kind, Expression.literal("start")),
                 Expression.eq(kind, Expression.literal("end")),
                 Expression.eq(kind, Expression.literal("named")),
+                Expression.eq(kind, Expression.literal("poi")),
             )
         style.addLayer(
             CircleLayer(HANDLES_LAYER, HANDLES_SOURCE).withProperties(
@@ -173,6 +174,7 @@ object EditLayers {
                         Expression.stop("start", Expression.literal(STOP_RADIUS)),
                         Expression.stop("end", Expression.literal(STOP_RADIUS)),
                         Expression.stop("named", Expression.literal(STOP_RADIUS)),
+                        Expression.stop("poi", Expression.literal(STOP_RADIUS)),
                         Expression.stop("pass", Expression.literal(PASS_RADIUS)),
                         Expression.stop("pass-sel", Expression.literal(PASS_SELECTED_RADIUS)),
                     ),

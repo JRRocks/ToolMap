@@ -2,6 +2,7 @@ package fr.toolmap.core.route
 
 import fr.toolmap.core.track.Geodesy
 import fr.toolmap.core.track.RawXml
+import fr.toolmap.core.track.Route
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.core.track.Waypoint
 import fr.toolmap.core.xml.XmlText
@@ -16,18 +17,20 @@ import fr.toolmap.core.xml.XmlText
  *   <tm:leg profile="hiking-mountain" mode="routed" n="152" time="5400000"/>
  *   <tm:stop lat="45.8" lon="6.9" kind="passage"/>
  *   <tm:zone lat="45.85" lon="6.86" r="250"/>
+ *   <tm:poi lat="45.86" lon="6.85" name="Source" sym="Drinking Water"/>
  * </tm:plan></extensions>
  * ```
  *
  * `n` is the number of points of the leg, both stops included: the geometry is cut back into legs with it. `tm:zone`
- * are the zones to avoid (P19.8), their radius in meters. The plan is kept in the route's extras, so the library, the
+ * are the zones to avoid (P19.8), their radius in meters; `tm:poi` the points of interest (P30.1), which the export also
+ * writes as `<wpt>` for the other apps ([poiWaypoints]). The plan is kept in the route's extras, so the library, the
  * backups and the exports carry it with no change.
  */
 object RoutePlanGpx {
     const val NAMESPACE = "https://toolmap.app/gpx/1"
 
     private val PLAN = Regex("""<(?:[\w.-]+:)?plan\b[^>]*>[\s\S]*?</(?:[\w.-]+:)?plan>""")
-    private val CHILD = Regex("""<(?:[\w.-]+:)?(stop|leg|zone)\b([^>]*?)/?>""")
+    private val CHILD = Regex("""<(?:[\w.-]+:)?(stop|leg|zone|poi)\b([^>]*?)/?>""")
     private val ATTR = Regex("""([\w.:-]+)\s*=\s*"([^"]*)"""")
     private val EMPTY_EXTENSIONS =
         Regex("""^<(?:[\w.-]+:)?extensions\b[^>]*>\s*</(?:[\w.-]+:)?extensions>$|^<(?:[\w.-]+:)?extensions\b[^>]*/>$""")
@@ -58,6 +61,12 @@ object RoutePlanGpx {
         for (z in plan.zones) {
             out.append("<tm:zone lat=\"").append(z.lat).append("\" lon=\"").append(z.lon).append('"')
             out.append(" r=\"").append(z.radiusMeters).append("\"/>")
+        }
+        for (p in plan.pois) {
+            out.append("<tm:poi lat=\"").append(p.lat).append("\" lon=\"").append(p.lon).append('"')
+            p.name?.let { out.append(" name=\"").append(XmlText.attribute(it)).append('"') }
+            p.sym?.let { out.append(" sym=\"").append(XmlText.attribute(it)).append('"') }
+            out.append("/>")
         }
         return out.append("</tm:plan>").toString()
     }
@@ -98,9 +107,14 @@ object RoutePlanGpx {
         val stops = ArrayList<RouteStop>()
         val legs = ArrayList<Triple<Map<String, String>, Int, Long?>>()
         val zones = ArrayList<AvoidZone>()
+        val pois = ArrayList<RoutePoi>()
         for (m in CHILD.findAll(body)) {
             val a = ATTR.findAll(m.groupValues[2]).associate { it.groupValues[1] to unescape(it.groupValues[2]) }
-            if (m.groupValues[1] == "zone") {
+            if (m.groupValues[1] == "poi") {
+                val lat = a["lat"]?.toDoubleOrNull() ?: return null
+                val lon = a["lon"]?.toDoubleOrNull() ?: return null
+                pois += RoutePoi(lat, lon, a["name"], a["sym"])
+            } else if (m.groupValues[1] == "zone") {
                 val lat = a["lat"]?.toDoubleOrNull() ?: return null
                 val lon = a["lon"]?.toDoubleOrNull() ?: return null
                 val r = a["r"]?.toIntOrNull()?.takeIf { it > 0 } ?: return null
@@ -122,7 +136,7 @@ object RoutePlanGpx {
             return if (geometry.size == 1 &&
                 matches(geometry[0], stops[0])
             ) {
-                RoutePlan(stops, zones = zones)
+                RoutePlan(stops, zones = zones, pois = pois)
             } else {
                 null
             }
@@ -142,8 +156,32 @@ object RoutePlanGpx {
                     timeMillis = time,
                 )
             }
-        return RoutePlan(stops, built, zones)
+        return RoutePlan(stops, built, zones, pois)
     }
+
+    /**
+     * The points of interest of [route]'s plan as GPX waypoints (P30.1), for an export that other apps read; none when
+     * the route has no plan.
+     */
+    fun poiWaypoints(route: Route): List<Waypoint> {
+        val plan = planOf(route.points.map { TrackPoint(it.lat, it.lon, it.ele) }, route.extras) ?: return emptyList()
+        return plan.pois.map { Waypoint(it.lat, it.lon, name = it.name, sym = it.sym) }
+    }
+
+    /**
+     * A waypoint of a file that is one of the points of interest of a route of the same file (written by
+     * [poiWaypoints]): an import keeps it in its route only, not twice.
+     */
+    fun isPoiOf(
+        waypoint: Waypoint,
+        routes: List<Route>,
+    ): Boolean =
+        routes.any { r ->
+            poiWaypoints(r).any { p ->
+                p.name == waypoint.name &&
+                    Geodesy.distance(p.lat, p.lon, waypoint.lat, waypoint.lon) <= MATCH_METERS
+            }
+        }
 
     /** The `<rtept>` of a planned route: its whole geometry, the points on a named stop with its name and icon. */
     fun routePoints(plan: RoutePlan): List<Waypoint> {

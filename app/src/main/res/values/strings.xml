@@ -586,6 +586,34 @@
     <item quantity="one">%1$d zone évitée</item>
     <item quantity="other">%1$d zones évitées</item>
   </plurals>
+  <!-- Points d'intérêt d'un itinéraire (P30.1, variante B de docs/previews/p30-itineraires.html) -->
+  <string name="route_pose_stop">Étape</string>
+  <string name="route_pose_poi">Point d\'intérêt</string>
+  <string name="route_poi_add">Ajouter le point</string>
+  <string name="route_poi_edit">Modifier le point</string>
+  <string name="route_poi_sheet_title">Quel point ?</string>
+  <string name="route_poi_name">Nom</string>
+  <string name="route_poi_add_confirm">Ajouter</string>
+  <string name="route_poi_delete">Supprimer le point</string>
+  <string name="route_poi_move">Déplacer</string>
+  <string name="route_poi_taken_title">Point en main</string>
+  <string name="route_poi_unnamed">Point d\'intérêt</string>
+  <string name="route_poi_section">Points d\'intérêt (%1$d)</string>
+  <string name="route_poi_place">%1$s · à %2$s du tracé</string>
+  <string name="route_poi_place_on">%1$s · sur le tracé</string>
+  <string name="route_poi_edit_menu">Modifier…</string>
+  <string name="route_poi_q_spring">Source</string>
+  <string name="route_poi_q_hut">Refuge</string>
+  <string name="route_poi_q_view">Point de vue</string>
+  <string name="route_poi_q_parking">Parking</string>
+  <string name="route_poi_q_danger">Danger</string>
+  <string name="route_poi_q_peak">Sommet</string>
+  <string name="route_poi_q_photo">Photo</string>
+  <string name="route_poi_q_other">Autre…</string>
+  <plurals name="route_poi_count">
+    <item quantity="one">%1$d point d\'intérêt</item>
+    <item quantity="other">%1$d points d\'intérêt</item>
+  </plurals>
   <!-- Taille d'une zone à éviter à sa poignée (P30.4, variante C de docs/previews/p30-itineraires.html) -->
   <string name="route_zone_resize_hint">Tirez la poignée pour changer la taille (50 m à 2 km).</string>
   <string name="route_zone_handle">Poignée de taille de la zone</string>

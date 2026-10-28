@@ -1,6 +1,7 @@
 package fr.toolmap.data.tracks
 
 import androidx.room.withTransaction
+import fr.toolmap.core.route.RoutePlanGpx
 import fr.toolmap.core.track.Geodesy
 import fr.toolmap.core.track.GpxLink
 import fr.toolmap.core.track.PathStyle
@@ -145,7 +146,10 @@ class TrackRepository(
 
             val format = document.format?.name
             var points = 0
-            for (w in document.waypoints) {
+            // The points of interest of a route of the file are in its plan (P30.1): their `<wpt>` copies, written for
+            // the other apps, are not taken a second time.
+            val waypoints = document.waypoints.filterNot { RoutePlanGpx.isPoiOf(it, document.routes) }
+            for (w in waypoints) {
                 dao.insertWaypoint(waypointEntity(w, folderFor(w.folder), created, format))
             }
             document.routes.forEachIndexed { i, r ->
@@ -161,8 +165,8 @@ class TrackRepository(
                 folderId = rootId,
                 tracks = document.tracks.size,
                 routes = document.routes.size,
-                waypoints = document.waypoints.size,
-                points = points + document.waypoints.size,
+                waypoints = waypoints.size,
+                points = points + waypoints.size,
                 issues = document.issues,
             )
         }
@@ -512,13 +516,15 @@ class TrackRepository(
                 val folderId = lib.waypoints.first { it.id == id }.folderId
                 namespaces.adopt(folderId) { f -> waypoint.copy(extras = f(waypoint.extras)) }
             }
+        // The points of interest of the routes (P30.1) as waypoints too, for the apps that do not read the plan.
+        val pois = routes.flatMap { RoutePlanGpx.poiWaypoints(it) }
         val onlyFolder =
             selection.folderIds.singleOrNull()?.takeIf {
                 selection.trackIds.isEmpty() && selection.routeIds.isEmpty() && selection.waypointIds.isEmpty()
             }
         return TrackDocument(
             name = onlyFolder?.let { id -> lib.folders.firstOrNull { it.id == id }?.name },
-            waypoints = waypoints,
+            waypoints = waypoints + pois,
             routes = routes,
             tracks = tracks,
             namespaces = namespaces.merged,

@@ -519,6 +519,11 @@ fun MapScreen(
             )
         }
     }
+    // A point of interest taken at the crosshair (« Déplacer », P30.1) follows the camera until it is put down.
+    LaunchedEffect(drawUi.movingPoi) {
+        if (drawUi.movingPoi == null) return@LaunchedEffect
+        snapshotFlow { controller.liveCamera }.collect { draw.followPoi(it.lat, it.lon) }
+    }
     // A stop taken at the crosshair (« Prendre l'étape ») follows the camera until it is put down.
     LaunchedEffect(drawUi.taken) {
         if (drawUi.taken == null) return@LaunchedEffect
@@ -1400,6 +1405,8 @@ fun MapScreen(
                     )
                 },
                 modifier = Modifier.align(Alignment.Center).offset { IntOffset(0, centreOffset) },
+                // « Poser : Point d'intérêt » of a route (P30.1): the point is a pin.
+                pin = drawUi.active && drawUi.isRoute && drawUi.poiMode && drawUi.pointCount > 0,
             )
         }
         if (drawUi.active && drawUi.freehand && !drawUi.routed && drawUi.chooseSegment == null) {
@@ -1868,6 +1875,10 @@ fun MapScreen(
                                 zoneUnder = {
                                     val camera = controller.liveCamera
                                     draw.zoneUnder(camera.lat, camera.lon)
+                                },
+                                poiUnder = {
+                                    val camera = controller.liveCamera
+                                    draw.poiUnder(camera.lat, camera.lon, controller.metersFor(TAP_REACH_DP))
                                 },
                                 reachMeters = { controller.metersFor(TAP_REACH_DP) },
                                 position = { navPosition?.let { it.lat to it.lon } ?: controller.lastPosition() },

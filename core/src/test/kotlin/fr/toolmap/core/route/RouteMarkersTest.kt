@@ -33,4 +33,15 @@ class RouteMarkersTest {
         assertEquals(listOf(RouteMarkers.LETTER_PREFIX + "A", null), markers.map { it.iconId })
         assertEquals(RouteMarkers.START_COLOR, markers.first().colorArgb)
     }
+
+    @Test
+    fun `a saved route shows its points of interest, which open the route`() {
+        val spring = RoutePoi(45.005, 6.002, "Source", "Drinking Water")
+        val markers = RouteMarkers.saved(-3, plan(a, b, c).copy(pois = listOf(spring)))
+        assertEquals(4, markers.size)
+        val poi = markers.single { it.name == "Source" }
+        assertEquals(-3L, poi.id)
+        assertEquals("Drinking Water", poi.sym)
+        assertEquals(spring.lat to spring.lon, poi.lat to poi.lon)
+    }
 }

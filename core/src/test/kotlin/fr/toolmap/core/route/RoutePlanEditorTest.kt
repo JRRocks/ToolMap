@@ -476,4 +476,51 @@ class RoutePlanEditorTest {
         assertEquals(2, cache.size())
         assertNull(cache.get(LegKey.of(stop(0), stop(1), "p")))
     }
+
+    @Test
+    fun `points of interest change no leg, outlive the edits of the stops and are undone`() {
+        val e = editorWith(3)
+        val legs = e.plan.legs
+        val spring = RoutePoi(45.005, 6.004, "Source du Pré", "Drinking Water")
+        assertTrue(e.addPoi(spring))
+        assertEquals(listOf(spring), e.plan.pois)
+        assertEquals(legs, e.plan.legs, "a point of interest is not a stop: the way stays")
+        assertTrue(e.plan.pending.isEmpty())
+        e.add(stop(3))
+        e.computeAll()
+        e.reverse()
+        e.computeAll()
+        e.plan.check()
+        assertEquals(listOf(spring), e.plan.pois, "kept through the edits of the stops")
+        val renamed = spring.copy(name = "Fontaine", sym = "Water Source")
+        assertTrue(e.replacePoi(0, renamed))
+        assertFalse(e.replacePoi(0, renamed), "the same again changes nothing")
+        assertTrue(e.removePoi(0))
+        assertTrue(e.plan.pois.isEmpty())
+        e.undo()
+        assertEquals(listOf(renamed), e.plan.pois)
+        e.undo()
+        assertEquals(listOf(spring), e.plan.pois)
+        assertTrue(e.clear())
+        assertTrue(e.plan.pois.isEmpty())
+    }
+
+    @Test
+    fun `a point of interest stands at its distance along the way, beside it`() {
+        val a = RouteStop(45.0, 6.0)
+        val b = RouteStop(45.01, 6.0)
+        val plan =
+            RoutePlan(
+                listOf(a, b),
+                listOf(RouteLeg.straight(a, b, RoutingProfiles.HIKING)),
+                pois = listOf(RoutePoi(45.005, 6.001, "Source")),
+            )
+        val place = plan.placeOf(0)!!
+        // Halfway along 1.11 km, and 0.001° of longitude (about 79 m) east of the way.
+        assertEquals(Geodesy.distance(45.0, 6.0, 45.005, 6.0), place.alongMeters, 1.0)
+        assertEquals(Geodesy.distance(45.005, 6.0, 45.005, 6.001), place.offMeters, 1.0)
+        assertEquals(0, plan.nearestPoi(45.0051, 6.001, 30.0))
+        assertNull(plan.nearestPoi(45.006, 6.001, 30.0))
+        assertNull(plan.placeOf(1))
+    }
 }

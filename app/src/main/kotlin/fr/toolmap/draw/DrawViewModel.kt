@@ -10,11 +10,13 @@ import fr.toolmap.core.route.LegKey
 import fr.toolmap.core.route.LegMode
 import fr.toolmap.core.route.LegResult
 import fr.toolmap.core.route.LegState
+import fr.toolmap.core.route.PoiPlace
 import fr.toolmap.core.route.RouteLeg
 import fr.toolmap.core.route.RoutePlan
 import fr.toolmap.core.route.RoutePlanEditor
 import fr.toolmap.core.route.RoutePlanGeoJson
 import fr.toolmap.core.route.RoutePlanGpx
+import fr.toolmap.core.route.RoutePoi
 import fr.toolmap.core.route.RouteStop
 import fr.toolmap.core.route.RouteSummary
 import fr.toolmap.core.route.RoutingError
@@ -108,6 +110,10 @@ data class DrawUi(
     val taken: Int? = null,
     /** Radius in meters of the zone being placed at the crosshair (« Éviter une zone », P19.8); `null` when none is. */
     val zoneRadius: Int? = null,
+    /** « Poser : Étape | Point d'intérêt » on « Point d'intérêt » (P30.1): « Ajouter » puts a point of interest. */
+    val poiMode: Boolean = false,
+    /** The point of interest taken at the crosshair (« Déplacer »), which follows it until « Poser ici ». */
+    val movingPoi: Int? = null,
 ) {
     val isRoute: Boolean get() = target is DrawTarget.NewRoute || target is DrawTarget.Route
 
@@ -185,6 +191,13 @@ class DrawViewModel
 
         /** The zone under the crosshair, drawn with a solid edge and given a handle (P30.4); `null` outside them all. */
         private var hovered: Int? = null
+
+        /** « Poser : Étape | Point d'intérêt » (P30.1): kept while the app runs, from one route to the next. */
+        private var poiMode = false
+
+        /** The point of interest moved at the crosshair and where the crosshair is. */
+        private var movingPoi: Int? = null
+        private var movingPoiAt: TrackPoint? = null
 
         private val queue = RoutingQueue(viewModelScope, brouter, ::onLegResult)
 
@@ -313,6 +326,8 @@ class DrawViewModel
             placing = null
             placingAt = null
             hovered = null
+            movingPoi = null
+            movingPoiAt = null
             pendingTrack = null
             mutableCursor.value = null
             mutableUi.value = DrawUi(active = true, target = target)
@@ -609,6 +624,120 @@ class DrawViewModel
         }
 
         private fun placingRing(): AvoidZone? = placing?.let { r -> placingAt?.let { AvoidZone(it.lat, it.lon, r) } }
+
+        // ---- Points of interest (P30.1, variant B of `docs/previews/p30-itineraires.html`) ----
+
+        /** « Poser : Étape | Point d'intérêt »: what « Ajouter » puts at the crosshair. */
+        fun setPoiMode(on: Boolean) {
+            if (poiMode == on) return
+            poiMode = on
+            publish()
+        }
+
+        /** The point of interest under the crosshair, that « Modifier le point » would open; `null` elsewhere. */
+        fun poiUnder(
+            lat: Double,
+            lon: Double,
+            reachMeters: Double,
+        ): Int? = route?.plan?.nearestPoi(lat, lon, reachMeters)
+
+        /** Where point of interest [index] stands along the route (« km 2,1 · à 60 m du tracé »). */
+        fun poiPlace(index: Int): PoiPlace? = route?.plan?.placeOf(index)
+
+        /** « Ajouter » of « Quel point ? »: a point of interest at the crosshair; the way does not change. */
+        fun addPoi(
+            lat: Double,
+            lon: Double,
+            name: String?,
+            sym: String?,
+        ) {
+            val e = route ?: return
+            edited(e.addPoi(RoutePoi(lat, lon, name?.trim()?.ifEmpty { null }, sym)))
+        }
+
+        /** « Quel point ? » of point of interest [index]: its name and its icon. */
+        fun editPoi(
+            index: Int,
+            name: String?,
+            sym: String?,
+        ) {
+            val e = route ?: return
+            val poi = e.plan.pois.getOrNull(index) ?: return
+            edited(e.replacePoi(index, poi.copy(name = name?.trim()?.ifEmpty { null }, sym = sym)))
+        }
+
+        fun removePoi(index: Int) {
+            movingPoi = null
+            movingPoiAt = null
+            if (!edited(route?.removePoi(index) == true)) publish()
+        }
+
+        /** « Déplacer » of point of interest [index]: it follows the crosshair, at [lat], [lon] now, until [putDownPoi]. */
+        fun takePoi(
+            index: Int,
+            lat: Double,
+            lon: Double,
+        ) {
+            val e = route ?: return
+            if (index !in e.plan.pois.indices) return
+            taken = null
+            takenAt = null
+            placing = null
+            placingAt = null
+            movingPoi = index
+            movingPoiAt = TrackPoint(lat, lon)
+            publish()
+        }
+
+        /** The crosshair moved while a point of interest is taken: only the handles are drawn again. */
+        fun followPoi(
+            lat: Double,
+            lon: Double,
+        ) {
+            val e = route ?: return
+            val i = movingPoi ?: return
+            val at = TrackPoint(lat, lon)
+            movingPoiAt = at
+            val shown = mutableOverlay.value ?: return
+            mutableOverlay.value =
+                EditOverlay(
+                    shown.lineGeoJson,
+                    RoutePlanGeoJson.handles(e.plan, e.selected, midpoints = !e.routing, poiMoved = i, poiAt = at),
+                    shown.icons,
+                    shown.elasticGeoJson,
+                    shown.zonesGeoJson,
+                )
+        }
+
+        /** « Poser ici »: the point of interest taken goes to the crosshair (one « Annuler »). */
+        fun putDownPoi(
+            lat: Double,
+            lon: Double,
+        ) {
+            val e = route ?: return
+            val i = movingPoi ?: return
+            movingPoi = null
+            movingPoiAt = null
+            val poi = e.plan.pois.getOrNull(i)
+            if (poi == null || !edited(e.replacePoi(i, poi.copy(lat = lat, lon = lon)))) publish()
+        }
+
+        /** « Annuler » (or ✕, or back) while a point of interest is taken: it stays where it was. */
+        fun cancelMovePoi() {
+            if (movingPoi == null) return
+            movingPoi = null
+            movingPoiAt = null
+            publish()
+        }
+
+        /** « Enregistrer comme waypoint » of point of interest [index]: a copy in the library. */
+        fun savePoiAsWaypoint(index: Int) {
+            val poi = route?.plan?.pois?.getOrNull(index) ?: return
+            viewModelScope.launch {
+                repository.createWaypoint(Waypoint(poi.lat, poi.lon, name = poi.name, sym = poi.sym))
+                mutableMessages.tryEmit(UiMessage(R.string.waypoint_saved))
+            }
+        }
 
         /** "Add here" at the crosshair; on a route, a waypoint under it becomes a named stop. */
         fun addAt(
@@ -937,9 +1066,12 @@ class DrawViewModel
         private fun edited(changed: Boolean): Boolean {
             if (!changed) return false
             noticeGiven = false
-            // Any edit (undo, delete…) lets go of a stop taken at the crosshair: the indices may have changed.
+            // Any edit (undo, delete…) lets go of a stop or a point of interest taken at the crosshair: the indices may
+            // have changed.
             taken = null
             takenAt = null
+            movingPoi = null
+            movingPoiAt = null
             publish()
             return true
         }
@@ -1057,8 +1189,9 @@ class DrawViewModel
                 mutableMessages.tryEmit(UiMessage(R.string.draw_too_short))
                 return
             }
-            // A route wholly by hand keeps no plan, unless it has zones to avoid (P19.8) for when it follows the ways.
-            val manual = plan.isManual && plan.zones.isEmpty()
+            // A route wholly by hand keeps no plan, unless it has zones to avoid (P19.8) for when it follows the ways, or
+            // points of interest (P30.1).
+            val manual = plan.isManual && plan.zones.isEmpty() && plan.pois.isEmpty()
             val original = (target as? DrawTarget.Route)?.points.orEmpty()
             val points =
                 keepKnown(if (manual) RoutePlanGpx.stopPoints(plan) else RoutePlanGpx.routePoints(plan), original)
@@ -1112,6 +1245,8 @@ class DrawViewModel
             placing = null
             placingAt = null
             hovered = null
+            movingPoi = null
+            movingPoiAt = null
             editor = PolylineEditor()
             pendingTrack = null
             mutableUi.value = DrawUi()
@@ -1172,6 +1307,8 @@ class DrawViewModel
                         ),
                     taken = taken,
                     zoneRadius = placing,
+                    poiMode = poiMode,
+                    movingPoi = movingPoi,
                 )
             val t = taken
             val at = takenAt?.takeIf { t != null }
@@ -1179,7 +1316,14 @@ class DrawViewModel
             mutableOverlay.value =
                 EditOverlay(
                     RoutePlanGeoJson.lines(plan, legLabels.first, if (e.routing) legLabels.second else "", t),
-                    RoutePlanGeoJson.handles(plan, e.selected, midpoints = !e.routing, moved = at),
+                    RoutePlanGeoJson.handles(
+                        plan,
+                        e.selected,
+                        midpoints = !e.routing,
+                        moved = at,
+                        poiMoved = movingPoi,
+                        poiAt = movingPoiAt,
+                    ),
                     RoutePlanGeoJson.icons(plan),
                     if (t != null && at != null) RoutePlanGeoJson.elastic(plan, t, at) else null,
                     RoutePlanGeoJson.zones(plan, placingRing(), hovered),

@@ -8,6 +8,7 @@ import fr.toolmap.core.track.TrackDocument
 import fr.toolmap.core.track.TrackPoint
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -47,6 +48,25 @@ class RoutePlanGpxTest {
         val back = GpxReader.read(text.toByteArray()).routes.single()
         val read = RoutePlanGpx.planOf(back.points.map { TrackPoint(it.lat, it.lon, it.ele) }, back.extras)
         assertEquals(p, read)
+    }
+
+    @Test
+    fun `points of interest go through the GPX, as waypoints too, which a new import does not take twice`() {
+        val p = plan().copy(pois = listOf(RoutePoi(45.906, 6.811, "Source & fontaine", "Drinking Water")))
+        val route =
+            Route(name = "Tour", points = RoutePlanGpx.routePoints(p), extras = RoutePlanGpx.attach(emptyList(), p))
+        val wpts = RoutePlanGpx.poiWaypoints(route)
+        assertEquals(1, wpts.size)
+        assertEquals("Source & fontaine", wpts.single().name)
+        assertEquals("Drinking Water", wpts.single().sym)
+        val text = GpxWriter.toString(TrackDocument(waypoints = wpts, routes = listOf(route)))
+        assertTrue("<tm:poi" in text)
+        val doc = GpxReader.read(text.toByteArray())
+        val back = doc.routes.single()
+        assertEquals(p, RoutePlanGpx.planOf(back.points.map { TrackPoint(it.lat, it.lon, it.ele) }, back.extras))
+        assertTrue(RoutePlanGpx.isPoiOf(doc.waypoints.single(), doc.routes))
+        assertFalse(RoutePlanGpx.isPoiOf(doc.waypoints.single().copy(name = "Autre"), doc.routes))
+        assertTrue(RoutePlanGpx.poiWaypoints(Route(name = "Sans plan", points = route.points)).isEmpty())
     }
 
     @Test

@@ -420,7 +420,7 @@ private fun CorridorWidthRow(
 
 /** The width of the band typed in meters (P30.2): kept to the meter, from 50 m to 5 km. */
 @Composable
-private fun CorridorWidthDialog(
+internal fun CorridorWidthDialog(
     radius: Int,
     onDone: (Int) -> Unit,
     onDismiss: () -> Unit,

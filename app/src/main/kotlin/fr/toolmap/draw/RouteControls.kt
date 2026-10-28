@@ -85,6 +85,8 @@ class RouteHooks(
     val onCenter: (Double, Double) -> Unit,
     /** Opens F-Droid, else the Play Store, on BRouter. */
     val onInstall: () -> Unit,
+    /** The point of interest « Modifier le point » would open at the crosshair: `null` when it is on none (P30.1). */
+    val poiUnder: () -> Int? = { null },
 )
 
 private val START_COLOR = Color(RouteMarkers.START_COLOR)
@@ -148,6 +150,8 @@ fun RouteStatsCard(
     // Variant A of the mockups: no profile here, the chip of the panel shows it.
     val sub = ArrayList<String>()
     sub += pluralStringResource(R.plurals.route_stop_count, route.plan.stops.size, route.plan.stops.size)
+    val pois = route.plan.pois.size
+    if (pois > 0) sub += pluralStringResource(R.plurals.route_poi_count, pois, pois)
     val zones = route.plan.zones.size
     if (zones > 0) sub += pluralStringResource(R.plurals.route_zone_count, zones, zones)
     if (s.pendingLegs > 0) sub += pluralStringResource(R.plurals.route_pending_count, s.pendingLegs, s.pendingLegs)
@@ -407,11 +411,14 @@ fun StopsSheet(
     vm: DrawViewModel,
     hooks: RouteHooks,
     onClose: () -> Unit,
+    /** « Modifier… » of a point of interest (P30.1): « Quel point ? » on it. */
+    onEditPoi: (Int) -> Unit = {},
 ) {
     val route = ui.route ?: return
     val plan = route.plan
     val fmt = LocalFormats.current
     val distances = remember(plan) { plan.stopDistances() }
+    val places = remember(plan) { plan.pois.indices.map { plan.placeOf(it) } }
     var naming by remember { mutableStateOf<Int?>(null) }
     var legProfile by remember { mutableStateOf<Int?>(null) }
     var askStart by remember { mutableStateOf<Int?>(null) }
@@ -515,6 +522,57 @@ fun StopsSheet(
                     }
                 }
             }
+            // The points of interest (P30.1), under the stops: where they stand along the route and beside it.
+            if (plan.pois.isNotEmpty()) {
+                item {
+                    HorizontalDivider()
+                    Text(
+                        stringResource(R.string.route_poi_section, plan.pois.size),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(start = 4.dp, top = 10.dp, bottom = 6.dp),
+                    )
+                }
+                itemsIndexed(plan.pois) { k, poi ->
+                    val place = places.getOrNull(k)
+                    val along = place?.let { fmt.distance(it.alongMeters) }
+                    val detail =
+                        when {
+                            place == null || along == null -> null
+                            place.offMeters < ON_ROUTE_METERS -> stringResource(R.string.route_poi_place_on, along)
+                            else -> stringResource(R.string.route_poi_place, along, fmt.distance(place.offMeters))
+                        }
+                    Column {
+                        HorizontalDivider()
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { hooks.onCenter(poi.lat, poi.lon) }
+                                    .padding(start = 4.dp),
+                        ) {
+                            WaypointIconBadge(WaypointSymbols.iconOf(poi.sym), 24.dp)
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    poi.name ?: stringResource(R.string.route_poi_unnamed),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                detail?.let {
+                                    Text(
+                                        it,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            PoiMenu(index = k, onEdit = { onEditPoi(k) }, vm = vm)
+                        }
+                    }
+                }
+            }
         }
     }
     naming?.let { i ->
@@ -565,6 +623,37 @@ fun StopsSheet(
                 TextButton(onClick = { askStart = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
+    }
+}
+
+/** A point of interest this close to the way is « sur le tracé » (P30.1). */
+private const val ON_ROUTE_METERS = 15.0
+
+/** The ⋮ menu of a point of interest (P30.1): « Modifier… », « Enregistrer comme waypoint », « Supprimer ». */
+@Composable
+private fun PoiMenu(
+    index: Int,
+    onEdit: () -> Unit,
+    vm: DrawViewModel,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, contentDescription = null) }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            MenuLine(R.string.route_poi_edit_menu, Icons.Filled.Edit) {
+                open = false
+                onEdit()
+            }
+            MenuLine(R.string.route_stop_save_waypoint, RouteIcons.AddLocationAlt) {
+                open = false
+                vm.savePoiAsWaypoint(index)
+            }
+            HorizontalDivider()
+            MenuLine(R.string.route_stop_delete, Icons.Filled.Delete) {
+                open = false
+                vm.removePoi(index)
+            }
+        }
     }
 }
 

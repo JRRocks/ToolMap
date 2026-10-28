@@ -2,6 +2,8 @@ package fr.toolmap.draw
 
 import android.app.Application
 import fr.toolmap.R
+import fr.toolmap.core.route.RoutePlanGpx
+import fr.toolmap.core.route.RoutePoi
 import fr.toolmap.core.track.PathStyle
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.core.track.Waypoint
@@ -286,6 +288,39 @@ class DrawViewModelTest {
         assertEquals(250, vm.ui.value.route!!.plan.zones.single().radiusMeters)
         vm.hoverZone(null)
         assertFalse("\"hover\"" in vm.overlay.value!!.zonesGeoJson!!)
+    }
+
+    @Test
+    fun `points of interest change no leg, are renamed, moved and removed, and are saved with the route`() {
+        vm.startNewRoute()
+        vm.addAt(45.0, 6.0)
+        vm.addAt(45.01, 6.0)
+        waitFor("two stops") { vm.ui.value.route?.plan?.stops?.size == 2 }
+        val ways = vm.ui.value.route!!.plan.legs.map { it.points }
+        vm.setPoiMode(true)
+        assertTrue(vm.ui.value.poiMode)
+        vm.addPoi(45.005, 6.001, " Source ", "Spring")
+        val plan = vm.ui.value.route!!.plan
+        assertEquals(listOf(RoutePoi(45.005, 6.001, "Source", "Spring")), plan.pois)
+        assertEquals(ways, plan.legs.map { it.points }, "the way does not change")
+        assertEquals(0, vm.poiUnder(45.00501, 6.001, reach))
+        assertTrue("\"kind\":\"poi\"" in vm.overlay.value!!.handlesGeoJson)
+
+        vm.editPoi(0, "Fontaine", "Spring")
+        vm.takePoi(0, 45.005, 6.001)
+        assertEquals(0, vm.ui.value.movingPoi)
+        vm.followPoi(45.0055, 6.0015)
+        vm.putDownPoi(45.006, 6.002)
+        assertNull(vm.ui.value.movingPoi)
+        val moved = vm.ui.value.route!!.plan.pois.single()
+        assertEquals(RoutePoi(45.006, 6.002, "Fontaine", "Spring"), moved)
+
+        vm.save("Itinéraire")
+        waitFor("route stored") { repo.library.first().routes.size == 1 }
+        val id = runBlocking { repo.library.first().routes.single().id }
+        val route = runBlocking { repo.loadRoute(id)!! }
+        val saved = RoutePlanGpx.planOf(route.points.map { TrackPoint(it.lat, it.lon, it.ele) }, route.extras)
+        assertEquals(listOf(moved), saved?.pois, "a route drawn by hand keeps its plan for its points of interest")
     }
 
     @Test

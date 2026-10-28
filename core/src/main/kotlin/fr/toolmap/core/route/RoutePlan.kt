@@ -9,6 +9,26 @@ import kotlin.math.sqrt
 /** A point placed by the user: a discreet passage that forces the way, or a named stop (name and waypoint icon). */
 enum class StopKind { PASSAGE, NAMED }
 
+/**
+ * A point of interest of a route (P30.1, variant B of `docs/previews/p30-itineraires.html`): a name and a waypoint icon
+ * at a place along the route or beside it (a spring 80 m off the path). Unlike a named stop it does not change the way.
+ */
+data class RoutePoi(
+    val lat: Double,
+    val lon: Double,
+    val name: String? = null,
+    /** GPX symbol: its waypoint icon. */
+    val sym: String? = null,
+) {
+    val point: TrackPoint get() = TrackPoint(lat, lon)
+}
+
+/** Where a point of interest stands along a route: [alongMeters] from the start, [offMeters] beside the way. */
+data class PoiPlace(
+    val alongMeters: Double,
+    val offMeters: Double,
+)
+
 data class RouteStop(
     val lat: Double,
     val lon: Double,
@@ -96,10 +116,19 @@ data class RoutePlan(
     val stops: List<RouteStop> = emptyList(),
     val legs: List<RouteLeg> = emptyList(),
     val zones: List<AvoidZone> = emptyList(),
+    /** The points of interest of the route (P30.1): never sent to BRouter, they do not change the way. */
+    val pois: List<RoutePoi> = emptyList(),
 ) {
     init {
         require(legs.size == maxOf(0, stops.size - 1)) { "${stops.size} stops need ${stops.size - 1} legs" }
     }
+
+    /** The same plan with other stops, legs and zones: its points of interest stay. */
+    fun with(
+        stops: List<RouteStop>,
+        legs: List<RouteLeg>,
+        zones: List<AvoidZone> = this.zones,
+    ): RoutePlan = RoutePlan(stops, legs, zones, pois)
 
     /** The legs end to end; the point shared by two legs is kept once. One stop alone is a single point. */
     val geometry: List<TrackPoint> by lazy {
@@ -194,6 +223,47 @@ data class RoutePlan(
         return best
     }
 
+    /** Index of the point of interest within [maxMeters] of a position, nearest first; `null` when none is that close. */
+    fun nearestPoi(
+        lat: Double,
+        lon: Double,
+        maxMeters: Double,
+    ): Int? {
+        var best: Int? = null
+        var bestDistance = maxMeters
+        pois.forEachIndexed { i, p ->
+            val d = Geodesy.distance(lat, lon, p.lat, p.lon)
+            if (d <= bestDistance) {
+                best = i
+                bestDistance = d
+            }
+        }
+        return best
+    }
+
+    /** Where point of interest [index] stands along the geometry; `null` without a line (fewer than two points). */
+    fun placeOf(index: Int): PoiPlace? {
+        val poi = pois.getOrNull(index) ?: return null
+        val g = geometry
+        if (g.size < 2) return null
+        var along = 0.0
+        var bestAlong = 0.0
+        var bestOff = Double.MAX_VALUE
+        for (j in 1 until g.size) {
+            val a = g[j - 1]
+            val b = g[j]
+            val length = Geodesy.distance(a.lat, a.lon, b.lat, b.lon)
+            val t = fractionOnSegment(poi.lat, poi.lon, a, b)
+            val off = distanceToSegment(poi.lat, poi.lon, a, b)
+            if (off < bestOff) {
+                bestOff = off
+                bestAlong = along + t * length
+            }
+            along += length
+        }
+        return PoiPlace(bestAlong, bestOff)
+    }
+
     /** The zone a position lies in, the one whose centre is nearest when several overlap; `null` outside them all. */
     fun zoneAt(
         lat: Double,
@@ -233,6 +303,22 @@ data class RoutePlan(
             val x = ax + t * dx
             val y = ay + t * dy
             return sqrt(x * x + y * y)
+        }
+
+        /** Where the point of segment [a]–[b] nearest a position falls, from 0 at [a] to 1 at [b] (same projection). */
+        internal fun fractionOnSegment(
+            lat: Double,
+            lon: Double,
+            a: TrackPoint,
+            b: TrackPoint,
+        ): Double {
+            val c = cos(Math.toRadians(lat))
+            val ax = (a.lon - lon) * c
+            val ay = a.lat - lat
+            val dx = (b.lon - a.lon) * c
+            val dy = b.lat - a.lat
+            val len2 = dx * dx + dy * dy
+            return if (len2 == 0.0) 0.0 else (-(ax * dx + ay * dy) / len2).coerceIn(0.0, 1.0)
         }
     }
 }

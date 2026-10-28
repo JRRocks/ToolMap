@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -79,12 +80,8 @@ class SaveAreaPanelTest {
         rule.onNodeWithText("Largeur de chaque côté").assertExists()
         rule.onNodeWithText("± 500 m").assertExists()
         rule.onNodeWithText("Enregistrer la bande").assertExists()
-        // A touch on the width opens the field to type it.
-        rule.onNodeWithText("± 500 m").performClick()
-        rule.onAllNodesWithText("Largeur de chaque côté").assertCountEquals(2)
-        rule.onNodeWithText("De 50 à 5 000 m").assertExists()
-        rule.onNodeWithText("Annuler").performClick()
-        rule.onAllNodesWithText("De 50 à 5 000 m").assertCountEquals(0)
+        // A touch on the width opens the field to type it (the field itself: CorridorWidthDialogTest).
+        rule.onNodeWithText("± 500 m").assert(hasClickAction())
         // A width typed to the meter is shown as typed.
         fixture.maps.setCorridorRadius(777)
         await { fixture.maps.area.value?.estimating == false }

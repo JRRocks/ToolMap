@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import fr.toolmap.core.route.RoutePoi
 import fr.toolmap.data.elevation.ElevationCompleter
 import fr.toolmap.data.elevation.ElevationTiles
 import fr.toolmap.data.routing.BRouterEngine
@@ -168,6 +169,42 @@ class ToolPanelsTest {
         rule.waitForIdle()
         rule.onAllNodesWithText("Tirez la poignée pour changer la taille (50 m à 2 km).").assertCountEquals(0)
         rule.onAllNodesWithText("Suivre les chemins (BRouter)").assertCountEquals(1)
+    }
+
+    @Test
+    fun `on Point d'intérêt the main tile adds a point of interest through Quel point`() {
+        val vm = drawVm()
+        vm.startNewRoute()
+        vm.addAt(45.0, 6.0)
+        vm.addAt(45.01, 6.0)
+        rule.waitUntil(TIMEOUT_MS) { vm.ui.value.route?.plan?.stops?.size == 2 }
+        val hooks =
+            RouteHooks(
+                insertLegAt = { null },
+                stopUnder = { null },
+                zoneUnder = { null },
+                reachMeters = { 10.0 },
+                position = { null },
+                onCenter = { _, _ -> },
+                onInstall = {},
+            )
+        rule.setContent {
+            val drawn by vm.ui.collectAsState()
+            // As if BRouter followed the ways: the panel of the computed routes.
+            val ui = drawn.copy(route = drawn.route?.copy(routing = true, installed = true))
+            ToolMapTheme { DrawBar(ui = ui, vm = vm, center = { 45.005 to 6.001 }, maxHeight = 600.dp, hooks = hooks) }
+        }
+        rule.onAllNodesWithText("Ajouter le point").assertCountEquals(0)
+        rule.onNodeWithText("Point d'intérêt").performClick()
+        rule.waitForIdle()
+        assertTrue(vm.ui.value.poiMode)
+        rule.onNodeWithText("Ajouter le point").performClick()
+        rule.onAllNodesWithText("Quel point ?").assertCountEquals(1)
+        rule.onNodeWithText("Source").performClick()
+        rule.onNodeWithText("Ajouter").performClick()
+        rule.waitForIdle()
+        assertEquals(listOf(RoutePoi(45.005, 6.001, "Source", "Spring")), vm.ui.value.route!!.plan.pois)
+        assertEquals(2, vm.ui.value.route!!.plan.stops.size, "no stop was added")
     }
 
     @Test

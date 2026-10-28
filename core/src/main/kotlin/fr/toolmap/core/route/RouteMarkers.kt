@@ -4,8 +4,8 @@ import fr.toolmap.core.track.PointFeature
 
 /**
  * The markers of a computed route (`docs/specs/routing.md` §5.7): a green disc « A » on the start, a red disc with the
- * last letter on the end (none on a loop, which ends on « A »), the named stops with their waypoint icon and name.
- * Passages are not marked once saved.
+ * last letter on the end (none on a loop, which ends on « A »), the named stops and the points of interest (P30.1) with
+ * their waypoint icon and name. Passages are not marked once saved.
  */
 object RouteMarkers {
     const val START_COLOR: Int = 0xFF43A047.toInt()
@@ -25,6 +25,8 @@ object RouteMarkers {
         val s = plan.stops
         if (s.size < 2) return emptyList()
         val out = ArrayList<PointFeature>()
+        // Under the stops: drawn first.
+        for (p in plan.pois) out += PointFeature(id, p.name, p.lat, p.lon, p.sym)
         out +=
             PointFeature(id, s[0].name, s[0].lat, s[0].lon, colorArgb = START_COLOR, iconId = LETTER_PREFIX + letter(0))
         for (i in 1 until s.lastIndex) {

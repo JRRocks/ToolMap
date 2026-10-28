@@ -120,6 +120,14 @@ object RouteIcons {
         )
     }
 
+    // « Point d'intérêt » of « Poser » (P30.1, variant B of `docs/previews/p30-itineraires.html`).
+    val PushPin: ImageVector by lazy {
+        icon(
+            "PushPin",
+            "M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z",
+        )
+    }
+
     // « Éviter une zone » and « Retirer la zone » (P19.8, variant A of `docs/previews/p19-nogos.html`).
     val DoNotDisturbOn: ImageVector by lazy {
         icon("DoNotDisturbOn", "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z")

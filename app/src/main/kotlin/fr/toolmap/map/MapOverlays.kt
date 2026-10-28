@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -64,6 +65,9 @@ import fr.toolmap.ui.theme.minTouchTarget
 import fr.toolmap.ui.theme.toolMap
 import kotlinx.coroutines.delay
 import java.util.Locale
+import kotlin.math.acos
+import kotlin.math.cos
+import kotlin.math.sin
 
 private val OverlayShape = RoundedCornerShape(6.dp)
 
@@ -171,6 +175,8 @@ fun CenterPoint(
     onDismiss: () -> Unit,
     menu: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    /** « Poser : Point d'intérêt » of a route (P30.1): the point is a pin whose tip is the centre. */
+    pin: Boolean = false,
 ) {
     val label = stringResource(R.string.center_point)
     val menuLabel = stringResource(R.string.center_point_menu)
@@ -210,9 +216,28 @@ fun CenterPoint(
         val accent = MaterialTheme.toolMap.accent
         Canvas(Modifier.size(POINT_SIZE)) {
             val radius = POINT_RADIUS.toPx()
-            // A turquoise ring on a white halo (P29.1, « Pastilles »): it shows on the white and on the dark maps.
-            drawCircle(POINT_HALO, radius, style = Stroke((POINT_RING + 2.5.dp).toPx()))
-            drawCircle(accent, radius, style = Stroke(POINT_RING.toPx()))
+            if (pin) {
+                // The head of the pin above the centre and its tip on it; drawn past the canvas, which does not clip.
+                val head = Offset(center.x, center.y - radius * PIN_HEAD_RISE)
+                // The two sides leave the head where they touch it: at ± alpha from straight down.
+                val alpha = Math.toDegrees(acos(1.0 / PIN_HEAD_RISE)).toFloat()
+                val start = 90f - alpha
+                val pinPath =
+                    Path().apply {
+                        moveTo(center.x, center.y)
+                        val a = Math.toRadians(start.toDouble())
+                        lineTo(head.x + radius * cos(a).toFloat(), head.y + radius * sin(a).toFloat())
+                        arcTo(Rect(head, radius), start, -(360f - 2 * alpha), false)
+                        close()
+                    }
+                drawPath(pinPath, POINT_HALO, style = Stroke((POINT_RING + 2.5.dp).toPx()))
+                drawPath(pinPath, accent, style = Stroke(POINT_RING.toPx()))
+                drawCircle(accent, POINT_RING.toPx(), head)
+            } else {
+                // A turquoise ring on a white halo (P29.1, « Pastilles »): it shows on the white and on the dark maps.
+                drawCircle(POINT_HALO, radius, style = Stroke((POINT_RING + 2.5.dp).toPx()))
+                drawCircle(accent, radius, style = Stroke(POINT_RING.toPx()))
+            }
         }
         if (menuOpen && menuEnabled) {
             val gap = with(LocalDensity.current) { POINT_MENU_GAP.roundToPx() }
@@ -248,6 +273,9 @@ private class AboveAnchor(
 }
 
 private val TOUCH_TARGET = 48.dp
+
+/** The head of the pin of « Point d'intérêt » sits this many radii above its tip (P30.1). */
+private const val PIN_HEAD_RISE = 1.7f
 private val POINT_SIZE = 24.dp
 private val POINT_RADIUS = 8.dp
 private val POINT_RING = 2.5.dp

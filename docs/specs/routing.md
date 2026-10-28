@@ -121,6 +121,15 @@ Départ : disque vert « A ». Arrivée : disque rouge à la dernière lettre ; 
 - **Annuler / Rétablir** couvrent les zones ; « Tout effacer » les retire avec les étapes. Elles sont **enregistrées avec l'itinéraire** (`tm:zone`, §7.3) et reviennent avec « Modifier le tracé » ; un itinéraire à la main qui a des zones s'enregistre avec son plan.
 - La ligne sous les chiffres du haut les compte : « 3 étapes · 1 zone évitée ».
 
+### 5.9 Points d'intérêt (P30.1, variante B de `docs/previews/p30-itineraires.html`, validée le 2026-10-28 ; ADR-092)
+- **Ce que c'est** : un nom et une icône de waypoint posés sur l'itinéraire ou à côté (une source à 80 m du sentier). Contrairement à une étape nommée, un point d'intérêt **ne change pas le chemin** : BRouter ne le voit jamais.
+- **Poser** : sous l'interrupteur, la bascule **« Étape | Point d'intérêt »** (dès la première étape ; gardée tant que l'appli tourne). Sur « Point d'intérêt », la tuile principale devient **« Ajouter le point »** et le réticule une épingle dont la pointe vise le point ; la feuille **« Quel point ? »** propose sept icônes courantes (Source, Refuge, Point de vue, Parking, Danger, Sommet, Photo) et « Autre… » (la grille complète des waypoints) ; toucher une icône propose son nom tant que l'utilisateur n'en a pas tapé un autre ; « Annuler » · « Ajouter ».
+- **Modifier** : réticule sur un point d'intérêt (à 24 dp), la tuile principale devient **« Modifier le point »** : la même feuille avec « OK », **« Déplacer »** (panneau « Point en main » : le point suit le réticule, « Poser ici » · « Annuler » · « Supprimer le point ») et **« Supprimer le point »**. Ordre sous le réticule sur « Étape » : étape, point d'intérêt, zone, tracé ; sur « Point d'intérêt » : point d'intérêt, sinon « Ajouter le point ».
+- **Liste** : rubrique « Points d'intérêt (N) » sous les étapes du volet, avec la distance depuis le départ et l'écart au tracé (« 2.10 km · à 60 m du tracé », « … · sur le tracé » à moins de 15 m) ; appui : centre la carte ; ⋮ : Modifier… · Enregistrer comme waypoint · Supprimer.
+- **Profil altimétrique** : un disque de la couleur de l'icône à la distance du point. **Chiffres du haut** : « 3 étapes · 1 point d'intérêt ».
+- **Carte** : icône et nom du waypoint, sous les étapes, pendant la modification et quand l'itinéraire est affiché (un toucher ouvre la fiche de l'itinéraire).
+- **Annuler / Rétablir** les couvrent ; « Tout effacer » les retire. Ils sont **enregistrés avec l'itinéraire** (`tm:poi`, §7.3 ; un itinéraire à la main qui en a s'enregistre avec son plan) et l'export GPX les écrit aussi en `<wpt>` ; un import ne les reprend pas une seconde fois en waypoints de la bibliothèque.
+
 ## 6. Calcul
 
 ### 6.1 Quand
@@ -135,7 +144,7 @@ Clé d'un tronçon : (départ, arrivée arrondis à 1e-6°, profil, zones à év
 ## 7. Modèle et stockage
 
 ### 7.1 `:core` (pur, testé en JVM)
-- `RoutePlan(stops: List<RouteStop>, legs: List<RouteLeg>, zones: List<AvoidZone>)` ; `AvoidZone(lat, lon, radiusMeters)` (P19.8 : `crosses`, `covers`, `nogos`) ; `RouteStop(lat, lon, kind = PASSAGE | NAMED, name, sym)` ; `RouteLeg(profile, mode = ROUTED | STRAIGHT, state = OK | PENDING | NO_DATA | FAILED, points: List<TrackPoint>, timeMillis?)`.
+- `RoutePlan(stops: List<RouteStop>, legs: List<RouteLeg>, zones: List<AvoidZone>, pois: List<RoutePoi>)` ; `RoutePoi(lat, lon, name, sym)` (P30.1 : `nearestPoi`, `placeOf`) ; `AvoidZone(lat, lon, radiusMeters)` (P19.8 : `crosses`, `covers`, `nogos`) ; `RouteStop(lat, lon, kind = PASSAGE | NAMED, name, sym)` ; `RouteLeg(profile, mode = ROUTED | STRAIGHT, state = OK | PENDING | NO_DATA | FAILED, points: List<TrackPoint>, timeMillis?)`.
 - `RoutePlanEditor` : les opérations du §5.3 et Annuler / Rétablir ; chaque opération rend le nouveau plan et **la liste des tronçons à recalculer**. Invariant testé : `legs.size == stops.size - 1`, et la géométrie relie les étapes dans l'ordre.
 - `RoutingEngine` (interface) : `suspend fun route(from, to, profile, zones): LegResult` ; `BRouterJson` (lecture du GeoJSON) ; `BRouterErrors` (classement des messages).
 
@@ -152,9 +161,10 @@ Clé d'un tronçon : (départ, arrivée arrondis à 1e-6°, profil, zones à év
     <tm:leg profile="hiking-mountain" mode="routed"/>
     <tm:stop lat="45.8" lon="6.9" kind="passage"/>
     <tm:zone lat="45.85" lon="6.85" r="250"/>
+    <tm:poi lat="45.86" lon="6.84" name="Source" sym="Spring"/>
   </tm:plan></extensions>
   ```
-  `tm:zone` : une zone à éviter (centre, rayon en mètres ; §5.8), après les étapes et les tronçons.
+  `tm:zone` : une zone à éviter (centre, rayon en mètres ; §5.8), après les étapes et les tronçons. `tm:poi` : un point d'intérêt (§5.9), après les zones ; l'export l'écrit aussi en `<wpt>` (ADR-092).
   Réimporté dans ToolMap : itinéraire modifiable avec ses étapes. Ailleurs : extension ignorée, géométrie intacte. Aller-retour GPX testé en JVM.
 
 ## 8. Après l'enregistrement

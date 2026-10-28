@@ -61,6 +61,8 @@ fun ElevationProfileView(
     cursorMeters: Double?,
     onCursor: (Double?) -> Unit,
     modifier: Modifier = Modifier,
+    /** Places along the line, as distance from the start and colour: the points of interest of a route (P30.1). */
+    marks: List<Pair<Double, Int>> = emptyList(),
 ) {
     val fmt = LocalFormats.current
     if (profile.minElevation == null || profile.maxElevation == null) return
@@ -70,7 +72,7 @@ fun ElevationProfileView(
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(bottom = 4.dp),
         )
-        ProfileCanvas(profile, cursorMeters, onCursor, PROFILE_HEIGHT)
+        ProfileCanvas(profile, cursorMeters, onCursor, PROFILE_HEIGHT, marks)
         Text(
             text = fmt.distance(profile.totalDistanceMeters.coerceAtLeast(1.0)),
             style = MaterialTheme.typography.labelSmall,
@@ -169,6 +171,7 @@ private fun ProfileCanvas(
     cursorMeters: Double?,
     onCursor: ((Double?) -> Unit)?,
     height: Dp,
+    marks: List<Pair<Double, Int>> = emptyList(),
 ) {
     val fmt = LocalFormats.current
     val minEle = profile.minElevation ?: return
@@ -235,6 +238,17 @@ private fun ProfileCanvas(
             )
         }
         drawLine(axisColor, Offset(0f, h), Offset(size.width, h), strokeWidth = 1f)
+        // A disc of the colour of each mark over its place, a thin line down to the curve.
+        val markRadius = MARK_RADIUS.toPx()
+        for ((d, argb) in marks) {
+            val at = d.coerceIn(0.0, total)
+            val mx = x(at)
+            val top = markRadius + MARK_RING.toPx()
+            val curve = profile.sampleAt(at)?.let { y(it.elevationMeters) } ?: h
+            drawLine(Color(argb), Offset(mx, top), Offset(mx, curve), strokeWidth = MARK_LINE.toPx())
+            drawCircle(Color.White, markRadius + MARK_RING.toPx(), Offset(mx, top))
+            drawCircle(Color(argb), markRadius, Offset(mx, top))
+        }
         if (sample != null) {
             val cx = x(sample.distanceMeters)
             drawLine(cursorColor, Offset(cx, 0f), Offset(cx, h), strokeWidth = CURSOR_WIDTH)
@@ -270,3 +284,6 @@ private const val LINE_WIDTH = 5f
 private const val MINI_LINE_WIDTH = 3.5f
 private const val CURSOR_WIDTH = 3f
 private const val CURSOR_RADIUS = 9f
+private val MARK_RADIUS = 5.dp
+private val MARK_RING = 1.5.dp
+private val MARK_LINE = 1.5.dp
