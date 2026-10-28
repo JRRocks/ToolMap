@@ -20,6 +20,17 @@
 
 ---
 
+## 2026-10-28 — Session 67 (suite) — Règle du push : Claude pousse lui-même sur GitHub
+- **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; poussée sur `JRRocks/ToolMap`.
+- **Objectif** : appliquer la demande de l'utilisateur du 2026-10-28 (« Le github est maintenant en publique sans restriction. Change la règle dans claude.md pour un push sur Git automatiquement géré par toi quand nécessaire ») et pousser la refonte P29.
+- **Réalisé** :
+  - `CLAUDE.md`, protocole point 7 : la règle du 2026-10-24 (push seulement sur demande explicite, par Android Studio) est remplacée. La session pousse elle-même quand c'est nécessaire (fin de tâche vérifiée, fin de session), jamais un build rouge, sur la branche de la session, avec les règles du dépôt public ; puis elle suit la CI jusqu'au lien de l'APK.
+  - Push des commits de la refonte P29 (aperçus, puis P29.2 à P29.10) et de cette entrée.
+- **Décisions (ADR)** : aucune (règle de travail, pas d'architecture).
+- **Tests / vérifications** : `./gradlew spotlessApply check assembleDebug --max-workers=2` (avec `LC_ALL=C.UTF-8`) : BUILD SUCCESSFUL en 7 min 11 s, version **0.4.101** (le titre et l'objectif de cette entrée entrent dans l'APK), `ToolMap-debug-0.4.101.apk`. Tests : core 886, data 311, p2p 29 (2 ignorés), app 434 (72 ignorés, dont les rendus), 0 échec ; lint : 0 erreur, app 63 avertissements et 1 indication. CI : voir le message de fin de session.
+- **Problèmes / dette technique** : captures de l'émulateur de P29.6 à P29.10 à faire sur le poste Windows.
+- **Prochaine étape recommandée** : vérifier P29.2 à P29.10 sur l'émulateur du poste Windows (captures à côté des aperçus validés), puis la suite de `docs/PLAN.md`.
+
 ## 2026-10-28 — Session 67 (suite) — [P29.10] Outils en « Équerre » (2/2) : la Recherche et l'Aide rangées
 - **Branche / commit** : session cloud, branche `claude/pensive-edison-cgzr8t` ; commit local, pas de push (`CLAUDE.md`).
 - **Objectif** : finir la variante A · Équerre de P29.10, choisie par l'utilisateur le 2026-10-27 : la Recherche (champ avec loupe et Effacer, état en cartes sous le champ avec « Réessayer », résultats en groupes avec icône, distance et ⋮, types OpenStreetMap en français, crédits en pied) et l'Aide et à propos (en-tête ToolMap, « Prise en main » en blocs à icône, crédits et licences en lignes de liste). Dernière étape de la refonte P29.
