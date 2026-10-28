@@ -1,0 +1,1182 @@
+<meta charset="utf-8">
+<title>Itinéraires et navigation hors ligne</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: a page of notes on a neutral ground; the phones (Crête palette, day theme, as in 0.4.118) in wrapping rows per variant. */
+:root{
+  --pg-bg:#ffffff;--pg-on:#1d1d1b;--pg-on2:#5f5e5a;--pg-line:#d9d9d4;--pg-btn-line:#b5b5ae;--pg-info:#185FA5;--pg-new:#c2185b;--pg-soft:#f4f6f7;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pg-bg:#16191b;--pg-on:#e8e8e3;--pg-on2:#a9a9a2;--pg-line:#3a3d3f;--pg-btn-line:#5a5d5f;--pg-info:#7fb6ea;--pg-new:#f06292;--pg-soft:#1e2225;color-scheme:dark}}
+:root[data-theme="dark"]{--pg-bg:#16191b;--pg-on:#e8e8e3;--pg-on2:#a9a9a2;--pg-line:#3a3d3f;--pg-btn-line:#5a5d5f;--pg-info:#7fb6ea;--pg-new:#f06292;--pg-soft:#1e2225;color-scheme:dark}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--pg-bg);color:var(--pg-on);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:20px;font-weight:600;line-height:1.35;margin:6px 0 6px;text-wrap:balance}
+h2{font-size:18px;font-weight:600;margin:40px 0 6px;text-wrap:balance;scroll-margin-top:64px}
+h3{font-size:15px;font-weight:600;margin:18px 0 6px;text-wrap:balance}
+p,li{font-size:14px;line-height:1.55;color:var(--pg-on2);max-width:900px}
+p b,li b,td b{color:var(--pg-on);font-weight:600}
+code{font-size:12.5px}
+ul{padding-left:20px;margin:6px 0}
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--pg-bg);border-bottom:1px solid var(--pg-line);display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;margin:10px 0 4px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--pg-bg)}
+.nav a{font-size:13px;color:var(--pg-on);text-decoration:none;border:1px solid var(--pg-btn-line);border-radius:8px;padding:6px 10px;min-height:20px}
+.nav a:focus-visible{outline:2px solid var(--pg-info);outline-offset:2px}
+.tag{display:inline-block;font-size:12px;font-weight:600;color:var(--pg-new);border:1.5px dashed var(--pg-new);border-radius:6px;padding:0 6px;margin-left:2px}
+.seq{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;justify-content:flex-start}
+.seq>div{width:216px;min-width:0}
+.seq>div.arrow{width:auto;font-size:22px;color:var(--pg-on2);align-self:center}
+.box{border:1px solid var(--pg-line);border-radius:14px;padding:4px 14px 12px;margin:14px 0}
+.box.now{background:var(--pg-soft)}
+.box h3{margin-top:12px}
+.cap{font-size:12.5px;color:var(--pg-on2);margin:6px auto 0;line-height:1.42;max-width:216px}
+.cap b{font-weight:600;color:var(--pg-on)}
+.pro{font-size:13.5px}
+.pro b{color:var(--pg-on)}
+
+/* ---- phone (fixed look of the app: Crête, day theme) ---- */
+.ph{width:210px;height:467px;border-radius:18px;border:1px solid var(--pg-btn-line);overflow:hidden;position:relative;background:#e9eedc;font-family:Roboto,system-ui,sans-serif;color:#1b2a30}
+.ph>svg{position:absolute;left:0;top:0}
+.ph *{box-sizing:border-box}
+.pill{position:absolute;left:5px;right:5px;top:5px;background:#fff;border-radius:9px;padding:4px 8px;font-size:9.5px;line-height:1.35;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.pill .s{color:#5b6a70}
+.pill.row{display:flex;align-items:center;gap:7px}
+.pill .tx{flex:1;min-width:0}
+.pill .bt{color:#0e5753;font-weight:600;font-size:9px;white-space:nowrap}
+.pill.red{background:#ffdad6;color:#410002}
+.pill.green{background:#d7edda;color:#0d3b14}
+.pn{position:absolute;left:5px;right:5px;bottom:45px;background:#fff;border-radius:11px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.3);font-size:9.5px}
+.pn.flat{left:0;right:0;bottom:0;border-radius:14px 14px 0 0}
+.hd{background:#173a4a;color:#fff;font-size:12px;padding:7px 9px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.hd .ic2{display:flex;gap:10px;font-size:11px}
+.rw{display:flex;align-items:center;gap:5px;padding:4px 7px}
+.hint{padding:4px 8px 2px;color:#5b6a70;line-height:1.3}
+.sw{width:21px;height:12px;border-radius:6px;background:#13968a;position:relative;flex:none}
+.sw:after{content:"";position:absolute;right:2px;top:2px;width:8px;height:8px;border-radius:50%;background:#fff}
+.sw.off{background:#c9d3d7}.sw.off:after{right:auto;left:2px}
+.chip{border:1px solid #7c8b91;border-radius:6px;padding:2px 5px;white-space:nowrap}
+.chips{display:flex;gap:3px;padding:3px 7px;flex-wrap:wrap}
+.chips span{border:1px solid #7c8b91;border-radius:6px;padding:3px 4px}
+.chips span.on{background:#d1ebea;border-color:#d1ebea;color:#0e5753;font-weight:600}
+.chips .lb{border:0;padding:3px 2px;color:#5b6a70}
+.seg{display:flex;margin:3px 7px;border:1px solid #7c8b91;border-radius:8px;overflow:hidden}
+.seg span{flex:1;text-align:center;padding:4px 2px}
+.seg span+span{border-left:1px solid #7c8b91}
+.seg span.on{background:#d1ebea;color:#0e5753;font-weight:600}
+.tl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:3px 6px 4px}
+.tl.t5{grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
+.tl.t5>div{font-size:7.6px;padding:3px 1px}
+.tl.t3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tl.t2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.tl>div{background:#e2eaee;border-radius:8px;min-height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:8.4px;line-height:1.12;text-align:center;padding:3px 2px;font-weight:500;color:#1b2a30}
+.tl>div i{font-style:normal;font-size:13px;line-height:1}
+.tl>div.hi{background:#d1ebea;color:#0e5753}
+.tl>div.off{color:#9aa6ab}
+.tl>div.red{background:#fbe3e3;color:#b3261e}
+.ft{display:flex;align-items:center;gap:9px;padding:4px 7px 7px;color:#1b2a30;font-size:10px}
+.ft .o{color:#9aa6ab}
+.sv{margin-left:auto;background:#12303d;color:#fff;border-radius:8px;padding:5px 11px}
+.nb{position:absolute;left:0;right:0;bottom:0;height:40px;background:#173a4a;display:flex;justify-content:space-around;align-items:center;color:#fff;font-size:9px}
+.new{outline:2px dashed var(--pg-new);outline-offset:1px}
+.mn{position:absolute;background:#fff;border-radius:9px;box-shadow:0 3px 12px rgba(0,0,0,.35);font-size:10px;padding:3px 0;z-index:3}
+.mi{padding:6px 10px;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.mi i{font-style:normal;width:12px;text-align:center}
+.mn hr{border:0;border-top:1px solid #e2e6e8;margin:2px 0}
+.ls{padding:2px 7px 4px}
+.ls .l{display:flex;align-items:center;gap:7px;padding:5px 2px;border-top:1px solid #e2e6e8}
+.ls .l .t{flex:1;line-height:1.25;min-width:0}
+.ls .l .t small{display:block;color:#5b6a70;font-size:8.5px}
+.ls h4{margin:6px 2px 2px;font-size:9.5px;color:#173a4a;display:flex;justify-content:space-between}
+.ls .ck{width:11px;height:11px;border:1.5px solid #5b6a70;border-radius:2px;flex:none}
+.ls .ck.on{background:#13968a;border-color:#13968a;position:relative}
+.ls .ck.on:after{content:"";position:absolute;left:3px;top:0;width:3px;height:6px;border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+.pin{width:13px;height:13px;border-radius:50%;color:#fff;font-size:7.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;border:1.5px solid #fff;box-shadow:0 0 0 .5px #999}
+.wp{width:15px;height:15px;border-radius:50%;color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center;flex:none}
+.dlg{position:absolute;left:14px;right:14px;top:96px;background:#fff;border-radius:14px;box-shadow:0 4px 18px rgba(0,0,0,.4);padding:10px 12px;font-size:10px;z-index:3}
+.dlg h5{margin:0 0 7px;font-size:12px;font-weight:600}
+.dlg .r{display:flex;align-items:center;gap:6px;padding:3px 0}
+.dlg .r b{width:9px;height:9px;border-radius:50%;border:1.5px solid #5b6a70;display:inline-block;flex:none}
+.dlg .r.on b{border-color:#13968a;background:radial-gradient(#13968a 45%,#fff 50%)}
+.dlg .fld{border:1px solid #7c8b91;border-radius:5px;padding:5px 6px;flex:1;min-width:0}
+.dlg .fld.ph2{color:#8a979c}
+.dlg .bt{display:flex;justify-content:flex-end;gap:14px;margin-top:8px;color:#0e5753;font-weight:600}
+.dlg .cb{width:10px;height:10px;border:1.5px solid #5b6a70;border-radius:2px;flex:none}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.32);z-index:2}
+/* item sheet (tap on the map) */
+.sh{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 8px rgba(0,0,0,.2);padding:5px 0 10px;font-size:10px;z-index:3}
+.sh .grab{width:28px;height:3px;border-radius:2px;background:#c4ccd0;margin:2px auto 8px}
+.sh .top{display:flex;align-items:center;gap:8px;padding:0 6px 6px 12px}
+.sh .ic{width:26px;height:26px;border-radius:50%;background:#e2eaee;display:flex;align-items:center;justify-content:center;font-size:12px;flex:none;color:#173a4a}
+.sh .ttl{font-size:13px;line-height:1.2}
+.sh .fig{color:#506169;font-size:9px;line-height:1.3}
+.sh .dots{font-size:14px;color:#506169;padding:0 4px}
+.pb{margin:4px 10px;background:#163A4A;color:#fff;border-radius:16px;height:30px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:10.5px;font-weight:500}
+.pb.ton{background:#d1ebea;color:#0e5753}
+.read{padding:4px 12px 6px}
+.read .big{font-size:19px;font-weight:500;display:flex;align-items:center;gap:8px}
+.read .big span{font-size:11px;font-weight:400}
+.read small{color:#506169;font-size:9px}
+.prof{margin:2px 12px 4px;height:26px}
+/* screens with a top bar */
+.tb{background:#173a4a;color:#fff;display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;font-size:13px}
+.pg{padding:8px;display:flex;flex-direction:column;gap:8px;font-size:10px}
+.gc{font-size:9.5px;font-weight:600;color:#173a4a;padding:4px 4px 0}
+.blk{background:#fff;border-radius:10px;overflow:hidden}
+.blk .ln{display:flex;align-items:center;gap:8px;padding:7px 10px;min-height:34px}
+.blk .ln+.ln{border-top:1px solid #e2e6e8}
+.blk .ln .t{flex:1;min-width:0;line-height:1.25}
+.blk .ln .t small{display:block;color:#5b6a70;font-size:8.5px}
+.blk .ln .v{color:#0e5753;font-weight:600;white-space:nowrap}
+/* download panel (« Enregistrer une zone ») */
+.wt{padding:8px 10px 4px}
+.wt .w1{display:flex;align-items:flex-end;justify-content:space-between}
+.wt .w1 b{font-size:19px;font-weight:500}
+.wt .w1 span{font-size:8.5px;color:#5b6a70;padding-bottom:3px}
+.wt small{display:block;color:#5b6a70;font-size:9px;margin-top:1px}
+.sl{padding:3px 10px 4px}
+.sl .t{display:flex;justify-content:space-between;font-size:10px}
+.bar{position:relative;height:14px;margin-top:2px}
+.bar:before{content:"";position:absolute;left:0;right:0;top:6px;height:3px;border-radius:2px;background:#c9e6e3}
+.bar .f{position:absolute;left:0;top:6px;height:3px;border-radius:2px;background:#13968a}
+.bar .k{position:absolute;top:2px;width:11px;height:11px;border-radius:50%;background:#13968a;margin-left:-5px}
+.dv{border-top:1px solid #e2e6e8;margin:2px 0}
+.mline{display:flex;align-items:center;gap:8px;padding:5px 10px}
+.mline .t{flex:1;min-width:0;line-height:1.25}
+.mline .t small{display:block;color:#5b6a70;font-size:8.5px}
+.big-btn{margin:5px 10px 9px;background:#163A4A;color:#fff;border-radius:16px;height:28px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:500}
+/* navigation banners */
+.wz{position:absolute;left:0;right:0;top:0;background:#163A4A;color:#fff;padding:8px 10px;display:flex;gap:10px;align-items:center;z-index:2}
+.wz .ar{font-size:30px;line-height:1}
+.wz .d{font-size:18px;font-weight:500;line-height:1.1}
+.wz .s{font-size:10px;color:#c9d6dc;line-height:1.3}
+.wz2{position:absolute;left:0;right:0;top:58px;background:#0f2b37;color:#c9d6dc;font-size:9px;padding:3px 10px;z-index:2}
+.eta{position:absolute;left:5px;right:5px;bottom:45px;background:#fff;border-radius:11px;box-shadow:0 1px 3px rgba(0,0,0,.3);padding:6px 9px;display:flex;align-items:center;gap:8px;font-size:9.5px}
+.eta .t{flex:1;min-width:0;line-height:1.3}
+.eta b{font-size:14px;font-weight:600;color:#2e7d32}
+.eta .x{background:#fbe3e3;color:#b3261e;border-radius:8px;padding:5px 8px;font-weight:600}
+.toast{position:absolute;left:12px;right:12px;bottom:108px;background:#2b3a40;color:#fff;border-radius:8px;padding:6px 8px;font-size:9px;line-height:1.3;z-index:3}
+
+/* ---- choices ---- */
+.pick{border:1px solid var(--pg-line);border-radius:14px;padding:10px 14px;margin:10px 0}
+.pick h3{margin:2px 0 8px}
+.opts{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+.opts button{font:inherit;font-size:13px;min-height:36px;padding:6px 12px;border:1px solid var(--pg-btn-line);border-radius:8px;background:transparent;color:var(--pg-on);cursor:pointer}
+.opts button[aria-pressed="true"]{border:2px solid var(--pg-info);color:var(--pg-info);font-weight:600}
+.opts button:focus-visible,.copy:focus-visible{outline:2px solid var(--pg-info);outline-offset:2px}
+.q{font-size:13.5px;color:var(--pg-on2);margin:8px 0 2px}
+textarea{width:100%;box-sizing:border-box;min-height:64px;font:inherit;font-size:13.5px;padding:8px;border:1px solid var(--pg-btn-line);border-radius:8px;background:var(--pg-bg);color:var(--pg-on)}
+.copy{font:inherit;font-size:14px;font-weight:600;min-height:40px;padding:8px 16px;border:0;border-radius:10px;background:var(--pg-info);color:var(--pg-bg);cursor:pointer;margin-top:8px}
+#answer{white-space:pre-wrap;font-size:13.5px;background:var(--pg-soft);border:1px solid var(--pg-line);border-radius:8px;padding:10px;color:var(--pg-on);margin-top:8px}
+#copied{font-size:13px;color:var(--pg-on2);margin-left:10px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <!-- map of the route mockups (Montfort and Lumbin, as in p19-nogos.html) -->
+  <g id="bg">
+   <rect x="-80" y="-80" width="380" height="640" fill="#e9eedc"/>
+   <path d="M-80 -80H290V40Q220 70 160 52T40 100Q0 118 -80 110Z" fill="#cfe3b5"/>
+   <path d="M-80 245Q10 230 25 290L-80 330Z" fill="#cfe3b5"/>
+   <path d="M120 230Q160 215 200 240L210 300Q160 290 130 270Z" fill="#d9ebc6"/>
+   <path d="M66 180Q95 166 122 182Q120 207 95 214Q70 207 66 180Z" fill="#dedbd6"/>
+   <path d="M158 70Q186 58 208 76Q203 100 181 104Q160 97 158 70Z" fill="#dedbd6"/>
+   <path d="M-30 300Q60 232 110 190T290 30" stroke="#f2b25a" stroke-width="3" fill="none"/>
+   <path d="M40 230Q70 215 95 195Q120 180 150 175" stroke="#fff" stroke-width="2.4" fill="none"/>
+   <path d="M40 230Q48 200 62 178Q80 155 105 152Q130 152 150 175" stroke="#fff" stroke-width="2" fill="none"/>
+   <path d="M150 175Q170 150 165 125Q170 100 178 85" stroke="#fff" stroke-width="2" fill="none"/>
+   <path d="M95 195Q100 240 80 300" stroke="#fff" stroke-width="2" fill="none"/>
+   <path d="M10 140Q40 120 62 128T110 110" stroke="#b7865a" stroke-width="1" stroke-dasharray="3 2" fill="none"/>
+   <path d="M40 230Q20 260 30 300T60 360" stroke="#fff" stroke-width="2" fill="none"/>
+   <path d="M130 480L290 220" stroke="#e8879a" stroke-width="3"/>
+   <path d="M170 490Q220 380 300 330" stroke="#9cc3e6" stroke-width="3.5" fill="none"/>
+   <text x="88" y="203" font-size="6" fill="#6b6b6b" font-family="Roboto,sans-serif">Montfort</text>
+   <text x="168" y="98" font-size="6" fill="#6b6b6b" font-family="Roboto,sans-serif">Lumbin</text>
+  </g>
+  <!-- mountain map of the download mockups (an imported GPX loop) -->
+  <g id="bgm">
+   <rect x="-40" y="-40" width="300" height="560" fill="#eef0e2"/>
+   <path d="M-40 60Q40 30 90 70T220 40V-40H-40Z" fill="#cfe3b5"/>
+   <path d="M-40 230Q30 200 70 240T150 250T260 210V520H-40Z" fill="#cfe3b5"/>
+   <path d="M20 120Q60 90 100 110T170 100" stroke="#c9a27a" stroke-width=".8" fill="none"/>
+   <path d="M30 140Q70 110 105 130T180 125" stroke="#c9a27a" stroke-width=".8" fill="none"/>
+   <path d="M40 160Q80 135 110 150T185 150" stroke="#c9a27a" stroke-width=".8" fill="none"/>
+   <path d="M60 175Q90 160 115 168T170 172" stroke="#c9a27a" stroke-width=".8" fill="none"/>
+   <path d="M-40 210Q60 190 120 205T260 185" stroke="#fff" stroke-width="2" fill="none"/>
+   <path d="M100 -40Q95 60 120 120T110 260" stroke="#fff" stroke-width="1.6" fill="none"/>
+   <path d="M160 300Q190 260 250 250" stroke="#9cc3e6" stroke-width="3" fill="none"/>
+   <text x="104" y="122" font-size="6" fill="#6b6b6b" font-family="Roboto,sans-serif">Le Granier</text>
+   <text x="18" y="203" font-size="6" fill="#6b6b6b" font-family="Roboto,sans-serif">Entremont</text>
+  </g>
+  <!-- the imported track, a loop, fitted in the map left above the download panel -->
+  <path id="loop" d="M35 175C30 140 45 110 70 95S115 60 145 58S192 75 182 108S150 160 118 170S62 192 35 175Z"/>
+  <mask id="band500" maskUnits="userSpaceOnUse" x="-40" y="-40" width="300" height="560"><rect x="-40" y="-40" width="300" height="560" fill="#fff"/><use href="#loop" fill="none" stroke="#000" stroke-width="24" stroke-linejoin="round"/></mask>
+  <mask id="edge500" maskUnits="userSpaceOnUse" x="-40" y="-40" width="300" height="560"><rect x="-40" y="-40" width="300" height="560" fill="#fff"/><use href="#loop" fill="none" stroke="#000" stroke-width="21" stroke-linejoin="round"/></mask>
+  <mask id="band1k" maskUnits="userSpaceOnUse" x="-40" y="-40" width="300" height="560"><rect x="-40" y="-40" width="300" height="560" fill="#fff"/><use href="#loop" fill="none" stroke="#000" stroke-width="40" stroke-linejoin="round"/></mask>
+  <mask id="edge1k" maskUnits="userSpaceOnUse" x="-40" y="-40" width="300" height="560"><rect x="-40" y="-40" width="300" height="560" fill="#fff"/><use href="#loop" fill="none" stroke="#000" stroke-width="37" stroke-linejoin="round"/></mask>
+  <g id="band500g"><rect x="-40" y="-40" width="300" height="560" fill="#000" fill-opacity=".32" mask="url(#band500)"/><use href="#loop" fill="none" stroke="#13968a" stroke-width="24" stroke-linejoin="round" mask="url(#edge500)"/><use href="#loop" fill="none" stroke="#d32f2f" stroke-width="2.4"/></g>
+  <g id="band1kg"><rect x="-40" y="-40" width="300" height="560" fill="#000" fill-opacity=".32" mask="url(#band1k)"/><use href="#loop" fill="none" stroke="#13968a" stroke-width="40" stroke-linejoin="round" mask="url(#edge1k)"/><use href="#loop" fill="none" stroke="#d32f2f" stroke-width="2.4"/></g>
+
+  <!-- routes of the route editor -->
+  <path id="r0" d="M40 230Q70 215 95 195Q120 180 150 175Q170 150 165 125Q170 100 178 85" stroke="#f57c00" stroke-width="3" fill="none" stroke-linejoin="round"/>
+  <path id="r1" d="M40 230Q48 200 62 178Q80 155 105 152Q130 152 150 175Q170 150 165 125Q170 100 178 85" stroke="#f57c00" stroke-width="3" fill="none" stroke-linejoin="round"/>
+  <g id="stops">
+   <circle cx="40" cy="230" r="7" fill="#2e8b3e" stroke="#fff" stroke-width="1.5"/><text x="40" y="233" font-size="8" fill="#fff" text-anchor="middle" font-weight="700" font-family="Roboto,sans-serif">A</text>
+   <circle cx="150" cy="175" r="4.2" fill="#fff" stroke="#f57c00" stroke-width="2"/>
+   <circle cx="178" cy="85" r="7" fill="#d9442b" stroke="#fff" stroke-width="1.5"/><text x="178" y="88" font-size="8" fill="#fff" text-anchor="middle" font-weight="700" font-family="Roboto,sans-serif">C</text>
+  </g>
+  <!-- points of interest: waypoint icon and name -->
+  <g id="poiWater"><circle r="7.5" fill="#1e88e5" stroke="#fff" stroke-width="1.5"/><path d="M0 -4.2C1.8 -1.6 3 0 3 1.4A3 3 0 0 1 -3 1.4C-3 0 -1.8 -1.6 0 -4.2Z" fill="#fff"/></g>
+  <g id="poiView"><circle r="7.5" fill="#6d4c41" stroke="#fff" stroke-width="1.5"/><path d="M-4 2.5L-1 -2.5L1 0.5L2.2 -1L4.2 2.5Z" fill="#fff"/></g>
+  <g id="poiHut"><circle r="7.5" fill="#c62828" stroke="#fff" stroke-width="1.5"/><path d="M-4 1L0 -3.5L4 1V3.6H-4Z" fill="#fff"/></g>
+  <!-- the avoid zone -->
+  <g id="zone"><circle r="24" fill="#d32f2f" fill-opacity=".16" stroke="#d32f2f" stroke-width="1.6" stroke-dasharray="4 3"/><circle r="4.5" fill="#d32f2f" stroke="#fff" stroke-width="1"/><path d="M-2.6 0H2.6" stroke="#fff" stroke-width="1.6"/></g>
+  <g id="zoneBig"><circle r="44" fill="#d32f2f" fill-opacity=".16" stroke="#d32f2f" stroke-width="1.6" stroke-dasharray="4 3"/><circle r="4.5" fill="#d32f2f" stroke="#fff" stroke-width="1"/><path d="M-2.6 0H2.6" stroke="#fff" stroke-width="1.6"/></g>
+  <g id="zoneSel"><circle r="24" fill="#d32f2f" fill-opacity=".22" stroke="#d32f2f" stroke-width="2.4"/><circle r="4.5" fill="#d32f2f" stroke="#fff" stroke-width="1"/><path d="M-2.6 0H2.6" stroke="#fff" stroke-width="1.6"/></g>
+  <g id="ring24"><circle r="24" fill="#d32f2f" fill-opacity=".07" stroke="#d32f2f" stroke-width="1.6" stroke-dasharray="4 3"/></g>
+  <g id="ring44"><circle r="44" fill="#d32f2f" fill-opacity=".07" stroke="#d32f2f" stroke-width="1.6" stroke-dasharray="4 3"/></g>
+  <g id="xh"><circle r="7" fill="none" stroke="#fff" stroke-width="3.4"/><circle r="7" fill="none" stroke="#13968a" stroke-width="1.6"/></g>
+  <!-- navigation: position, target, ways -->
+  <g id="me"><circle r="11" fill="#1e88e5" fill-opacity=".18"/><circle r="5.5" fill="#1e88e5" stroke="#fff" stroke-width="2"/></g>
+  <g id="meArrow"><circle r="12" fill="#1e88e5" fill-opacity=".18"/><path d="M0 -8L6 6L0 3L-6 6Z" fill="#1e88e5" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></g>
+  <g id="target"><circle r="9" fill="none" stroke="#d81b60" stroke-width="2.4"/><circle r="2.2" fill="#d81b60"/></g>
+  <path id="navway" d="M40 230Q48 200 62 178Q80 155 105 152Q130 152 150 175Q170 150 165 125Q170 100 178 85" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+  <g id="navRoute"><use href="#navway" stroke="#fff" stroke-width="6.5"/><use href="#navway" stroke="#d81b60" stroke-width="3.6"/></g>
+ </defs>
+</svg>
+
+<div class="wrap">
+<h1>Itinéraires, tuiles autour d'un tracé, navigation BRouter, zones à éviter : aperçus</h1>
+<p>Vos quatre demandes du 2026-10-28, regroupées dans une nouvelle phase <b>P30</b> du plan. Pour chacune : ce que fait l'application aujourd'hui (version 0.4.118, écrans reconstruits depuis le code, sans émulateur dans cette session cloud), ce qui serait commun à toutes les variantes, puis les variantes. <span class="tag">Nouveau</span> = ce qui change, entouré de pointillés roses.</p>
+<p><b>Rien n'est codé avant votre choix.</b> En bas de la page, « Vos choix » prépare une réponse à copier ; vous pouvez aussi répondre simplement « 1 A, 2 B, 3 C, 4 A ». Les chiffres (distances, poids, durées) sont des exemples.</p>
+<nav class="nav" aria-label="Sections">
+ <a href="#p1">1 · Points d'intérêt</a><a href="#p2">2 · Tuiles autour d'un tracé</a><a href="#p3">3 · Aller vers ce point</a><a href="#p4">4 · Taille d'une zone</a><a href="#choix">Vos choix</a>
+</nav>
+
+<!-- =================================================================== 1 -->
+<h2 id="p1">1 · Tracer un itinéraire : insérer des points d'intérêt</h2>
+<p>Demande : « Tracer un itinéraire : permet d'insérer des points d'intérêt sur un itinéraire ».</p>
+
+<div class="box now">
+<h3>Aujourd'hui (0.4.118)</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#r0"/><use href="#stops"/><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.78 km</b> · ↑ 92 m · ↓ 155 m · 1 h 15<br><span class="s">3 étapes</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins (BRouter)</span><span class="chip">🚶 Randonnée ▾</span></div>
+    <div class="tl"><div class="hi"><i>📍</i>Ajouter ici</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>Panneau « Itinéraire »</b><br>« Ajouter ici » pose toujours une <b>étape</b> : l'itinéraire est recalculé pour passer par là</div>
+ </div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#r0"/><use href="#stops"/><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.78 km</b> · ↑ 92 m · ↓ 155 m · 1 h 15<br><span class="s">3 étapes</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="ls"><h4><span>☰ Étapes (3)</span><span>⌄</span></h4>
+     <div class="l"><span class="pin" style="background:#2e8b3e">A</span><span class="t">Passage<small>Départ</small></span><span>⋮</span></div>
+     <div class="l" style="background:#dcebef"><span class="pin" style="background:#fff;color:#f57c00;border-color:#f57c00">1</span><span class="t">Passage<small>2.10 km</small></span><span>⋮</span></div>
+     <div class="l"><span class="pin" style="background:#d9442b">C</span><span class="t">Passage<small>Arrivée · 3.78 km</small></span><span>⋮</span></div>
+    </div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="mn" style="right:12px;top:150px"><div class="mi"><i>✎</i><b>Nommer…</b></div><div class="mi"><i>☆</i>Enregistrer comme waypoint</div><div class="mi"><i>🚶</i>Profil du tronçon suivant</div><div class="mi"><i>╱</i>Tronçon suivant en ligne droite</div><div class="mi"><i>⚑</i>Partir d'ici</div><div class="mi"><i>🗑</i>Supprimer</div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>Étapes ▸ ⋮ ▸ « Nommer… »</b><br>seul moyen de donner un nom et une icône ; l'étape nommée <b>force</b> toujours le passage</div>
+ </div>
+</div>
+<p class="pro">Un waypoint déjà enregistré placé sous le réticule devient lui aussi une étape nommée. Après l'enregistrement, la carte montre le départ, l'arrivée et les étapes nommées. <b>Aucun point ne peut accompagner l'itinéraire sans le dévier</b> (une source à 80 m du sentier, un point de vue, un refuge à côté du chemin), et le nommage est caché dans le ⋮ de la liste.</p>
+</div>
+
+<h3>Commun à toutes les variantes</h3>
+<ul>
+ <li><b>Nouveau : le point d'intérêt de l'itinéraire</b> : un nom, une icône de waypoint, une note facultative. Il <b>ne change pas le tracé</b> et peut être à côté du chemin. L'étape nommée reste pour « passer par ici ».</li>
+ <li><b>Sur la carte</b> : son icône et son nom, comme un waypoint (tailles et ombres des Réglages ▸ Repères et traces), pendant la modification et quand l'itinéraire est affiché.</li>
+ <li><b>Dans « Étapes (N) »</b> : une rubrique « Points d'intérêt (2) » sous les étapes, avec « km 2,1 · à 60 m du tracé ». Sur le profil altimétrique : l'icône à son kilomètre.</li>
+ <li><b>Réticule sur un point d'intérêt</b> : le bouton principal devient « Modifier le point » (nom, icône, note, déplacer au réticule, supprimer), comme il devient « Prendre l'étape 1 » sur une étape. Ordre sous le réticule : étape, point d'intérêt, zone, tracé.</li>
+ <li><b>Enregistré avec l'itinéraire</b> (dans son plan, <code>tm:poi</code>) et <b>exporté en waypoint <code>&lt;wpt&gt;</code></b> à côté de l'itinéraire dans le GPX : les autres applications le voient. Supprimé avec l'itinéraire ; « Enregistrer comme waypoint » en fait une copie dans vos listes.</li>
+ <li>Annuler / Rétablir le couvrent. Aucun appel à BRouter pour un point d'intérêt.</li>
+</ul>
+
+<!-- ---- 1A ---- -->
+<div class="box">
+<h3>1 A · Une tuile « Point d'intérêt » à côté de « Ajouter ici »</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#r0"/><use href="#stops"/><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.78 km</b> · ↑ 92 m · ↓ 155 m · 1 h 15<br><span class="s">3 étapes</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins (BRouter)</span><span class="chip">🚶 Randonnée ▾</span></div>
+    <div class="tl t5"><div class="hi"><i>📍</i>Ajouter ici</div><div class="new"><i>📌</i>Point d'intérêt</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · Réticule à côté du sentier</b><br>nouvelle tuile « Point d'intérêt », en deuxième place</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#r0"/><use href="#stops"/><use href="#xh" x="105" y="157"/></svg>
+   <div class="scrim"></div>
+   <div class="dlg new"><h5>Point d'intérêt</h5>
+    <div class="r"><svg width="28" height="28" viewBox="-14 -14 28 28"><use href="#poiWater" transform="scale(1.6)"/></svg><span class="fld">Source du Pré</span></div>
+    <div class="r"><span class="fld ph2">Note (facultatif)</span></div>
+    <div class="r" style="margin-top:4px"><span class="cb"></span><span>Faire passer l'itinéraire par ce point</span></div>
+    <div style="color:#5b6a70;font-size:9px;padding-left:16px">Sinon, le tracé ne change pas.</div>
+    <div class="bt"><span>Annuler</span><span>Ajouter</span></div></div>
+  </div>
+  <div class="cap"><b>2 · Nom et icône</b><br>l'icône s'ouvre sur la grille des waypoints ; cochée, la case en fait une étape nommée (comme aujourd'hui)</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#r0"/><use href="#stops"/>
+    <use href="#poiWater" x="105" y="157"/><text x="115" y="160" font-size="7.5" font-family="Roboto,sans-serif" fill="#1b2a30" stroke="#fff" stroke-width="2.4" paint-order="stroke">Source du Pré</text><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.78 km</b> · ↑ 92 m · ↓ 155 m · 1 h 15<br><span class="s">3 étapes · <span class="new">1 point d'intérêt</span></span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins (BRouter)</span><span class="chip">🚶 Randonnée ▾</span></div>
+    <div class="tl t5"><div class="hi new"><i>✎</i>Modifier le point</div><div><i>📌</i>Point d'intérêt</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>3 · Posé, tracé inchangé</b><br>réticule encore dessus : « Modifier le point » ; la longueur reste 3.78 km</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : visible tout de suite, un geste de plus que « Ajouter ici ». <b>Contre</b> : cinq tuiles sur une ligne, des libellés plus serrés (« Supprimer l'étape » sur deux lignes, comme aujourd'hui).</p>
+</div>
+
+<!-- ---- 1B ---- -->
+<div class="box">
+<h3>1 B · « Poser : Étape | Point d'intérêt » au-dessus des tuiles, icônes rapides</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#r0"/><use href="#stops"/>
+    <path d="M105 157L99.2 147.5A7 7 0 1 1 110.8 147.5Z" fill="none" stroke="#fff" stroke-width="3.4" stroke-linejoin="round"/><path d="M105 157L99.2 147.5A7 7 0 1 1 110.8 147.5Z" fill="none" stroke="#13968a" stroke-width="1.6" stroke-linejoin="round"/><circle cx="105" cy="143.5" r="2" fill="#13968a"/></svg>
+   <div class="pill"><b>3.78 km</b> · ↑ 92 m · ↓ 155 m · 1 h 15<br><span class="s">3 étapes</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins (BRouter)</span><span class="chip">🚶 Randonnée ▾</span></div>
+    <div class="seg new"><span>📍 Étape</span><span class="on">📌 Point d'intérêt</span></div>
+    <div class="tl"><div class="hi"><i>📌</i>Ajouter le point</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · Bascule sur « Point d'intérêt »</b><br>le bouton principal devient « Ajouter le point », le réticule prend la forme d'une épingle ; la bascule est retenue</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#r0"/><use href="#stops"/><use href="#poiWater" x="105" y="157"/></svg>
+   <div class="pill"><b>3.78 km</b> · ↑ 92 m · ↓ 155 m · 1 h 15<br><span class="s">3 étapes</span></div>
+   <div class="pn new" style="bottom:0;left:0;right:0;border-radius:14px 14px 0 0"><div class="hd"><span>Quel point ?</span><span>✕</span></div>
+    <div class="tl" style="grid-template-columns:repeat(4,1fr)">
+     <div class="hi"><svg width="16" height="16" viewBox="-8 -8 16 16"><use href="#poiWater"/></svg>Source</div><div><svg width="16" height="16" viewBox="-8 -8 16 16"><use href="#poiHut"/></svg>Refuge</div><div><svg width="16" height="16" viewBox="-8 -8 16 16"><use href="#poiView"/></svg>Point de vue</div><div><i>🅿</i>Parking</div>
+     <div><i>⚠</i>Danger</div><div><i>▲</i>Sommet</div><div><i>📷</i>Photo</div><div><i>⋯</i>Autre…</div></div>
+    <div class="rw"><span style="border:1px solid #7c8b91;border-radius:5px;padding:5px 6px;flex:1">Source du Pré</span></div>
+    <div class="rw" style="justify-content:flex-end;gap:14px;color:#0e5753;font-weight:600;padding-bottom:10px"><span>Annuler</span><span class="sv" style="margin:0">Ajouter</span></div></div>
+  </div>
+  <div class="cap"><b>2 · Huit icônes courantes</b><br>un toucher choisit l'icône et propose son nom ; « Autre… » ouvre la grille complète des waypoints</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : quatre tuiles comme aujourd'hui, très rapide pour poser plusieurs points d'affilée. <b>Contre</b> : un mode de plus à garder en tête (on peut oublier qu'on est sur « Point d'intérêt »).</p>
+</div>
+
+<!-- ---- 1C ---- -->
+<div class="box">
+<h3>1 C · Reprendre vos waypoints proches du tracé : Outils ▸ « Points d'intérêt proches… »</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#r0"/><use href="#stops"/><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.78 km</b> · ↑ 92 m · ↓ 155 m · 1 h 15<br><span class="s">3 étapes</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins (BRouter)</span><span class="chip">🚶 Randonnée ▾</span></div>
+    <div class="tl"><div class="hi"><i>📍</i>Ajouter ici</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="mn" style="left:40px;right:22px;bottom:68px"><div class="mi"><i>☐</i>Ajouter au début</div><hr><div class="mi"><i>⇅</i>Inverser le sens</div><div class="mi"><i>↻</i>Boucler vers le départ</div><div class="mi"><i>⇄</i>Aller-retour</div><div class="mi"><i style="color:#d32f2f">⊖</i>Éviter une zone</div><div class="mi new"><i>📌</i>Points d'intérêt proches…</div><hr><div class="mi"><i>〽</i>Profil altimétrique</div><div class="mi"><i>🗑</i>Tout effacer</div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · Outils</b><br>nouvelle ligne sous « Éviter une zone »</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#r0"/><use href="#stops"/>
+    <use href="#poiWater" x="128" y="165"/><use href="#poiView" x="163" y="128"/><circle cx="56" cy="206" r="6.5" fill="#455a64" stroke="#fff" stroke-width="1.5"/><text x="56" y="208.5" font-size="7" fill="#fff" text-anchor="middle" font-weight="700" font-family="Roboto,sans-serif">P</text></svg>
+   <div class="pill"><b>3.78 km</b> · ↑ 92 m · ↓ 155 m · 1 h 15<br><span class="s">3 étapes</span></div>
+   <div class="pn new"><div class="hd"><span>Points d'intérêt proches</span><span>✕</span></div>
+    <div class="hint">Vos waypoints à moins de <b style="color:#0e5753">200 m ▾</b> du tracé</div>
+    <div class="ls">
+     <div class="l"><span class="ck on"></span><svg width="15" height="15" viewBox="-8 -8 16 16"><use href="#poiWater"/></svg><span class="t">Source du Pré<small>km 2,1 · à 60 m du tracé</small></span></div>
+     <div class="l"><span class="ck on"></span><svg width="15" height="15" viewBox="-8 -8 16 16"><use href="#poiView"/></svg><span class="t">Belvédère de Montfort<small>km 2,9 · sur le tracé</small></span></div>
+     <div class="l"><span class="ck"></span><span class="wp" style="background:#455a64">P</span><span class="t">Parking du Pré<small>km 0,4 · à 150 m du tracé</small></span></div>
+    </div>
+    <div class="tl" style="grid-template-columns:1fr 2fr"><div><i>📌</i>Nouveau au réticule</div><div class="hi"><i>✓</i>Ajouter les 2 points</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>2 · Liste des waypoints proches</b><br>distance 100 m · 200 m · 500 m · 1 km ; les cochés sont copiés dans l'itinéraire ; « Nouveau au réticule » ouvre le dialogue de la variante A</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : réutilise ce que vous avez déjà (waypoints importés d'un GPX, d'AlpineQuest), utile après l'import d'un tracé. <b>Contre</b> : pour un point nouveau, un chemin plus long (Outils ▸ liste ▸ Nouveau). Peut se combiner avec A ou B.</p>
+</div>
+
+<!-- ---- 1D ---- -->
+<div class="box">
+<h3>1 D · Repères posés sur le tracé, au kilomètre (façon carnet de route)</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(0,-33)"><use href="#bg"/><use href="#r0"/><use href="#stops"/></g><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.78 km</b> · ↑ 92 m · ↓ 155 m · 1 h 15<br><span class="s">3 étapes</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins (BRouter)</span><span class="chip">🚶 Randonnée ▾</span></div>
+    <div class="tl"><div class="hi"><i>⤳</i>Insérer ici</div><div class="new"><i>📌</i>Repère au km 1,6</div><div class="off"><i>✥</i>Déplacer ici</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · Réticule sur le tracé</b><br>à côté de « Insérer ici », la tuile « Repère au km 1,6 » ; hors du tracé, elle est grisée</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(0,-33)"><use href="#bg"/><use href="#r0"/><use href="#stops"/></g>
+    <use href="#poiWater" x="104" y="157"/><text x="114" y="153" font-size="7.5" font-family="Roboto,sans-serif" fill="#1b2a30" stroke="#fff" stroke-width="2.4" paint-order="stroke">km 1,6 · Source du Pré</text><use href="#poiView" x="163" y="95"/><text x="128" y="84" font-size="7.5" font-family="Roboto,sans-serif" fill="#1b2a30" stroke="#fff" stroke-width="2.4" paint-order="stroke">km 2,9 · Belvédère</text></svg>
+   <div class="pill"><b>3.78 km</b> · ↑ 92 m · ↓ 155 m · 1 h 15<br><span class="s">3 étapes · 2 repères</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="ls"><h4><span>☰ Étapes et repères</span><span>⌄</span></h4>
+     <div class="l"><span class="pin" style="background:#2e8b3e">A</span><span class="t">Départ<small>km 0</small></span></div>
+     <div class="l new"><svg width="15" height="15" viewBox="-8 -8 16 16"><use href="#poiWater"/></svg><span class="t">Source du Pré<small>km 1,6 · ↑ 40 m depuis le départ</small></span></div>
+     <div class="l"><span class="pin" style="background:#fff;color:#f57c00;border-color:#f57c00">1</span><span class="t">Passage<small>km 2,1</small></span></div>
+     <div class="l new"><svg width="15" height="15" viewBox="-8 -8 16 16"><use href="#poiView"/></svg><span class="t">Belvédère de Montfort<small>km 2,9 · ↑ 71 m</small></span></div>
+     <div class="l"><span class="pin" style="background:#d9442b">C</span><span class="t">Arrivée<small>km 3,78</small></span></div>
+    </div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>2 · Une seule liste dans l'ordre du parcours</b><br>le kilomètre est écrit sur la carte et dans la liste ; si le tracé change, le repère se recolle au point le plus proche</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : kilométrage exact, liste lisible comme un carnet de route. <b>Contre</b> : le point est toujours sur le tracé (pas une source à 80 m du sentier) ; recoller les repères quand le tracé change peut surprendre.</p>
+</div>
+
+<p><b>Questions</b> : faut-il aussi des points d'intérêt sur les <b>traces</b> (pas seulement les itinéraires) ? Le point d'intérêt reste-t-il propre à l'itinéraire, ou doit-il aussi apparaître dans vos listes de waypoints ?</p>
+
+<!-- =================================================================== 2 -->
+<h2 id="p2">2 · Télécharger les tuiles autour d'un tracé</h2>
+<p>Demande : « télécharger les tuiles à x mètres (x paramétrable) autour d'un tracé ; option depuis le menu d'un tracé à la place de « Convertir en trace » ; importer un GPX et télécharger toutes les tuiles adjacentes d'un coup, sans faire un grand carré ; même moteur et même onglet que « Enregistrer une zone », carte centrée sur l'itinéraire ».</p>
+
+<div class="box now">
+<h3>Aujourd'hui (0.4.118)</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#loop" fill="none" stroke="#f57c00" stroke-width="3"/></svg>
+   <div class="scrim" style="background:rgba(0,0,0,.18)"></div>
+   <div class="sh"><div class="grab"></div>
+    <div class="top"><span class="ic">↱</span><div style="flex:1;min-width:0"><div class="ttl">Boucle du Granier</div><div class="fig">18.2 km · ↑ 1 120 m · ↓ 1 120 m · 6 h 40 · Randonnée</div></div><span class="dots">⋮</span></div>
+    <div class="pb">⤳ Suivre cet itinéraire</div>
+    <div class="tl t2" style="padding:4px 10px"><div><i>✎</i>Modifier le tracé</div><div><i>⎍</i>Convertir en trace</div></div>
+   </div>
+  </div>
+  <div class="cap"><b>Fiche d'un itinéraire</b> (toucher sur la carte)<br>rien pour télécharger ; ⋮ : Partager, Exporter, Masquer, Supprimer</div>
+ </div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#loop" fill="none" stroke="#d32f2f" stroke-width="2.6"/></svg>
+   <div class="scrim" style="background:rgba(0,0,0,.18)"></div>
+   <div class="sh"><div class="grab"></div>
+    <div class="top"><span class="ic">〰</span><div style="flex:1;min-width:0"><div class="ttl">Tour du Granier</div><div class="fig">18.4 km · ↑ 1 140 m · ↓ 1 140 m</div></div><span class="dots">⋮</span></div>
+    <svg class="prof" width="186" height="26" viewBox="0 0 186 26"><path d="M0 24L20 18L45 8L70 3L95 10L120 6L150 16L186 24Z" fill="#cfe3e1"/><path d="M0 24L20 18L45 8L70 3L95 10L120 6L150 16L186 24" fill="none" stroke="#13968a" stroke-width="1.2"/></svg>
+    <div class="pb">⤳ Suivre cette trace</div>
+    <div class="tl t2" style="padding:4px 10px"><div><i>⏱</i>Statistiques</div><div><i>✎</i>Modifier le tracé</div></div>
+   </div>
+  </div>
+  <div class="cap"><b>Fiche d'une trace</b> (un GPX importé est souvent une trace)<br>rien non plus pour télécharger</div>
+ </div>
+ <div>
+  <div class="ph" style="background:#F2F5F6">
+   <div class="tb"><span>←</span><span>Tour du Granier</span></div>
+   <div class="pg">
+    <div class="pb" style="margin:0">🗺 Afficher sur la carte</div>
+    <div class="gc">Préparer</div>
+    <div class="blk"><div class="ln"><span>⤓</span><span class="t">Télécharger autour de cette trace</span></div><div class="ln"><span>🖶</span><span class="t">Imprimer le long de cette trace<small>Feuilles qui suivent la trace</small></span></div></div>
+    <div class="gc">Sur le terrain</div>
+    <div class="blk"><div class="ln"><span>⤳</span><span class="t">Suivre cette trace<small>Alerte d'écart</small></span></div></div>
+   </div>
+   <div class="scrim"></div>
+   <div class="dlg" style="top:120px"><h5>Télécharger autour de cette trace</h5>
+    <div style="color:#5b6a70;margin-bottom:4px">Largeur de la bande de chaque côté de la trace :</div>
+    <div class="r">500 m</div><div class="r">1.00 km</div><div class="r">2.00 km</div><div class="r">5.00 km</div>
+    <div class="bt"><span>Annuler</span></div></div>
+  </div>
+  <div class="cap"><b>Détail d'une trace ▸ « Télécharger autour »</b><br>quatre largeurs, puis l'<b>ancien formulaire</b> de « Téléchargements » (zooms 12 à 16), sans carte ni poids ; rien pour un itinéraire</div>
+ </div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#loop" fill="none" stroke="#d32f2f" stroke-width="2.4"/>
+    <path d="M-40 -40H260V520H-40Z M22 46V200H198V46Z" fill="#000" fill-opacity=".32" fill-rule="evenodd"/><rect x="22" y="46" width="176" height="154" fill="none" stroke="#13968a" stroke-width="1.6"/>
+    <g fill="#fff" stroke="#13968a" stroke-width="2"><circle cx="22" cy="46" r="6"/><circle cx="198" cy="46" r="6"/><circle cx="22" cy="200" r="6"/><circle cx="198" cy="200" r="6"/></g></svg>
+   <div class="pn flat"><div class="hd"><span>Enregistrer une zone</span><span class="ic2"><span>?</span><span>✕</span></span></div>
+    <div class="wt"><div class="w1"><b>9,5 Mo</b><span>📱 5,0 Go libres</span></div><small>415 tuiles à télécharger · 31 déjà stockées</small></div>
+    <div class="sl"><div class="t"><span>Zoom maximal</span><b>16</b></div><div class="bar"><div class="f" style="width:73%"></div><div class="k" style="left:73%"></div></div></div>
+    <div class="dv"></div>
+    <div class="mline"><span>≋</span><span class="t">Cartes<small>IGN Cartes, OpenTopoMap · 2 sur 3</small></span><span>⌄</span></div>
+    <div class="big-btn">Enregistrer la zone</div></div>
+  </div>
+  <div class="cap"><b>Cartes ▸ « Sélectionner et enregistrer une zone »</b><br>le panneau à reprendre : poids, place libre, zoom maximal, cartes ; mais un rectangle seulement, qui prend des tuiles loin du tracé</div>
+ </div>
+</div>
+<p class="pro">Le moteur sait déjà télécharger une <b>bande autour d'une ligne</b> (forme « couloir » du téléchargement, utilisée par le détail d'une trace) : il manque l'accès depuis la fiche, les itinéraires, et le panneau « Enregistrer une zone » avec sa carte.</p>
+</div>
+
+<h3>Commun à toutes les variantes</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#loop" fill="none" stroke="#f57c00" stroke-width="3"/></svg>
+   <div class="scrim" style="background:rgba(0,0,0,.18)"></div>
+   <div class="sh"><div class="grab"></div>
+    <div class="top"><span class="ic">↱</span><div style="flex:1;min-width:0"><div class="ttl">Boucle du Granier</div><div class="fig">18.2 km · ↑ 1 120 m · ↓ 1 120 m · 6 h 40 · Randonnée</div></div><span class="dots">⋮</span></div>
+    <div class="pb">⤳ Suivre cet itinéraire</div>
+    <div class="tl t2" style="padding:4px 10px"><div><i>✎</i>Modifier le tracé</div><div class="new"><i>⤓</i>Télécharger autour</div></div>
+   </div>
+   <div class="mn" style="right:8px;top:212px"><div class="mi">Partager</div><div class="mi">Exporter</div><div class="mi new">Convertir en trace</div><div class="mi">Masquer</div><div class="mi">Supprimer</div></div>
+  </div>
+  <div class="cap"><b>Fiche d'un itinéraire</b><br>« Télécharger autour » prend la place de « Convertir en trace », qui passe dans le ⋮</div>
+ </div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#loop" fill="none" stroke="#d32f2f" stroke-width="2.6"/></svg>
+   <div class="scrim" style="background:rgba(0,0,0,.18)"></div>
+   <div class="sh"><div class="grab"></div>
+    <div class="top"><span class="ic">〰</span><div style="flex:1;min-width:0"><div class="ttl">Tour du Granier</div><div class="fig">18.4 km · ↑ 1 140 m · ↓ 1 140 m</div></div><span class="dots">⋮</span></div>
+    <svg class="prof" width="186" height="26" viewBox="0 0 186 26"><path d="M0 24L20 18L45 8L70 3L95 10L120 6L150 16L186 24Z" fill="#cfe3e1"/><path d="M0 24L20 18L45 8L70 3L95 10L120 6L150 16L186 24" fill="none" stroke="#13968a" stroke-width="1.2"/></svg>
+    <div class="pb">⤳ Suivre cette trace</div>
+    <div class="tl t3" style="padding:4px 10px"><div><i>⏱</i>Statistiques</div><div><i>✎</i>Modifier le tracé</div><div class="new"><i>⤓</i>Télécharger autour</div></div>
+   </div>
+  </div>
+  <div class="cap"><b>Fiche d'une trace</b><br>même tuile, en troisième place</div>
+ </div>
+</div>
+<ul>
+ <li><b>Entrées</b> : fiche d'un itinéraire et fiche d'une trace (ci-dessus) ; le détail d'une trace ▸ « Télécharger autour de cette trace » ouvre le même panneau (l'ancien dialogue et l'ancien formulaire disparaissent).</li>
+ <li><b>La carte se cadre sur tout le tracé</b>, au-dessus du panneau ; la bande est dessinée : dehors assombri comme pour le rectangle, bord de la bande en couleur, tracé par-dessus.</li>
+ <li><b>Le panneau est celui de « Enregistrer une zone »</b> : poids en grand, place libre, tuiles à télécharger et déjà stockées, zoom maximal, cartes et leurs barres de zoom, ligne « Altitudes » ; titre « Enregistrer autour du tracé », bouton « Enregistrer la bande ».</li>
+ <li><b>Même moteur</b> : file d'attente, reprise, notification de progression et liste « Téléchargements » (« Autour de « Tour du Granier » : ± 500 m »). Les tuiles déjà stockées ne sont pas reprises.</li>
+ <li>La dernière largeur est retenue (500 m la première fois). Le tracé est simplifié à 25 m avant le calcul, comme aujourd'hui. Ordre de grandeur : 18 km à ± 500 m jusqu'au zoom 16 ≈ 290 tuiles et 6 Mo par carte, contre ≈ 415 tuiles pour le rectangle qui l'entoure.</li>
+</ul>
+
+<!-- ---- 2A ---- -->
+<div class="box">
+<h3>2 A · Largeur en puces dans le panneau : 100 m · 250 m · 500 m · 1 km · 2 km</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#band500g"/></svg>
+   <div class="pn flat"><div class="hd"><span>Enregistrer autour du tracé</span><span class="ic2"><span>?</span><span>✕</span></span></div>
+    <div class="wt"><div class="w1"><b>6,1 Mo</b><span>📱 5,0 Go libres</span></div><small>286 tuiles à télécharger · 12 déjà stockées</small></div>
+    <div class="new" style="margin:2px 4px"><div style="padding:2px 6px 0;font-size:10px">Largeur de chaque côté</div><div class="chips"><span>100 m</span><span>250 m</span><span class="on">500 m</span><span>1 km</span><span>2 km</span></div></div>
+    <div class="sl"><div class="t"><span>Zoom maximal</span><b>16</b></div><div class="bar"><div class="f" style="width:73%"></div><div class="k" style="left:73%"></div></div></div>
+    <div class="dv"></div>
+    <div class="mline"><span>≋</span><span class="t">Cartes<small>IGN Cartes, OpenTopoMap · 2 sur 3</small></span><span>⌄</span></div>
+    <div class="big-btn">Enregistrer la bande</div></div>
+  </div>
+  <div class="cap"><b>± 500 m</b><br>la bande se redessine et le poids se recalcule à chaque puce, comme pour la taille d'une zone à éviter</div>
+ </div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#band1kg"/></svg>
+   <div class="pn flat"><div class="hd"><span>Enregistrer autour du tracé</span><span class="ic2"><span>?</span><span>✕</span></span></div>
+    <div class="wt"><div class="w1"><b>10,8 Mo</b><span>📱 5,0 Go libres</span></div><small>509 tuiles à télécharger · 12 déjà stockées</small></div>
+    <div class="new" style="margin:2px 4px"><div style="padding:2px 6px 0;font-size:10px">Largeur de chaque côté</div><div class="chips"><span>100 m</span><span>250 m</span><span>500 m</span><span class="on">1 km</span><span>2 km</span></div></div>
+    <div class="sl"><div class="t"><span>Zoom maximal</span><b>16</b></div><div class="bar"><div class="f" style="width:73%"></div><div class="k" style="left:73%"></div></div></div>
+    <div class="dv"></div>
+    <div class="mline"><span>≋</span><span class="t">Cartes<small>IGN Cartes, OpenTopoMap · 2 sur 3</small></span><span>⌄</span></div>
+    <div class="big-btn">Enregistrer la bande</div></div>
+  </div>
+  <div class="cap"><b>± 1 km</b><br>bande plus large, poids mis à jour</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : un toucher, des valeurs rondes, même geste que les zones à éviter. <b>Contre</b> : pas de valeur libre (750 m, 3 km) ; on pourra la taper quand viendra la saisie précise des valeurs (P23).</p>
+</div>
+
+<!-- ---- 2B ---- -->
+<div class="box">
+<h3>2 B · Curseur continu de 50 m à 5 km, valeur touchable pour la taper</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#band1kg"/></svg>
+   <div class="pn flat"><div class="hd"><span>Enregistrer autour du tracé</span><span class="ic2"><span>?</span><span>✕</span></span></div>
+    <div class="wt"><div class="w1"><b>10,8 Mo</b><span>📱 5,0 Go libres</span></div><small>509 tuiles à télécharger · 12 déjà stockées</small></div>
+    <div class="sl new" style="margin:2px 4px"><div class="t"><span>Largeur de chaque côté</span><b style="text-decoration:underline dotted;color:#0e5753">± 1 km</b></div><div class="bar"><div class="f" style="width:56%"></div><div class="k" style="left:56%"></div></div><div class="t" style="font-size:8px;color:#5b6a70"><span>50 m</span><span>500 m</span><span>5 km</span></div></div>
+    <div class="sl"><div class="t"><span>Zoom maximal</span><b>16</b></div><div class="bar"><div class="f" style="width:73%"></div><div class="k" style="left:73%"></div></div></div>
+    <div class="dv"></div>
+    <div class="mline"><span>≋</span><span class="t">Cartes<small>IGN Cartes, OpenTopoMap · 2 sur 3</small></span><span>⌄</span></div>
+    <div class="big-btn">Enregistrer la bande</div></div>
+  </div>
+  <div class="cap"><b>Curseur à graduation logarithmique</b><br>pas de 50 m jusqu'à 1 km, puis de 250 m ; toucher « ± 1 km » ouvre un champ pour taper la valeur</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : n'importe quelle largeur. <b>Contre</b> : réglage plus délicat au doigt ; le poids se recalcule au relâcher seulement.</p>
+</div>
+
+<!-- ---- 2C ---- -->
+<div class="box">
+<h3>2 C · Largeur réglée sur la carte, avec une poignée au bord de la bande</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#band500g"/>
+    <line x1="182" y1="108" x2="194" y2="108" stroke="#13968a" stroke-width="1.2" stroke-dasharray="2 1.5"/>
+    <circle cx="194" cy="108" r="6.5" fill="#fff" stroke="#13968a" stroke-width="2.4"/>
+    <rect x="146" y="114" width="44" height="14" rx="7" fill="#163A4A"/><text x="168" y="124" font-size="8" fill="#fff" text-anchor="middle" font-family="Roboto,sans-serif">± 500 m</text></svg>
+   <div class="pn flat"><div class="hd"><span>Enregistrer autour du tracé</span><span class="ic2"><span>?</span><span>✕</span></span></div>
+    <div class="wt"><div class="w1"><b>6,1 Mo</b><span>📱 5,0 Go libres</span></div><small>286 tuiles à télécharger · 12 déjà stockées</small></div>
+    <div class="hint new" style="margin:0 4px">Tirez la poignée blanche pour élargir ou rétrécir la bande.</div>
+    <div class="sl"><div class="t"><span>Zoom maximal</span><b>16</b></div><div class="bar"><div class="f" style="width:73%"></div><div class="k" style="left:73%"></div></div></div>
+    <div class="dv"></div>
+    <div class="mline"><span>≋</span><span class="t">Cartes<small>IGN Cartes, OpenTopoMap · 2 sur 3</small></span><span>⌄</span></div>
+    <div class="big-btn">Enregistrer la bande</div></div>
+  </div>
+  <div class="cap"><b>Poignée au bord de la bande</b><br>comme les quatre poignées du rectangle ; la largeur s'affiche pendant le geste, arrondie à 50 m</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : on voit exactement ce qu'on prend, geste déjà connu du rectangle. <b>Contre</b> : sur une longue trace dézoomée, la poignée bouge par grands pas ; la valeur n'est lisible que sur la carte.</p>
+</div>
+
+<!-- ---- 2D ---- -->
+<div class="box">
+<h3>2 D · La largeur d'abord (avec « Autre… »), puis le panneau</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#loop" fill="none" stroke="#d32f2f" stroke-width="2.6"/></svg>
+   <div class="scrim"></div>
+   <div class="dlg new" style="top:110px"><h5>Télécharger autour du tracé</h5>
+    <div style="color:#5b6a70;margin-bottom:3px">Largeur de chaque côté :</div>
+    <div class="r"><b></b>100 m</div><div class="r"><b></b>250 m</div><div class="r on"><b></b>500 m</div><div class="r"><b></b>1 km</div><div class="r"><b></b>2 km</div><div class="r"><b></b>Autre : <span class="fld ph2" style="flex:none;width:60px">… m</span></div>
+    <div class="bt"><span>Annuler</span><span>Continuer</span></div></div>
+  </div>
+  <div class="cap"><b>1 · Dialogue de largeur</b><br>comme aujourd'hui dans le détail d'une trace, avec des valeurs plus fines et une valeur libre</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#band500g"/></svg>
+   <div class="pn flat"><div class="hd"><span>Enregistrer autour du tracé</span><span class="ic2"><span>?</span><span>✕</span></span></div>
+    <div class="wt"><div class="w1"><b>6,1 Mo</b><span>📱 5,0 Go libres</span></div><small>286 tuiles à télécharger · 12 déjà stockées</small></div>
+    <div class="mline new" style="margin:0 4px"><span>↔</span><span class="t">Largeur ± 500 m</span><span style="color:#0e5753;font-weight:600">Modifier</span></div>
+    <div class="sl"><div class="t"><span>Zoom maximal</span><b>16</b></div><div class="bar"><div class="f" style="width:73%"></div><div class="k" style="left:73%"></div></div></div>
+    <div class="dv"></div>
+    <div class="mline"><span>≋</span><span class="t">Cartes<small>IGN Cartes, OpenTopoMap · 2 sur 3</small></span><span>⌄</span></div>
+    <div class="big-btn">Enregistrer la bande</div></div>
+  </div>
+  <div class="cap"><b>2 · Panneau</b><br>une ligne « Largeur ± 500 m · Modifier » rouvre le dialogue</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : valeur libre tout de suite, panneau presque identique au rectangle. <b>Contre</b> : une étape de plus avant de voir la bande et le poids.</p>
+</div>
+
+<!-- ---- 2E ---- -->
+<div class="box">
+<h3>2 E · Un seul panneau « Enregistrer une zone » : Rectangle ou Autour d'un tracé</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bgm"/><use href="#band500g"/></svg>
+   <div class="pn flat"><div class="hd"><span>Enregistrer une zone</span><span class="ic2"><span>?</span><span>✕</span></span></div>
+    <div class="seg new"><span>▭ Rectangle</span><span class="on">〰 Autour d'un tracé</span></div>
+    <div class="mline new" style="margin:2px 4px 0"><span>〰</span><span class="t">Tracé<small>Tour du Granier · 18.4 km</small></span><span>▾</span></div>
+    <div class="chips new" style="margin:2px 4px"><span class="lb">De chaque côté</span><span>100 m</span><span>250 m</span><span class="on">500 m</span><span>1 km</span><span>2 km</span></div>
+    <div class="wt" style="padding-top:2px"><div class="w1"><b>6,1 Mo</b><span>📱 5,0 Go libres</span></div><small>286 tuiles à télécharger · 12 déjà stockées</small></div>
+    <div class="sl"><div class="t"><span>Zoom maximal</span><b>16</b></div><div class="bar"><div class="f" style="width:73%"></div><div class="k" style="left:73%"></div></div></div>
+    <div class="mline"><span>≋</span><span class="t">Cartes<small>IGN Cartes, OpenTopoMap · 2 sur 3</small></span><span>⌄</span></div>
+    <div class="big-btn">Enregistrer la zone</div></div>
+  </div>
+  <div class="cap"><b>Bascule en haut du panneau</b><br>aussi depuis Cartes ▸ « Sélectionner et enregistrer une zone » ; « Tracé ▾ » choisit parmi les traces et itinéraires affichés</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : un seul endroit pour tout enregistrer, on peut passer du rectangle à la bande sans ressortir. <b>Contre</b> : panneau plus haut (moins de carte visible) ; un choix de tracé en plus quand on vient de la fiche, où il est déjà connu.</p>
+</div>
+
+<p><b>Questions</b> : « Convertir en trace » passe dans le ⋮ de la fiche (proposé) ou disparaît ? Les largeurs 100 m · 250 m · 500 m · 1 km · 2 km vous conviennent-elles ? Zoom maximal 16 par défaut, comme l'enregistrement de zone ?</p>
+
+<!-- =================================================================== 3 -->
+<h2 id="p3">3 · « Aller vers ce point » avec BRouter, recalculé toutes les x minutes</h2>
+<p>Demande : « Waypoint : « Aller vers ce point » devrait fonctionner avec un BRouter qui recalcule l'itinéraire selon notre position toutes les x minutes. Comme un Waze portable capable de fonctionner hors réseau. »</p>
+
+<div class="box now">
+<h3>Aujourd'hui (0.4.118)</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#me" x="40" y="230"/><use href="#poiHut" x="178" y="85"/></svg>
+   <div class="scrim" style="background:rgba(0,0,0,.18)"></div>
+   <div class="sh"><div class="grab"></div>
+    <div class="top"><svg width="26" height="26" viewBox="-13 -13 26 26"><use href="#poiHut" transform="scale(1.6)"/></svg><div style="flex:1;min-width:0"><div class="ttl">Refuge du Pré</div><div class="fig">512 m · 45.30412, 5.91236</div></div><span class="dots">⋮</span></div>
+    <div class="read"><div class="big">2,90 km <span style="display:inline-block;transform:rotate(44deg);color:#13968a;font-size:18px">➤</span><span>cap 44° NE</span></div><small>depuis votre position</small></div>
+    <div class="pb">➤ Aller vers ce point</div>
+    <div class="tl t2" style="padding:4px 10px"><div><i>🔔</i>Alerte de proximité</div><div><i>✎</i>Modifier</div></div>
+   </div>
+  </div>
+  <div class="cap"><b>Fiche d'un waypoint</b><br>distance et cap à vol d'oiseau, « Aller vers ce point »</div>
+ </div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><line x1="40" y1="230" x2="178" y2="85" stroke="#d81b60" stroke-width="2.4" stroke-dasharray="6 4"/><use href="#me" x="40" y="230"/><use href="#target" x="178" y="85"/></svg>
+   <div class="pill row"><span style="display:inline-block;transform:rotate(44deg);color:#13968a;font-size:16px">➤</span><span class="tx"><b>Cible : Refuge du Pré</b><br>2,90 km · cap 44° NE</span><span class="bt">Annuler la cible</span></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>Cible sur la carte</b><br>ligne droite pointillée vers le point, distance et cap à vol d'oiseau ; ni chemin, ni durée, ni recalcul ; aucune ligne dans la notification d'arrière-plan</div>
+ </div>
+</div>
+<p class="pro">BRouter ne sert aujourd'hui qu'à dessiner des itinéraires (P19). L'alerte d'écart existe déjà pour « Suivre cette trace / cet itinéraire » et marche écran éteint.</p>
+</div>
+
+<h3>Commun à toutes les variantes</h3>
+<div class="seq">
+ <div>
+  <div class="ph" style="background:#F2F5F6">
+   <div class="tb"><span>←</span><span>Repères et traces</span></div>
+   <div class="pg">
+    <div class="gc">Itinéraires</div>
+    <div class="blk"><div class="ln"><span class="t">Sans données BRouter<small>Tracer le tronçon à la main</small></span></div></div>
+    <div class="gc">Aller vers un point</div>
+    <div class="blk new">
+     <div class="ln"><span class="t">Par les chemins (BRouter)<small>Sinon : à vol d'oiseau, comme avant</small></span><span class="sw"></span></div>
+     <div class="ln"><span class="t">Profil</span><span class="v">🚶 Randonnée</span></div>
+     <div class="ln"><span class="t">Recalculer toutes les</span><span class="v">2 min</span></div>
+     <div class="ln"><span class="t">Recalculer si je m'écarte de plus de</span><span class="v">50 m</span></div>
+     <div class="ln"><span class="t">Vibrer en quittant le chemin</span><span class="sw"></span></div>
+    </div>
+    <div class="gc">Waypoints</div>
+    <div class="blk"><div class="ln"><span class="t">Couleur de la cible</span><span style="width:14px;height:14px;border-radius:50%;background:#d81b60"></span></div></div>
+   </div>
+  </div>
+  <div class="cap"><b>Réglages ▸ Repères et traces</b><br>nouveau bloc « Aller vers un point » : intervalle 1 · 2 · 5 · 10 min, écart 25 · 50 · 100 m</div>
+ </div>
+ <div>
+  <div class="ph" style="background:#1c2226;color:#fff">
+   <div style="text-align:center;padding-top:40px;font-size:40px;font-weight:300">14:05</div>
+   <div style="text-align:center;font-size:10px;color:#b8c3c8">mardi 28 octobre</div>
+   <div style="margin:26px 10px 0;background:#f4f7f8;color:#1b2a30;border-radius:14px;padding:9px 10px;font-size:9.5px">
+    <div style="color:#506169;font-size:8.5px;margin-bottom:4px">▲ ToolMap · maintenant</div>
+    <div style="font-weight:600;font-size:10.5px;margin-bottom:5px">ToolMap est actif en arrière-plan</div>
+    <div class="new" style="display:flex;align-items:center;gap:6px;padding:3px 0"><span style="flex:1">➤ Vers Refuge du Pré · 3,1 km · arrivée 15:20</span><span style="color:#0e5753;font-weight:600">Arrêter</span></div>
+    <div style="display:flex;align-items:center;gap:6px;padding:3px 0;color:#506169"><span style="flex:1">● Enregistrement · 1 h 12</span><span style="color:#0e5753;font-weight:600">Arrêter</span></div>
+   </div>
+  </div>
+  <div class="cap"><b>Écran éteint</b><br>la navigation continue : une ligne dans la notification unique, position et recalculs aussi</div>
+ </div>
+</div>
+<ul>
+ <li><b>BRouter calcule le chemin</b> de votre position jusqu'au point, <b>hors réseau</b> (données <code>.rd5</code> déjà téléchargées dans BRouter), avec le profil du réglage (Randonnée par défaut). Le chemin est dessiné dans la couleur de la cible.</li>
+ <li><b>Recalcul toutes les x minutes</b> (2 min par défaut) <b>et aussitôt</b> si vous vous écartez du chemin de plus de 50 m, comme Waze. L'ancien chemin reste affiché jusqu'au nouveau ; un calcul prend 0,5 à 2 s.</li>
+ <li><b>Chiffres le long du chemin</b> : distance restante, montée restante, durée (méthode DIN 33466 en randonnée, temps de BRouter pour les autres profils) et heure d'arrivée. À moins de 15 m : « Arrivé », plus de recalcul.</li>
+ <li><b>Sans BRouter ou sans données ici</b> : comme aujourd'hui (ligne droite, distance à vol d'oiseau) avec « Pas de données BRouter ici · Ouvrir BRouter » ; nouvel essai au prochain intervalle.</li>
+ <li><b>Écran éteint</b> : la navigation continue (ci-dessus) avec la vibration d'écart. Batterie : GPS toutes les secondes, comme l'enregistrement d'une trace, plus un calcul BRouter par recalcul.</li>
+</ul>
+
+<!-- ---- 3A ---- -->
+<div class="box">
+<h3>3 A · La pastille de la cible s'enrichit, la carte montre le chemin</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#navRoute"/><use href="#me" x="40" y="230"/><use href="#target" x="178" y="85"/></svg>
+   <div class="pill row new"><span style="display:inline-block;transform:rotate(-20deg);color:#13968a;font-size:16px">➤</span><span class="tx"><b>Vers Refuge du Pré</b><br>3,8 km par les chemins · ↑ 92 m · 1 h 15<br><span class="s">arrivée 15:20 · recalcul dans 1 min 40 · 🚶</span></span><span class="bt">Arrêter</span></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · En route</b><br>la flèche montre la direction du chemin à suivre (pas celle du point) ; « 🚶 » ouvre le choix du profil</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#navway" stroke="#9aa6ab" stroke-width="2.4" stroke-dasharray="4 3"/>
+    <path d="M72 262Q88 222 95 195Q120 180 150 175Q170 150 165 125Q170 100 178 85" fill="none" stroke="#fff" stroke-width="6.5"/><path d="M72 262Q88 222 95 195Q120 180 150 175Q170 150 165 125Q170 100 178 85" fill="none" stroke="#d81b60" stroke-width="3.6"/>
+    <use href="#me" x="72" y="262"/><use href="#target" x="178" y="85"/></svg>
+   <div class="pill row"><span style="display:inline-block;transform:rotate(15deg);color:#13968a;font-size:16px">➤</span><span class="tx"><b>Vers Refuge du Pré</b><br>3,6 km par les chemins · ↑ 92 m · 1 h 11<br><span class="s">arrivée 15:22 · recalculé à l'instant</span></span><span class="bt">Arrêter</span></div>
+   <div class="pill red new" style="top:62px">Hors du chemin (70 m) : nouveau chemin calculé</div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>2 · Écart de plus de 50 m</b><br>vibration, recalcul sans attendre l'intervalle ; l'ancien chemin pâlit puis disparaît</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : reprend la pastille actuelle, la carte reste libre (nord en haut ou boussole, au choix de l'utilisateur). <b>Contre</b> : pas d'instruction de virage : on suit la ligne des yeux.</p>
+</div>
+
+<!-- ---- 3B ---- -->
+<div class="box">
+<h3>3 B · Guidage façon Waze : prochain virage en grand, carte qui tourne avec vous</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><rect width="210" height="467" fill="#e9eedc"/>
+    <path d="M-20 300Q40 280 60 240L140 230Q200 260 230 250V520H-20Z" fill="#cfe3b5"/><path d="M130 60Q170 40 230 70V-10H120Z" fill="#cfe3b5"/>
+    <path d="M105 480V80" stroke="#fff" stroke-width="4"/><path d="M105 215L-10 150" stroke="#fff" stroke-width="3"/><path d="M105 290L230 260" stroke="#fff" stroke-width="3"/>
+    <path d="M105 335V222Q100 206 84 198L-10 150" fill="none" stroke="#fff" stroke-width="7"/><path d="M105 335V222Q100 206 84 198L-10 150" fill="none" stroke="#d81b60" stroke-width="4"/>
+    <use href="#meArrow" x="105" y="335"/></svg>
+   <div class="wz new"><span class="ar">↰</span><span><span class="d">250 m</span><br><span class="s">à gauche, chemin du Pré</span></span></div>
+   <div class="wz2 new">puis tout droit sur 1,2 km</div>
+   <div class="eta new"><span class="t"><b>1 h 15</b><br>3,8 km · ↑ 92 m · arrivée 15:20</span><span class="x">Arrêter</span></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · Guidage</b><br>instructions de virage données par BRouter (tâche P19.10 du plan), carte en mode « Boussole » qui suit et tourne avec vous</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><rect width="210" height="467" fill="#e9eedc"/>
+    <path d="M-20 300Q40 280 60 240L140 230Q200 260 230 250V520H-20Z" fill="#cfe3b5"/>
+    <path d="M105 480V80" stroke="#fff" stroke-width="4"/><path d="M105 215L-10 150" stroke="#fff" stroke-width="3"/><path d="M105 290L230 260" stroke="#fff" stroke-width="3"/>
+    <path d="M105 335V222Q100 206 84 198L-10 150" fill="none" stroke="#9aa6ab" stroke-width="2.4" stroke-dasharray="4 3"/>
+    <use href="#meArrow" x="160" y="285"/></svg>
+   <div class="wz" style="background:#8c1d18"><span class="ar">⟳</span><span><span class="d" style="font-size:14px">Recalcul…</span><br><span class="s" style="color:#ffdad6">vous avez quitté le chemin (60 m)</span></span></div>
+   <div class="eta"><span class="t"><b style="color:#5b6a70">…</b><br>3,8 km · arrivée 15:20</span><span class="x">Arrêter</span></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>2 · Écart</b><br>le bandeau passe en rouge le temps du calcul, puis montre le nouveau virage</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : le plus proche de Waze, lisible en marchant ou au guidon. <b>Contre</b> : le plus long à faire (instructions de virage, mode guidage plein écran) ; les virages de BRouter sont parfois bavards sur les sentiers. Annonce vocale des virages possible (synthèse vocale d'Android), à confirmer.</p>
+</div>
+
+<!-- ---- 3C ---- -->
+<div class="box">
+<h3>3 C · Une feuille de départ (chemins ou vol d'oiseau, profil, intervalle), puis la pastille de A</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#navRoute"/><use href="#me" x="40" y="230"/><use href="#target" x="178" y="85"/></svg>
+   <div class="scrim" style="background:rgba(0,0,0,.18)"></div>
+   <div class="sh new"><div class="grab"></div>
+    <div class="top"><svg width="26" height="26" viewBox="-13 -13 26 26"><use href="#poiHut" transform="scale(1.6)"/></svg><div style="flex:1;min-width:0"><div class="ttl">Aller vers Refuge du Pré</div><div class="fig">3,8 km · ↑ 92 m · 1 h 15 · arrivée 15:20</div></div></div>
+    <div class="seg"><span class="on">〰 Par les chemins</span><span>↗ À vol d'oiseau</span></div>
+    <div class="chips"><span class="on">🚶 Randonnée</span><span>🚲 Vélo</span><span>🚵 VTT</span><span>🚗 Voiture</span></div>
+    <div class="chips"><span class="lb">Recalculer toutes les</span><span>1</span><span class="on">2</span><span>5</span><span>10 min</span></div>
+    <div class="pb">➤ Partir</div>
+   </div>
+  </div>
+  <div class="cap"><b>1 · « Aller vers ce point »</b><br>ouvre cette feuille ; le chemin s'affiche derrière dès qu'il est calculé ; les choix sont retenus pour la fois suivante</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#navRoute"/><use href="#me" x="40" y="230"/><use href="#target" x="178" y="85"/></svg>
+   <div class="pill row"><span style="display:inline-block;transform:rotate(-20deg);color:#13968a;font-size:16px">➤</span><span class="tx"><b>Vers Refuge du Pré</b><br>3,8 km par les chemins · ↑ 92 m · 1 h 15<br><span class="s">arrivée 15:20 · recalcul dans 1 min 40 · 🚶</span></span><span class="bt">Arrêter</span></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>2 · En route</b><br>comme 3 A</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : on voit la durée avant de partir, on choisit le profil (à pied, à vélo, en voiture) sans passer par les réglages. <b>Contre</b> : un toucher de plus à chaque départ.</p>
+</div>
+
+<!-- ---- 3D ---- -->
+<div class="box">
+<h3>3 D · Le chemin calculé devient un itinéraire suivi (suivi et alerte d'écart existants)</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#navway" stroke="#fff" stroke-width="6"/><use href="#navway" stroke="#f57c00" stroke-width="3.4"/><use href="#me" x="52" y="196"/><use href="#target" x="178" y="85"/></svg>
+   <div class="pill new"><b>Suivi : vers Refuge du Pré</b><br>0,4 km parcourus · 3,4 km restants · 1 h 08<br><span class="s">Écart : 12 m · recalcul dans 1 min 40</span><span style="float:right;color:#0e5753;font-weight:600">Arrêter</span></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · Suivi</b><br>la pastille de « Suivre cet itinéraire », avec l'écart ; l'alerte d'écart existante déclenche le recalcul</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><use href="#bg"/><use href="#navway" stroke="#fff" stroke-width="6"/><use href="#navway" stroke="#f57c00" stroke-width="3.4"/><use href="#target" x="178" y="85"/><use href="#me" x="176" y="90"/></svg>
+   <div class="pill green">✓ <b>Arrivé à Refuge du Pré</b> · 3,8 km en 1 h 21</div>
+   <div class="sh new" style="bottom:0"><div class="grab"></div>
+    <div class="top"><span class="ic">↱</span><div style="flex:1;min-width:0"><div class="ttl">Chemin vers Refuge du Pré</div><div class="fig">3,8 km · ↑ 92 m · calculé par BRouter</div></div></div>
+    <div class="tl t2" style="padding:4px 10px"><div class="hi"><i>💾</i>Enregistrer comme itinéraire</div><div><i>✕</i>Effacer</div></div>
+   </div>
+  </div>
+  <div class="cap"><b>2 · Arrivée</b><br>le chemin peut être gardé comme itinéraire (modifiable, imprimable) ou effacé</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : réutilise le suivi qui marche déjà écran éteint ; on peut garder le chemin. <b>Contre</b> : « parcourus / restants » se remet à zéro à chaque recalcul ; deux notions proches (cible et suivi) à l'écran.</p>
+</div>
+
+<p><b>Questions</b> : même fonctionnement pour « Aller vers ce membre » (Partage), « Aller vers » (Recherche) et l'appui long « Cible » ? Intervalle de 2 min et écart de 50 m par défaut ? Pour B : annonce vocale des virages ?</p>
+
+<!-- =================================================================== 4 -->
+<h2 id="p4">4 · Zone à éviter : changer sa taille en la survolant</h2>
+<p>Demande : « Bloquer une zone : permet de remodifier la taille en le survolant ».</p>
+
+<div class="box now">
+<h3>Aujourd'hui (0.4.118)</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(10,-38)"><use href="#bg"/><use href="#zoneSel" x="95" y="195"/><use href="#r1"/><use href="#stops"/></g><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.61 km</b> · ↑ 98 m · ↓ 161 m · 1 h 12<br><span class="s">3 étapes · 1 zone évitée</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins (BRouter)</span><span class="chip">🚶 Randonnée ▾</span></div>
+    <div class="tl"><div class="red"><i>⊘</i>Retirer la zone</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>Réticule dans la zone</b><br>une seule action : « Retirer la zone »</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(10,-38)"><use href="#bg"/><use href="#r0"/><use href="#stops"/></g><use href="#ring44" x="105" y="157"/><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>2.59 km</b> · ↑ 64 m · ↓ 127 m · 0 h 51<br><span class="s">3 étapes</span></div>
+   <div class="pn"><div class="hd"><span>Zone à éviter</span><span>✕</span></div>
+    <div class="hint">Placez le réticule au centre de la zone.</div>
+    <div class="chips"><span>100 m</span><span>250 m</span><span class="on">500 m</span><span>1 km</span></div>
+    <div class="tl" style="grid-template-columns:2fr 1fr"><div class="hi"><i style="color:#d32f2f">⊖</i>Éviter cette zone</div><div><i>↩</i>Annuler</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>Pour changer la taille</b><br>retirer la zone, puis Outils ▸ « Éviter une zone », choisir la taille, la reposer au même endroit à l'œil</div>
+ </div>
+</div>
+</div>
+
+<h3>Commun à toutes les variantes</h3>
+<ul>
+ <li><b>Survol</b> repéré comme aujourd'hui : réticule dans la zone et sur aucune étape (étape, puis zone, puis tracé) ; la zone survolée passe en trait plein.</li>
+ <li><b>Recalcul</b> : agrandir fait recalculer les tronçons qui traversent la nouvelle zone ; réduire, ceux qui suivent les chemins (les chemins déjà connus reviennent aussitôt, sans rappeler BRouter).</li>
+ <li>Un seul « Annuler » par changement de taille. La taille choisie devient celle de la prochaine zone.</li>
+ <li>« Retirer la zone » reste proposé au survol.</li>
+</ul>
+
+<!-- ---- 4A ---- -->
+<div class="box">
+<h3>4 A · « Modifier la zone » ouvre le panneau de pose : taille et place</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(10,-38)"><use href="#bg"/><use href="#zoneSel" x="95" y="195"/><use href="#r1"/><use href="#stops"/></g><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.61 km</b> · ↑ 98 m · ↓ 161 m · 1 h 12<br><span class="s">3 étapes · 1 zone évitée</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins (BRouter)</span><span class="chip">🚶 Randonnée ▾</span></div>
+    <div class="tl"><div class="hi new"><i style="color:#d32f2f">⊖</i>Modifier la zone</div><div class="red"><i>⊘</i>Retirer la zone</div><div class="off"><i>✥</i>Déplacer ici</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · Survol</b><br>« Modifier la zone » en bouton principal, « Retirer la zone » à côté</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(-4,-30)"><use href="#bg"/><use href="#r1" opacity=".35"/><use href="#stops"/><circle cx="95" cy="195" r="24" fill="none" stroke="#d32f2f" stroke-width="1.2" stroke-dasharray="2 2" opacity=".6"/></g><use href="#ring44" x="105" y="157"/><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.61 km</b> · ↑ 98 m · ↓ 161 m · 1 h 12<br><span class="s">3 étapes · 1 zone évitée</span></div>
+   <div class="pn new"><div class="hd"><span>Zone à éviter</span><span>✕</span></div>
+    <div class="hint">Déplacez la carte pour la déplacer, touchez une taille pour la changer.</div>
+    <div class="chips"><span>100 m</span><span>250 m</span><span class="on">500 m</span><span>1 km</span></div>
+    <div class="tl" style="grid-template-columns:2fr 1fr 1fr"><div class="hi"><i style="color:#d32f2f">⊖</i>Appliquer</div><div><i>↩</i>Annuler</div><div class="red"><i>⊘</i>Retirer</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>2 · Zone en main</b><br>le cercle suit le réticule (taille et place) ; l'ancienne place reste en pointillé fin ; calcul à « Appliquer » seulement</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : change aussi la place, même panneau que pour poser une zone, même logique que « Prendre l'étape ». <b>Contre</b> : deux touchers pour une simple taille.</p>
+</div>
+
+<!-- ---- 4B ---- -->
+<div class="box">
+<h3>4 B · Les tailles s'affichent dès le survol, un toucher suffit</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(10,-38)"><use href="#bg"/><use href="#zoneSel" x="95" y="195"/><use href="#r1"/><use href="#stops"/></g><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.61 km</b> · ↑ 98 m · ↓ 161 m · 1 h 12<br><span class="s">3 étapes · 1 zone évitée</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="chips new"><span class="lb">Taille de la zone</span><span>100 m</span><span class="on">250 m</span><span>500 m</span><span>1 km</span></div>
+    <div class="tl"><div class="red"><i>⊘</i>Retirer la zone</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · Survol</b><br>la ligne « Suivre les chemins » laisse la place aux tailles, la taille actuelle cochée</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(10,-38)"><use href="#bg"/><circle cx="95" cy="195" r="44" fill="#d32f2f" fill-opacity=".22" stroke="#d32f2f" stroke-width="2.4"/><circle cx="95" cy="195" r="4.5" fill="#d32f2f" stroke="#fff" stroke-width="1"/><path d="M92.4 195H97.6" stroke="#fff" stroke-width="1.6"/>
+    <path d="M40 230Q42 185 56 160Q80 120 112 122Q140 130 150 175Q170 150 165 125Q170 100 178 85" stroke="#f57c00" stroke-width="3" fill="none"/><use href="#stops"/></g><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>4.02 km</b> · ↑ 121 m · ↓ 184 m · 1 h 21<br><span class="s">3 étapes · 1 zone évitée</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="chips"><span class="lb">Taille de la zone</span><span>100 m</span><span>250 m</span><span class="on">500 m</span><span>1 km</span></div>
+    <div class="tl"><div class="red"><i>⊘</i>Retirer la zone</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>2 · « 500 m » touché</b><br>la zone grandit aussitôt, BRouter recalcule le détour (3.61 → 4.02 km)</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : le plus direct, mêmes tailles que pour poser une zone. <b>Contre</b> : quatre tailles seulement ; la zone ne se déplace pas (la retirer et la reposer, comme aujourd'hui).</p>
+</div>
+
+<!-- ---- 4C ---- -->
+<div class="box">
+<h3>4 C · Une poignée au bord du cercle, à tirer au doigt</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(10,-38)"><use href="#bg"/><use href="#zoneSel" x="95" y="195"/><use href="#r1"/><use href="#stops"/></g><use href="#xh" x="105" y="157"/>
+    <line x1="105" y1="157" x2="129" y2="157" stroke="#d32f2f" stroke-width="1" stroke-dasharray="2 1.5"/><circle cx="129" cy="157" r="6.5" fill="#fff" stroke="#d32f2f" stroke-width="2.4"/><rect x="112" y="164" width="34" height="13" rx="6.5" fill="#163A4A"/><text x="129" y="173.5" font-size="8" fill="#fff" text-anchor="middle" font-family="Roboto,sans-serif">250 m</text></svg>
+   <div class="pill"><b>3.61 km</b> · ↑ 98 m · ↓ 161 m · 1 h 12<br><span class="s">3 étapes · 1 zone évitée</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="hint new">Tirez la poignée pour changer la taille (50 m à 2 km).</div>
+    <div class="tl"><div class="red"><i>⊘</i>Retirer la zone</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>1 · Survol</b><br>une poignée blanche apparaît sur le bord de la zone, avec sa taille</div>
+ </div>
+ <div class="arrow">→</div>
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(10,-38)"><use href="#bg"/><use href="#r1" opacity=".5"/><use href="#stops"/></g>
+    <circle cx="105" cy="157" r="37" fill="#d32f2f" fill-opacity=".22" stroke="#d32f2f" stroke-width="2.4"/><use href="#xh" x="105" y="157"/>
+    <line x1="105" y1="157" x2="142" y2="157" stroke="#d32f2f" stroke-width="1" stroke-dasharray="2 1.5"/><circle cx="142" cy="157" r="7.5" fill="#fff" stroke="#d32f2f" stroke-width="2.4"/><rect x="125" y="166" width="34" height="13" rx="6.5" fill="#163A4A"/><text x="142" y="175.5" font-size="8" fill="#fff" text-anchor="middle" font-family="Roboto,sans-serif">400 m</text></svg>
+   <div class="pill"><b>3.61 km</b> · ↑ 98 m · ↓ 161 m · 1 h 12<br><span class="s">3 étapes · 1 zone évitée</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="hint">Tirez la poignée pour changer la taille (50 m à 2 km).</div>
+    <div class="tl"><div class="red"><i>⊘</i>Retirer la zone</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>2 · Pendant le geste</b><br>taille libre, arrondie à 50 m ; le tracé pâlit, BRouter recalcule au relâcher</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : n'importe quelle taille, geste naturel (comme les poignées de « Enregistrer une zone »). <b>Contre</b> : précis au doigt seulement en zoomant ; pour rester cohérent, la pose d'une zone garderait ses quatre puces et la poignée viendrait ensuite.</p>
+</div>
+
+<!-- ---- 4D ---- -->
+<div class="box">
+<h3>4 D · « Réduire » et « Agrandir » au survol, par paliers</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(10,-38)"><use href="#bg"/><use href="#zoneSel" x="95" y="195"/><use href="#r1"/><use href="#stops"/></g><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.61 km</b> · ↑ 98 m · ↓ 161 m · 1 h 12<br><span class="s">3 étapes · <span class="new">zone de 250 m</span></span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="rw"><span class="sw"></span><span style="flex:1">Suivre les chemins (BRouter)</span><span class="chip">🚶 Randonnée ▾</span></div>
+    <div class="tl"><div class="new"><i>−</i>Réduire</div><div class="red"><i>⊘</i>Retirer la zone</div><div class="new"><i>+</i>Agrandir</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>Survol</b><br>paliers 50 m · 100 m · 250 m · 500 m · 1 km · 2 km ; la taille s'écrit sous les chiffres du haut</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : gros boutons faciles avec des gants. <b>Contre</b> : plusieurs touchers (et plusieurs calculs) pour passer de 100 m à 1 km.</p>
+</div>
+
+<!-- ---- 4E ---- -->
+<div class="box">
+<h3>4 E · Un curseur de taille au survol</h3>
+<div class="seq">
+ <div>
+  <div class="ph">
+   <svg width="210" height="467"><g transform="translate(10,-38)"><use href="#bg"/><use href="#zoneSel" x="95" y="195"/><use href="#r1"/><use href="#stops"/></g><use href="#xh" x="105" y="157"/></svg>
+   <div class="pill"><b>3.61 km</b> · ↑ 98 m · ↓ 161 m · 1 h 12<br><span class="s">3 étapes · 1 zone évitée</span></div>
+   <div class="pn"><div class="hd"><span>Itinéraire</span><span>✕</span></div>
+    <div class="sl new" style="margin:2px 4px"><div class="t"><span>Taille de la zone</span><b>250 m</b></div><div class="bar"><div class="f" style="width:38%"></div><div class="k" style="left:38%"></div></div><div class="t" style="font-size:8px;color:#5b6a70"><span>50 m</span><span>2 km</span></div></div>
+    <div class="tl"><div class="red"><i>⊘</i>Retirer la zone</div><div class="off"><i>✥</i>Déplacer ici</div><div class="off"><i>🗑</i>Supprimer l'étape</div><div><i>☰</i>Étapes (3)</div></div>
+    <div class="ft"><span>↶</span><span class="o">↷</span><span>Outils ▾</span><span class="sv">Enregistrer</span></div></div>
+   <div class="nb"><span>Menu</span><span>Cartes</span><span>Traces</span><span>Position</span></div>
+  </div>
+  <div class="cap"><b>Survol</b><br>le cercle suit le curseur en direct, BRouter recalcule au relâcher ; graduation logarithmique</div>
+ </div>
+</div>
+<p class="pro"><b>Pour</b> : taille libre sans geste sur la carte. <b>Contre</b> : le curseur prend une ligne du panneau ; moins précis que des puces pour revenir à une taille ronde.</p>
+</div>
+
+<!-- =================================================================== choices -->
+<h2 id="choix">Vos choix</h2>
+<p>Touchez une variante par demande (vous pouvez aussi en combiner deux dans la zone de texte), répondez aux questions si vous le souhaitez, puis copiez la réponse et collez-la dans la conversation.</p>
+
+<div class="pick" data-key="1" data-name="Points d'intérêt">
+ <h3>1 · Points d'intérêt sur un itinéraire</h3>
+ <div class="opts" role="group" aria-label="Variante pour les points d'intérêt"><button type="button" aria-pressed="false">A</button><button type="button" aria-pressed="false">B</button><button type="button" aria-pressed="false">C</button><button type="button" aria-pressed="false">D</button><button type="button" aria-pressed="false">Autre</button></div>
+ <label class="q" for="t1">Précisions (sur les traces aussi ? dans vos listes de waypoints ? combinaison A + C ?)</label>
+ <textarea id="t1"></textarea>
+</div>
+<div class="pick" data-key="2" data-name="Tuiles autour d'un tracé">
+ <h3>2 · Tuiles autour d'un tracé</h3>
+ <div class="opts" role="group" aria-label="Variante pour les tuiles autour d'un tracé"><button type="button" aria-pressed="false">A</button><button type="button" aria-pressed="false">B</button><button type="button" aria-pressed="false">C</button><button type="button" aria-pressed="false">D</button><button type="button" aria-pressed="false">E</button><button type="button" aria-pressed="false">Autre</button></div>
+ <label class="q" for="t2">Précisions (« Convertir en trace » dans le ⋮ ou supprimé ? largeurs ? zoom 16 ?)</label>
+ <textarea id="t2"></textarea>
+</div>
+<div class="pick" data-key="3" data-name="Aller vers ce point">
+ <h3>3 · « Aller vers ce point » avec BRouter</h3>
+ <div class="opts" role="group" aria-label="Variante pour Aller vers ce point"><button type="button" aria-pressed="false">A</button><button type="button" aria-pressed="false">B</button><button type="button" aria-pressed="false">C</button><button type="button" aria-pressed="false">D</button><button type="button" aria-pressed="false">Autre</button></div>
+ <label class="q" for="t3">Précisions (aussi pour les membres, la recherche, l'appui long ? 2 min et 50 m ? annonce vocale ?)</label>
+ <textarea id="t3"></textarea>
+</div>
+<div class="pick" data-key="4" data-name="Taille d'une zone à éviter">
+ <h3>4 · Taille d'une zone à éviter</h3>
+ <div class="opts" role="group" aria-label="Variante pour la taille d'une zone"><button type="button" aria-pressed="false">A</button><button type="button" aria-pressed="false">B</button><button type="button" aria-pressed="false">C</button><button type="button" aria-pressed="false">D</button><button type="button" aria-pressed="false">E</button><button type="button" aria-pressed="false">Autre</button></div>
+ <label class="q" for="t4">Précisions</label>
+ <textarea id="t4"></textarea>
+</div>
+
+<div id="answer" aria-live="polite"></div>
+<button type="button" class="copy" id="copy">Copier ma réponse</button><span id="copied"></span>
+<p style="margin-top:28px;font-size:12.5px">Aperçu P30.0, session 77 (2026-10-28). Fichier du dépôt : <code>docs/previews/p30-itineraires.html</code>.</p>
+</div>
+
+<script>
+(function () {
+  var picks = Array.prototype.slice.call(document.querySelectorAll('.pick'));
+  var answer = document.getElementById('answer');
+  var copied = document.getElementById('copied');
+  function text() {
+    var lines = ['P30 · mes choix :'];
+    var any = false;
+    picks.forEach(function (p) {
+      var on = p.querySelector('button[aria-pressed="true"]');
+      var note = p.querySelector('textarea').value.trim();
+      if (on || note) any = true;
+      lines.push(p.dataset.key + ' · ' + p.dataset.name + ' : ' + (on ? on.textContent : '—') + (note ? ' (' + note + ')' : ''));
+    });
+    return any ? lines.join('\n') : '';
+  }
+  function render() {
+    var t = text();
+    answer.textContent = t || 'Choisissez une variante par demande : la réponse à copier s\'écrit ici.';
+    copied.textContent = '';
+  }
+  picks.forEach(function (p) {
+    var group = p.querySelector('.opts');
+    group.addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      var was = b.getAttribute('aria-pressed') === 'true';
+      group.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+      b.setAttribute('aria-pressed', was ? 'false' : 'true');
+      render();
+    });
+    p.querySelector('textarea').addEventListener('input', render);
+  });
+  document.getElementById('copy').addEventListener('click', function () {
+    var t = text();
+    if (!t) { copied.textContent = 'Rien à copier pour l\'instant.'; return; }
+    var select = function () {
+      var r = document.createRange();
+      r.selectNodeContents(answer);
+      var s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+      copied.textContent = 'Texte sélectionné : copiez-le avec Ctrl+C ou un appui long.';
+    };
+    try {
+      navigator.clipboard.writeText(t).then(function () { copied.textContent = 'Copié.'; }, select);
+    } catch (e) { select(); }
+  });
+  render();
+})();
+</script>
