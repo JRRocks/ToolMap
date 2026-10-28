@@ -577,6 +577,16 @@
   <string name="route_tool_loop">Boucler vers le départ</string>
   <string name="route_tool_out_back">Aller-retour</string>
   <string name="route_tool_profile">Profil altimétrique</string>
+  <!-- Zones à éviter (P19.8, variante A de docs/previews/p19-nogos.html) -->
+  <string name="route_tool_avoid_zone">Éviter une zone</string>
+  <string name="route_zone_title">Zone à éviter</string>
+  <string name="route_zone_hint">Placez le réticule au centre de la zone.</string>
+  <string name="route_zone_place">Éviter cette zone</string>
+  <string name="route_zone_remove">Retirer la zone</string>
+  <plurals name="route_zone_count">
+    <item quantity="one">%1$d zone évitée</item>
+    <item quantity="other">%1$d zones évitées</item>
+  </plurals>
   <string name="route_no_data_leg">Pas de données BRouter ici : tronçon tracé à la main.</string>
   <string name="route_no_path_leg">BRouter ne trouve pas de chemin ici : tronçon tracé à la main.</string>
   <string name="route_timeout_leg">Calcul trop long : tronçon tracé à la main.</string>

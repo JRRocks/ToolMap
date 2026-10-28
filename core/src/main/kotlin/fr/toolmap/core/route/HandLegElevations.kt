@@ -79,7 +79,7 @@ class HandLegElevations(
                 changed = true
                 leg.copy(points = points)
             }
-        return if (changed) RoutePlan(plan.stops, legs) else plan
+        return if (changed) plan.copy(legs = legs) else plan
     }
 
     private fun lookup(key: Key): List<TrackPoint>? = known[key] ?: known[key.reversed]?.reversed()

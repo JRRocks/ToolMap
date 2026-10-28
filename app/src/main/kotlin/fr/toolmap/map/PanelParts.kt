@@ -274,6 +274,10 @@ internal fun RowScope.ActionTile(
     selected: Boolean? = null,
     /** Share of the row: 2 for the one main action of a short row (« Poser ici »). */
     weight: Float = 1f,
+    /** A main action that takes something away (« Retirer la zone », P19.8): in the error colours. */
+    danger: Boolean = false,
+    /** The colour of [icon] when it differs from the text's (the red sign of « Éviter cette zone »). */
+    iconTint: Color? = null,
     onClick: () -> Unit,
 ) {
     val lit = highlighted || selected == true
@@ -281,8 +285,18 @@ internal fun RowScope.ActionTile(
         onClick = onClick,
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
-        color = if (lit) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.toolMap.tile,
-        contentColor = if (lit) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.toolMap.onTile,
+        color =
+            when {
+                danger -> MaterialTheme.colorScheme.errorContainer
+                lit -> MaterialTheme.colorScheme.secondaryContainer
+                else -> MaterialTheme.toolMap.tile
+            },
+        contentColor =
+            when {
+                danger -> MaterialTheme.colorScheme.error
+                lit -> MaterialTheme.colorScheme.onSecondaryContainer
+                else -> MaterialTheme.toolMap.onTile
+            },
         modifier =
             Modifier
                 .weight(weight)
@@ -295,7 +309,7 @@ internal fun RowScope.ActionTile(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Icon(icon, contentDescription = null)
+            Icon(icon, contentDescription = null, tint = iconTint ?: LocalContentColor.current)
             Spacer(Modifier.height(5.dp))
             Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, maxLines = 2)
         }

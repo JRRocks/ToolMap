@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.toolmap.R
+import fr.toolmap.core.route.AvoidZone
 import fr.toolmap.core.route.HandLegElevations
 import fr.toolmap.core.route.LegKey
 import fr.toolmap.core.route.LegMode
@@ -105,6 +106,8 @@ data class DrawUi(
     val route: RouteUi? = null,
     /** The stop taken at the crosshair (« Prendre l'étape »), which follows it until « Poser ici ». */
     val taken: Int? = null,
+    /** Radius in meters of the zone being placed at the crosshair (« Éviter une zone », P19.8); `null` when none is. */
+    val zoneRadius: Int? = null,
 ) {
     val isRoute: Boolean get() = target is DrawTarget.NewRoute || target is DrawTarget.Route
 
@@ -120,6 +123,8 @@ class EditOverlay(
     val icons: Set<String> = emptySet(),
     /** The dashed lines that join a stop being moved to its neighbours; `null` when none is. */
     val elasticGeoJson: String? = null,
+    /** The zones to avoid and the circle being placed (P19.8); `null` when there are none. */
+    val zonesGeoJson: String? = null,
 )
 
 /** What BRouter's answers make the screen say, with the shortcuts of the message (`docs/specs/routing.md` §3). */
@@ -173,6 +178,10 @@ class DrawViewModel
         /** The stop taken at the crosshair and where the crosshair is (variant A of `p19-reprendre-etape.html`). */
         private var taken: Int? = null
         private var takenAt: TrackPoint? = null
+
+        /** The radius of the zone being placed and where the crosshair is (variant A of `p19-nogos.html`). */
+        private var placing: Int? = null
+        private var placingAt: TrackPoint? = null
 
         private val queue = RoutingQueue(viewModelScope, brouter, ::onLegResult)
 
@@ -298,6 +307,8 @@ class DrawViewModel
             route = e
             savedPlan = plan
             atStart = false
+            placing = null
+            placingAt = null
             pendingTrack = null
             mutableCursor.value = null
             mutableUi.value = DrawUi(active = true, target = target)
@@ -320,7 +331,8 @@ class DrawViewModel
             lon: Double,
             reachMeters: Double,
         ) {
-            if (!mutableUi.value.active || mutableUi.value.chooseSegment != null || taken != null) return
+            val ui = mutableUi.value
+            if (!ui.active || ui.chooseSegment != null || taken != null || placing != null) return
             val e = route
             if (e != null) {
                 routeTap(e, lat, lon, reachMeters)
@@ -441,6 +453,7 @@ class DrawViewModel
                     RoutePlanGeoJson.handles(e.plan, i, midpoints = !e.routing, moved = at),
                     shown.icons,
                     RoutePlanGeoJson.elastic(e.plan, i, at),
+                    shown.zonesGeoJson,
                 )
         }
 
@@ -462,6 +475,74 @@ class DrawViewModel
             taken = null
             takenAt = null
             publish()
+        }
+
+        // ---- Zones to avoid (P19.8, variant A of `docs/previews/p19-nogos.html`) ----
+
+        /** Outils ▸ « Éviter une zone »: a circle of the last radius follows the crosshair until it is placed. */
+        fun startZone() {
+            if (route == null) return
+            taken = null
+            takenAt = null
+            placing = settings.settings.value.placemarks.routingAvoidRadius
+            publish()
+        }
+
+        /** One of the radii of the chips: kept for the next zone. */
+        fun setZoneRadius(meters: Int) {
+            if (placing == null || meters <= 0) return
+            placing = meters
+            settings.update { s -> s.copy(placemarks = s.placemarks.copy(routingAvoidRadius = meters)) }
+            publish()
+        }
+
+        /** The crosshair moved while a zone is being placed: only the circle is drawn again. */
+        fun followZone(
+            lat: Double,
+            lon: Double,
+        ) {
+            val e = route ?: return
+            val r = placing ?: return
+            placingAt = TrackPoint(lat, lon)
+            val shown = mutableOverlay.value ?: return
+            mutableOverlay.value =
+                EditOverlay(
+                    shown.lineGeoJson,
+                    shown.handlesGeoJson,
+                    shown.icons,
+                    shown.elasticGeoJson,
+                    RoutePlanGeoJson.zones(e.plan, AvoidZone(lat, lon, r)),
+                )
+        }
+
+        /** « Éviter cette zone »: the circle is placed at the crosshair, and the legs that cross it go round it. */
+        fun placeZone(
+            lat: Double,
+            lon: Double,
+        ) {
+            val e = route ?: return
+            val r = placing ?: return
+            placing = null
+            placingAt = null
+            if (!edited(e.addZone(AvoidZone(lat, lon, r)))) publish()
+        }
+
+        /** « Annuler » (or ✕, or back) while a zone is being placed. */
+        fun cancelZone() {
+            if (placing == null) return
+            placing = null
+            placingAt = null
+            publish()
+        }
+
+        /** The zone the crosshair is in, that « Retirer la zone » would remove; `null` outside them all. */
+        fun zoneUnder(
+            lat: Double,
+            lon: Double,
+        ): Int? = route?.plan?.zoneAt(lat, lon)
+
+        fun removeZone(index: Int) {
+            edited(route?.removeZone(index) == true)
         }
 
         /** "Add here" at the crosshair; on a route, a waypoint under it becomes a named stop. */
@@ -803,7 +884,9 @@ class DrawViewModel
             val e = route ?: return
             val plan = e.plan
             queue.submit(
-                plan.pending.map { i -> RoutingQueue.Request(plan.key(i), plan.stops[i], plan.stops[i + 1]) },
+                plan.pending.map { i ->
+                    RoutingQueue.Request(plan.key(i), plan.stops[i], plan.stops[i + 1], plan.legZones(i))
+                },
             )
         }
 
@@ -909,7 +992,8 @@ class DrawViewModel
                 mutableMessages.tryEmit(UiMessage(R.string.draw_too_short))
                 return
             }
-            val manual = plan.isManual
+            // A route wholly by hand keeps no plan, unless it has zones to avoid (P19.8) for when it follows the ways.
+            val manual = plan.isManual && plan.zones.isEmpty()
             val original = (target as? DrawTarget.Route)?.points.orEmpty()
             val points =
                 keepKnown(if (manual) RoutePlanGpx.stopPoints(plan) else RoutePlanGpx.routePoints(plan), original)
@@ -960,6 +1044,8 @@ class DrawViewModel
             route = null
             taken = null
             takenAt = null
+            placing = null
+            placingAt = null
             editor = PolylineEditor()
             pendingTrack = null
             mutableUi.value = DrawUi()
@@ -1019,15 +1105,18 @@ class DrawViewModel
                             summary = summary,
                         ),
                     taken = taken,
+                    zoneRadius = placing,
                 )
             val t = taken
             val at = takenAt?.takeIf { t != null }
+            val ring = placing?.let { r -> placingAt?.let { AvoidZone(it.lat, it.lon, r) } }
             mutableOverlay.value =
                 EditOverlay(
                     RoutePlanGeoJson.lines(plan, legLabels.first, if (e.routing) legLabels.second else "", t),
                     RoutePlanGeoJson.handles(plan, e.selected, midpoints = !e.routing, moved = at),
                     RoutePlanGeoJson.icons(plan),
                     if (t != null && at != null) RoutePlanGeoJson.elastic(plan, t, at) else null,
+                    RoutePlanGeoJson.zones(plan, ring),
                 )
             schedule()
             elevate()

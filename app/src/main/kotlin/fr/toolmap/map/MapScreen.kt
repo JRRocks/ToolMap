@@ -513,6 +513,7 @@ fun MapScreen(
                 editOverlay?.handlesGeoJson,
                 editOverlay?.icons ?: emptySet(),
                 editOverlay?.elasticGeoJson,
+                editOverlay?.zonesGeoJson,
             )
         }
     }
@@ -520,6 +521,11 @@ fun MapScreen(
     LaunchedEffect(drawUi.taken) {
         if (drawUi.taken == null) return@LaunchedEffect
         snapshotFlow { controller.liveCamera }.collect { draw.followCrosshair(it.lat, it.lon) }
+    }
+    // A zone to avoid being placed (« Éviter une zone », P19.8): its circle follows the camera until it is placed.
+    LaunchedEffect(drawUi.zoneRadius) {
+        if (drawUi.zoneRadius == null) return@LaunchedEffect
+        snapshotFlow { controller.liveCamera }.collect { draw.followZone(it.lat, it.lon) }
     }
     // The labels of the legs drawn by hand or being computed, in the language of the app (P19).
     val legComputing = stringResource(R.string.route_leg_computing)
@@ -1811,6 +1817,10 @@ fun MapScreen(
                                 stopUnder = {
                                     val camera = controller.liveCamera
                                     draw.stopUnder(camera.lat, camera.lon, controller.metersFor(TAP_REACH_DP))
+                                },
+                                zoneUnder = {
+                                    val camera = controller.liveCamera
+                                    draw.zoneUnder(camera.lat, camera.lon)
                                 },
                                 reachMeters = { controller.metersFor(TAP_REACH_DP) },
                                 position = { navPosition?.let { it.lat to it.lon } ?: controller.lastPosition() },

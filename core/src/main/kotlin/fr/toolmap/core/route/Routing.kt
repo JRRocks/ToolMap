@@ -32,12 +32,13 @@ sealed interface LegResult {
     ) : LegResult
 }
 
-/** Computes the way between two points (BRouter in the app; a fake in the tests). */
+/** Computes the way between two points (BRouter in the app; a fake in the tests), going round [zones] (P19.8). */
 interface RoutingEngine {
     suspend fun route(
         from: RouteStop,
         to: RouteStop,
         profile: String,
+        zones: List<AvoidZone> = emptyList(),
     ): LegResult
 }
 

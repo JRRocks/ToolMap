@@ -11,6 +11,7 @@ import android.os.IBinder
 import android.util.Base64
 import android.util.Log
 import btools.routingapp.IBRouterService
+import fr.toolmap.core.route.AvoidZone
 import fr.toolmap.core.route.BRouterErrors
 import fr.toolmap.core.route.BRouterJson
 import fr.toolmap.core.route.LegResult
@@ -58,6 +59,7 @@ class BRouterEngine(
         from: RouteStop,
         to: RouteStop,
         profile: String,
+        zones: List<AvoidZone>,
     ): LegResult =
         withContext(Dispatchers.IO) {
             if (!isInstalled()) return@withContext LegResult.Failed(RoutingError.NOT_INSTALLED, "not installed")
@@ -70,6 +72,8 @@ class BRouterEngine(
                         putString("profile", profile)
                         putString("trackFormat", "json")
                         putString("maxRunningTime", MAX_RUNNING_SECONDS.toString())
+                        // Circles the way must not enter (P19.8): `lon,lat,radius|…`.
+                        if (zones.isNotEmpty()) putString("nogos", AvoidZone.nogos(zones))
                         // Gzipped and in Base64: a long way stays far below the 1 MB of a Binder call.
                         putString("acceptCompressedResult", "true")
                     }

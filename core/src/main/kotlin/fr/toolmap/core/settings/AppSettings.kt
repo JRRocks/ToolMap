@@ -235,6 +235,8 @@ data class PlacemarkSettings(
     val routingProfile: String = RoutingProfiles.HIKING,
     /** Personal BRouter profiles the user typed (« Autre… »), offered again. */
     val routingProfiles: List<String> = emptyList(),
+    /** Radius in meters of the last zone to avoid (P19.8), offered first for the next one. */
+    val routingAvoidRadius: Int = 250,
 ) {
     companion object {
         const val TARGET_COLOR: Int = 0xFFD81B60.toInt()

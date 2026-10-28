@@ -29,6 +29,7 @@ L'itinéraire calculé est un **itinéraire** (GPX `<rte>`) qui garde, en plus d
 | `profile` | nom du profil BRouter (§4) |
 | `trackFormat` | `json` (GeoJSON : coordonnées `[lon, lat, ele]`, propriétés `track-length`, `filtered ascend`, `total-time`) |
 | `maxRunningTime` | `30` (secondes) |
+| `nogos` | `lon,lat,rayon|…` (rayon en mètres entiers), seulement s'il y a des zones à éviter (§5.8, P19.8) |
 
 - Retour : un texte qui commence par `{` est le résultat ; tout autre texte est un message d'erreur de BRouter, classé par `BRouterErrors` (`:core`, testé) en : **données absentes** (fichier `.rd5` manquant pour la zone), **profil inconnu**, **pas de chemin**, **délai dépassé**, **autre**.
 - **BRouter absent** (paquet non installé) : l'interrupteur « Suivre les chemins » est grisé, avec « BRouter n'est pas installé · Installer » (F-Droid `https://f-droid.org/packages/btools.routingapp/`, sinon Play Store `market://details?id=btools.routingapp`).
@@ -111,6 +112,14 @@ Volet repliable **« Étapes (N) »** : une ligne par étape (pastille A, B, C�
 ### 5.7 Repères sur la carte (pendant l'édition)
 Départ : disque vert « A ». Arrivée : disque rouge à la dernière lettre ; une boucle (ou un aller-retour) revient sur son départ et ne montre que « A », sans seconde lettre dessous (session 46). Étapes nommées : icône de waypoint et nom (ADR-062). Passages : petits disques blancs cerclés de la couleur du tracé. Tronçon à la main : pointillé. Tronçon en calcul : pointillé gris. Après l'enregistrement : départ, arrivée et étapes nommées seulement.
 
+### 5.8 Zones à éviter (P19.8, variante A de `docs/previews/p19-nogos.html`, validée le 2026-10-28)
+- **Poser** : Outils ▸ **« Éviter une zone »** (sous « Aller-retour », signe ⊖ rouge). Le panneau devient « Zone à éviter » : « Placez le réticule au centre de la zone. », quatre tailles **100 m · 250 m · 500 m · 1 km** (rayon ; la dernière choisie est retenue pour la fois suivante, réglage `routingAvoidRadius`, 250 m par défaut), tuiles **« Éviter cette zone »** (action principale, deux fois plus large) et **« Annuler »** ; ↶ ↷, Outils et « Enregistrer » restent. Un cercle rouge pointillé de la taille choisie suit le réticule ; ✕ et Retour annulent comme « Annuler ».
+- **Sur la carte** : disque rouge à 16 %, bord pointillé, panneau de sens interdit au centre, sous le tracé.
+- **Retirer** : réticule dans une zone (et sur aucune étape), la tuile principale devient **« Retirer la zone »** (couleurs d'erreur). Priorité sous le réticule : étape, puis zone, puis tracé. Zones superposées : celle dont le centre est le plus proche.
+- **Recalcul** : une zone ajoutée ne fait recalculer que les tronçons routés dont la ligne la traverse (un obstacle posé hors du meilleur chemin le laisse le meilleur) ; une zone retirée fait recalculer tous les tronçons routés (le cache rend aussitôt ceux déjà connus sans cette zone). Les tronçons tracés à la main ne bougent pas. Une zone qui contient l'une des deux étapes d'un tronçon n'est pas envoyée pour ce tronçon (`AvoidZone.around`) : BRouter 1.7.10 ne trouve alors aucun chemin (vérifié sur l'émulateur : « pas de chemin », tronçon tracé à la main), et le tronçon doit atteindre son étape.
+- **Annuler / Rétablir** couvrent les zones ; « Tout effacer » les retire avec les étapes. Elles sont **enregistrées avec l'itinéraire** (`tm:zone`, §7.3) et reviennent avec « Modifier le tracé » ; un itinéraire à la main qui a des zones s'enregistre avec son plan.
+- La ligne sous les chiffres du haut les compte : « 3 étapes · 1 zone évitée ».
+
 ## 6. Calcul
 
 ### 6.1 Quand
@@ -120,14 +129,14 @@ Départ : disque vert « A ». Arrivée : disque rouge à la dernière lettre ; 
 `RoutingQueue` (`:app`, coroutines) : un appel BRouter à la fois, dans l'ordre des tronçons ; `withTimeout` de 35 s. Le résultat d'un tronçon est appliqué au plan seulement si le tronçon n'a pas changé entre-temps (clé du §6.3).
 
 ### 6.3 Mémoire des résultats
-Clé d'un tronçon : (départ, arrivée arrondis à 1e-6°, profil). Cache LRU de 200 tronçons pour la durée de l'édition : Annuler, Rétablir, Inverser deux fois ou un aller-retour sur un sentier déjà calculé ne rappellent pas BRouter.
+Clé d'un tronçon : (départ, arrivée arrondis à 1e-6°, profil, zones à éviter sous la forme du paramètre `nogos`). Cache LRU de 200 tronçons pour la durée de l'édition : Annuler, Rétablir, Inverser deux fois ou un aller-retour sur un sentier déjà calculé ne rappellent pas BRouter.
 
 ## 7. Modèle et stockage
 
 ### 7.1 `:core` (pur, testé en JVM)
-- `RoutePlan(stops: List<RouteStop>, legs: List<RouteLeg>)` ; `RouteStop(lat, lon, kind = PASSAGE | NAMED, name, sym)` ; `RouteLeg(profile, mode = ROUTED | STRAIGHT, state = OK | PENDING | NO_DATA | FAILED, points: List<TrackPoint>, timeMillis?)`.
+- `RoutePlan(stops: List<RouteStop>, legs: List<RouteLeg>, zones: List<AvoidZone>)` ; `AvoidZone(lat, lon, radiusMeters)` (P19.8 : `crosses`, `covers`, `nogos`) ; `RouteStop(lat, lon, kind = PASSAGE | NAMED, name, sym)` ; `RouteLeg(profile, mode = ROUTED | STRAIGHT, state = OK | PENDING | NO_DATA | FAILED, points: List<TrackPoint>, timeMillis?)`.
 - `RoutePlanEditor` : les opérations du §5.3 et Annuler / Rétablir ; chaque opération rend le nouveau plan et **la liste des tronçons à recalculer**. Invariant testé : `legs.size == stops.size - 1`, et la géométrie relie les étapes dans l'ordre.
-- `RoutingEngine` (interface) : `suspend fun route(from, to, profile): LegResult` ; `BRouterJson` (lecture du GeoJSON) ; `BRouterErrors` (classement des messages).
+- `RoutingEngine` (interface) : `suspend fun route(from, to, profile, zones): LegResult` ; `BRouterJson` (lecture du GeoJSON) ; `BRouterErrors` (classement des messages).
 
 ### 7.2 `:data`
 - `BRouterEngine` : implémente `RoutingEngine` par AIDL ; `isInstalled()`.
@@ -141,8 +150,10 @@ Clé d'un tronçon : (départ, arrivée arrondis à 1e-6°, profil). Cache LRU d
     <tm:stop lat="45.9" lon="6.8" kind="named" name="Refuge" sym="Lodge"/>
     <tm:leg profile="hiking-mountain" mode="routed"/>
     <tm:stop lat="45.8" lon="6.9" kind="passage"/>
+    <tm:zone lat="45.85" lon="6.85" r="250"/>
   </tm:plan></extensions>
   ```
+  `tm:zone` : une zone à éviter (centre, rayon en mètres ; §5.8), après les étapes et les tronçons.
   Réimporté dans ToolMap : itinéraire modifiable avec ses étapes. Ailleurs : extension ignorée, géométrie intacte. Aller-retour GPX testé en JVM.
 
 ## 8. Après l'enregistrement
@@ -150,8 +161,8 @@ Clé d'un tronçon : (départ, arrivée arrondis à 1e-6°, profil). Cache LRU d
 - **Itinéraire sans plan** (dessiné à la main, importé) : s'ouvre en dessin à la main, interrupteur éteint. L'allumer transforme chaque point en passage et recalcule tout ; au-delà de **30 points**, d'abord : « 214 points : simplifier avant de recalculer ? » (Simplifier… · Recalculer quand même · Annuler).
 
 ## 9. Hors V1 (tâches ⬜ de P19)
-Zones à éviter (`nogos`, cercle posé au réticule) · itinéraires alternatifs (`alternativeidx`) · instructions de guidage · déviation en faisant glisser le tracé au doigt · repli en ligne sur `brouter.de` · réordonner les étapes par glisser dans la liste.
+Itinéraires alternatifs (`alternativeidx`) · instructions de guidage · déviation en faisant glisser le tracé au doigt · repli en ligne sur `brouter.de` · réordonner les étapes par glisser dans la liste.
 
 ## 10. Vérification
-- JVM : `RoutePlanEditorTest` (les 10 opérations, tronçons à recalculer, Annuler / Rétablir), `BRouterJsonTest`, `BRouterErrorsTest`, aller-retour GPX du plan, migration Room (Robolectric).
+- JVM : `RoutePlanEditorTest` (les 10 opérations, tronçons à recalculer, Annuler / Rétablir), `AvoidZoneTest` (paramètre `nogos`, traversée, zone sous le réticule), `BRouterJsonTest`, `BRouterErrorsTest`, aller-retour GPX du plan, migration Room (Robolectric).
 - Émulateur : BRouter installé depuis F-Droid avec une case `.rd5` (par ex. `E5_N45.rd5`, Alpes) ; itinéraire A → B → C en Randonnée, insertion au milieu, déplacement, suppression, boucle, aller-retour, inversion ; tronçon hors de la case téléchargée (deux comportements du §3) ; BRouter désinstallé (interrupteur grisé). Captures à côté des maquettes validées.

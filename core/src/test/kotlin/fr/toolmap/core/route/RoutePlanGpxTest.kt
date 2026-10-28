@@ -31,7 +31,7 @@ class RoutePlanGpxTest {
             )
         // The point shared by two legs is written once: the second leg starts on the end of the first.
         val bc = RouteLeg(RoutingProfiles.HIKING, LegMode.ROUTED, LegState.NO_DATA, listOf(ab.points.last(), c.point))
-        return RoutePlan(listOf(a, b, c), listOf(ab, bc))
+        return RoutePlan(listOf(a, b, c), listOf(ab, bc), listOf(AvoidZone(45.905, 6.79, 250)))
     }
 
     @Test

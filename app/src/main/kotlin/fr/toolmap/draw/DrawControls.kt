@@ -22,6 +22,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -47,6 +48,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import fr.toolmap.R
 import fr.toolmap.core.route.RouteMarkers
 import fr.toolmap.core.route.RoutePlan
+import fr.toolmap.core.settings.UnitSystem
 import fr.toolmap.core.track.ElevationProfile
 import fr.toolmap.core.track.NameDates
 import fr.toolmap.core.track.TrackFormat
@@ -108,6 +110,7 @@ fun DrawBar(
     // is put back first.
     BackHandler(enabled = backEnabled) {
         when {
+            ui.zoneRadius != null -> vm.cancelZone()
             ui.taken != null -> vm.cancelTake()
             stopsOpen -> stopsOpen = false
             else -> quit()
@@ -136,6 +139,7 @@ fun DrawBar(
     val target = ui.target
     val title =
         when {
+            ui.zoneRadius != null -> stringResource(R.string.route_zone_title)
             takenLabel != null -> stringResource(R.string.route_taken_title, takenLabel)
             target is DrawTarget.Track -> target.name ?: unnamed
             target is DrawTarget.Route -> target.name ?: unnamed
@@ -156,8 +160,23 @@ fun DrawBar(
         maxHeight = maxHeight,
         modifier = modifier,
         subtitle = status,
-        onClose = { if (ui.taken != null) vm.cancelTake() else quit() },
-        closeDescription = stringResource(if (ui.taken != null) R.string.action_cancel else R.string.draw_quit),
+        onClose = {
+            when {
+                ui.zoneRadius != null -> vm.cancelZone()
+                ui.taken != null -> vm.cancelTake()
+                else -> quit()
+            }
+        },
+        closeDescription =
+            stringResource(
+                if (ui.taken != null ||
+                    ui.zoneRadius != null
+                ) {
+                    R.string.action_cancel
+                } else {
+                    R.string.draw_quit
+                },
+            ),
     ) {
         if (route != null && hooks != null && stopsOpen && route.plan.stops.isNotEmpty()) {
             Column(Modifier.padding(horizontal = PANEL_INSET)) {
@@ -366,7 +385,9 @@ private const val MANY_STOPS = 30
  * chip; « Insérer ici » (« Ajouter ici » when the crosshair is off the route, « Prendre l'étape » when it is on a stop),
  * move and delete the selected stop, the list of the stops; undo, redo, the tools and « Enregistrer ». Empty, it says
  * where to start and offers « Depuis ma position ». While a stop is taken (variant A of
- * `docs/previews/p19-reprendre-etape.html`), only « Poser ici », « Annuler » and « Supprimer l'étape » stay.
+ * `docs/previews/p19-reprendre-etape.html`), only « Poser ici », « Annuler » and « Supprimer l'étape » stay. The
+ * crosshair in a zone to avoid offers « Retirer la zone »; while one is placed, only its radii, « Éviter cette zone »
+ * and « Annuler » stay (P19.8).
  */
 @Composable
 private fun RoutedPanel(
@@ -385,8 +406,10 @@ private fun RoutedPanel(
     // Follows the camera, but the panel is only composed again when the answer changes.
     val insertLeg by remember(route.plan) { derivedStateOf { hooks.insertLegAt() } }
     val under by remember(route.plan) { derivedStateOf { hooks.stopUnder() } }
+    val zone by remember(route.plan) { derivedStateOf { hooks.zoneUnder() } }
     val taken = ui.taken
-    if (empty && taken == null) {
+    val placing = ui.zoneRadius
+    if (empty && taken == null && placing == null) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
             Text(
                 stringResource(R.string.route_empty_title),
@@ -399,7 +422,7 @@ private fun RoutedPanel(
             )
         }
     }
-    if (taken == null) {
+    if (taken == null && placing == null) {
         RoutingSwitchRow(
             route = route,
             onToggle = onToggle,
@@ -413,7 +436,9 @@ private fun RoutedPanel(
         val leg = insertLeg
         if (leg != null) vm.insertAt(leg, lat, lon, hooks.reachMeters()) else vm.addAt(lat, lon, hooks.reachMeters())
     }
-    if (taken != null) {
+    if (placing != null) {
+        ZoneTiles(placing, vm, center)
+    } else if (taken != null) {
         TakenStopTiles(vm, center)
     } else if (empty) {
         ActionTiles {
@@ -434,8 +459,17 @@ private fun RoutedPanel(
     } else {
         ActionTiles {
             val stop = under
+            val inZone = zone
             val inserting = insertLeg != null
-            if (stop != null) {
+            if (stop == null && inZone != null) {
+                // The crosshair in a zone to avoid (a stop comes first, the route after the zone).
+                ActionTile(
+                    RouteIcons.Block,
+                    stringResource(R.string.route_zone_remove),
+                    minHeight = TILE,
+                    danger = true,
+                ) { vm.removeZone(inZone) }
+            } else if (stop != null) {
                 // The crosshair on a stop: take it, as « Ajouter ici » becomes « Insérer ici » on the route.
                 ActionTile(
                     RouteIcons.PanTool,
@@ -507,6 +541,15 @@ private fun RoutedPanel(
                     close()
                     vm.outAndBack()
                 }
+                RouteTool(
+                    R.string.route_tool_avoid_zone,
+                    RouteIcons.DoNotDisturbOn,
+                    enabled = true,
+                    tint = MaterialTheme.colorScheme.error,
+                ) {
+                    close()
+                    vm.startZone()
+                }
                 HorizontalDivider()
                 RouteTool(R.string.route_tool_profile, RouteIcons.ShowChart, ui.pointCount >= 2) {
                     close()
@@ -558,6 +601,60 @@ private fun TakenStopTiles(
     }
 }
 
+/** The radii offered for a zone to avoid (P19.8), in meters. */
+private val ZONE_RADII = listOf(100, 250, 500, 1000)
+
+/**
+ * A zone to avoid being placed (variant A of `docs/previews/p19-nogos.html`): the hint, the four radii (the one picked
+ * is kept for next time), « Éviter cette zone » (the main action, twice as wide) and « Annuler ».
+ */
+@Composable
+private fun ZoneTiles(
+    radius: Int,
+    vm: DrawViewModel,
+    center: () -> Pair<Double, Double>,
+) {
+    val fmt = LocalFormats.current
+    Text(
+        stringResource(R.string.route_zone_hint),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    Row(Modifier.padding(horizontal = PANEL_INSET), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ZONE_RADII.forEach { meters ->
+            FilterChip(
+                selected = meters == radius,
+                onClick = { vm.setZoneRadius(meters) },
+                // « 1 km » rather than « 1,00 km »: a round size, not a measure.
+                label = {
+                    Text(
+                        if (fmt.units == UnitSystem.METRIC && meters % 1000 == 0) {
+                            "${meters / 1000} km"
+                        } else {
+                            fmt.distance(meters.toDouble())
+                        },
+                    )
+                },
+            )
+        }
+    }
+    ActionTiles {
+        ActionTile(
+            RouteIcons.DoNotDisturbOn,
+            stringResource(R.string.route_zone_place),
+            minHeight = TILE,
+            highlighted = true,
+            weight = 2f,
+            iconTint = MaterialTheme.colorScheme.error,
+        ) {
+            val (lat, lon) = center()
+            vm.placeZone(lat, lon)
+        }
+        ActionTile(RouteIcons.Undo, stringResource(R.string.action_cancel), minHeight = TILE, onClick = vm::cancelZone)
+    }
+}
+
 /** How the panel names stop [i]: its letter at the ends (as on the map), else its number. */
 private fun stopLabel(
     plan: RoutePlan,
@@ -574,11 +671,12 @@ private fun RouteTool(
     label: Int,
     icon: ImageVector,
     enabled: Boolean,
+    tint: Color? = null,
     onClick: () -> Unit,
 ) {
     DropdownMenuItem(
         text = { Text(stringResource(label)) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
+        leadingIcon = { Icon(icon, contentDescription = null, tint = tint ?: LocalContentColor.current) },
         onClick = onClick,
         enabled = enabled,
     )

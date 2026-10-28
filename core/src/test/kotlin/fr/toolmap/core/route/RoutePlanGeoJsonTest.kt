@@ -1,5 +1,6 @@
 package fr.toolmap.core.route
 
+import fr.toolmap.core.track.Geodesy
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.core.track.WaypointSymbols
 import kotlin.test.Test
@@ -128,5 +129,19 @@ class RoutePlanGeoJsonTest {
         assertTrue("\"kind\":\"m\",\"leg\":1" in text)
         val m = RoutePlanGeoJson.midpoint(plan(), 1)
         assertEquals((b.lat + c.lat) / 2, m.lat, 1e-4)
+    }
+
+    @Test
+    fun `zones are circles with their sign, the one being placed a ring`() {
+        val zone = AvoidZone(45.0, 6.0, 250)
+        assertEquals("""{"type":"FeatureCollection","features":[]}""", RoutePlanGeoJson.zones(RoutePlan()))
+        val text = RoutePlanGeoJson.zones(RoutePlan(zones = listOf(zone)), placing = zone.copy(lat = 45.01))
+        assertEquals(1, count(text, "\"z\":\"zone\""))
+        assertEquals(1, count(text, "\"z\":\"sign\""))
+        assertEquals(1, count(text, "\"z\":\"ring\""))
+        assertEquals(2, count(text, "\"Polygon\""))
+        val outline = RoutePlanGeoJson.circle(zone)
+        assertEquals(outline.first(), outline.last())
+        for (p in outline) assertEquals(250.0, Geodesy.distance(zone.lat, zone.lon, p.lat, p.lon), 1.0)
     }
 }

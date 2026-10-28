@@ -1,5 +1,6 @@
 package fr.toolmap.draw
 
+import fr.toolmap.core.route.AvoidZone
 import fr.toolmap.core.route.LegKey
 import fr.toolmap.core.route.LegResult
 import fr.toolmap.core.route.RouteStop
@@ -25,6 +26,8 @@ class RoutingQueue(
         val key: LegKey,
         val from: RouteStop,
         val to: RouteStop,
+        /** The zones of the plan, all sent with every leg (`nogos`). */
+        val zones: List<AvoidZone> = emptyList(),
     )
 
     private var wanted: List<Request> = emptyList()
@@ -59,7 +62,9 @@ class RoutingQueue(
         val started =
             scope.launch(start = CoroutineStart.LAZY) {
                 val result =
-                    withTimeoutOrNull(TIMEOUT_MILLIS) { engine.route(request.from, request.to, request.key.profile) }
+                    withTimeoutOrNull(TIMEOUT_MILLIS) {
+                        engine.route(request.from, request.to, request.key.profile, request.zones)
+                    }
                         ?: LegResult.Failed(RoutingError.TIMEOUT, "timeout")
                 job = null
                 running = null

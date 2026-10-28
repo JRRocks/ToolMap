@@ -1,12 +1,16 @@
 package fr.toolmap.core.route
 
 import fr.toolmap.core.track.EditorGeoJson
+import fr.toolmap.core.track.Geodesy
 import fr.toolmap.core.track.TrackGeoJson
 import fr.toolmap.core.track.TrackOps
 import fr.toolmap.core.track.TrackPath
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.core.track.WaypointSymbols
 import fr.toolmap.core.xml.JsonText
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * GeoJSON of a route being edited (`docs/specs/routing.md` §5.7), for the editing layers of the map.
@@ -167,6 +171,53 @@ object RoutePlanGeoJson {
         }
         return out.append("]}}]}").toString()
     }
+
+    /**
+     * The zones to avoid (P19.8, variant A of `docs/previews/p19-nogos.html`): each a circle (`z` = `zone`) with its
+     * centre (`z` = `sign`, the no-entry sign); [placing], the circle that follows the crosshair before it is placed
+     * (`z` = `ring`).
+     */
+    fun zones(
+        plan: RoutePlan,
+        placing: AvoidZone? = null,
+    ): String {
+        if (plan.zones.isEmpty() && placing == null) return EMPTY
+        val out = StringBuilder((plan.zones.size + 1) * (CIRCLE_SIDES * 24 + 160))
+        out.append("{\"type\":\"FeatureCollection\",\"features\":[")
+        var first = true
+        val all = plan.zones.map { it to "zone" } + listOfNotNull(placing?.let { it to "ring" })
+        for ((zone, z) in all) {
+            if (!first) out.append(',')
+            first = false
+            out.append("{\"type\":\"Feature\",\"properties\":{\"z\":\"").append(z).append("\"}")
+            out.append(",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[")
+            circle(zone).forEachIndexed { i, p ->
+                if (i > 0) out.append(',')
+                position(out, p.lat, p.lon)
+            }
+            out.append("]]}}")
+            if (z == "zone") {
+                out.append(",{\"type\":\"Feature\",\"properties\":{\"z\":\"sign\"}")
+                out.append(",\"geometry\":{\"type\":\"Point\",\"coordinates\":")
+                position(out, zone.lat, zone.lon)
+                out.append("}}")
+            }
+        }
+        return out.append("]}").toString()
+    }
+
+    /** The outline of [zone], closed: [CIRCLE_SIDES] sides on a local flat projection (exact enough for a few km). */
+    internal fun circle(zone: AvoidZone): List<TrackPoint> {
+        val perDegree = Math.toRadians(1.0) * Geodesy.EARTH_RADIUS_METERS
+        val dLat = zone.radiusMeters / perDegree
+        val dLon = dLat / cos(Math.toRadians(zone.lat))
+        return (0..CIRCLE_SIDES).map { k ->
+            val a = 2 * PI * (k % CIRCLE_SIDES) / CIRCLE_SIDES
+            TrackPoint(zone.lat + dLat * sin(a), zone.lon + dLon * cos(a))
+        }
+    }
+
+    private const val CIRCLE_SIDES = 64
 
     /** The middle of the straight line of leg [leg] (where its midpoint handle stands). */
     fun midpoint(

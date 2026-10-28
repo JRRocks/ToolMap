@@ -124,6 +124,7 @@ class ToolsRenderTest {
             RouteHooks(
                 insertLegAt = { 1 },
                 stopUnder = { null },
+                zoneUnder = { null },
                 reachMeters = { 10.0 },
                 position = { null },
                 onCenter = { _, _ -> },

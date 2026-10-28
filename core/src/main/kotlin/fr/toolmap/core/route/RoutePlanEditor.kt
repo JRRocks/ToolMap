@@ -13,8 +13,8 @@ data class RouteEditState(
 
 /**
  * The editing of a route made of stops (P19, `docs/specs/routing.md` §5.3): add at the end or at the start, insert on
- * a leg, move, delete, leg by hand or routed, profile of a leg, reverse, loop, out and back, start from a stop, with
- * undo and redo. Every edit returns whether it changed anything; the legs it touches are [LegState.PENDING] (unless
+ * a leg, move, delete, leg by hand or routed, profile of a leg, reverse, loop, out and back, start from a stop, zones
+ * to avoid (P19.8), with undo and redo. Every edit returns whether it changed anything; the legs it touches are [LegState.PENDING] (unless
  * [cache] knows them) and the caller hands them to BRouter, then gives the answers back with [applyResult].
  * Not thread-safe: used from the UI thread.
  */
@@ -61,7 +61,7 @@ class RoutePlanEditor(
         atStart: Boolean = false,
     ): Boolean {
         val stops = plan.stops
-        if (stops.isEmpty()) return change(RoutePlan(listOf(stop)), 0)
+        if (stops.isEmpty()) return change(RoutePlan(listOf(stop), zones = plan.zones), 0)
         val sel = selected
         val index = if (atStart) sel ?: 0 else sel?.plus(1) ?: stops.size
         return insertAt(index, stop)
@@ -98,7 +98,7 @@ class RoutePlanEditor(
                 legs.add(index, newLeg(stop, s[index], old.profile, old.mode))
             }
         }
-        return change(RoutePlan(stops, legs), index)
+        return change(RoutePlan(stops, legs, plan.zones), index)
     }
 
     /** Puts the selected stop somewhere else; the legs on both sides are computed again. */
@@ -122,7 +122,7 @@ class RoutePlanEditor(
         val legs = plan.legs.toMutableList()
         if (i > 0) legs[i - 1] = rebuild(legs[i - 1], stops[i - 1], stops[i])
         if (i < legs.size) legs[i] = rebuild(legs[i], stops[i], stops[i + 1])
-        return change(RoutePlan(stops, legs), i)
+        return change(RoutePlan(stops, legs, plan.zones), i)
     }
 
     fun deleteSelected(): Boolean {
@@ -155,7 +155,7 @@ class RoutePlanEditor(
                 legs.removeAt(i)
             }
         }
-        return change(RoutePlan(stops, legs), if (stops.isEmpty()) null else minOf(i, stops.lastIndex))
+        return change(RoutePlan(stops, legs, plan.zones), if (stops.isEmpty()) null else minOf(i, stops.lastIndex))
     }
 
     /** Leg [leg] drawn by hand (off the ways) or routed again. */
@@ -195,7 +195,7 @@ class RoutePlanEditor(
                     newLeg(plan.stops[i], plan.stops[i + 1], profile, LegMode.ROUTED)
                 }
             }
-        return if (changed) change(RoutePlan(plan.stops, legs), selected) else false
+        return if (changed) change(RoutePlan(plan.stops, legs, plan.zones), selected) else false
     }
 
     /** Asks BRouter again for a leg it could not compute (the data may have been downloaded since). */
@@ -210,7 +210,7 @@ class RoutePlanEditor(
         leg: RouteLeg,
     ): Boolean {
         val legs = plan.legs.toMutableList().apply { this[index] = leg }
-        return change(RoutePlan(plan.stops, legs), selected)
+        return change(RoutePlan(plan.stops, legs, plan.zones), selected)
     }
 
     /** Names a stop, makes it discreet, or gives it a waypoint's name and icon: its place does not change. */
@@ -221,7 +221,7 @@ class RoutePlanEditor(
         val old = plan.stops.getOrNull(index) ?: return false
         if (old == stop) return false
         val stops = plan.stops.toMutableList().apply { this[index] = stop.copy(lat = old.lat, lon = old.lon) }
-        return change(RoutePlan(stops, plan.legs), selected)
+        return change(RoutePlan(stops, plan.legs, plan.zones), selected)
     }
 
     /** The other way round. Routed legs are computed again (one-way streets, slopes); legs by hand are just turned. */
@@ -237,7 +237,7 @@ class RoutePlanEditor(
                     newLeg(stops[i], stops[i + 1], leg.profile, LegMode.ROUTED)
                 }
             }
-        return change(RoutePlan(stops, legs), selected?.let { s.lastIndex - it })
+        return change(RoutePlan(stops, legs, plan.zones), selected?.let { s.lastIndex - it })
     }
 
     /** Back to the start: a copy of the first stop at the end. */
@@ -259,7 +259,7 @@ class RoutePlanEditor(
             val to = stops[s.lastIndex + k + 1]
             legs += newLeg(from, to, leg.profile, leg.mode)
         }
-        return change(RoutePlan(stops, legs), stops.lastIndex)
+        return change(RoutePlan(stops, legs, plan.zones), stops.lastIndex)
     }
 
     /** How many stops [startFrom] removes: none on a loop, which turns instead. */
@@ -276,23 +276,23 @@ class RoutePlanEditor(
             if (index == s.lastIndex) return false
             val stops = s.subList(index, s.lastIndex) + s.subList(0, index + 1)
             val legs = plan.legs.subList(index, plan.legs.size) + plan.legs.subList(0, index)
-            return change(RoutePlan(stops, legs), 0)
+            return change(RoutePlan(stops, legs, plan.zones), 0)
         }
-        return change(RoutePlan(s.subList(index, s.size), plan.legs.subList(index, plan.legs.size)), 0)
+        return change(RoutePlan(s.subList(index, s.size), plan.legs.subList(index, plan.legs.size), plan.zones), 0)
     }
 
     /** Drops the stops before [index], loop or not (« Trim before » of the drawing by hand). */
     fun trimBefore(index: Int): Boolean {
         val s = plan.stops
         if (index !in 1 until s.size) return false
-        return change(RoutePlan(s.subList(index, s.size), plan.legs.subList(index, plan.legs.size)), 0)
+        return change(RoutePlan(s.subList(index, s.size), plan.legs.subList(index, plan.legs.size), plan.zones), 0)
     }
 
     /** Drops the stops after [index] (« Trim after » of the drawing by hand). */
     fun endAt(index: Int): Boolean {
         val s = plan.stops
         if (index !in 0 until s.lastIndex) return false
-        return change(RoutePlan(s.subList(0, index + 1), plan.legs.subList(0, index)), index)
+        return change(RoutePlan(s.subList(0, index + 1), plan.legs.subList(0, index), plan.zones), index)
     }
 
     /**
@@ -329,7 +329,7 @@ class RoutePlanEditor(
                     newLeg(s[a], s[b], plan.legs[a].profile, if (straight) LegMode.STRAIGHT else LegMode.ROUTED)
                 }
             }
-        return change(RoutePlan(stops, legs), null)
+        return change(RoutePlan(stops, legs, plan.zones), null)
     }
 
     /** A finger stroke drawn by hand: its thinned points become passages linked by straight legs. */
@@ -346,7 +346,7 @@ class RoutePlanEditor(
             stops.lastOrNull()?.let { legs += RouteLeg.straight(it, stop, profile) }
             stops += stop
         }
-        return change(RoutePlan(stops, legs), stops.lastIndex)
+        return change(RoutePlan(stops, legs, plan.zones), stops.lastIndex)
     }
 
     /** Every leg drawn by hand follows the ways with [profile] (a route drawn by hand that is now routed). */
@@ -363,10 +363,60 @@ class RoutePlanEditor(
                     leg
                 }
             }
-        return change(RoutePlan(plan.stops, legs), selected)
+        return change(RoutePlan(plan.stops, legs, plan.zones), selected)
     }
 
-    fun clear(): Boolean = if (plan.stops.isEmpty()) false else change(RoutePlan(), null)
+    fun clear(): Boolean = if (plan.stops.isEmpty() && plan.zones.isEmpty()) false else change(RoutePlan(), null)
+
+    /**
+     * A zone the routed legs must go round (P19.8). Adding an obstacle off a way leaves it the best one: only the legs
+     * whose way crosses the zone are computed again.
+     */
+    fun addZone(zone: AvoidZone): Boolean =
+        changeZones(plan.zones + zone) { it.state == LegState.OK && zone.crosses(it.points) }
+
+    /** Removes zone [index]: every routed leg is computed again (the ways already known come from [cache]). */
+    fun removeZone(index: Int): Boolean {
+        if (index !in plan.zones.indices) return false
+        return changeZones(plan.zones.toMutableList().apply { removeAt(index) }) { true }
+    }
+
+    /**
+     * Zone [index] moved or resized. Grown around itself, it is only stricter: as for [addZone], only the legs crossing
+     * it are computed again; otherwise every routed leg is.
+     */
+    fun replaceZone(
+        index: Int,
+        zone: AvoidZone,
+    ): Boolean {
+        val old = plan.zones.getOrNull(index) ?: return false
+        if (old == zone) return false
+        val zones = plan.zones.toMutableList().apply { this[index] = zone }
+        return if (zone.covers(old)) {
+            changeZones(zones) { it.state == LegState.OK && zone.crosses(it.points) }
+        } else {
+            changeZones(zones) { true }
+        }
+    }
+
+    /**
+     * The plan with [zones]: legs drawn by hand do not change, routed legs that are [affected] or still waiting are asked
+     * again (with the new zones), the others keep their way.
+     */
+    private fun changeZones(
+        zones: List<AvoidZone>,
+        affected: (RouteLeg) -> Boolean,
+    ): Boolean {
+        val legs =
+            plan.legs.mapIndexed { i, leg ->
+                if (leg.mode != LegMode.ROUTED || (leg.state != LegState.PENDING && !affected(leg))) {
+                    leg
+                } else {
+                    newLeg(plan.stops[i], plan.stops[i + 1], leg.profile, LegMode.ROUTED, zones)
+                }
+            }
+        return change(RoutePlan(plan.stops, legs, zones), selected)
+    }
 
     /**
      * The answer of BRouter for the legs of [key]: every leg still waiting for it takes it. This is not an edit (not
@@ -402,7 +452,7 @@ class RoutePlanEditor(
                     }
                 }
             }
-        if (changed) state = state.copy(plan = RoutePlan(p.stops, legs))
+        if (changed) state = state.copy(plan = p.copy(legs = legs))
         return changed
     }
 
@@ -420,7 +470,7 @@ class RoutePlanEditor(
                 changed = true
                 newLeg(p.stops[i], p.stops[i + 1], fallback, leg.mode)
             }
-        if (changed) state = state.copy(plan = RoutePlan(p.stops, legs))
+        if (changed) state = state.copy(plan = p.copy(legs = legs))
         return changed
     }
 
@@ -469,9 +519,10 @@ class RoutePlanEditor(
         to: RouteStop,
         profile: String = this.profile,
         mode: LegMode = if (routing) LegMode.ROUTED else LegMode.STRAIGHT,
+        zones: List<AvoidZone> = plan.zones,
     ): RouteLeg {
         if (mode == LegMode.STRAIGHT) return RouteLeg.straight(from, to, profile)
-        val hit = cache.get(LegKey.of(from, to, profile))
+        val hit = cache.get(LegKey.of(from, to, profile, zones))
         return if (hit != null) {
             legOf(from, to, profile, hit)
         } else {

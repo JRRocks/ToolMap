@@ -1,5 +1,6 @@
 package fr.toolmap.draw
 
+import fr.toolmap.core.route.AvoidZone
 import fr.toolmap.core.route.LegKey
 import fr.toolmap.core.route.LegResult
 import fr.toolmap.core.route.RouteStop
@@ -32,6 +33,7 @@ class RoutingQueueTest {
             from: RouteStop,
             to: RouteStop,
             profile: String,
+            zones: List<AvoidZone>,
         ): LegResult {
             calls += from to to
             val answer = CompletableDeferred<LegResult>()

@@ -1,14 +1,21 @@
 package fr.toolmap.map
 
+import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import androidx.core.graphics.createBitmap
 import fr.toolmap.data.text.GlyphInterceptor
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
+import kotlin.math.roundToInt
 
 /**
  * The line being drawn and its handles, above everything but the position: the line in the editing colour, the
@@ -18,6 +25,9 @@ import org.maplibre.android.style.sources.GeoJsonSource
  * A route being computed (P19, [fr.toolmap.core.route.RoutePlanGeoJson]) uses the same sources: its legs carry `st`
  * (`h` by hand: dashed; `p` computing: grey dots), a `label` at the middle of those legs, and stops whose `kind` is
  * `start`, `end` or `named` (a coloured disc with a letter or an icon, and the name) or `pass` (a small white disc).
+ *
+ * Below them, the zones to avoid of a route (P19.8, variant A of `docs/previews/p19-nogos.html`): a pale red disc with
+ * a dashed edge and a no-entry sign at its centre, and the circle that follows the crosshair before it is placed.
  */
 object EditLayers {
     private const val LINE_SOURCE = "tm-e-line"
@@ -28,6 +38,11 @@ object EditLayers {
     private const val TAKEN_LAYER = "tm-e-line-taken"
     private const val ELASTIC_SOURCE = "tm-e-elastic"
     private const val ELASTIC_LAYER = "tm-e-elastic-layer"
+    private const val ZONES_SOURCE = "tm-e-zones"
+    private const val ZONES_FILL_LAYER = "tm-e-zones-fill"
+    private const val ZONES_EDGE_LAYER = "tm-e-zones-edge"
+    private const val ZONES_SIGN_LAYER = "tm-e-zones-sign"
+    private const val NO_ENTRY_IMAGE = "tm-no-entry"
     private const val LEG_LABEL_LAYER = "tm-e-leg-label"
     private const val HANDLES_LAYER = "tm-e-handles-layer"
     private const val HANDLES_ICON_LAYER = "tm-e-handles-icon"
@@ -50,12 +65,18 @@ object EditLayers {
     private const val ELASTIC_WIDTH = 3f
     private const val ORANGE_HEX = "#ff6f00"
     private const val PENDING_HEX = "#9aa0ae"
+    private const val ZONE_HEX = "#d32f2f"
+    private const val ZONE_OPACITY = 0.16f
+    private const val RING_OPACITY = 0.07f
+    private const val ZONE_EDGE_WIDTH = 2f
+    private const val SIGN_DP = 16f
 
     fun install(style: Style) {
         if (style.getSource(LINE_SOURCE) != null) return
         style.addSource(GeoJsonSource(LINE_SOURCE, EMPTY))
         style.addSource(GeoJsonSource(HANDLES_SOURCE, EMPTY))
         style.addSource(GeoJsonSource(ELASTIC_SOURCE, EMPTY))
+        installZones(style)
         val st = Expression.get("st")
         val byHand = Expression.eq(st, Expression.literal("h"))
         val pending = Expression.eq(st, Expression.literal("p"))
@@ -219,12 +240,77 @@ object EditLayers {
         handlesGeoJson: String?,
         elasticGeoJson: String? = null,
         keepLine: Boolean = false,
+        zonesGeoJson: String? = null,
     ) {
         if (!keepLine) style.getSourceAs<GeoJsonSource>(LINE_SOURCE)?.setGeoJson(lineGeoJson ?: EMPTY)
         style.getSourceAs<GeoJsonSource>(HANDLES_SOURCE)?.setGeoJson(handlesGeoJson ?: EMPTY)
         style.getSourceAs<GeoJsonSource>(ELASTIC_SOURCE)?.setGeoJson(elasticGeoJson ?: EMPTY)
+        style.getSourceAs<GeoJsonSource>(ZONES_SOURCE)?.setGeoJson(zonesGeoJson ?: EMPTY)
     }
 
+    /** The zones to avoid, under the line of the route: their pale disc, their dashed edge and their sign. */
+    private fun installZones(style: Style) {
+        style.addSource(GeoJsonSource(ZONES_SOURCE, EMPTY))
+        style.addImage(NO_ENTRY_IMAGE, noEntrySign())
+        val z = Expression.get("z")
+        val isArea = Expression.eq(Expression.geometryType(), Expression.literal("Polygon"))
+        style.addLayer(
+            FillLayer(ZONES_FILL_LAYER, ZONES_SOURCE)
+                .withFilter(isArea)
+                .withProperties(
+                    PropertyFactory.fillColor(ZONE_HEX),
+                    PropertyFactory.fillOpacity(
+                        Expression.match(
+                            z,
+                            Expression.literal(ZONE_OPACITY),
+                            Expression.stop("ring", Expression.literal(RING_OPACITY)),
+                        ),
+                    ),
+                ),
+        )
+        style.addLayer(
+            LineLayer(ZONES_EDGE_LAYER, ZONES_SOURCE)
+                .withFilter(isArea)
+                .withProperties(
+                    PropertyFactory.lineColor(ZONE_HEX),
+                    PropertyFactory.lineWidth(ZONE_EDGE_WIDTH),
+                    PropertyFactory.lineDasharray(arrayOf(2.5f, 2f)),
+                ),
+        )
+        style.addLayer(
+            SymbolLayer(ZONES_SIGN_LAYER, ZONES_SOURCE)
+                .withFilter(Expression.eq(z, Expression.literal("sign")))
+                .withProperties(
+                    PropertyFactory.iconImage(NO_ENTRY_IMAGE),
+                    PropertyFactory.iconAllowOverlap(true),
+                    PropertyFactory.iconIgnorePlacement(true),
+                ),
+        )
+    }
+
+    /** A red disc ringed with white and crossed by a white bar, as the road sign. */
+    private fun noEntrySign(): Bitmap {
+        val density = Resources.getSystem().displayMetrics.density
+        val size = (SIGN_DP * density).roundToInt()
+        val bitmap = createBitmap(size, size)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val r = size / 2f
+        paint.color = WHITE
+        canvas.drawCircle(r, r, r, paint)
+        paint.color = ZONE_RED
+        canvas.drawCircle(r, r, r - SIGN_RING_DP * density, paint)
+        paint.color = WHITE
+        val halfBar = r * SIGN_BAR_SHARE
+        val halfThick = SIGN_BAR_DP * density / 2
+        canvas.drawRect(r - halfBar, r - halfThick, r + halfBar, r + halfThick, paint)
+        return bitmap
+    }
+
+    private const val SIGN_RING_DP = 1.5f
+    private const val SIGN_BAR_DP = 2.5f
+    private const val SIGN_BAR_SHARE = 0.55f
+    private const val ZONE_RED = 0xFFD32F2F.toInt()
     private const val WHITE = 0xFFFFFFFF.toInt()
     private const val ORANGE = 0xFFFF6F00.toInt()
     private const val GREEN = 0xFF43A047.toInt()

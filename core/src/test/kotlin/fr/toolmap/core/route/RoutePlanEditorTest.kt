@@ -384,6 +384,90 @@ class RoutePlanEditorTest {
         assertTrue(d[2] > d[1])
     }
 
+    /** A zone of 100 m on the way of leg [leg] (its middle point, beside the straight line). */
+    private fun RoutePlanEditor.zoneOn(leg: Int): AvoidZone {
+        val p = plan.legs[leg].points
+        return AvoidZone(p[1].lat, p[1].lon, 100)
+    }
+
+    @Test
+    fun `a new zone only asks again for the legs whose way crosses it`() {
+        val e = editorWith(4)
+        val before = e.plan
+        val zone = e.zoneOn(1)
+        assertTrue(e.addZone(zone))
+        assertEquals(listOf(zone), e.plan.zones)
+        assertEquals(listOf(1), e.plan.pending)
+        assertEquals(before.legs[0], e.plan.legs[0])
+        assertEquals(before.legs[2], e.plan.legs[2])
+        // The leg is asked with the zone: its key differs from the one computed without it.
+        assertEquals(AvoidZone.nogos(listOf(zone)), e.plan.key(1).nogos)
+        assertEquals(1, e.computeAll())
+        e.plan.check()
+    }
+
+    @Test
+    fun `removing a zone asks again for the routed legs, the ways known before coming from the cache`() {
+        val e = editorWith(3)
+        e.setLegMode(0, LegMode.STRAIGHT)
+        e.addZone(e.zoneOn(1))
+        e.computeAll()
+        assertTrue(e.removeZone(0))
+        assertTrue(e.plan.zones.isEmpty())
+        // The way of leg 1 without the zone is in the cache; leg 0 is drawn by hand and does not change.
+        assertTrue(e.plan.pending.isEmpty())
+        assertEquals(LegMode.STRAIGHT, e.plan.legs[0].mode)
+        assertFalse(e.removeZone(0))
+    }
+
+    @Test
+    fun `a zone grown around itself is only stricter, a moved one asks every routed leg again`() {
+        val e = editorWith(3)
+        val zone = e.zoneOn(1)
+        e.addZone(zone)
+        e.computeAll()
+        assertTrue(e.replaceZone(0, zone.copy(radiusMeters = 150)))
+        assertEquals(listOf(1), e.plan.pending)
+        e.computeAll()
+        assertTrue(e.replaceZone(0, zone.copy(lat = zone.lat + 0.01)))
+        assertEquals(listOf(0, 1), e.plan.pending)
+        assertFalse(e.replaceZone(0, e.plan.zones[0]))
+    }
+
+    @Test
+    fun `zones stay through the other edits, undo and clear`() {
+        val e = editorWith(3)
+        val zone = AvoidZone(46.0, 7.0, 500)
+        e.addZone(zone)
+        assertTrue(e.plan.pending.isEmpty())
+        e.add(stop(5))
+        e.reverse()
+        e.insertOnLeg(0, stop(7))
+        e.delete(1)
+        e.outAndBack()
+        e.startFrom(1)
+        e.computeAll()
+        assertEquals(listOf(zone), e.plan.zones)
+        e.plan.check()
+        assertTrue(e.clear())
+        assertTrue(e.plan.zones.isEmpty())
+        e.undo()
+        assertEquals(listOf(zone), e.plan.zones)
+        repeat(20) { e.undo() }
+        assertTrue(e.plan.zones.isEmpty())
+    }
+
+    @Test
+    fun `zones alone can be placed and cleared before the first stop`() {
+        val e = RoutePlanEditor()
+        assertTrue(e.addZone(AvoidZone(45.0, 6.0, 250)))
+        assertTrue(e.add(stop(0)))
+        assertEquals(1, e.plan.zones.size)
+        e.delete(0)
+        assertTrue(e.clear())
+        assertFalse(e.clear())
+    }
+
     @Test
     fun `the cache forgets the oldest legs`() {
         val cache = LegCache(capacity = 2)

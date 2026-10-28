@@ -75,6 +75,8 @@ class RouteHooks(
     val insertLegAt: () -> Int?,
     /** The stop « Prendre l'étape » would take at the crosshair, read from the camera: `null` when it is on none. */
     val stopUnder: () -> Int?,
+    /** The zone to avoid the crosshair is in, that « Retirer la zone » would remove: `null` outside them all (P19.8). */
+    val zoneUnder: () -> Int?,
     /** 24 dp in meters at the current zoom: how close the crosshair must be to a waypoint to take it. */
     val reachMeters: () -> Double,
     /** The last known position, `null` when the location is off. */
@@ -146,6 +148,8 @@ fun RouteStatsCard(
     // Variant A of the mockups: no profile here, the chip of the panel shows it.
     val sub = ArrayList<String>()
     sub += pluralStringResource(R.plurals.route_stop_count, route.plan.stops.size, route.plan.stops.size)
+    val zones = route.plan.zones.size
+    if (zones > 0) sub += pluralStringResource(R.plurals.route_zone_count, zones, zones)
     if (s.pendingLegs > 0) sub += pluralStringResource(R.plurals.route_pending_count, s.pendingLegs, s.pendingLegs)
     if (route.atStart) sub += stringResource(R.string.route_at_start_status)
     MapPill(modifier = modifier.fillMaxWidth()) {

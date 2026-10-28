@@ -55,13 +55,17 @@ data class RouteLeg(
     }
 }
 
-/** What identifies the computation of a leg: its ends to a millionth of a degree (about 10 cm) and the profile. */
+/**
+ * What identifies the computation of a leg: its ends to a millionth of a degree (about 10 cm), the profile and the zones
+ * it goes round (the `nogos` sent to BRouter, empty without zone; [AvoidZone.around]).
+ */
 data class LegKey(
     val fromLat: Long,
     val fromLon: Long,
     val toLat: Long,
     val toLon: Long,
     val profile: String,
+    val nogos: String = "",
 ) {
     companion object {
         private const val SCALE = 1e6
@@ -70,6 +74,7 @@ data class LegKey(
             from: RouteStop,
             to: RouteStop,
             profile: String,
+            zones: List<AvoidZone> = emptyList(),
         ): LegKey =
             LegKey(
                 (from.lat * SCALE).roundToLong(),
@@ -77,17 +82,20 @@ data class LegKey(
                 (to.lat * SCALE).roundToLong(),
                 (to.lon * SCALE).roundToLong(),
                 profile,
+                AvoidZone.nogos(AvoidZone.around(zones, from, to)),
             )
     }
 }
 
 /**
- * The stops the user placed and, between two consecutive ones, a leg: what a computed route is made from. Its
- * [geometry] (the legs put end to end) is what is drawn, followed, printed and exported.
+ * The stops the user placed and, between two consecutive ones, a leg: what a computed route is made from, with the
+ * [zones] its routed legs go round. Its [geometry] (the legs put end to end) is what is drawn, followed, printed and
+ * exported.
  */
 data class RoutePlan(
     val stops: List<RouteStop> = emptyList(),
     val legs: List<RouteLeg> = emptyList(),
+    val zones: List<AvoidZone> = emptyList(),
 ) {
     init {
         require(legs.size == maxOf(0, stops.size - 1)) { "${stops.size} stops need ${stops.size - 1} legs" }
@@ -123,7 +131,10 @@ data class RoutePlan(
         out
     }
 
-    fun key(leg: Int): LegKey = LegKey.of(stops[leg], stops[leg + 1], legs[leg].profile)
+    fun key(leg: Int): LegKey = LegKey.of(stops[leg], stops[leg + 1], legs[leg].profile, zones)
+
+    /** The zones leg [leg] goes round: those that hold neither of its stops (P19.8). */
+    fun legZones(leg: Int): List<AvoidZone> = AvoidZone.around(zones, stops[leg], stops[leg + 1])
 
     /** Legs BRouter still has to compute, in order. */
     val pending: List<Int> get() = legs.indices.filter { legs[it].state == LegState.PENDING }
@@ -182,6 +193,15 @@ data class RoutePlan(
         }
         return best
     }
+
+    /** The zone a position lies in, the one whose centre is nearest when several overlap; `null` outside them all. */
+    fun zoneAt(
+        lat: Double,
+        lon: Double,
+    ): Int? =
+        zones.indices
+            .filter { zones[it].contains(lat, lon) }
+            .minByOrNull { Geodesy.distance(lat, lon, zones[it].lat, zones[it].lon) }
 
     /** A loop: the last stop is back on the first. */
     val isLoop: Boolean

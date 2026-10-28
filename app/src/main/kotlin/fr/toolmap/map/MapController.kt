@@ -318,20 +318,21 @@ class MapController(
     }
 
     /**
-     * The line being drawn, its handles and the elastic lines of a stop being moved; `null` clears them. A line that is
-     * the same string as before is not sent again: while a stop follows the crosshair, only its handle and elastic lines
-     * change.
+     * The line being drawn, its handles, the elastic lines of a stop being moved and the zones to avoid (P19.8); `null`
+     * clears them. A line that is the same string as before is not sent again: while a stop or a zone follows the
+     * crosshair, only its handle and elastic lines, or the circle, change.
      */
     fun showEdit(
         lineGeoJson: String?,
         handlesGeoJson: String?,
         icons: Set<String> = emptySet(),
         elasticGeoJson: String? = null,
+        zonesGeoJson: String? = null,
     ) {
         val before = edit
         val next =
             if (lineGeoJson != null && handlesGeoJson != null) {
-                EditShown(lineGeoJson, handlesGeoJson, icons, elasticGeoJson)
+                EditShown(lineGeoJson, handlesGeoJson, icons, elasticGeoJson, zonesGeoJson)
             } else {
                 null
             }
@@ -351,7 +352,7 @@ class MapController(
     ) {
         runCatching {
             TrackOverlay.addGlyphs(s, e.icons) { WaypointGlyphs.render(appContext, it) }
-            EditLayers.show(s, e.line, e.handles, e.elastic, keepLine)
+            EditLayers.show(s, e.line, e.handles, e.elastic, keepLine, e.zones)
         }.onFailure { Log.e(TAG, "Edit overlay failed", it) }
     }
 
@@ -360,6 +361,7 @@ class MapController(
         val handles: String,
         val icons: Set<String>,
         val elastic: String?,
+        val zones: String?,
     )
 
     /** The ring on the target and the line to it from [from]; a `null` [target] hides both. */

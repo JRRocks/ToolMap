@@ -15,17 +15,19 @@ import fr.toolmap.core.xml.XmlText
  *   <tm:stop lat="45.9" lon="6.8" kind="named" name="Refuge" sym="Lodge"/>
  *   <tm:leg profile="hiking-mountain" mode="routed" n="152" time="5400000"/>
  *   <tm:stop lat="45.8" lon="6.9" kind="passage"/>
+ *   <tm:zone lat="45.85" lon="6.86" r="250"/>
  * </tm:plan></extensions>
  * ```
  *
- * `n` is the number of points of the leg, both stops included: the geometry is cut back into legs with it. The plan is
- * kept in the route's extras, so the library, the backups and the exports carry it with no change.
+ * `n` is the number of points of the leg, both stops included: the geometry is cut back into legs with it. `tm:zone`
+ * are the zones to avoid (P19.8), their radius in meters. The plan is kept in the route's extras, so the library, the
+ * backups and the exports carry it with no change.
  */
 object RoutePlanGpx {
     const val NAMESPACE = "https://toolmap.app/gpx/1"
 
     private val PLAN = Regex("""<(?:[\w.-]+:)?plan\b[^>]*>[\s\S]*?</(?:[\w.-]+:)?plan>""")
-    private val CHILD = Regex("""<(?:[\w.-]+:)?(stop|leg)\b([^>]*?)/?>""")
+    private val CHILD = Regex("""<(?:[\w.-]+:)?(stop|leg|zone)\b([^>]*?)/?>""")
     private val ATTR = Regex("""([\w.:-]+)\s*=\s*"([^"]*)"""")
     private val EMPTY_EXTENSIONS =
         Regex("""^<(?:[\w.-]+:)?extensions\b[^>]*>\s*</(?:[\w.-]+:)?extensions>$|^<(?:[\w.-]+:)?extensions\b[^>]*/>$""")
@@ -52,6 +54,10 @@ object RoutePlanGpx {
                 leg.timeMillis?.let { out.append(" time=\"").append(it).append('"') }
                 out.append("/>")
             }
+        }
+        for (z in plan.zones) {
+            out.append("<tm:zone lat=\"").append(z.lat).append("\" lon=\"").append(z.lon).append('"')
+            out.append(" r=\"").append(z.radiusMeters).append("\"/>")
         }
         return out.append("</tm:plan>").toString()
     }
@@ -91,9 +97,15 @@ object RoutePlanGpx {
         val body = PLAN.find(raw.xml)?.value ?: return null
         val stops = ArrayList<RouteStop>()
         val legs = ArrayList<Triple<Map<String, String>, Int, Long?>>()
+        val zones = ArrayList<AvoidZone>()
         for (m in CHILD.findAll(body)) {
             val a = ATTR.findAll(m.groupValues[2]).associate { it.groupValues[1] to unescape(it.groupValues[2]) }
-            if (m.groupValues[1] == "stop") {
+            if (m.groupValues[1] == "zone") {
+                val lat = a["lat"]?.toDoubleOrNull() ?: return null
+                val lon = a["lon"]?.toDoubleOrNull() ?: return null
+                val r = a["r"]?.toIntOrNull()?.takeIf { it > 0 } ?: return null
+                zones += AvoidZone(lat, lon, r)
+            } else if (m.groupValues[1] == "stop") {
                 val lat = a["lat"]?.toDoubleOrNull() ?: return null
                 val lon = a["lon"]?.toDoubleOrNull() ?: return null
                 val named = a["kind"] == "named"
@@ -104,7 +116,17 @@ object RoutePlanGpx {
             }
         }
         if (stops.isEmpty() || legs.size != stops.size - 1) return null
-        if (stops.size == 1) return if (geometry.size == 1 && matches(geometry[0], stops[0])) RoutePlan(stops) else null
+        if (stops.size ==
+            1
+        ) {
+            return if (geometry.size == 1 &&
+                matches(geometry[0], stops[0])
+            ) {
+                RoutePlan(stops, zones = zones)
+            } else {
+                null
+            }
+        }
         if (legs.any { it.second < 2 } || legs.sumOf { it.second - 1 } + 1 != geometry.size) return null
         var at = 0
         val built =
@@ -120,7 +142,7 @@ object RoutePlanGpx {
                     timeMillis = time,
                 )
             }
-        return RoutePlan(stops, built)
+        return RoutePlan(stops, built, zones)
     }
 
     /** The `<rtept>` of a planned route: its whole geometry, the points on a named stop with its name and icon. */
