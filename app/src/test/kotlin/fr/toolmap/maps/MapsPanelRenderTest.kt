@@ -115,12 +115,12 @@ class MapsPanelRenderTest {
             rule.onNodeWithText("Couleurs").performClick()
             val id = fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" }.id
             rule.runOnIdle { fixture.vm.setHue(id, 120f) }
-            rule.onNodeWithText("Teinte : 120°").performScrollTo()
+            // The whole slider in view, not only its name: below the panel's edge, the finger would miss it.
+            rule.onNode(HUE_SLIDER).performScrollTo()
         }
         if (holdHue) {
             // The finger rests where 120° is (300 of the 360 degrees from the start), as on the preview.
-            val hue = SemanticsMatcher.expectValue(SemanticsProperties.ProgressBarRangeInfo, HUE_PROGRESS)
-            rule.onNode(hue).performTouchInput { down(percentOffset(HELD_AT, 0.5f)) }
+            rule.onNode(HUE_SLIDER).performTouchInput { down(percentOffset(HELD_AT, 0.5f)) }
         }
         rule.waitForIdle()
         save(out, name)
@@ -164,7 +164,8 @@ class MapsPanelRenderTest {
 }
 
 private val MAP = Color(0xFFE4EBCF)
-private val HUE_PROGRESS = ProgressBarRangeInfo(120f, HUE_RANGE)
+private val HUE_SLIDER =
+    SemanticsMatcher.expectValue(SemanticsProperties.ProgressBarRangeInfo, ProgressBarRangeInfo(120f, HUE_RANGE))
 private const val HELD_AT = 300f / 360f
 
 /** A plain map colour, the panel at the bottom over the bar, as on the map screen. */
