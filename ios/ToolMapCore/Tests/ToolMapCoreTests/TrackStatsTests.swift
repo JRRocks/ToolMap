@@ -136,7 +136,8 @@ struct TrackStatsTests {
         let stats = TrackStatsCalculator.compute([a, b])
         #expect(abs(stats.distance2dMeters - 200.0) <= 0.1)
         #expect(stats.segmentCount == 2)
-        #expect(stats.totalDurationMillis == 1_800_000_000_000 + 70000 - 1_700_000_000_000)
+        let expected: Int64 = 1_800_000_000_000 + 70000 - 1_700_000_000_000
+        #expect(stats.totalDurationMillis == expected)
     }
 
     @Test("DIN 33466 walking time")
