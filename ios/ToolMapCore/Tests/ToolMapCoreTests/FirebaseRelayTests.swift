@@ -226,6 +226,9 @@ private final class MemoryAuth: AuthStore, @unchecked Sendable {
 }
 
 /// Waits until `condition` holds, at most `timeoutMs`, without holding a thread.
+/// Waits until `condition` holds, at most `timeoutMs`. A wait for something that must happen in the end (a link, a
+/// stream, a write) is long: the iPhone simulator runs the thousand tests at once on few cores, and a short wait
+/// failed there while nothing was wrong (2026-10-29). Waits that check promptness ("at once") keep their short bound.
 private func relayWaitFor(_ timeoutMs: Int, _ condition: () -> Bool) async throws -> Bool {
     let until = Date().addingTimeInterval(Double(timeoutMs) / 1000)
     while Date() < until {
@@ -282,7 +285,7 @@ struct FirebaseRelayTests {
     }
 
     private func linked(_ catcher: LinkCatcher) async throws -> any MeshLink {
-        #expect(try await relayWaitFor(6_000) { catcher.link != nil }, "the other member's link opens")
+        #expect(try await relayWaitFor(20_000) { catcher.link != nil }, "the other member's link opens")
         return try #require(catcher.link)
     }
 
@@ -295,9 +298,9 @@ struct FirebaseRelayTests {
         defer { r.close() }
         let l = try await linked(catcher)
         _ = l.send(frame(.pos, 1), true)
-        #expect(try await relayWaitFor(4_000) { positionWrites(server) == 1 }, "the position goes to p")
+        #expect(try await relayWaitFor(10_000) { positionWrites(server) == 1 }, "the position goes to p")
         _ = l.send(frame(.ping, 2), true)
-        #expect(try await relayWaitFor(4_000) { controlWrites(server) == 1 }, "the PING goes to c")
+        #expect(try await relayWaitFor(10_000) { controlWrites(server) == 1 }, "the PING goes to c")
         try await pauseMs(300)
         #expect(positionWrites(server) == 1, "p still holds the position")
     }
@@ -313,7 +316,7 @@ struct FirebaseRelayTests {
         let l = try await linked(catcher)
         server.failPositions.value = true
         _ = l.send(frame(.pos, 1), true)
-        #expect(try await relayWaitFor(4_000) { positionWrites(server) == 1 }, "the write fails")
+        #expect(try await relayWaitFor(10_000) { positionWrites(server) == 1 }, "the write fails")
         server.failPositions.value = false
         // A new network: the stream reopens at once; the next heartbeat would only come 15 s after the start.
         r.onNetwork("net-2")
@@ -330,7 +333,7 @@ struct FirebaseRelayTests {
         r.onNetwork("net-1")
         r.start()
         defer { r.close() }
-        #expect(try await relayWaitFor(6_000) { streams(server) == 1 }, "stream opened")
+        #expect(try await relayWaitFor(20_000) { streams(server) == 1 }, "stream opened")
         // Same network, stream under 5 s old: kept (the call that comes with the registration).
         r.onNetwork("net-1")
         r.reconnectNow()
@@ -338,7 +341,7 @@ struct FirebaseRelayTests {
         #expect(streams(server) == 1, "a recent stream on the same network is kept")
         let l = try await linked(catcher)
         _ = l.send(frame(.pos, 1), true)
-        #expect(try await relayWaitFor(4_000) { positionWrites(server) == 1 }, "position written")
+        #expect(try await relayWaitFor(10_000) { positionWrites(server) == 1 }, "position written")
         try await pauseMs(200)
         // A second network arrives: the stream still uses the first one.
         r.onNetwork("net-2")
@@ -358,7 +361,7 @@ struct FirebaseRelayTests {
         r.start()
         defer { r.close() }
         let l = try await linked(catcher)
-        #expect(try await relayWaitFor(6_000) { states.value.contains(.online) }, "online")
+        #expect(try await relayWaitFor(20_000) { states.value.contains(.online) }, "online")
         try await pauseMs(1_200)
         _ = l.send(frame(.pos, 1), true)
         #expect(try await relayWaitFor(6_000) { streams(server) == 2 }, "the stream reopens after the renewal")
@@ -419,7 +422,7 @@ struct FirebaseRelayTests {
         let r = relay(server, LinkCatcher())
         r.start()
         defer { r.close() }
-        #expect(try await relayWaitFor(6_000) { streams(server) == 1 }, "stream opened")
+        #expect(try await relayWaitFor(20_000) { streams(server) == 1 }, "stream opened")
         let beforeStream = server.calls.prefix { !$0.stream }
         #expect(beforeStream.filter { $0.path.hasSuffix("/h.json") }.count == 2)
     }
@@ -464,7 +467,7 @@ struct FirebaseRelayTests {
         let r = relay(server, LinkCatcher())
         r.start()
         defer { r.close() }
-        #expect(try await relayWaitFor(6_000) { streams(server) == 1 }, "stream opened")
+        #expect(try await relayWaitFor(20_000) { streams(server) == 1 }, "stream opened")
         // A stream opened under 5 s ago is already on the new network and kept.
         try await pauseMs(5_200)
         r.reconnectNow()

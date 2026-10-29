@@ -306,10 +306,10 @@ struct GpxTests {
             )
         }
         let doc = TrackDocument(tracks: [Track(name: "big", segments: [points])])
-        let started = Date()
+        let started = ThreadClock.now()
         let bytes = GpxWriter.toBytes(doc)
         let back = try GpxReader.read(bytes)
-        let seconds = Date().timeIntervalSince(started)
+        let seconds = ThreadClock.now() - started
         #expect(back.tracks.first?.segments.first == points)
         #expect(back.tracks.first?.name != nil)
         #expect(seconds < 10, "took \(seconds) s")

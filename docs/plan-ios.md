@@ -35,6 +35,9 @@ Correspondance des paquets : `fr.toolmap.core.<paquet>` (Kotlin) → `ios/ToolMa
 - Les comportements de Kotlin ont leurs fonctions dans `Support/KotlinText.swift` : `kotlinTrim`, `kotlinInt` (`toIntOrNull`, 32 bits), `kotlinDouble` (`toDoubleOrNull`), `kotlinSplit` (garde les morceaux vides), `kotlinToInt` / `kotlinToLong` (saturés, NaN → 0), `kotlinRound` (`Math.round`), `kotlinRem` (`%` des `Double`), `formatFixed` (`%.nf` en `Locale.ROOT`), `Angle.radians` / `Angle.degrees` (même dernier bit que `Math.toRadians` du JVM).
 - `require(…)` de Kotlin → fonction `throws` (`try require(cond, "message")`, erreur `ToolMapError.invalidArgument`) ; une exception propre (`AqxParseException`) → une erreur Swift du même nom en `…Error`.
 - Une sous-classe d'une classe Apple ne redéfinit pas une propriété existante (`URLProtocol.task`) : nommer ses propriétés sans ambiguïté.
+- Dans `#expect` / `#require`, un appel de fonction au premier niveau ne prend ni chemin de clé ni référence de fonction en argument (`#expect(a.allSatisfy(\.isEdge))` est refusé : « call can throw ») : fermeture en fin d'appel (`a.allSatisfy { $0.isEdge }`).
+- Une longue expression mêlant littéraux et `map` (`(0 ..< 50).map { … } + (0 ..< 50).map { … }`) dépasse le temps de vérification des types : variables intermédiaires typées. De même, une valeur attendue calculée (`1_800_000_000_000 + 70_000 - …`) comparée à un `Int64?` se type à part (`let expected: Int64 = …`).
+- La valeur par défaut d'un paramètre d'une fonction `public` ne cite que des déclarations `public`. Un octet calculé dans un littéral de `[UInt8]` (`1 | 0x80`) s'écrit `UInt8(1 | 0x80)`.
 - Pour vérifier un nom d'API de MapLibre, lire les en-têtes sur `raw.githubusercontent.com/maplibre/maplibre-native/main/platform/{ios,darwin}/src/` (joignable depuis le cloud).
 
 ## 3. Méthode de synchronisation avec Android
@@ -70,7 +73,7 @@ Les deux applications n'ont aucun code commun : une fonction Android se **tradui
 
 | Android | iOS | Décision |
 |---|---|---|
-| BRouter par AIDL (P19, ADR-064) : moteur hors ligne fourni par l'application BRouter | Aucune application BRouter sur iOS, et une application ne peut pas en appeler une autre de cette façon | À décider (P32.12) : serveur BRouter en ligne, moteur embarqué, ou pas d'itinéraire calculé |
+| BRouter par AIDL (P19, ADR-064) : moteur hors ligne fourni par l'application BRouter | Aucune application BRouter sur iOS, et une application ne peut pas en appeler une autre de cette façon | Serveur BRouter en ligne (`brouter.de`), ADR-102, **à confirmer par l'utilisateur** |
 | Mise à jour depuis GitHub (P31, ADR-094) | Interdit : une application ne s'installe que par l'App Store ou TestFlight | Pas d'équivalent |
 | Services de premier plan : enregistreur, alertes, écoute du groupe (ADR-024, ADR-051, ADR-090) | Localisation en arrière-plan permise (`UIBackgroundModes` `location`), pas de service permanent sans elle | Enregistreur et alertes par la localisation en arrière-plan ; écoute du groupe à décider (pendant la localisation, ou notifications push, qui demandent un serveur) |
 | Intercepteur OkHttp des tuiles (ADR-002) | `URLProtocol` dans la configuration réseau de MapLibre iOS | P32.4 |
@@ -84,6 +87,18 @@ Les deux applications n'ont aucun code commun : une fonction Android se **tradui
 | Rapport de plantage affiché sur le téléphone (ADR-029) | Pas de capture globale simple des plantages Swift | À revoir |
 | Textes `strings.xml` | Catalogue de chaînes Xcode (`Localizable.xcstrings`), en français | Avec chaque écran |
 | Vérification sur appareil (GPS réel, capteurs, caméra, deux téléphones, écran éteint) | Simulateur seulement : position simulée, pas de capteurs | Tant que l'utilisateur n'a pas d'iPhone |
+
+## 5 bis. Installer sur un iPhone (P32.13, préparé)
+
+Rien n'est fait sans l'accord de l'utilisateur (ADR-100, point 6). Ce qui est prêt : le workflow manuel `.github/workflows/ios-testflight.yml` (Actions ▸ « iOS TestFlight » ▸ Run workflow), qui archive l'application signée et l'envoie à TestFlight, et qui ne fait rien tant que les secrets ci-dessous manquent.
+
+Ce que l'utilisateur aurait à faire, une fois décidé :
+1. Créer un compte Apple Developer (developer.apple.com, 99 € par an, identité vérifiée) ;
+2. Dans App Store Connect : créer l'app « ToolMap » avec l'identifiant `fr.toolmap.ios`, puis une clé d'API (Utilisateurs et accès ▸ Intégrations ▸ API App Store Connect, rôle « App Manager ») ;
+3. Mettre dans les secrets du dépôt GitHub : `APPLE_TEAM_ID` (10 caractères), `APPLE_ASC_KEY_ID`, `APPLE_ASC_ISSUER_ID`, `APPLE_ASC_KEY_P8` (contenu du fichier `.p8`) ;
+4. Lancer « iOS TestFlight » ; après le traitement d'Apple, installer TestFlight sur l'iPhone et accepter l'invitation (test interne, sans revue d'Apple).
+
+Sans compte : le `.app` du simulateur (release `ios-<version>`) se lance dans un navigateur par Appetize.io (téléverser le zip sur appetize.io, plateforme iOS).
 
 ## 6. Table de parité
 

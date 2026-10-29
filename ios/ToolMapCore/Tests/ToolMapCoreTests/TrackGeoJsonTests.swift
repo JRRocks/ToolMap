@@ -110,11 +110,11 @@ struct TrackGeoJsonTests {
                 lon: 6.0 + Double(i) * 2e-6 + cos(Double(i) / 40.0) * 1e-5
             )
         }
-        let started = Date()
+        let started = ThreadClock.now()
         let text = TrackGeoJson.lines([
             LineFeature(id: 1, colorArgb: Int32(bitPattern: 0xFFFF_0000), widthDp: 4, dashed: false, segments: [points]),
         ])
-        let millis = Date().timeIntervalSince(started) * 1000
+        let millis = (ThreadClock.now() - started) * 1000
         let list = try features(text)
         let count = try #require(list.first?["geometry"]?["coordinates"]?.elements?.count)
         #expect(count >= 2 && count < points.count, "\(count) points kept")
