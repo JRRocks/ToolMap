@@ -171,7 +171,8 @@ import fr.toolmap.print.PrintFrameOverlay
 import fr.toolmap.print.PrintOutcome
 import fr.toolmap.print.PrintOutcomeDialog
 import fr.toolmap.print.PrintPagesOverlay
-import fr.toolmap.print.PrintSetupDialog
+import fr.toolmap.print.PrintSetupPanel
+import fr.toolmap.print.PrintSheetPage
 import fr.toolmap.print.PrintStage
 import fr.toolmap.print.PrintTrackActions
 import fr.toolmap.print.PrintUi
@@ -379,14 +380,23 @@ fun MapScreen(
     val safe = WindowInsets.safeDrawing.asPaddingValues()
     val bottomClearance =
         when {
-            mapsPage == MapsPage.SAVE_AREA -> with(density) { saveAreaPanelHeight.toDp() }
+            mapsPage == MapsPage.SAVE_AREA -> {
+                with(density) { saveAreaPanelHeight.toDp() }
+            }
 
-            conditionsLayer != null -> with(density) { conditionsPanelHeight.toDp() }
+            conditionsLayer != null -> {
+                with(density) { conditionsPanelHeight.toDp() }
+            }
 
-            // While the frame is placed the bar is hidden: its panel stands at the bottom (P29.10).
-            printUi.stage == PrintStage.FRAME -> with(density) { printPanelHeight.toDp() } + 12.dp
+            // While the sheet is chosen and the frame placed the bar is hidden: their panel stands at the bottom (P29.10,
+            // P17.8).
+            printUi.stage == PrintStage.FRAME || printUi.stage == PrintStage.SETUP -> {
+                with(density) { printPanelHeight.toDp() } + 12.dp
+            }
 
-            else -> 0.dp
+            else -> {
+                0.dp
+            }
         }
 
     // Tiles are drawn about one tile pixel per screen pixel, like AlpineQuest, unless the settings say otherwise
@@ -640,7 +650,19 @@ fun MapScreen(
         }
     }
     BackHandler(enabled = printUi.active) {
-        if (printUi.stage == PrintStage.CONFIRM) print.backToFrame() else print.close()
+        when {
+            printUi.stage == PrintStage.CONFIRM && printUi.sheetPage != PrintSheetPage.MAIN -> {
+                print.openSheetPage(PrintSheetPage.MAIN)
+            }
+
+            printUi.stage == PrintStage.CONFIRM -> {
+                print.backToFrame()
+            }
+
+            else -> {
+                print.close()
+            }
+        }
     }
     BackHandler(enabled = mapsPage == MapsPage.SAVE_AREA) { maps.close() }
     // Back from the conditions comes back to the maps panel, the line of the layer still unfolded (P29.3).
@@ -697,16 +719,19 @@ fun MapScreen(
         fittedPages = ui.fitRequest
         controller.flyTo(fit.lat, fit.lon, fit.zoom, bearing = northOffset)
     }
-    // On the confirmation sheet the frame stays in sight, fitted to the map left above the sheet. The short wait lets
-    // the sheet take its height (it replaces the buttons of the frame, measured in the same place).
-    LaunchedEffect(printUi.stage, printPanelHeight) {
+    // On the confirmation sheet the frame stays in sight, fitted to the map left above the sheet; so does it above the
+    // panel where the sheet is chosen (P17.8, variant E), fitted again when the sheet or the scale change. The short wait
+    // lets the panel take its height (it replaces the buttons of the frame, measured in the same place).
+    LaunchedEffect(printUi.stage, printPanelHeight, printUi.fitRequest) {
         val ui = printUi
-        if (ui.stage != PrintStage.CONFIRM || rootSize == IntSize.Zero || printPanelHeight == 0) return@LaunchedEffect
+        val above = ui.stage == PrintStage.CONFIRM || ui.stage == PrintStage.SETUP
+        if (!above || rootSize == IntSize.Zero || printPanelHeight == 0) return@LaunchedEffect
         delay(PRINT_CONFIRM_SETTLE_MS)
         val widthDp = rootSize.width / density.density.toDouble()
         val heightDp = rootSize.height / density.density.toDouble()
-        // The panel of the confirmation stands above the bar since P29.10.
-        val sheetDp = (printPanelHeight + barHeight) / density.density.toDouble() + PRINT_CONFIRM_GAP_DP
+        // The panel of the confirmation stands above the bar since P29.10; the bar is hidden while the sheet is chosen.
+        val bar = if (ui.stage == PrintStage.CONFIRM) barHeight else 0
+        val sheetDp = (printPanelHeight + bar) / density.density.toDouble() + PRINT_CONFIRM_GAP_DP
         val availableWidth = (widthDp - 2 * PRINT_CONFIRM_SIDE_DP).coerceAtLeast(PRINT_MIN_FIT_DP)
         val availableHeight =
             (heightDp - sheetDp - PRINT_CONFIRM_TOP_DP - PRINT_CONFIRM_BOTTOM_DP).coerceAtLeast(PRINT_MIN_FIT_DP)
@@ -741,7 +766,7 @@ fun MapScreen(
                 onChooseZone = print::chooseZone,
                 onNext = print::confirm,
                 onBack = print::backToFrame,
-                onToggleMore = print::toggleMoreOptions,
+                onPage = print::openSheetPage,
                 onClose = print::close,
                 onDownload = print::downloadMissing,
                 onExport = { createPdf.launch(print.suggestedFileName()) },
@@ -1160,8 +1185,9 @@ fun MapScreen(
     val onCoordinates: (Boolean) -> Unit = { on -> vm.updateSettings { it.copy(showCoordinates = on) } }
     val chromeShown = !locked && !chromeHidden
     // While the print frame is placed, only the format band, Annuler / Suivant and an SOS stay over the map (preview
-    // validated on 2026-10-26, docs/previews/cadre-impression.html, variant A).
-    val framing = printUi.stage == PrintStage.FRAME
+    // validated on 2026-10-26, docs/previews/cadre-impression.html, variant A); while the sheet is chosen, the frame
+    // drawn on the map and the panel of the sheets (P17.8, variant E).
+    val framing = printUi.stage == PrintStage.FRAME || printUi.stage == PrintStage.SETUP
     val barDp = with(density) { barHeight.toDp() }
     // The panel stays below the top of the screen, and above the bar.
     val menuMaxHeight =
@@ -1418,9 +1444,7 @@ fun MapScreen(
                 frame = frame,
             )
         }
-        if (printUi.stage == PrintStage.FRAME || printUi.stage == PrintStage.CONFIRM) {
-            PrintFrameLayer(controller, printUi, print)
-        }
+        if (printUi.active) PrintFrameLayer(controller, printUi, print)
         if (!framing) {
             CenterPoint(
                 menuEnabled = pointMenuAllowed,
@@ -1925,12 +1949,12 @@ fun MapScreen(
                 }
             }
         }
-        if (toolShown || printUi.stage == PrintStage.FRAME) {
+        if (toolShown || framing) {
             Box(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(12.dp)) {
                 val toolModifier =
                     Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = if (printUi.stage == PrintStage.FRAME) 0.dp else barDp + 12.dp)
+                        .padding(bottom = if (framing) 0.dp else barDp + 12.dp)
                         .onSizeChanged { toolPanelHeight = it.height }
                         .onGloballyPositioned { toolPanelTop = it.boundsInRoot().top.roundToInt() }
                 if (drawUi.active && drawUi.chooseSegment == null) {
@@ -1977,9 +2001,16 @@ fun MapScreen(
                         onDownloadArea = onDownloadZone,
                     )
                 }
-                if (printUi.stage == PrintStage.FRAME || printUi.stage == PrintStage.CONFIRM) {
+                if (printUi.active) {
                     val printModifier = toolModifier.onSizeChanged { printPanelHeight = it.height }
-                    if (printUi.stage == PrintStage.FRAME && printUi.alongTrack) {
+                    if (printUi.stage == PrintStage.SETUP) {
+                        PrintSetupPanel(
+                            ui = printUi,
+                            actions = printActions,
+                            maxHeight = toolMaxHeight,
+                            modifier = printModifier,
+                        )
+                    } else if (printUi.stage == PrintStage.FRAME && printUi.alongTrack) {
                         PrintTrackActions(
                             ui = printUi,
                             onCancel = print::close,
@@ -2201,7 +2232,6 @@ fun MapScreen(
                 onDismiss = { recoveryDismissed = true },
             )
         }
-        if (printUi.stage == PrintStage.SETUP) PrintSetupDialog(ui = printUi, actions = printActions)
         printUi.outcome?.let { outcome ->
             PrintOutcomeDialog(
                 outcome = outcome,

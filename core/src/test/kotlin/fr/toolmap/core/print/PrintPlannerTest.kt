@@ -100,12 +100,28 @@ class PrintPlannerTest {
             )
         assertTrue(poster.canExport, poster.issues.toString())
         assertTrue(poster.mapPages.single().raster.widthPx > 11_000)
+        assertTrue(poster.warnings.none { it is PrintWarning.Heavy })
+        // At 300 dpi the page is above 150 Mpx: still made, with the warning of a heavy PDF (P17.9).
         val atBest = plan(poster.template.copy(dpi = 300))
-        assertTrue(PrintIssue.HUGE_PAGE in atBest.issues, "too many pixels at 300 dpi: lower the dpi")
+        assertTrue(atBest.canExport, atBest.issues.toString())
+        val heavy = atBest.warnings.filterIsInstance<PrintWarning.Heavy>().single()
+        assertEquals(300, heavy.dpi)
+        assertTrue(heavy.pixelsPerPage > PrintPlanner.HEAVY_PIXELS)
     }
 
     @Test
-    fun `a huge sheet or a huge number of tiles is refused`() {
+    fun `above 300 dpi the plan warns of a heavy PDF without refusing it`() {
+        assertTrue(plan(PrintTemplate(scale = 25_000.0, dpi = 300)).warnings.none { it is PrintWarning.Heavy })
+        val fine = plan(PrintTemplate(scale = 25_000.0, dpi = 600))
+        assertTrue(fine.canExport, fine.issues.toString())
+        val heavy = fine.warnings.filterIsInstance<PrintWarning.Heavy>().single()
+        assertEquals(600, heavy.dpi)
+        assertEquals(fine.mapPages.single().raster.pixels, heavy.pixelsPerPage)
+        assertTrue(heavy.pixelsPerPage < PrintPlanner.HEAVY_PIXELS, "an A4 at 600 dpi is about 22 Mpx")
+    }
+
+    @Test
+    fun `a huge sheet is only heavy, a huge number of tiles is refused`() {
         val huge =
             plan(
                 PrintTemplate(
@@ -114,7 +130,8 @@ class PrintPlannerTest {
                     dpi = 600,
                 ),
             )
-        assertTrue(PrintIssue.HUGE_PAGE in huge.issues)
+        assertTrue(huge.warnings.any { it is PrintWarning.Heavy })
+        assertTrue(PrintIssue.TOO_MANY_TILES in huge.issues || huge.canExport, huge.issues.toString())
         // Wider than a JPEG can be (65 500 px), though few pixels: a strip 12 m long at 150 dpi, drawn in pieces.
         val strip =
             plan(
@@ -126,9 +143,9 @@ class PrintPlannerTest {
             )
         assertTrue(strip.mapPages.single().raster.widthPx > 65_500)
         assertTrue(strip.canExport, strip.issues.toString())
-        // A sheet of a thousand kilometres is refused, not overflowed.
+        // A sheet of a thousand kilometres is refused for its tiles, not overflowed.
         val absurd = plan(PrintTemplate(page = PageSetup(Paper.CUSTOM, customWidthMm = 1e9, customHeightMm = 1e9)))
-        assertTrue(PrintIssue.HUGE_PAGE in absurd.issues && !absurd.canExport)
+        assertTrue(PrintIssue.TOO_MANY_TILES in absurd.issues && !absurd.canExport, absurd.issues.toString())
         val area = Bounds(5.0, 44.0, 7.0, 45.5)
         val manyTiles =
             plan(PrintTemplate(scale = 50_000.0, atlas = AtlasMode.GRID), here.copy(bounds = area))
@@ -265,7 +282,8 @@ class PrintPlannerTest {
     fun `sanitizing brings figures back into range`() {
         val s = PrintTemplate(scale = 1.0, dpi = 5_000, overlapPercent = 90.0, gridStep = -3.0).sanitized()
         assertEquals(PrintTemplate.MIN_SCALE, s.scale)
-        assertEquals(PrintTemplate.MAX_DPI, s.dpi)
+        assertEquals(5_000, s.dpi, "no highest resolution (P17.9)")
+        assertEquals(PrintTemplate.MIN_DPI, PrintTemplate(dpi = 10).sanitized().dpi)
         assertEquals(PrintTemplate.MAX_OVERLAP_PERCENT, s.overlapPercent)
         assertNull(s.gridStep)
         assertTrue(abs(PrintTemplate(scale = Double.NaN).sanitized().scale - PrintTemplate.DEFAULT_SCALE) < 1e-9)

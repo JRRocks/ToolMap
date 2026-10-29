@@ -25,7 +25,6 @@ enum class PrintIssue {
     NO_AREA,
     NO_TRACK,
     TOO_MANY_PAGES,
-    HUGE_PAGE,
     TOO_MANY_TILES,
     NO_LAYER,
 }
@@ -93,8 +92,11 @@ class PrintPlan(
 
 /** Turns a template, a position and the layer stack into the pages to draw and the figures to show (spec §2, §5, §6). */
 object PrintPlanner {
-    /** More pixels than this on one page would not fit in a PDF a phone can write or a printer can read. */
-    const val MAX_PIXELS_PER_PAGE = 150_000_000L
+    /**
+     * Above this a page is heavy (P17.9): the PDF is still made, with a warning; it was the largest page allowed until
+     * the user asked for no limit on 2026-10-29 (ADR-097).
+     */
+    const val HEAVY_PIXELS = 150_000_000L
 
     const val MAX_TILES = 40_000L
 
@@ -154,7 +156,6 @@ object PrintPlanner {
         }
 
         val mapPages = pages.filter { it.kind == PageKind.MAP }
-        if (mapPages.any { it.raster.pixels > MAX_PIXELS_PER_PAGE }) issues += PrintIssue.HUGE_PAGE
         if (mapPages.isNotEmpty() && mapPages.all { it.layers.layers.isEmpty() }) issues += PrintIssue.NO_LAYER
 
         val byLayer = LinkedHashMap<String, Long>()
@@ -175,7 +176,14 @@ object PrintPlanner {
                 PrintMath.edgeErrorPercent(t.page.frameHeightMm, t.scale, it.frame.centerLat)
             }
                 ?: 0.0
-        return PrintPlan(t, pages, atlas, mergeWarnings(all), issues.toList(), byLayer, total, bytes, edge)
+        val largest = mapPages.maxOfOrNull { it.raster.pixels } ?: 0L
+        val heavy =
+            if (mapPages.isNotEmpty() && (t.dpi > PrintTemplate.HIGH_DPI || largest > HEAVY_PIXELS)) {
+                listOf(PrintWarning.Heavy(t.dpi, largest))
+            } else {
+                emptyList()
+            }
+        return PrintPlan(t, pages, atlas, mergeWarnings(all) + heavy, issues.toList(), byLayer, total, bytes, edge)
     }
 
     /** The frame of the assembly page: every page footprint inside it, with a little air around. */
@@ -324,8 +332,13 @@ object PrintPlanner {
             val key =
                 when (warning) {
                     is PrintWarning.Oversampled -> "over" to warning.sourceId
+
                     is PrintWarning.OutsideRange -> "range" to warning.sourceId
+
                     is PrintWarning.Unavailable -> "gone" to warning.sourceId
+
+                    // Only the plan as a whole is heavy: never among the warnings of a page's layers.
+                    is PrintWarning.Heavy -> "heavy" to ""
                 }
             val known = out[key]
             if (known !is PrintWarning.Oversampled || warning !is PrintWarning.Oversampled ||

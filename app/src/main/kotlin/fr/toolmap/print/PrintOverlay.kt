@@ -516,20 +516,8 @@ fun orientationName(setup: PageSetup): String = orientationName(setup.landscape)
 fun orientationName(landscape: Boolean): String =
     stringResource(if (landscape) R.string.print_landscape else R.string.print_portrait)
 
-/** "A4 paysage · 1:25 000 · 6,6 × 3,7 km": what the sheet is, in one line. */
-@Composable
-fun summaryLine(template: PrintTemplate): String =
-    stringResource(
-        R.string.print_summary_line,
-        paperName(template.page),
-        orientationName(template.page).lowercase(),
-        PrintFormat.scale(template.scale, PrintTexts()),
-        groundSize(template).first,
-        groundSize(template).second,
-    )
-
 /** The ground size of the frame, in the phone's language. */
-private fun groundSize(template: PrintTemplate): Pair<String, String> =
+internal fun groundSize(template: PrintTemplate): Pair<String, String> =
     PrintFormat.groundSize(
         PrintViewport.groundMeters(template.page.frameWidthMm, template.scale),
         PrintViewport.groundMeters(template.page.frameHeightMm, template.scale),

@@ -89,8 +89,11 @@ sealed interface PrintOutcome {
     ) : PrintOutcome
 }
 
-/** The three steps of a print (ADR-061): the two questions, the frame on the map, the confirmation. */
+/** The three steps of a print (ADR-061): the sheet and the scale, the frame on the map, the confirmation. */
 enum class PrintStage { SETUP, FRAME, CONFIRM }
+
+/** The pages of the confirmation (P17.8, variant A): the main one, « Éléments de la feuille », « Qualité et marges ». */
+enum class PrintSheetPage { MAIN, ELEMENTS, QUALITY }
 
 /** What the print dialogs and the frame over the map show. */
 data class PrintUi(
@@ -106,8 +109,8 @@ data class PrintUi(
     val planning: Boolean = false,
     /** Tiles of the plan not in local storage yet; `null` while they are being counted. */
     val missingTiles: Int? = null,
-    /** "Plus d'options" of the confirmation is unfolded. */
-    val moreOptions: Boolean = false,
+    /** The page of the confirmation shown. */
+    val sheetPage: PrintSheetPage = PrintSheetPage.MAIN,
     /** Grows each time the frame takes a new size: the screen then fits the zoom to it again. */
     val fitRequest: Int = 0,
     val job: PrintJob? = null,
@@ -225,7 +228,7 @@ class PrintViewModel
             if (mutableUi.value.stage ==
                 PrintStage.FRAME
             ) {
-                mutableUi.value = mutableUi.value.copy(stage = PrintStage.CONFIRM)
+                mutableUi.value = mutableUi.value.copy(stage = PrintStage.CONFIRM, sheetPage = PrintSheetPage.MAIN)
             }
         }
 
@@ -236,7 +239,11 @@ class PrintViewModel
             ) {
                 // The frame goes back to the middle of the map, at 70 % (it was above the sheet).
                 mutableUi.value =
-                    mutableUi.value.copy(stage = PrintStage.FRAME, fitRequest = mutableUi.value.fitRequest + 1)
+                    mutableUi.value.copy(
+                        stage = PrintStage.FRAME,
+                        sheetPage = PrintSheetPage.MAIN,
+                        fitRequest = mutableUi.value.fitRequest + 1,
+                    )
             }
         }
 
@@ -245,11 +252,19 @@ class PrintViewModel
             if (mutableUi.value.active) templates.remember(mutableUi.value.template)
             inputs.value = null
             mutableUi.value =
-                mutableUi.value.copy(stage = null, plan = null, job = null, missingTiles = null, path = emptyList())
+                mutableUi.value.copy(
+                    stage = null,
+                    plan = null,
+                    job = null,
+                    missingTiles = null,
+                    path = emptyList(),
+                    sheetPage = PrintSheetPage.MAIN,
+                )
         }
 
-        fun toggleMoreOptions() {
-            mutableUi.value = mutableUi.value.copy(moreOptions = !mutableUi.value.moreOptions)
+        /** Opens a page of the confirmation, or comes back to the main one. */
+        fun openSheetPage(page: PrintSheetPage) {
+            if (mutableUi.value.stage == PrintStage.CONFIRM) mutableUi.value = mutableUi.value.copy(sheetPage = page)
         }
 
         // --- the frame and the settings
@@ -271,22 +286,19 @@ class PrintViewModel
             requestPlan()
         }
 
-        /** A setting changed; a new paper, orientation or scale keeps the centre and fits the zoom again. */
+        /**
+         * A setting changed; a new paper, orientation or scale keeps the centre and fits the zoom again, while the frame
+         * is placed and while the sheet is chosen under the frame drawn on the map (P17.8, variant E).
+         */
         fun update(change: (PrintTemplate) -> PrintTemplate) {
             val ui = mutableUi.value
             val next = change(ui.template).copy(atlas = if (ui.alongTrack) AtlasMode.TRACK else AtlasMode.SINGLE)
             val resized = next.page != ui.template.page || next.scale != ui.template.scale
+            val fitted = ui.stage == PrintStage.FRAME || ui.stage == PrintStage.SETUP
             mutableUi.value =
                 ui.copy(
                     template = next,
-                    fitRequest =
-                        if (resized &&
-                            ui.stage == PrintStage.FRAME
-                        ) {
-                            ui.fitRequest + 1
-                        } else {
-                            ui.fitRequest
-                        },
+                    fitRequest = if (resized && fitted) ui.fitRequest + 1 else ui.fitRequest,
                 )
             requestPlan()
         }

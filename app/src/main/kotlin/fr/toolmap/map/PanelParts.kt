@@ -442,6 +442,8 @@ internal fun ToolPanel(
     closeDescription: String = stringResource(R.string.action_close),
     /** What stays at the foot while the content scrolls (the actions of the print confirmation). */
     footer: (@Composable () -> Unit)? = null,
+    /** Before the title: the back arrow of a page opened from the panel (the settings of the print, P17.8). */
+    leading: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     BarPanel(
@@ -449,7 +451,7 @@ internal fun ToolPanel(
         modifier = modifier,
         footer = footer,
         header = {
-            PanelBand(title = title, subtitle = subtitle) {
+            PanelBand(title = title, subtitle = subtitle, leading = leading) {
                 if (onClose != null) {
                     IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = closeDescription) }
                 }
