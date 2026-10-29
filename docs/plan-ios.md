@@ -1,14 +1,16 @@
 # Plan iOS — ToolMap sur iPhone (P32)
 
-> Décision : ADR-098 (2026-10-29). Application **Swift + SwiftUI native**, **indépendante du code Android**, dans le dossier `ios/` du dépôt. Statuts et légende comme dans `docs/PLAN.md` (⬜ à faire · 🔄 en cours · ✅ terminé · ⛔ bloqué).
+> Décision : ADR-100 (2026-10-29). Application **Swift + SwiftUI native**, **indépendante du code Android**, dans le dossier `ios/` du dépôt. Statuts et légende comme dans `docs/PLAN.md` (⬜ à faire · 🔄 en cours · ✅ terminé · ⛔ bloqué).
 >
 > Ce plan est relu au début de chaque session iOS, avec `CLAUDE.md`, `docs/PLAN.md`, les trois dernières entrées de `docs/JOURNAL.md` et `docs/DECISIONS.md`. Les idées pour plus tard vont dans `docs/idees-futur.md`, pas ici.
+>
+> **Consigne du 2026-10-29** (relayée par la session du poste Windows) : P32.2 à P32.12 s'enchaînent sans validation pas à pas, l'utilisateur ne pouvant rien tester ; les aperçus sont publiés dans `docs/previews/` et validés a posteriori ; les décisions ouvertes prennent le choix le plus simple et réversible, « à confirmer par l'utilisateur » (ADR et journal) ; P32.13 attend l'utilisateur.
 
 ## 1. Règles
 
 1. **Aucun fichier Android modifié** par le travail iOS : ni `app/`, `core/`, `data/`, `p2p/`, ni les fichiers Gradle, ni `.github/workflows/ci.yml`. Le travail iOS ne touche que `ios/`, `.github/workflows/ios.yml` et les documents communs (`docs/`, `CLAUDE.md`), plus `version.properties` quand une entrée du journal change son empreinte (ADR-059).
 2. **Aperçu validé avant le code** (`CLAUDE.md`) pour chaque écran iOS : maquette de l'écran iPhone (état Android actuel et proposition iOS, plusieurs variantes), « oui » explicite de l'utilisateur, code fidèle, puis capture du simulateur posée à côté de l'aperçu.
-3. **Compilation et tests uniquement par la CI macOS** (`.github/workflows/ios.yml`) : l'environnement cloud n'a ni Xcode ni compilateur Swift (ADR-098). Un lot de portage se pousse d'un bloc ; la session attend le run et corrige jusqu'au vert, comme pour la CI Android.
+3. **Compilation et tests uniquement par la CI macOS** (`.github/workflows/ios.yml`) : l'environnement cloud n'a ni Xcode ni compilateur Swift (ADR-100). Un lot de portage se pousse d'un bloc ; la session attend le run et corrige jusqu'au vert, comme pour la CI Android.
 4. **Rien qui exige un compte Apple Developer** (signature pour un appareil, TestFlight, App Store) sans l'accord de l'utilisateur.
 5. **Portage fidèle** : un fichier Swift reprend un fichier Kotlin de `:core` (mêmes noms de types, mêmes règles, mêmes messages) ; ses tests reprennent les cas et valeurs attendues des tests Kotlin, sur les mêmes fixtures (`fixtures/`, lues en place depuis le dépôt).
 6. Fin de session : comme sur Android (`CLAUDE.md`, point 7), lien de l'APK Android du dernier run vert de la branche **et** lien du run iOS vert.
@@ -37,12 +39,12 @@ Les deux applications n'ont aucun code commun : une fonction Android se **tradui
 
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
-| P32.0 | ✅ | **Architecture** validée par l'utilisateur le 2026-10-29 : Swift + SwiftUI natif, code indépendant d'Android (ADR-098), ce plan, phase P32 dans `docs/PLAN.md` | Validation explicite, consignée au journal |
+| P32.0 | ✅ | **Architecture** validée par l'utilisateur le 2026-10-29 : Swift + SwiftUI natif, code indépendant d'Android (ADR-100), ce plan, phase P32 dans `docs/PLAN.md` | Validation explicite, consignée au journal |
 | P32.1 | ✅ | **Paquet `ToolMapCore`, premier lot** et **CI iOS** : tuiles (`TileMath`, `TileUrlBuilder` avec `{$bbox}` arrondi comme `BigDecimal` HALF_UP), sources (`ZoomSet`, `LevelDef`, `TileSource`, `ClearColor`, `MapRef`, `UpdateDelay`), géo (`LonLat`, `LonLatZoom`, `Bounds`), lecture AQX (`AqxParser` sur `XMLParser`, DOCTYPE et entités refusés) ; workflow `ios.yml` | Vérifié le 2026-10-29 : run 40944407448 vert, 53 tests sur macOS et sur le simulateur iPhone 17 Pro (iOS 26.2). Run vert de `ios.yml` : `swift test` et `xcodebuild test` sur simulateur iPhone ; tests repris de `TileMathTest`, `TileUrlBuilderTest`, `AqxParserTest`, `ZoomSetTest`, `MapRefTest` (sauf l'aller-retour par `AqxWriter`), `UpdateDelayTest`, sur `fixtures/aqx/IGN_Topo_zoom_test.aqx` et `fixtures/aqx/user/` |
-| P32.2 | ⬜ | **Aperçu du squelette d'application** : écran carte sur iPhone (état Android actuel, propositions iOS en variantes : barre, boutons, panneaux en feuilles iOS) | Validation explicite de l'utilisateur |
-| P32.3 | ⬜ | **Squelette `ios/ToolMap`** fidèle à l'aperçu : XcodeGen, SwiftUI, MapLibre Native iOS, carte OpenStreetMap puis sources intégrées (`builtin-sources.aqx` lu par `AqxParser`) ; build simulateur et capture `xcrun simctl io booted screenshot` en artefact | Capture du simulateur montrant la carte, posée à côté de l'aperçu validé |
+| P32.2 | 🔄 | **Aperçu du squelette d'application** : écran carte sur iPhone (état Android actuel, propositions iOS en variantes : barre, boutons, panneaux en feuilles iOS) | Validation explicite de l'utilisateur |
+| P32.3 | 🔄 | **Squelette `ios/ToolMap`** fidèle à l'aperçu : XcodeGen, SwiftUI, MapLibre Native iOS, carte OpenStreetMap puis sources intégrées (`builtin-sources.aqx` lu par `AqxParser`) ; build simulateur et capture `xcrun simctl io booted screenshot` en artefact | Capture du simulateur montrant la carte, posée à côté de l'aperçu validé |
 | P32.4 | ⬜ | **Tuiles servies par l'application** : `URLProtocol` installé dans la configuration réseau de MapLibre iOS (`MLNNetworkConfiguration`), URL construites par `TileUrlBuilder`, Referer / User-Agent / en-têtes / cookie de la `LevelDef`, stockage MBTiles (SQLite), mode hors ligne | Tests sur serveur simulé (en-têtes, hors ligne sans requête) ; capture d'une tuile IGN servie par l'intercepteur |
-| P32.5 | ⬜ | **`.app` du simulateur zippé** en artefact, à ouvrir dans le navigateur avec Appetize.io | Artefact téléchargeable ; ouverture dans Appetize faite par l'utilisateur |
+| P32.5 | 🔄 | **`.app` du simulateur zippé** en artefact, à ouvrir dans le navigateur avec Appetize.io | Artefact téléchargeable ; ouverture dans Appetize faite par l'utilisateur |
 | P32.6 | ⬜ | **Suite du cœur**, par lots avec leurs tests : écriture AQX, géo (formats de coordonnées, UTM, MGRS, Lambert 93, grilles), sources (multi-zoom, identité des jeux de tuiles), calques (pile, plages de zoom, couleurs, favoris), traces (GPX, KML, GeoJSON, statistiques, opérations), réglages, recherche, mesures | Un run vert par lot ; tests Kotlin du domaine repris |
 | P32.7 | ⬜ | **Cartes et calques** à l'écran (pile de calques, plages de zoom, catalogue, ajout d'une carte), chaque écran par son aperçu | Captures du simulateur à côté des aperçus validés |
 | P32.8 | ⬜ | **Traces et waypoints** : stockage SQLite, import et export (document picker, « Ouvrir avec »), enregistreur GPS CoreLocation en arrière-plan | Tests du stockage ; parcours simulé (`simctl location`) |
@@ -73,7 +75,7 @@ Les deux applications n'ont aucun code commun : une fonction Android se **tradui
 
 ## 6. Table de parité
 
-**Android de référence : 0.4.140**, `origin/claude/vibrant-galileo-q3s99n` au commit `65922a2` (2026-10-29).
+**Android de référence : 0.4.144**, `origin/claude/vibrant-galileo-q3s99n` au commit `1637cb9` (2026-10-29). Depuis 0.4.140 : menus de l'impression (P17.8, P17.9 ; à reporter avec P32.11), releases `android-<version>` (ADR-099, reprises par la CI iOS en `ios-<version>`), aucun changement des parties déjà portées.
 
 | Domaine | Android (`core/src/main/kotlin/fr/toolmap/core/`) | iOS (`ios/ToolMapCore/Sources/ToolMapCore/`) | Statut |
 |---|---|---|---|

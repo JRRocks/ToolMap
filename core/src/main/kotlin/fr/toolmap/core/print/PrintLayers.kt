@@ -44,6 +44,15 @@ sealed interface PrintWarning {
     data class Unavailable(
         val sourceId: String,
     ) : PrintWarning
+
+    /**
+     * A heavy PDF (P17.9): above [PrintTemplate.HIGH_DPI], or a page of more than [PrintPlanner.HEAVY_PIXELS]. It is
+     * still made, but it may take long or fail for want of memory or room; [pixelsPerPage] is the largest page's.
+     */
+    data class Heavy(
+        val dpi: Int,
+        val pixelsPerPage: Long,
+    ) : PrintWarning
 }
 
 /** What the page will contain and at which zoom. */

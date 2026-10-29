@@ -360,6 +360,11 @@ fenêtres.
 En plus : avertir **dès** `gps.provider enabled=false` (`LocationSource.kt` l. 65), sans attendre de délai, et effacer
 l'avertissement à `enabled=true`. Alertes proposées : aperçu `docs/previews/p21-alertes.html`.
 
+**Revu le 2026-10-29 (0.4.136, groupe sur serveur).** Une tablette « En ligne », partage allumé (`mesh.state.in
+sharing=true`), battement et `PING` reçus, n'envoie aucune position pendant plus de 4 min (1re `mesh.pos.in` à 21:08:54,
+`acc=110`) : les autres la voient « En ligne » sans heure, rien ne dit qu'elle attend son GPS. Le même jour,
+l'utilisateur a pris un téléphone sans fix en intérieur pour « le partage ne part pas en Wi-Fi » (journal, session 84).
+
 ## t — « … est connecté(e) » à chaque reconnexion (visible : aperçu d'abord)
 
 **Symptôme.** Le message apparaît à chaque ouverture de liaison, y compris après une simple coupure ou un redémarrage
@@ -403,6 +408,10 @@ C/N0 ≈ 21 dB-Hz). `AndroidLocationSource.fixes` (`record/LocationSource.kt` �
 **À décider.** ADR-019 a choisi « GPS seul » : un repli sur `NETWORK_PROVIDER` (précision 20 à 100 m, sans Google Play)
 demande un nouvel ADR. Il faudrait marquer ces positions (précision, origine) dans `PeerFix`, et le montrer (visible :
 aperçu).
+
+**Revu le 2026-10-29.** Même constat en intérieur sur un groupe sur serveur : téléphone sans position en Wi-Fi, qui en
+envoie après le passage en 4G (assistance A-GPS par les données mobiles, cause probable) ; tablette sans fix pendant plus
+de 4 min (défaut c). À revérifier dehors par l'utilisateur.
 
 ## l — Position de départ envoyée seulement en traînée ; la traînée ne touche pas la position affichée
 

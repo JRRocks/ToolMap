@@ -229,6 +229,19 @@ Une ligne par problème, au moment où il arrive :
   arrêt ou une réinstallation restent ; piste : nettoyer au démarrage par une requête (`orderBy="t"&endAt=…`) sur son
   propre nœud, ou ne lire que les trames récentes (`startAt`).
 
+### Essai du 2026-10-29 (groupe sur serveur, émulateur 0.4.136 entré par l'invitation sous le nom « claude »)
+
+- 20:59 · hors § 3 · **« le partage ne part pas en Wi-Fi, il marche en 4G »** (téléphone ; une tablette dans le
+  groupe) · sur le téléphone en Wi-Fi : « Serveur joignable », « 1 connecté(s) », donc battement et flux passaient ;
+  l'émulateur (entré à 21:04) reçoit les positions du téléphone passé en 4G (`mesh.pos.in` toutes les 5 à 25 s) et
+  les siennes partent (`relay.write what=p ms=40`) · le relais ne distingue pas Wi-Fi et 4G (même client HTTPS) ;
+  les positions ne viennent que du GPS (`GPS_PROVIDER`, pas de position réseau) · cause retenue avec l'utilisateur :
+  1er fix GPS en intérieur (l'assistance A-GPS passe souvent par les données mobiles), pas le réseau ; à revérifier
+  dehors par l'utilisateur (téléphone en Wi-Fi, GPS accroché : l'émulateur doit continuer à recevoir ses positions).
+- 21:08 · hors § 3 · **la tablette, « En ligne », n'envoie aucune position pendant plus de 4 min** · ses `PING` et
+  son battement arrivent, `mesh.state.in sharing=true`, mais 1re `mesh.pos.in` à 21:08:54 seulement (`acc=110`) ·
+  défauts (c) et (k) de `docs/specs/p21-corrections.md`, déjà connus.
+
 ## 6. Travail restant
 
 Aucun : P21 clos le 2026-10-24. Ce qui restait (alertes et option t visibles, (o) dit aux autres membres, P21.6 en

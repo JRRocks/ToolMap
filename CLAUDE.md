@@ -62,9 +62,10 @@ Chaque session (humaine ou IA) **doit** suivre ce protocole. C'est ce qui permet
      `https://github.com/JRRocks/ToolMap/actions/runs/<run_id>/artifacts/<artifact_id>`
      (téléchargement connecté à GitHub ; c'est un zip qui contient `ToolMap-debug-<version>.apk` (version de `version.properties`) ; l'artefact expire au bout de 90 jours, et la CI efface les plus anciens à chaque push : seul le dernier reste, voir `docs/specs/release.md` §1) ;
    - la CI publie aussi l'APK en pré-release GitHub `debug-<sha7>` (hors quota d'artefacts, `docs/specs/release.md` §1) : si le téléversement de l'artefact est bloqué, donner ce lien : `https://github.com/JRRocks/ToolMap/releases/download/debug-<sha7>/ToolMap-debug-<version>.apk` ;
+   - **releases GitHub des deux dernières versions** (demande de l'utilisateur, 2026-10-29, ADR-099) : à chaque push (toute branche sauf Dependabot), la CI publie l'APK signé en release `android-<version>` et ne garde que les deux versions les plus récentes ; le lien public sans compte, à donner aussi : `https://github.com/JRRocks/ToolMap/releases/download/android-<version>/ToolMap-debug-<version>.apk`. iOS : même règle (`ios-<version>`) dès que la CI iOS produit une application ;
    - une session sans changement de code donne quand même le lien de l'APK du dernier run vert de la branche ;
    - si le lien ne peut pas être obtenu (CI bloquée, quota…), le dire explicitement avec la raison, et donner le chemin de l'APK compilé en local (`app/build/outputs/apk/debug/ToolMap-debug-<version>.apk`).
-8. **Miroir Google Drive** (demande de l'utilisateur, 2026-10-17) : en fin de session sur le poste Windows, après le build local, lancer `powershell -ExecutionPolicy Bypass -File scripts\drive-mirror.ps1` (voir § « Miroir Google Drive » ci-dessous) et le signaler dans le dernier message.
+8. **Miroir Google Drive** (demande de l'utilisateur, 2026-10-17) : en fin de session sur le poste Windows, **après le run CI vert du dernier push**, lancer `powershell -ExecutionPolicy Bypass -File scripts\drive-mirror.ps1` (voir § « Miroir Google Drive » ci-dessous) et le signaler dans le dernier message. **Chaque APK compilé par GitHub est archivé sur le Drive** (demande de l'utilisateur, 2026-10-29) : le script copie celui du dernier push et ceux des releases `android-<version>` qui manquent ; jamais un APK compilé en local (signé avec la clé de debug publique, pas avec la clé de publication).
 
 ## Miroir Google Drive (2e sauvegarde)
 
@@ -73,9 +74,9 @@ Google Drive est le **miroir des fichiers locaux** du poste Windows (2e sauvegar
 | Drive | Contenu |
 |---|---|
 | `2 - Jean/Claude Code/ToolMap/` | copie exacte du dossier local du poste qui fait le miroir : `C:\Bureau\Desktop\Jean\ToolMap` ou `C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap` (fichiers sources ; sans `.git/`, `build/`, `.gradle/`, `.kotlin/`, `.idea/`, `local.properties`, APK) |
-| `2 - Jean/Claude Code/APK release/` | APK compilés, **nommés `AppName.version.apk`**, ex. `ToolMap.0.4.1.apk` (version de `version.properties`) |
+| `2 - Jean/Claude Code/APK release/` | APK **compilés par GitHub** (CI, signés avec la clé de publication), **nommés `AppName.version.apk`**, ex. `ToolMap.0.4.1.apk` (version de `version.properties`) ; ceux d'avant le 2026-10-29 (sauf 0.4.142 et 0.4.143) sont des builds locaux signés avec la clé de debug |
 
-- `scripts/drive-mirror.ps1` fait les deux : `robocopy /MIR` vers le dossier ToolMap (ce qui est supprimé en local l'est aussi sur le Drive), puis copie de `ToolMap-debug-<version>.apk` vers `APK release/ToolMap.<version>.apk`.
+- `scripts/drive-mirror.ps1` fait les deux : `robocopy /MIR` vers le dossier ToolMap (ce qui est supprimé en local l'est aussi sur le Drive), puis archive dans `APK release/ToolMap.<version>.apk` les APK de GitHub (avec `gh`) : chaque release `android-<version>` absente du Drive (ou de taille différente), et l'artefact du run CI vert du commit courant quand sa version n'a pas de release. Les APK compilés par une session cloud ne restent sur GitHub que tant que leur release fait partie des deux dernières : ils sont archivés à la session suivante sur le poste Windows s'ils y sont encore.
 - Il passe par **Google Drive pour ordinateur** (Drive monté en lecteur local, `<lecteur>:\Mon Drive\…`, détecté automatiquement). Le connecteur Google Drive de Claude ne sert qu'à vérifier ou créer des dossiers : il ne peut pas téléverser un projet entier ni un APK de plusieurs dizaines de Mo.
 - Le miroir va toujours du local vers le Drive, jamais dans l'autre sens : ne pas modifier les fichiers directement sur le Drive.
 
@@ -101,7 +102,7 @@ Google Drive est le **miroir des fichiers locaux** du poste Windows (2e sauvegar
 | `docs/specs/live-test.md` | Test en direct du partage de position : préparation, rôles, scénarios T0 à T19, analyse (`tools/livetest/`) |
 | `docs/plan-fonctions-2026-10.md` | **Plan détaillé de P22 à P28** (alerte et écoute du groupe, saisie des valeurs, grilles MGRS / UTM, partage des favoris, couleurs et fusion, waypoints du groupe, dessin) : décisions de l'utilisateur, tâches, critères |
 | `docs/plan-design-2026-10.md` | **Refonte de l'interface (P29)** : constats de l'audit, règles communes, étapes onglet par onglet ; 5 variantes à chaque changement et notification pour demander le choix (demande du 2026-10-26) |
-| `docs/plan-ios.md` | **Version iPhone (P32)** : application Swift + SwiftUI dans `ios/`, indépendante du code Android (ADR-098) ; règles, étapes, ce qui ne se porte pas, synchronisation avec Android, table de parité |
+| `docs/plan-ios.md` | **Version iPhone (P32)** : application Swift + SwiftUI dans `ios/`, indépendante du code Android (ADR-100) ; règles, étapes, ce qui ne se porte pas, synchronisation avec Android, table de parité |
 | `docs/idees-futur.md` | Idées pour plus tard : **à ne lire que sur demande de l'utilisateur** |
 | `docs/plan-partage.md` | Plan de travail des tests en direct du partage de position (P21, **clos le 2026-10-24**) : règles, état, ordre des tests, problèmes notés pendant le test ; à relire seulement pour un nouveau test en direct |
 | `docs/specs/p21-corrections.md` | Défauts trouvés au premier test en direct (2026-10-24) : preuves, causes dans le code, corrections proposées, vérifications, ordre conseillé (P21.5, P21.6) |
@@ -116,7 +117,7 @@ Google Drive est le **miroir des fichiers locaux** du poste Windows (2e sauvegar
 - Kotlin, Jetpack Compose (Material 3), coroutines/Flow, Hilt, Room, WorkManager, OkHttp.
 - Carte : MapLibre Native Android (build OpenGL ES `android-sdk-opengl`, ADR-028), avec un intercepteur OkHttp qui construit les URL des tuiles à partir des définitions AQX et les sert depuis le stockage local MBTiles.
 - Modules Gradle : `:core` (Kotlin JVM pur, testable sans Android), `:data`, `:p2p`, `:app`.
-- **iPhone (P32, ADR-098)** : application Swift + SwiftUI dans `ios/`, **sans code commun avec Android** ; le travail iOS ne modifie aucun fichier du build Android. Compilée et testée seulement par `.github/workflows/ios.yml` (runner macOS) ; plan : `docs/plan-ios.md`.
+- **iPhone (P32, ADR-100)** : application Swift + SwiftUI dans `ios/`, **sans code commun avec Android** ; le travail iOS ne modifie aucun fichier du build Android. Compilée et testée seulement par `.github/workflows/ios.yml` (runner macOS) ; plan : `docs/plan-ios.md`.
 - AGP 9.4 + Gradle 9.6 + Kotlin 2.4 (Kotlin intégré à AGP : ne pas appliquer `kotlin-android`), compileSdk 37, minSdk 26 (ADR-007). Versions figées dans `gradle/libs.versions.toml`.
 
 ## Numéro de version

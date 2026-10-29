@@ -48,7 +48,7 @@ data class PrintTemplate(
     fun sanitized(): PrintTemplate =
         copy(
             scale = if (scale.isFinite()) scale.coerceIn(MIN_SCALE, MAX_SCALE) else DEFAULT_SCALE,
-            dpi = dpi.coerceIn(MIN_DPI, MAX_DPI),
+            dpi = dpi.coerceAtLeast(MIN_DPI),
             gridStep = gridStep?.takeIf { it.isFinite() && it > 0.0 },
             // The situation map is no longer drawn (P17): its tiles are not fetched either.
             dressing = dressing.copy(miniMap = false),
@@ -72,8 +72,12 @@ data class PrintTemplate(
         const val DEFAULT_OVERLAP_PERCENT = 10.0
         const val MIN_SCALE = 500.0
         const val MAX_SCALE = 10_000_000.0
+
+        /** The lowest resolution; there is no highest since 2026-10-29 (P17.9, ADR-097). */
         const val MIN_DPI = 72
-        const val MAX_DPI = 600
+
+        /** Above this the PDF gets the warning of a heavy print: printers and maps rarely gain beyond it (P17.9). */
+        const val HIGH_DPI = 300
         const val MAX_OVERLAP_PERCENT = 50.0
 
         /** The scales offered as presets (P17, Q3); any other value can be typed. */
