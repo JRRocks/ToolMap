@@ -35,6 +35,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.core.update.PublishedApk
+import fr.toolmap.core.update.UpdateDecision
 import fr.toolmap.map.MenuIcons
 import fr.toolmap.ui.MapPill
 import fr.toolmap.ui.theme.AlertDialog
@@ -170,12 +171,14 @@ fun UpdatesDialog(
 
 /**
  * The download (variant B): its bar and its figures, « Annuler ». Closed, the download goes on in the notification;
- * at its end Android asks itself. After an error, the same dialog says so and offers to try again.
+ * at its end Android asks itself. After an error, the same dialog says so and offers to try again; a phone without
+ * room for the APK gets its own text, « Pas assez de place » (variant A of 2026-10-29).
  */
 @Composable
 fun UpdateProgressDialog(
     download: UpdateDownload,
     failed: Boolean,
+    noSpace: Boolean,
     onHide: () -> Unit,
     onCancel: () -> Unit,
     onRetry: () -> Unit,
@@ -184,9 +187,20 @@ fun UpdateProgressDialog(
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = if (failed) onDismissFailed else onHide,
-        title = { Text(stringResource(R.string.update_progress_title, download.version)) },
+        title = {
+            Text(
+                if (failed && noSpace) {
+                    stringResource(R.string.update_no_space_title)
+                } else {
+                    stringResource(R.string.update_progress_title, download.version)
+                },
+            )
+        },
         text = {
-            if (failed) {
+            if (failed && noSpace) {
+                val room = fileSize(context, UpdateDecision.roomFor(download.totalBytes))
+                Text(stringResource(R.string.update_no_space, room, download.version))
+            } else if (failed) {
                 Text(stringResource(R.string.update_failed))
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

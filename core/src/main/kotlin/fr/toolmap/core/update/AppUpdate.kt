@@ -95,4 +95,9 @@ object UpdateDecision {
         val own = AppVersion.parse(installed) ?: return null
         return published?.takeIf { it.version > own && it.url.startsWith("https://") }
     }
+
+    /** The room « Pas assez de place » asks for an APK of [bytes]: rounded up to 10 MB (« environ 90 Mo » for 87). */
+    fun roomFor(bytes: Long): Long = (bytes.coerceAtLeast(1) + ROOM_STEP - 1) / ROOM_STEP * ROOM_STEP
+
+    private const val ROOM_STEP = 10_000_000L
 }

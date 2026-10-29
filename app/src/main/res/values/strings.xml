@@ -1931,6 +1931,8 @@
   <string name="update_progress_bytes">%1$s / %2$s</string>
   <string name="update_failed">Téléchargement interrompu. Vérifiez la connexion, puis réessayez.</string>
   <string name="update_retry">Réessayer</string>
+  <string name="update_no_space_title">Pas assez de place</string>
+  <string name="update_no_space">Il faut environ %1$s libres pour installer la %2$s. Libérez de la place, puis réessayez.</string>
   <string name="update_refused_title">Installation refusée</string>
   <string name="update_refused_why">La %1$s est signée par la clé de publication de ToolMap, et la version installée par une autre clé. Android refuse de remplacer l\'une par l\'autre.</string>
   <string name="update_refused_once">Une seule fois :</string>

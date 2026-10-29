@@ -69,6 +69,14 @@ class AppUpdateTest {
         assertNull(UpdateDecision.offer("0.4.126", null))
     }
 
+    @Test
+    fun `the room asked for is the APK rounded up to 10 MB`() {
+        assertEquals(90_000_000L, UpdateDecision.roomFor(87_205_946))
+        assertEquals(90_000_000L, UpdateDecision.roomFor(90_000_000))
+        assertEquals(100_000_000L, UpdateDecision.roomFor(90_000_001))
+        assertEquals(10_000_000L, UpdateDecision.roomFor(0))
+    }
+
     private companion object {
         val RELEASES =
             """

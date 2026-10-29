@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
+import android.os.storage.StorageManager
 import androidx.core.content.edit
 import fr.toolmap.BuildConfig
 import fr.toolmap.core.eventlog.EventLog
@@ -56,6 +57,8 @@ data class UpdateUi(
     val download: UpdateDownload? = null,
     /** The download stopped on an error. */
     val failed: Boolean = false,
+    /** The error is a phone without room for the APK: « Pas assez de place » (variant A), not the connection. */
+    val noSpace: Boolean = false,
     /** Android refused the APK, signed by another key: « Installation refusée ». */
     val refused: Boolean = false,
     /** Android's own confirmation, started by the screen as soon as it is shown. */
@@ -143,6 +146,7 @@ class UpdateController(
             it.copy(
                 banner = false,
                 failed = false,
+                noSpace = false,
                 refused = false,
                 download = UpdateDownload(version, 0, apk.sizeBytes),
             )
@@ -154,6 +158,7 @@ class UpdateController(
                 var sessionId = NO_SESSION
                 try {
                     withContext(Dispatchers.IO) {
+                        if (lacksRoomFor(apk.sizeBytes)) throw IOException("no room for ${apk.sizeBytes} bytes")
                         sessionId = installer.createSession(sessionParams())
                         install(installer, sessionId, apk)
                     }
@@ -161,10 +166,14 @@ class UpdateController(
                     abandon(installer, sessionId)
                     throw e
                 } catch (e: IOException) {
-                    EventLog.event("update.failed", "version" to version, "error" to e.toString())
                     abandon(installer, sessionId)
+                    // Read once the session is dropped, so that its own room does not count: a cut connection stays one.
+                    val noSpace = withContext(Dispatchers.IO) { lacksRoomFor(apk.sizeBytes) }
+                    EventLog.event("update.failed", "version" to version, "error" to e.toString(), "noSpace" to noSpace)
                     UpdateNotifications.cancel(context)
-                    mutableUi.update { it.copy(download = it.download?.copy(shown = true), failed = true) }
+                    mutableUi.update {
+                        it.copy(download = it.download?.copy(shown = true), failed = true, noSpace = noSpace)
+                    }
                 }
             }
     }
@@ -175,10 +184,10 @@ class UpdateController(
     fun cancelDownload() {
         downloadJob?.cancel()
         UpdateNotifications.cancel(context)
-        mutableUi.update { it.copy(download = null, failed = false) }
+        mutableUi.update { it.copy(download = null, failed = false, noSpace = false) }
     }
 
-    fun dismissFailed() = mutableUi.update { it.copy(download = null, failed = false) }
+    fun dismissFailed() = mutableUi.update { it.copy(download = null, failed = false, noSpace = false) }
 
     fun dismissRefused() = mutableUi.update { it.copy(refused = false) }
 
@@ -219,7 +228,15 @@ class UpdateController(
 
             else -> {
                 UpdateNotifications.cancel(context)
-                mutableUi.update { it.copy(download = it.download?.copy(shown = true), failed = true, confirm = null) }
+                val noSpace = status == PackageInstaller.STATUS_FAILURE_STORAGE
+                mutableUi.update {
+                    it.copy(
+                        download = it.download?.copy(shown = true),
+                        failed = true,
+                        noSpace = noSpace,
+                        confirm = null,
+                    )
+                }
             }
         }
     }
@@ -314,6 +331,16 @@ class UpdateController(
     ) {
         mutableUi.update { it.copy(download = it.download?.copy(doneBytes = done, totalBytes = total)) }
         UpdateNotifications.progress(context, ui.value.download?.version.orEmpty(), done, total)
+    }
+
+    /**
+     * Whether Android cannot set aside [bytes] where it writes its sessions (the app data volume), clearable caches
+     * counted; a size unknown or a storage that does not answer is not taken for a full phone.
+     */
+    private fun lacksRoomFor(bytes: Long): Boolean {
+        if (bytes <= 0) return false
+        val storage = context.getSystemService(StorageManager::class.java) ?: return false
+        return runCatching { storage.getAllocatableBytes(StorageManager.UUID_DEFAULT) < bytes }.getOrDefault(false)
     }
 
     /** Drops a session that was not handed to Android (cancelled, or the download failed). */

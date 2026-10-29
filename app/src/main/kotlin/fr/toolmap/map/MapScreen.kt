@@ -1224,6 +1224,7 @@ fun MapScreen(
         UpdateProgressDialog(
             download = download,
             failed = updateUi.failed,
+            noSpace = updateUi.noSpace,
             onHide = updates::hideProgress,
             onCancel = updates::cancelDownload,
             onRetry = updates::startDownload,
