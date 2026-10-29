@@ -187,6 +187,7 @@ non utilisé ; aucun mode de fusion ; dialogue « Modifier les couleurs » (`Col
 | P26.3 | ⬜ | Modèle (`LayerConfig`, `WorkspaceLayer`), `StackToStyle`, intercepteur | `StackToStyleTest`, test de l'intercepteur |
 | P26.4 | ⬜ | Panneau et roue chromatique | Tests de rendu ; captures à côté de l'aperçu |
 | P26.5 | ⬜ | Impression | PDF relu (un mode Produit visible) |
+| P26.6 | 🔄 | Demande de l'utilisateur (2026-10-29) : « Rajoute le slide pour Hue, dans la correction de couleur d'un calque / carte. Rends le menu transparent pendant l'utilisation du slider afin de voir les effets rendus sur la carte. » Curseur « Teinte » (rotation des couleurs de MapLibre, `raster-hue-rotate`, en direct, sans l'intercepteur ni la mesure de P26.0) et panneau transparent pendant un réglage. Aperçu montré le 2026-10-29 : `docs/previews/p26-teinte.html` (état actuel, pistes T1 / T2, variantes A à D) ; en attente du choix | Validation explicite, date au journal ; `RasterAdjustTest` et `StackToStyleTest` (teinte), favori et PDF avec la teinte ; capture à côté de l'aperçu |
 
 ---
 

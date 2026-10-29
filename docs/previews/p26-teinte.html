@@ -1,0 +1,246 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Teinte et panneau transparent</title>
+<style>
+:root{--text-primary:#1d1d1b;--text-secondary:#5f5e5a;--page:#fff;--note:rgba(20,145,140,.10);--btn:#163A4A;--onbtn:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--text-primary:#e8e8e3;--text-secondary:#a9a9a2;--page:#16191b;--note:rgba(92,201,194,.14);--btn:#7FD6D1;--onbtn:#06302E}}
+:root[data-theme="dark"]{--text-primary:#e8e8e3;--text-secondary:#a9a9a2;--page:#16191b;--note:rgba(92,201,194,.14);--btn:#7FD6D1;--onbtn:#06302E}
+body{margin:0;padding:16px;background:var(--page);color:var(--text-primary);font-family:system-ui,sans-serif}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:19px;font-weight:500;margin:0 0 8px}
+h3{font-size:16px;font-weight:500;margin:28px 0 4px}
+p.c{font-size:13px;line-height:1.5;color:var(--text-secondary);margin:0 0 10px;max-width:680px}
+.ask{font-size:14px;line-height:1.5;background:var(--note);border-left:3px solid #14918C;padding:8px 12px;margin:0 0 14px;max-width:680px}
+.row{display:flex;flex-wrap:wrap;gap:16px}
+figure{margin:0;width:288px;max-width:100%}
+figcaption{font-size:12px;line-height:1.45;color:var(--text-secondary);margin-top:6px}
+.pick{display:flex;flex-wrap:wrap;gap:8px;margin:26px 0 6px}
+.pick button{font:500 14px system-ui,sans-serif;background:var(--btn);color:var(--onbtn);border:0;border-radius:12px;padding:10px 16px;cursor:pointer}
+/* Phone */
+.ph{width:288px;height:512px;overflow:hidden;border-radius:20px;border:1px solid #b5b5ae;position:relative;background:#000}
+.in{width:360px;height:640px;transform:scale(.8);transform-origin:0 0;position:relative;overflow:hidden;font-family:Roboto,system-ui,sans-serif;background:#F2F5F6;color:#122027;user-select:none;-webkit-user-select:none}
+.in *{box-sizing:border-box}
+.sb{height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:13px;background:#163A4A;color:#fff}
+.map{position:absolute;left:0;right:0;top:26px;bottom:0;overflow:hidden;background:#E6E6E6}
+.topo{position:absolute;inset:0;width:100%;height:100%}
+.bbar{position:absolute;left:0;right:0;bottom:0;height:66px;background:#163A4A;display:flex;justify-content:space-around;align-items:center;z-index:3}
+.bbar>div{display:flex;flex-direction:column;align-items:center;font-size:12px;gap:3px;color:#fff;width:76px}
+.bbar .ni{width:56px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+.bbar .on .ni{background:#7FD6D1}.bbar .on{font-weight:500}
+/* Panel */
+.pnl{position:absolute;left:12px;right:12px;bottom:78px;top:8px;background:#fff;border-radius:18px;box-shadow:0 2px 10px rgba(0,0,0,.28);overflow:hidden;display:flex;flex-direction:column;transition:background .15s,box-shadow .15s,opacity .15s;z-index:2}
+.band{background:#163A4A;color:#fff;display:flex;align-items:center;padding:6px 4px 6px 16px;min-height:64px}
+.band .t{flex:1;min-width:0}.band .t b{display:block;font-size:18px;font-weight:500;line-height:24px}.band .t small{display:block;font-size:12px;line-height:16px;color:#C9D6DC}
+.band .ib{width:44px;height:44px;display:flex;align-items:center;justify-content:center}
+.scroll{flex:1;overflow:hidden;padding:4px 0 8px}
+.box{margin:0 8px;background:#E2ECEF;border-radius:14px;transition:background .15s}
+.ll{display:flex;align-items:center;height:56px;padding:0 0 0 4px}
+.ll .dh{width:28px;display:flex;justify-content:center;color:#506169}
+.thumb{width:36px;height:36px;border:2px solid #14918C;border-radius:4px;padding:2px;margin-left:2px}
+.thumb div{width:100%;height:100%;border-radius:2px;background:linear-gradient(135deg,#B9D89A 0 40%,#F1EEDC 40% 60%,#A7D3F0 60%)}
+.ll .nm{flex:1;min-width:0;padding:0 6px 0 12px}.ll .nm b{display:block;font-size:14px;font-weight:500;line-height:20px}.ll .nm small{display:block;font-size:12px;color:#506169;line-height:16px}
+.ll .ey{width:44px;display:flex;justify-content:center}
+.sl{padding:2px 16px 0 56px;height:50px;transition:opacity .15s,background .15s,box-shadow .15s}
+.sl .lab{font-size:12px;font-weight:500;line-height:16px;letter-spacing:.2px}
+.cmds{display:flex;gap:0;padding:2px 4px 8px}
+.cmds>div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:52px;border-radius:12px;font-size:11px;font-weight:500;color:#163A4A;gap:2px}
+.cmds .sel{background:#D3EEEC}.cmds .dis{opacity:.38}
+.swr{display:flex;align-items:center;justify-content:space-between;padding:0 16px 0 56px;height:40px;font-size:14px}
+.sw{width:52px;height:32px;border-radius:16px;background:#E2ECEF;border:2px solid #6F8790;position:relative;flex:none}
+.sw::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#6F8790;left:6px;top:6px}
+.rst{padding:0 16px 6px 48px;height:36px;display:flex;align-items:center}
+.rst span{font-size:14px;font-weight:500;color:#163A4A;padding:8px 12px;border-radius:12px}
+.fade{transition:opacity .15s}
+/* Range input styled as the Material 3 slider of ToolMap */
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:30px;margin:0;background:transparent;--p:50%;cursor:pointer;touch-action:none}
+input[type=range]::-webkit-slider-runnable-track{height:14px;border-radius:7px;background:linear-gradient(90deg,#163A4A 0 var(--p),#C9D6DC var(--p))}
+input[type=range]::-moz-range-track{height:14px;border-radius:7px;background:linear-gradient(90deg,#163A4A 0 var(--p),#C9D6DC var(--p))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:5px;height:34px;border-radius:3px;background:#163A4A;margin-top:-10px;box-shadow:0 0 0 4px #E2ECEF}
+input[type=range]::-moz-range-thumb{width:5px;height:34px;border:0;border-radius:3px;background:#163A4A;box-shadow:0 0 0 4px #E2ECEF}
+input.rb::-webkit-slider-runnable-track{background:linear-gradient(90deg,hsl(180 70% 45%),hsl(240 70% 55%),hsl(300 70% 50%),hsl(0 75% 50%),hsl(60 80% 45%),hsl(120 60% 40%),hsl(180 70% 45%))}
+input.rb::-moz-range-track{background:linear-gradient(90deg,hsl(180 70% 45%),hsl(240 70% 55%),hsl(300 70% 50%),hsl(0 75% 50%),hsl(60 80% 45%),hsl(120 60% 40%),hsl(180 70% 45%))}
+input.rb::-webkit-slider-thumb{background:#122027;box-shadow:0 0 0 3px #fff}
+input.rb::-moz-range-thumb{background:#122027;box-shadow:0 0 0 3px #fff}
+.fing{position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(18,32,39,.22);border:2px solid rgba(255,255,255,.7);pointer-events:none;z-index:5}
+.new{box-shadow:inset 3px 0 0 #14918C;background:rgba(20,145,140,.10)}
+/* Compact « Couleurs » panel (variant D), under the bar like « Conditions d'affichage » */
+.cp{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:18px 18px 0 0;overflow:hidden;z-index:4;transition:background .15s}
+.cp .band{min-height:56px}
+.crow{display:flex;align-items:center;height:44px;padding:0 14px 0 16px;transition:opacity .15s,background .15s,box-shadow .15s}
+.crow .k{width:96px;flex:none;font-size:12px;line-height:15px;color:#506169}.crow .k b{display:block;font-size:13px;font-weight:500;color:#122027}
+.crow input{flex:1}
+.cfoot{display:flex;align-items:center;justify-content:space-between;padding:2px 8px 10px 16px;font-size:14px}
+.cfoot .sw{margin-left:10px}
+.withbar .bbar{bottom:276px}
+/* While a slider is held (class adj on .in) */
+.v-A.adj .pnl,.v-D.adj .cp{background:transparent;box-shadow:none}
+.v-A.adj .box{background:transparent}
+.v-A.adj .fade:not(.act),.v-D.adj .fade:not(.act){opacity:0}
+.v-A.adj .act,.v-D.adj .act{background:#fff;border-radius:14px;box-shadow:0 1px 5px rgba(0,0,0,.35)}
+.v-B.adj .pnl{background:rgba(255,255,255,.18);box-shadow:none}
+.v-B.adj .box{background:rgba(226,236,239,.18)}
+.v-B.adj .fade:not(.act){opacity:.18}
+.v-B.adj .act .lab{text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff}
+.v-C.adj .pnl{opacity:.5}
+</style></head><body><div class="wrap">
+<h1>P26 · Couleurs d'un calque : curseur « Teinte » et panneau transparent pendant le réglage</h1>
+<p class="ask">Demande (2026-10-29) : « Rajoute le slide pour Hue, dans la correction de couleur d'un calque / carte. Rends le menu transparent pendant l'utilisation du slider afin de voir les effets rendus sur la carte. »<br><b>Aucun code avant votre choix.</b> Les téléphones marqués « Essayez » fonctionnent : faites glisser un curseur, la carte change vraiment (même calcul que MapLibre).</p>
+<div id="u"></div>
+</div>
+<script>
+(function(){
+const P={
+ up:'M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z',
+ down:'M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z',
+ tune:'M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z',
+ pal:'M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z',
+ more:'M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+ eye:'M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z',
+ drag:'M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+ chev:'M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z',
+ close:'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+ bmk:'M21 7h-2v2h-2V7h-2V5h2V3h2v2h2v2zm-2 14l-7-3-7 3V5c0-1.1.9-2 2-2h7c-.64.84-1 1.87-1 3 0 2.76 2.24 5 5 5 .34 0 .68-.03 1-.1V21z',
+ help:'M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z',
+ map:'M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z',
+ flag:'M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z',
+ loc:'M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z',
+ mtn:'M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.75 7 10 7 10l-6 8h22L14 6z'
+};
+const I=(n,s,c)=>'<svg width="'+(s||24)+'" height="'+(s||24)+'" viewBox="0 0 24 24" fill="'+(c||'currentColor')+'" aria-hidden="true"><path d="'+P[n]+'"/></svg>';
+
+// The colour matrix of MapLibre's raster shader: hue rotation, saturation, contrast, brightness (feColorMatrix, sRGB).
+function matrix(a){
+ const h=(a.hue||0)*Math.PI/180,c=Math.cos(h),s=Math.sin(h),r3=Math.sqrt(3);
+ const w=[(2*c+1)/3,(-r3*s-c+1)/3,(r3*s-c+1)/3];
+ const H=[[w[0],w[1],w[2]],[w[2],w[0],w[1]],[w[1],w[2],w[0]]];
+ const sat=a.saturation||0,sf=sat>=0?1-1/(1.001-sat):-sat;
+ const con=Math.min(a.contrast||0,.99),k=con>0?1/(1-con):1+con;
+ const b=a.brightness||0,lo=b>=0?b:0,hi=b>=0?1:1+b,span=hi-lo;
+ const d=1-sf+sf/3,o=sf/3,off=lo+span*.5*(1-k);
+ const m=[];
+ for(let i=0;i<3;i++){for(let j=0;j<3;j++)m.push(span*k*((d-o)*H[i][j]+o));m.push(0,off);}
+ m.push(0,0,0,1,0);
+ return m.map(x=>x.toFixed(4)).join(' ');
+}
+
+let N=0;
+// A colourful topographic map, drawn through the phone's own colour filter.
+function topo(id,a){
+ return '<svg class="topo" viewBox="0 0 360 614" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><filter id="'+id+'" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="'+matrix(a)+'"/></filter></defs>'
+ +'<g filter="url(#'+id+')" class="mg" style="opacity:'+(a.opacity==null?1:a.opacity)+'">'
+ +'<rect width="360" height="614" fill="#F1EEDC"/>'
+ +'<path d="M0 0H150C130 60 170 110 120 160S20 200 0 240Z" fill="#B9D89A"/><path d="M360 300C300 280 260 330 270 380S330 450 360 440Z" fill="#B9D89A"/><path d="M0 430C60 400 120 440 150 500S120 614 60 614H0Z" fill="#A9CF86"/><path d="M220 0H360V130C320 150 270 120 250 80S230 30 220 0Z" fill="#A9CF86"/>'
+ +'<path d="M190 200C230 170 300 190 310 230S260 290 220 270 160 230 190 200Z" fill="#DCD6CB"/>'
+ +'<g fill="none" stroke="#D2A679" stroke-width="1"><path d="M0 330C80 290 160 320 240 280S330 250 360 245"/><path d="M0 360C90 320 170 350 250 312S330 285 360 280"/><path d="M0 300C70 262 150 290 230 250S320 220 360 212" stroke-width="1.8"/><path d="M40 270C100 220 170 250 220 210S320 180 360 160"/><path d="M60 230C120 180 190 205 240 165S320 130 360 120"/></g>'
+ +'<ellipse cx="96" cy="318" rx="44" ry="24" fill="#A7D3F0" stroke="#5E9FD0" stroke-width="1.5"/>'
+ +'<path d="M140 322C190 340 210 400 260 420S330 470 360 500" fill="none" stroke="#5E9FD0" stroke-width="3"/>'
+ +'<path d="M0 520C80 500 120 470 170 470S280 520 360 540" fill="none" stroke="#fff" stroke-width="8"/><path d="M0 520C80 500 120 470 170 470S280 520 360 540" fill="none" stroke="#EE9A2E" stroke-width="5"/>'
+ +'<path d="M170 470C180 420 200 380 190 330S210 260 250 230" fill="none" stroke="#fff" stroke-width="5"/><path d="M170 470C180 420 200 380 190 330S210 260 250 230" fill="none" stroke="#F4D35E" stroke-width="3"/>'
+ +'<path d="M30 600L80 560L130 500L150 430L120 360L140 300L200 250L250 190L300 100" fill="none" stroke="#D0342C" stroke-width="2.2" stroke-dasharray="7 4"/>'
+ +'<path d="M250 230L290 300L320 380" fill="none" stroke="#2F6FD6" stroke-width="3"/><path d="M262 226L300 270L340 300" fill="none" stroke="#D0342C" stroke-width="3"/>'
+ +'<g fill="#C3917F"><rect x="196" y="476" width="9" height="7"/><rect x="210" y="482" width="8" height="8"/><rect x="186" y="488" width="10" height="7"/><rect x="223" y="470" width="7" height="7"/><rect x="200" y="496" width="9" height="6"/></g>'
+ +'<path d="M246 96l7-12 7 12z" fill="#6B4E3A"/>'
+ +'<g font-family="Roboto,system-ui,sans-serif"><text x="62" y="352" font-size="11" font-style="italic" fill="#2B6CA3">Lac Achard</text><text x="186" y="516" font-size="12" fill="#2A2A2A">Chamrousse</text><text x="262" y="96" font-size="10" fill="#4A3A2E">Croix 2 253</text><text x="16" y="120" font-size="10" font-style="italic" fill="#3F6B2A">Forêt de Prémol</text></g>'
+ +'</g></svg>';
+}
+const SB='<div class="sb"><span>10:42</span><span>4G ▮▮▮ 82 %</span></div>';
+const BAR='<div class="bbar"><div><span class="ni">'+I('mtn')+'</span>Menu</div><div class="on"><span class="ni">'+I('map',24,'#06302E')+'</span>Cartes</div><div><span class="ni">'+I('flag')+'</span>Traces</div><div><span class="ni">'+I('loc')+'</span>Position</div></div>';
+
+const pct=v=>Math.trunc(v*100)+' %';
+const deg=v=>Math.round(v)+'°';
+const LAB={opacity:v=>'Opacité : '+pct(v),contrast:v=>'Contraste : '+pct(v),brightness:v=>'Luminosité : '+pct(v),saturation:v=>'Saturation : '+pct(v),hue:v=>'Teinte : '+deg(v)};
+const RANGE={opacity:[0,1,.01],contrast:[-1,1,.01],brightness:[-1,1,.01],saturation:[-1,1,.01],hue:[-180,180,1]};
+function slider(key,a,o){
+ const [mn,mx,st]=RANGE[key],v=a[key]==null?(key==='opacity'?1:0):a[key],p=((v-mn)/(mx-mn)*100).toFixed(1)+'%';
+ const cls=(key==='hue'&&o.rainbow)?' class="rb"':'';
+ return '<input type="range" data-k="'+key+'" min="'+mn+'" max="'+mx+'" step="'+st+'" value="'+v+'" style="--p:'+p+'"'+cls+(o.live?'':' tabindex="-1"')+' aria-label="'+LAB[key](v).split(' :')[0]+'">';
+}
+function srow(key,a,o){
+ const v=a[key]==null?(key==='opacity'?1:0):a[key];
+ const act=o.active===key?' act':'',nw=(key==='hue'&&o.mark)?' new':'';
+ return '<div class="sl fade'+act+nw+'" data-row="'+key+'"><div class="lab">'+LAB[key](v)+'</div>'+slider(key,a,o)+'</div>';
+}
+// « Cartes et calques », scrolled to the unfolded « IGN Cartes » with its colours open.
+function bigPanel(a,o){
+ const keys=o.hue===false?['contrast','brightness','saturation']:['contrast','brightness','saturation','hue'];
+ return '<div class="pnl"><div class="band fade"><div class="t"><b>Cartes et calques</b><small>Rando Multi-Zoom · 3 cartes</small><small>2 dessinées au zoom 14</small></div><span class="ib">'+I('bmk')+'</span><span class="ib">'+I('help')+'</span></div>'
+ +'<div class="scroll"><div class="box">'
+ +'<div class="ll fade"><span class="dh">'+I('drag',22)+'</span><span class="thumb"><div></div></span><div class="nm"><b>IGN Cartes</b><small>'+Math.trunc((a.opacity==null?1:a.opacity)*100)+' % d\'opacité</small></div><span style="color:#506169">'+I('chev',20)+'</span><span class="ey">'+I('eye')+'</span></div>'
+ +srow('opacity',a,o)
+ +'<div class="cmds fade"><div>'+I('up',22)+'Monter</div><div>'+I('down',22)+'Descendre</div><div>'+I('tune',22)+'Conditions</div><div class="sel">'+I('pal',22)+'Couleurs</div><div>'+I('more',22)+'Plus</div></div>'
+ +keys.map(k=>srow(k,a,o)).join('')
+ +'<div class="swr fade"><span>Couleurs inversées</span><span class="sw"></span></div>'
+ +'<div class="rst fade"><span>Réinitialiser les couleurs</span></div>'
+ +'</div></div></div>';
+}
+function crow(key,a,o){
+ const v=a[key]||0,act=o.active===key?' act':'';
+ const name={contrast:'Contraste',brightness:'Luminosité',saturation:'Saturation',hue:'Teinte'}[key];
+ const val=key==='hue'?deg(v):pct(v);
+ return '<div class="crow fade'+act+'" data-row="'+key+'"><div class="k"><b>'+name+'</b><span class="val">'+val+'</span></div>'+slider(key,a,o)+'</div>';
+}
+// Variant D: a compact « Couleurs » panel under the bar, like « Conditions d'affichage ».
+function compactPanel(a,o){
+ return '<div class="cp"><div class="band fade"><div class="t"><b>Couleurs</b><small>IGN Cartes</small></div><span class="ib">'+I('close')+'</span></div><div style="padding-top:6px">'
+ +['contrast','brightness','saturation','hue'].map(k=>crow(k,a,o)).join('')
+ +'<div class="cfoot fade"><span style="display:flex;align-items:center">Couleurs inversées<span class="sw"></span></span><span style="font-weight:500;color:#163A4A;padding:8px 10px">Réinitialiser</span></div></div></div>';
+}
+function phone(variant,a,o){
+ const id='f'+(N++);
+ const inner=SB+'<div class="map">'+topo(id,a)+(variant==='D'?'':bigPanel(a,o))+'</div>'+(variant==='D'?compactPanel(a,o):'')+BAR;
+ return '<div class="ph"><div class="in v-'+variant+(o.adj?' adj':'')+(variant==='D'?' withbar':'')+(o.live?' live':'')+'" data-f="'+id+'">'+inner+(o.finger?'<span class="fing" style="'+o.finger+'"></span>':'')+'</div></div>';
+}
+const fig=(h,c)=>'<figure>'+h+'<figcaption>'+c+'</figcaption></figure>';
+const HUE={hue:120};
+// Finger over the « Teinte » thumb at +120° (big panel: 4th colour row; compact panel: 4th row).
+const FBIG='left:'+(12+8+56+((360-24-16-56-16)*(300/360))-20)+'px;top:'+(26+8+64+4+56+50+62+150+26-20)+'px';
+const FCMP='left:'+(16+96+(360-14-16-96)*(300/360)-20)+'px;top:'+(640-276+56+6+132+22-20)+'px';
+
+const S=[];
+S.push(['Actuel (0.4.134)','Couleurs ▸ Contraste, Luminosité, Saturation, Couleurs inversées. Le panneau couvre presque toute la carte : pendant le glissé, on ne voit pas l\'effet ; il faut fermer le panneau pour le juger, puis le rouvrir.',
+ fig(phone('cur',{},{hue:false}),'<b>Actuel</b> · « Cartes et calques », ligne « IGN Cartes » dépliée, « Couleurs » ouvert. Pas de teinte.')
++fig(phone('cur',{},{hue:false,live:true}),'<b>Actuel · Essayez</b> · les curseurs changent la carte, mais le panneau la cache.')]);
+S.push(['Commun à toutes les variantes : le curseur « Teinte »','Sous « Saturation » : <b>Teinte : 0°</b>, de −180° à +180°, 0° au milieu comme les autres curseurs ; les couleurs tournent sur la roue (à +120° : le vert devient bleu, le bleu rouge, le rouge vert). « Réinitialiser les couleurs » la remet à 0°. Elle est gardée dans les favoris, la sauvegarde et le PDF imprimé. Deux dessins possibles pour sa piste :',
+ fig(phone('cur',HUE,{mark:true}),'<b>T1 · Piste unie</b>, comme les autres curseurs (ici à 120°, le panneau encore opaque).')
++fig(phone('cur',HUE,{mark:true,rainbow:true}),'<b>T2 · Piste arc-en-ciel</b> : la piste montre la couleur que prend le rouge (rouge au milieu, cyan aux deux bouts).')]);
+S.push(['A · Curseur seul','Tant que le doigt tient un curseur, tout le panneau s\'efface (fond, bandeau, autres réglages). Seul le curseur touché reste, sur une pastille blanche avec son nom et sa valeur. Au relâcher, le panneau revient (fondu de 0,15 s). Vaut pour Opacité, Contraste, Luminosité, Saturation et Teinte.',
+ fig(phone('A',HUE,{adj:true,active:'hue',finger:FBIG}),'<b>A · pendant le glissé</b> de « Teinte » (120°) : toute la carte est visible.')
++fig(phone('A',{},{live:true}),'<b>A · Essayez</b> : maintenez et glissez un curseur.')]);
+S.push(['B · Voile','Pendant le glissé, le panneau devient presque transparent (18 %) : on voit la carte à travers et on garde ses repères. Le curseur touché reste net, son nom entouré de blanc pour rester lisible sur la carte.',
+ fig(phone('B',HUE,{adj:true,active:'hue',finger:FBIG}),'<b>B · pendant le glissé</b> de « Teinte » (120°).')
++fig(phone('B',{},{live:true}),'<b>B · Essayez</b>.')]);
+S.push(['C · Demi-transparence','Pendant le glissé, tout le panneau, curseur compris, passe à 50 %. Le plus simple ; la carte reste à moitié voilée.',
+ fig(phone('C',HUE,{adj:true,active:'hue',finger:FBIG}),'<b>C · pendant le glissé</b> de « Teinte » (120°).')
++fig(phone('C',{},{live:true}),'<b>C · Essayez</b>.')]);
+S.push(['D · Panneau « Couleurs » compact, puis curseur seul','« Couleurs » ne se déplie plus dans la liste : il ouvre un petit panneau en bas, comme « Conditions d\'affichage » (nom de la carte, ✕). La moitié haute de la carte reste visible même sans toucher ; pendant le glissé, le panneau s\'efface comme en A. ✕ revient à « Cartes et calques ». L\'opacité reste dans la ligne dépliée.',
+ fig(phone('D',HUE,{adj:true,active:'hue',finger:FCMP}),'<b>D · pendant le glissé</b> de « Teinte » (120°).')
++fig(phone('D',{},{live:true}),'<b>D · Essayez</b> : panneau au repos, puis glissez.')]);
+
+let h='';
+for(const [t,c,p] of S) h+='<h3>'+t+'</h3><p class="c">'+c+'</p><div class="row">'+p+'</div>';
+h+='<p class="c" style="margin-top:22px">Choix attendus : la piste de la teinte (<b>T1</b> ou <b>T2</b>) et le comportement du panneau (<b>A</b>, <b>B</b>, <b>C</b> ou <b>D</b>). Exemple : « T1 et A ».</p>';
+h+='<div class="pick">'+['A','B','C','D'].map(x=>'<button type="button" data-v="'+x+'">Choisir '+x+'</button>').join('')+'</div>';
+const el=document.getElementById('u');el.innerHTML=h;
+el.querySelectorAll('.pick button').forEach(b=>b.addEventListener('click',()=>{const m='Je choisis la variante '+b.dataset.v+' pour le panneau transparent.';if(typeof sendPrompt==='function')sendPrompt(m);else b.textContent='Noté : '+b.dataset.v;}));
+
+// Live phones: the sliders change the map; the panel fades while one is held.
+el.querySelectorAll('.in.live').forEach(ph=>{
+ const st={opacity:1,contrast:0,brightness:0,saturation:0,hue:0};
+ const fe=ph.querySelector('feColorMatrix'),g=ph.querySelector('.mg'),line=ph.querySelector('.ll small');
+ let held=null;
+ const release=()=>{if(!held)return;ph.classList.remove('adj');held.classList.remove('act');held=null;};
+ ph.querySelectorAll('input[type=range]').forEach(inp=>{
+  const k=inp.dataset.k,row=inp.closest('[data-row]');
+  inp.addEventListener('pointerdown',()=>{held=row;row.classList.add('act');ph.classList.add('adj');});
+  inp.addEventListener('input',()=>{
+   const v=parseFloat(inp.value);st[k]=v;
+   const [mn,mx]=RANGE[k];inp.style.setProperty('--p',((v-mn)/(mx-mn)*100).toFixed(1)+'%');
+   const lab=row.querySelector('.lab');if(lab)lab.textContent=LAB[k](v);
+   const val=row.querySelector('.val');if(val)val.textContent=k==='hue'?deg(v):pct(v);
+   if(k==='opacity'){g.style.opacity=v;if(line)line.textContent=Math.trunc(v*100)+' % d\'opacité';}
+   else fe.setAttribute('values',matrix(st));
+  });
+ });
+ window.addEventListener('pointerup',release);window.addEventListener('pointercancel',release);
+});
+})();
+</script>
+</body></html>
