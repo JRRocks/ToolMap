@@ -14,6 +14,9 @@ struct ToolMapApp: App {
         WindowGroup {
             MapScreen()
                 .environment(model)
+                .onOpenURL { url in
+                    model.open(url)
+                }
         }
     }
 }

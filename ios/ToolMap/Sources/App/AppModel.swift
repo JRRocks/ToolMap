@@ -73,6 +73,8 @@ final class AppModel {
     }
     var cameraRequest: CameraRequest?
     var followMode: FollowMode = .free
+    /// A message for the user (import results, errors), shown as an alert on the map.
+    var notice: String?
 
     /// Camera as last reported by the map.
     var center = LonLat(lon: 5.9178, lat: 45.5646)
@@ -139,6 +141,16 @@ final class AppModel {
             let lower = name.lowercased()
             return lower.hasPrefix("©") || lower.hasPrefix("(c)") ? name : "© \(name)"
         }.joined(separator: " · ")
+    }
+
+    /// A file opened with ToolMap from Files, Mail or AirDrop (« Ouvrir avec »).
+    func open(_ url: URL) {
+        switch url.pathExtension.lowercased() {
+        case "aqx":
+            notice = importMaps(from: url)
+        default:
+            notice = "ToolMap ne sait pas encore ouvrir les fichiers .\(url.pathExtension) sur iPhone."
+        }
     }
 
     /// Adds the maps of an `.aqx` file chosen by the user; returns a sentence for the alert.

@@ -57,6 +57,14 @@ struct MapScreen: View {
         .onAppear {
             model.location.start()
         }
+        .alert(
+            "ToolMap",
+            isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(model.notice ?? "")
+        }
     }
 }
 

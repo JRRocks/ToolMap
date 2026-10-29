@@ -55,6 +55,48 @@ targets:
         UIBackgroundModes:
           - location
         ITSAppUsesNonExemptEncryption: false
+        # « Ouvrir avec » (Android P1.7, P5.2): the map and track files ToolMap reads, from Files, Mail or AirDrop.
+        LSSupportsOpeningDocumentsInPlace: false
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: fr.toolmap.aqx
+            UTTypeDescription: Carte AlpineQuest
+            UTTypeConformsTo: [public.xml, public.data]
+            UTTypeTagSpecification:
+              public.filename-extension: [aqx]
+          - UTTypeIdentifier: com.topografix.gpx
+            UTTypeDescription: Trace GPX
+            UTTypeConformsTo: [public.xml, public.data]
+            UTTypeTagSpecification:
+              public.filename-extension: [gpx]
+              public.mime-type: [application/gpx+xml]
+          - UTTypeIdentifier: com.google.earth.kml
+            UTTypeDescription: Fichier KML
+            UTTypeConformsTo: [public.xml, public.data]
+            UTTypeTagSpecification:
+              public.filename-extension: [kml]
+          - UTTypeIdentifier: com.google.earth.kmz
+            UTTypeDescription: Fichier KMZ
+            UTTypeConformsTo: [public.zip-archive, public.data]
+            UTTypeTagSpecification:
+              public.filename-extension: [kmz]
+          - UTTypeIdentifier: fr.toolmap.mbtiles
+            UTTypeDescription: Paquet de cartes MBTiles
+            UTTypeConformsTo: [public.database, public.data]
+            UTTypeTagSpecification:
+              public.filename-extension: [mbtiles]
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Carte AlpineQuest
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Owner
+            LSItemContentTypes: [fr.toolmap.aqx]
+          - CFBundleTypeName: Traces
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [com.topografix.gpx, com.google.earth.kml, com.google.earth.kmz, public.geojson]
+          - CFBundleTypeName: Paquet de cartes
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Owner
+            LSItemContentTypes: [fr.toolmap.mbtiles]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: fr.toolmap.ios
