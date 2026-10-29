@@ -95,6 +95,22 @@ class DrawViewModelTest {
 
     private fun walk(count: Int) = List(count) { TrackPoint(45.0 + it * 0.001, 6.0) }
 
+    /**
+     * A new route of two stops once nothing runs behind it: BRouter (absent under Robolectric) has answered, so the leg
+     * is drawn by hand, and the terrain has given its elevations. With the unconfined main dispatcher of these tests,
+     * both answers are applied on their own threads: an edit made before them could be lost under them (seen on CI
+     * with a point of interest, 2026-10-29).
+     */
+    private fun newRouteOfTwoStops() {
+        tilePng = flatTile(812.0)
+        vm.startNewRoute()
+        vm.addAt(45.0, 6.0)
+        vm.addAt(45.01, 6.0)
+        waitFor("two stops, the leg drawn by hand with the terrain elevation") {
+            vm.ui.value.route?.let { it.plan.stops.size == 2 && it.summary.hasElevation } == true
+        }
+    }
+
     /** Reach of a tap, in meters: far smaller than the 111 m between the test points. */
     private val reach = 20.0
 
@@ -260,10 +276,7 @@ class DrawViewModelTest {
 
     @Test
     fun `a zone pulled at its handle keeps its centre, takes the size for the next zone and is undone at once`() {
-        vm.startNewRoute()
-        vm.addAt(45.0, 6.0)
-        vm.addAt(45.01, 6.0)
-        waitFor("two stops") { vm.ui.value.route?.plan?.stops?.size == 2 }
+        newRouteOfTwoStops()
         vm.startZone()
         vm.followZone(45.005, 6.0)
         vm.placeZone(45.005, 6.0)
@@ -292,10 +305,7 @@ class DrawViewModelTest {
 
     @Test
     fun `points of interest change no leg, are renamed, moved and removed, and are saved with the route`() {
-        vm.startNewRoute()
-        vm.addAt(45.0, 6.0)
-        vm.addAt(45.01, 6.0)
-        waitFor("two stops") { vm.ui.value.route?.plan?.stops?.size == 2 }
+        newRouteOfTwoStops()
         val ways = vm.ui.value.route!!.plan.legs.map { it.points }
         vm.setPoiMode(true)
         assertTrue(vm.ui.value.poiMode)

@@ -1287,6 +1287,26 @@ class DrawViewModel
             val summary = RouteSummary.of(plan, e.profile)
             val custom = settings.settings.value.placemarks.routingProfiles
             val profiles = (RoutingProfiles.BUILT_IN + custom + e.profile).distinct()
+            // The overlay before the screen state: whoever sees a state in [ui] finds the overlay already drawn from it
+            // (a test that waits on [ui] while an answer of BRouter or of the terrain is published from its thread).
+            val t = taken
+            val at = takenAt?.takeIf { t != null }
+            if (hovered?.let { it !in plan.zones.indices } == true) hovered = null
+            mutableOverlay.value =
+                EditOverlay(
+                    RoutePlanGeoJson.lines(plan, legLabels.first, if (e.routing) legLabels.second else "", t),
+                    RoutePlanGeoJson.handles(
+                        plan,
+                        e.selected,
+                        midpoints = !e.routing,
+                        moved = at,
+                        poiMoved = movingPoi,
+                        poiAt = movingPoiAt,
+                    ),
+                    RoutePlanGeoJson.icons(plan),
+                    if (t != null && at != null) RoutePlanGeoJson.elastic(plan, t, at) else null,
+                    RoutePlanGeoJson.zones(plan, placingRing(), hovered),
+                )
             mutableUi.value =
                 mutableUi.value.copy(
                     pointCount = plan.stops.size,
@@ -1309,24 +1329,6 @@ class DrawViewModel
                     zoneRadius = placing,
                     poiMode = poiMode,
                     movingPoi = movingPoi,
-                )
-            val t = taken
-            val at = takenAt?.takeIf { t != null }
-            if (hovered?.let { it !in plan.zones.indices } == true) hovered = null
-            mutableOverlay.value =
-                EditOverlay(
-                    RoutePlanGeoJson.lines(plan, legLabels.first, if (e.routing) legLabels.second else "", t),
-                    RoutePlanGeoJson.handles(
-                        plan,
-                        e.selected,
-                        midpoints = !e.routing,
-                        moved = at,
-                        poiMoved = movingPoi,
-                        poiAt = movingPoiAt,
-                    ),
-                    RoutePlanGeoJson.icons(plan),
-                    if (t != null && at != null) RoutePlanGeoJson.elastic(plan, t, at) else null,
-                    RoutePlanGeoJson.zones(plan, placingRing(), hovered),
                 )
             schedule()
             elevate()
