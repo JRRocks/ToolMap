@@ -599,13 +599,13 @@ internal fun MainPage(
     }
 }
 
-/** « Partage actif · 1 connecté(s) » or « Groupe · 3 membre(s) »: the words of the strip on the map. */
+/** « Partage actif · 1 connecté(s) » or « Groupe · 4 membres » (you included): the words of the strip on the map. */
 @Composable
 private fun hudText(ui: ShareUi): String =
     if (ui.sharing) {
         stringResource(R.string.share_hud_sharing, ui.others.count { it.status == MemberStatus.DIRECT })
     } else {
-        stringResource(R.string.share_hud_watching, ui.others.size)
+        pluralStringResource(R.plurals.share_hud_watching, ui.members.size, ui.members.size)
     }
 
 /** Out of a group: your token and name as the others will see them; the line opens « Ce que les autres voient ». */

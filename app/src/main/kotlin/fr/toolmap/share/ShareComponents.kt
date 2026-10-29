@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -374,7 +375,7 @@ fun ShareHud(
                                 },
                             )
                         } else {
-                            stringResource(R.string.share_hud_watching, ui.others.size)
+                            pluralStringResource(R.plurals.share_hud_watching, ui.members.size, ui.members.size)
                         },
                         style = MaterialTheme.typography.labelLarge,
                     )

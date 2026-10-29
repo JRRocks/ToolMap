@@ -1081,7 +1081,11 @@
   <string name="share_excluded_title">Retiré du groupe</string>
   <string name="share_excluded_text">Les autres membres vous ont retiré du groupe : vous ne recevez plus rien. Il faudra une nouvelle invitation pour revenir.</string>
   <string name="share_hud_sharing" tools:ignore="PluralsCandidate">Partage actif · %1$d connecté(s)</string>
-  <string name="share_hud_watching" tools:ignore="PluralsCandidate">Groupe · %1$d membre(s)</string>
+  <!-- The whole group, you included, as in docs/previews/p22-alerte.html (« Groupe · 4 membres ») -->
+  <plurals name="share_hud_watching">
+    <item quantity="one">Groupe · %1$d membre</item>
+    <item quantity="other">Groupe · %1$d membres</item>
+  </plurals>
   <plurals name="share_notification_members">
     <item quantity="one">%1$d membre connecté</item>
     <item quantity="other">%1$d membres connectés</item>

@@ -129,6 +129,7 @@ Le numéro est dans `version.properties` et **son CORRECTIF augmente tout seul**
 ./gradlew spotlessApply           # corrige le style (ktlint) avant de committer
 ./gradlew lint                    # Android Lint seul
 bash tools/livetest/setup.sh app/build/outputs/apk/debug/ToolMap-debug-<version>.apk   # émulateur collecteur d'un test en direct (docs/specs/live-test.md ; :debugkit à rebrancher d'abord, ADR-072)
+bash tools/emulator/brouter-setup.sh [E5_N45 …]   # BRouter et ses cases .rd5 sur l'émulateur, depuis le cache ~/.cache/toolmap/brouter (hors dépôt : rien n'est retéléchargé), puis : adb emu avd snapshot save default_boot
 ./gradlew :app:generateBaselineProfile   # régénère app/src/main/baseline-prof.txt (émulateur branché, ≈ 6 min ; la CI ne le fait pas)
 # APK : app/build/outputs/apk/debug/ToolMap-debug-<version>.apk (nom : docs/specs/release.md §1)
 ./gradlew :app:assembleBenchmark  # APK benchmark (R8, non debuggable, clé de debug ; ADR-057) : celui des mesures P15

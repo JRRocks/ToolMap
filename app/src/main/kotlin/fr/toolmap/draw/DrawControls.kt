@@ -247,6 +247,8 @@ fun DrawBar(
             } else {
                 ActionTiles {
                     val poi = handPoi
+                    // Putting points of interest, or on one: the point tiles are greyed out (variant 1B).
+                    val pointTiles = ui.selected != null && (route == null || (poi == null && !ui.poiMode))
                     if (route != null && poi != null) {
                         ActionTile(Icons.Filled.Edit, stringResource(R.string.route_poi_edit), highlighted = true) {
                             val (lat, lon) = center()
@@ -267,14 +269,14 @@ fun DrawBar(
                             vm.addAt(lat, lon, reach())
                         }
                     }
-                    ActionTile(RouteIcons.OpenWith, stringResource(R.string.draw_move_here), ui.selected != null) {
+                    ActionTile(RouteIcons.OpenWith, stringResource(R.string.draw_move_here), pointTiles) {
                         val (lat, lon) = center()
                         vm.moveSelectedTo(lat, lon)
                     }
                     ActionTile(
                         RouteIcons.Delete,
                         stringResource(R.string.draw_delete_point),
-                        ui.selected != null,
+                        pointTiles,
                         onClick = vm::deleteSelected,
                     )
                     ActionTile(
@@ -559,6 +561,8 @@ private fun RoutedPanel(
             val poi = poiHover
             val inZone = zone
             val inserting = insertLeg != null
+            // Putting points of interest, or on one: the stop tiles are greyed out (variant 1B).
+            val stopTiles = ui.selected != null && !ui.poiMode && (poi == null || stop != null)
             if (poi != null && (ui.poiMode || stop == null)) {
                 // The crosshair on a point of interest (a stop comes first, unless points of interest are put).
                 ActionTile(
@@ -609,7 +613,7 @@ private fun RoutedPanel(
             ActionTile(
                 RouteIcons.OpenWith,
                 stringResource(R.string.draw_move_here),
-                ui.selected != null,
+                stopTiles,
                 minHeight = TILE,
             ) {
                 val (lat, lon) = center()
@@ -618,7 +622,7 @@ private fun RoutedPanel(
             ActionTile(
                 RouteIcons.Delete,
                 stringResource(R.string.route_delete_stop),
-                ui.selected != null,
+                stopTiles,
                 minHeight = TILE,
                 onClick = vm::deleteSelected,
             )
