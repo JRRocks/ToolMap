@@ -43,8 +43,16 @@ jobs:
         working-directory: ios/ToolMapCore
         run: |
           set -o pipefail
-          swift test 2>&1 | tee "$RUNNER_TEMP/swift-test.log"
-          grep -E "Test run with|Executed [0-9]+ test" "$RUNNER_TEMP/swift-test.log" | tail -n 5 >> "$GITHUB_STEP_SUMMARY" || true
+          log="$RUNNER_TEMP/swift-test.log"
+          if ! swift test 2>&1 | tee "$log"; then
+            # The failures again at the end of the log, where they can be read without the whole log.
+            echo "::group::Failures"
+            grep -E "error:|recorded an issue|Expectation failed|failed after|Fatal error" "$log" | grep -v " passed " | head -n 120 || true
+            echo "::endgroup::"
+            grep -E "recorded an issue|error:" "$log" | head -n 40 >> "$GITHUB_STEP_SUMMARY" || true
+            exit 1
+          fi
+          grep -E "Test run with|Executed [0-9]+ test" "$log" | tail -n 5 >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Pick an iPhone simulator
         id: simulator
