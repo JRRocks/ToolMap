@@ -233,10 +233,10 @@ struct PairingCodecTests {
             }
         }
         #expect(n > 0)
-        let bomb: [UInt8] = [0x54, 0x4D, 1 | 0x80] + Array(buffer.prefix(n))
+        let bomb: [UInt8] = [0x54, 0x4D, UInt8(1 | 0x80)] + Array(buffer.prefix(n))
         #expect(throws: WireError.self) { try PairingCodec.decodeBytes(bomb) }
         // With this version's own number the inflater stops at its limit.
-        let current: [UInt8] = [0x54, 0x4D, 3 | 0x80] + Array(buffer.prefix(n))
+        let current: [UInt8] = [0x54, 0x4D, UInt8(3 | 0x80)] + Array(buffer.prefix(n))
         #expect(throws: WireError.self) { try PairingCodec.decodeBytes(current) }
     }
 
