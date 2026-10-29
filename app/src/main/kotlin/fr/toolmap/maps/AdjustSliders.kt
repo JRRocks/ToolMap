@@ -4,9 +4,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +32,8 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -91,10 +92,8 @@ internal fun AdjustSlider(
     /** What TalkBack reads as the value when the slider's own (a share of its range) would mislead. */
     valueText: String? = null,
 ) {
-    val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val dragged by source.collectIsDraggedAsState()
-    val holding = pressed || dragged
+    // The finger on the slider, from the moment it touches: Material's slider reports nothing before it drags.
+    var holding by remember { mutableStateOf(false) }
     LaunchedEffect(holding) { fade.onHold(key, holding) }
     DisposableEffect(key) { onDispose { fade.onHold(key, false) } }
     val mine = fade.last == key
@@ -111,30 +110,43 @@ internal fun AdjustSlider(
             .padding(start = 48.dp, end = 8.dp, top = 4.dp),
     ) {
         Text(label, style = MaterialTheme.typography.labelMedium)
-        val semantics = valueText?.let { text -> Modifier.semantics { stateDescription = text } } ?: Modifier
+        val watched =
+            Modifier
+                .pointerInput(Unit) {
+                    // Watched on the way in and left to the slider: it still gets every move.
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        holding = true
+                        try {
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                            } while (event.changes.any { it.pressed })
+                        } finally {
+                            holding = false
+                        }
+                    }
+                }.then(valueText?.let { text -> Modifier.semantics { stateDescription = text } } ?: Modifier)
         if (hueTrack) {
             Box(contentAlignment = Alignment.CenterStart) {
                 HueTrack(fraction = (value - range.start) / (range.endInclusive - range.start))
                 Slider(
                     value = value,
                     onValueChange = onChange,
-                    modifier = semantics,
+                    modifier = watched,
                     valueRange = range,
                     colors =
                         SliderDefaults.colors(
                             activeTrackColor = Color.Transparent,
                             inactiveTrackColor = Color.Transparent,
                         ),
-                    interactionSource = source,
                 )
             }
         } else {
             Slider(
                 value = value,
                 onValueChange = onChange,
-                modifier = semantics,
+                modifier = watched,
                 valueRange = range,
-                interactionSource = source,
             )
         }
     }
