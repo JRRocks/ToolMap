@@ -34,6 +34,10 @@
   - Build séparé de `:core` (Gradle 9.6 du dépôt) : `:core:test` **950 tests, 0 échec** (948 + 2 : `PrintPlannerTest` « une feuille personnalisée plus grande que l'ancien 1,5 m s'imprime quand sa résolution le permet » (2 000 × 1 000 mm, 1:25 000 : exportable à 150 dpi, `HUGE_PAGE` à 300 dpi), `PrintPlanTest` « une feuille large a des bandes plus fines » ; cas ajoutés à `PrintMathTest` (5 000 × 1 500 mm sans problème, NaN et infini refusés) et à `PrintPlannerTest` (bande de 12 m × 12 cm à 150 dpi refusée pour sa largeur, feuille de 10⁹ mm refusée sans débordement)) ; `spotlessCheck` (ktlint) vert sur `app`, `core`, `data`, `p2p`.
   - Aperçu ouvert dans Chromium (Playwright) à 1 100 px (jour et nuit) et 390 px : aucune erreur de console (après correction des tailles négatives des miniatures), pas de défilement horizontal ; chaque bande vue en capture.
   - Correction du test instable : ktlint vert (même montage) ; `:app` ne se compile pas ici (pas de SDK) : vérifié par la CI.
+  - `./gradlew check assembleDebug` : **non lancé** (SDK Android injoignable).
+  - CI du push a8e9002 (run 40932442302, 0.4.138) : **rouge**, 470 tests de `:app`, 1 échec (`DrawViewModelTest`, ci-dessus) ; `:core`, ktlint et lint passés.
+  - CI du push 13d5d0c (run 40934774377, **0.4.139**) : **verte** (ktlint, lint, tests de `:core`, `:data`, `:p2p`, `:app` dont `DrawViewModelTest`, APK) ; artefact `toolmap-debug-apk` 12925390443.
+  - Aperçu publié pour l'utilisateur (page privée claude.ai) et notification envoyée pour demander le choix.
 - **Problèmes / dette technique** : écran du dialogue jamais vu sur un émulateur dans cette session (P17.7 reste 🔄). Au-delà de 5 080 mm de côté, la page dépasse la limite d'Acrobat (ADR-096). Les autres tests de `DrawViewModelTest` gardent le répartiteur « Unconfined » : un test qui modifie un itinéraire avant la fin d'un calcul en arrière-plan peut retomber sur la même course.
 - **Prochaine étape recommandée** : choix de l'utilisateur sur `docs/previews/p17-impression-menus.html`, puis code de la variante choisie (P17.8) ; sur le poste Windows, « Format personnalisé » à 2 000 × 1 000 mm sur l'émulateur (P17.7).
 
