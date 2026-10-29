@@ -164,6 +164,13 @@ class MapViewModel
             inverted: Boolean,
         ) = mutableState.update { it.withStack(it.stack.setInverted(id, inverted)) }
 
+        fun setHue(
+            id: String,
+            hue: Float,
+        ) = mutableState.update { it.withStack(it.stack.setHue(id, hue)) }
+
+        fun resetColors(id: String) = mutableState.update { it.withStack(it.stack.resetColors(id)) }
+
         fun moveLayerUp(id: String) = mutableState.update { it.withStack(it.stack.moveUp(id)) }
 
         fun moveLayerDown(id: String) = mutableState.update { it.withStack(it.stack.moveDown(id)) }

@@ -1,13 +1,16 @@
 package fr.toolmap.core.layers
 
 import kotlinx.serialization.Serializable
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * One entry of the layer stack: a tile source displayed with its own opacity and color adjustments.
  * [displayMinZoom] / [displayMaxZoom] (inclusive, in tile zoom, `null` = unbounded) are the per-layer
  * display range of feature N3 (phase P3). [displayMinElevation] / [displayMaxElevation] (inclusive, metres, `null` =
  * unbounded) are the elevation band the layer is drawn in (P20); [rangeLogic] says how the two combine when both are
- * set.
+ * set. [hue] turns the colours round the colour wheel (P26.6).
  */
 @Serializable
 data class LayerConfig(
@@ -29,9 +32,12 @@ data class LayerConfig(
     val displayMinElevation: Int? = null,
     val displayMaxElevation: Int? = null,
     val rangeLogic: RangeLogic = RangeLogic.AND,
+    /** Hue rotation in degrees, -180 .. 180, 0 = unchanged (MapLibre's `raster-hue-rotate`). */
+    val hue: Float = 0f,
 ) {
     /** True when a color adjustment differs from the neutral value. */
-    val hasAdjustments: Boolean get() = contrast != 0f || brightness != 0f || saturation != 0f || inverted
+    val hasAdjustments: Boolean
+        get() = contrast != 0f || brightness != 0f || saturation != 0f || hue != 0f || inverted
 
     val hasZoomRange: Boolean get() = displayMinZoom != null || displayMaxZoom != null
 
@@ -66,11 +72,14 @@ object RasterAdjust {
         return if (inverted) BrightnessRange(range.max, range.min) else range
     }
 
+    /** Largest hue rotation either way, in degrees (P26.6). */
+    const val MAX_HUE = 180f
+
     /**
      * The colour matrix (4 × 5, row after row, Android's layout: the last column is an offset in 0..255) that gives a
-     * pixel the same contrast, saturation and brightness as the map shows with [layer]'s settings, or `null` when the
-     * layer has none. It follows the raster shader of the map: saturation, then contrast around mid-grey, then the
-     * brightness range.
+     * pixel the same hue, contrast, saturation and brightness as the map shows with [layer]'s settings, or `null` when
+     * the layer has none. It follows the raster shader of the map: hue rotation, saturation, then contrast around
+     * mid-grey, then the brightness range.
      */
     fun colorMatrix(layer: LayerConfig): FloatArray? {
         if (!layer.hasAdjustments) return null
@@ -78,31 +87,30 @@ object RasterAdjust {
         val k = contrastFactor(layer.contrast.coerceIn(-1f, MAX_CONTRAST))
         val range = brightnessRange(layer.brightness, layer.inverted)
         val span = range.max - range.min
-        val diagonal = (1f - s + s / 3f) * k * span
-        val other = s / 3f * k * span
+        val spin = hueWeights(layer.hue.coerceIn(-MAX_HUE, MAX_HUE))
+        // Saturation moves each channel towards the average (weights d on itself, o on the others), which the
+        // rotation keeps: row i of saturation × rotation is (d - o) × the rotation's row + o.
+        val d = 1f - s + s / 3f
+        val o = s / 3f
         val offset = (range.min + span * 0.5f * (1f - k)) * 255f
-        return floatArrayOf(
-            diagonal,
-            other,
-            other,
-            0f,
-            offset,
-            other,
-            diagonal,
-            other,
-            0f,
-            offset,
-            other,
-            other,
-            diagonal,
-            0f,
-            offset,
-            0f,
-            0f,
-            0f,
-            1f,
-            0f,
-        )
+        val matrix = FloatArray(MATRIX_SIZE)
+        for (row in 0 until 3) {
+            for (col in 0 until 3) matrix[row * 5 + col] = ((d - o) * spin[(col - row + 3) % 3] + o) * k * span
+            matrix[row * 5 + 4] = offset
+        }
+        matrix[ALPHA_GAIN] = 1f
+        return matrix
+    }
+
+    /**
+     * MapLibre's `raster-hue-rotate` weights for [degrees]: the new red is `w0 r + w1 g + w2 b`, green and blue take
+     * the same weights shifted by one (`w2 r + w0 g + w1 b`, `w1 r + w2 g + w0 b`): a turn about the grey axis.
+     */
+    internal fun hueWeights(degrees: Float): FloatArray {
+        val a = Math.toRadians(degrees.toDouble())
+        val c = cos(a)
+        val s = sqrt(3.0) * sin(a)
+        return floatArrayOf(((2 * c + 1) / 3).toFloat(), ((1 - c - s) / 3).toFloat(), ((1 - c + s) / 3).toFloat())
     }
 
     /** MapLibre's `raster-saturation` factor: how far each channel moves towards the average. */
@@ -113,4 +121,6 @@ object RasterAdjust {
     internal fun contrastFactor(contrast: Float): Float = if (contrast > 0f) 1f / (1f - contrast) else 1f + contrast
 
     private const val MAX_CONTRAST = 0.99f
+    private const val MATRIX_SIZE = 20
+    private const val ALPHA_GAIN = 18
 }

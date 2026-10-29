@@ -18,6 +18,8 @@ data class WorkspaceLayer(
     val displayMinElevation: Int? = null,
     val displayMaxElevation: Int? = null,
     val rangeLogic: RangeLogic = RangeLogic.AND,
+    /** Hue rotation in degrees (P26.6), see [LayerConfig.hue]. */
+    val hue: Float = 0f,
 ) {
     /** True when both a zoom range and an elevation band are set: only then does [rangeLogic] change the drawing. */
     val combinesRanges: Boolean
@@ -64,6 +66,7 @@ data class Workspace(
                     displayMinElevation = layer.displayMinElevation,
                     displayMaxElevation = layer.displayMaxElevation,
                     rangeLogic = layer.rangeLogic,
+                    hue = layer.hue,
                 )
             }
         return AppliedWorkspace(
@@ -92,7 +95,8 @@ data class Workspace(
                 near(want.opacity, have.opacity) &&
                 near(want.contrast, have.contrast) &&
                 near(want.brightness, have.brightness) &&
-                near(want.saturation, have.saturation)
+                near(want.saturation, have.saturation) &&
+                near(want.hue, have.hue)
         }
     }
 
@@ -128,6 +132,7 @@ data class Workspace(
                         it.displayMinElevation,
                         it.displayMaxElevation,
                         it.rangeLogic,
+                        it.hue,
                     )
                 },
             )

@@ -26,6 +26,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.math.roundToInt
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -107,6 +108,46 @@ class MapsRootPanelTest {
         rule.onNodeWithText("Couleurs").performClick()
         rule.onNodeWithText("Contraste : 0 %").assertExists()
         rule.onNodeWithText("Couleurs inversées").assertExists()
+    }
+
+    @Test
+    fun `the colours have a hue in degrees, which Réinitialiser les couleurs puts back with the others`() {
+        setContent()
+        rule.onNodeWithText("IGN Cartes").performClick()
+        rule.onNodeWithText("Couleurs").performClick()
+        rule.onNodeWithText("Teinte : 0°").assertExists()
+        val id = fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" }.id
+        rule.runOnIdle {
+            fixture.vm.setHue(id, 120f)
+            fixture.vm.setAdjustments(id, 0.2f, 0f, 0f)
+        }
+        rule.onNodeWithText("Teinte : 120°").assertExists()
+        rule.onNodeWithText("Réinitialiser les couleurs").performClick()
+        rule.waitForIdle()
+        val layer = fixture.vm.state.value.stack.layers.first { it.id == id }
+        assertEquals(0f, layer.hue)
+        assertEquals(0f, layer.contrast)
+        rule.onNodeWithText("Teinte : 0°").assertExists()
+    }
+
+    @Test
+    fun `sliding the hue turns the colours of the layer, in whole degrees`() {
+        setContent()
+        rule.onNodeWithText("IGN Cartes").performClick()
+        rule.onNodeWithText("Couleurs").performClick()
+        val hueSlider =
+            SemanticsMatcher("the hue slider") {
+                it.config.getOrElseNullable(SemanticsProperties.ProgressBarRangeInfo) { null }?.range == HUE_RANGE
+            }
+        rule.onNode(hueSlider).performTouchInput {
+            down(center)
+            moveTo(centerRight)
+            up()
+        }
+        rule.waitForIdle()
+        val hue = fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" }.hue
+        assertTrue(hue > 150f, "hue: $hue")
+        assertEquals(hue.roundToInt().toFloat(), hue)
     }
 
     @Test

@@ -116,6 +116,16 @@ data class LayerStack(
         inverted: Boolean,
     ): LayerStack = update(id) { it.copy(inverted = inverted) }
 
+    /** Turns a layer's colours round the colour wheel by [hue] degrees (P26.6). */
+    fun setHue(
+        id: String,
+        hue: Float,
+    ): LayerStack = update(id) { it.copy(hue = hue.coerceIn(-RasterAdjust.MAX_HUE, RasterAdjust.MAX_HUE)) }
+
+    /** « Réinitialiser les couleurs »: contrast, brightness, saturation and hue back to neutral, colours not inverted. */
+    fun resetColors(id: String): LayerStack =
+        update(id) { it.copy(contrast = 0f, brightness = 0f, saturation = 0f, hue = 0f, inverted = false) }
+
     /**
      * Swaps the source of the lowest base-map layer (a layer for which [isBase] holds) for [sourceId], keeping
      * its position, opacity and adjustments. Adds a new bottom layer when the stack has no base map.

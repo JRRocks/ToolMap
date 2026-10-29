@@ -37,6 +37,7 @@ object StackToStyle {
                             brightnessMin = brightness.min * keep,
                             brightnessMax = brightness.max * keep,
                             saturation = layer.saturation.coerceIn(-1f, 1f),
+                            hueRotate = layer.hue.coerceIn(-RasterAdjust.MAX_HUE, RasterAdjust.MAX_HUE),
                             minZoom = range.minZoom,
                             maxZoom = range.maxZoom,
                         ),

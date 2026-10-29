@@ -200,6 +200,7 @@ object StyleApplier {
             PropertyFactory.rasterOpacity(props.opacity),
             PropertyFactory.rasterContrast(props.contrast),
             PropertyFactory.rasterSaturation(props.saturation),
+            PropertyFactory.rasterHueRotate(props.hueRotate),
             PropertyFactory.rasterBrightnessMin(props.brightnessMin),
             PropertyFactory.rasterBrightnessMax(props.brightnessMax),
         )

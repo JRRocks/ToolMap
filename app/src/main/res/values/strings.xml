@@ -22,6 +22,7 @@
   <string name="layers_contrast">Contraste : %1$d %%</string>
   <string name="layers_brightness">Luminosité : %1$d %%</string>
   <string name="layers_saturation">Saturation : %1$d %%</string>
+  <string name="layers_hue">Teinte : %1$d°</string>
   <string name="layers_reset_adjustments">Réinitialiser les couleurs</string>
 
   <string name="layers_display_all">Visible à tous les zooms</string>

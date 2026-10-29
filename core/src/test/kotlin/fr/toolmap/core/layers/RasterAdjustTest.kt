@@ -1,5 +1,8 @@
 package fr.toolmap.core.layers
 
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -10,7 +13,8 @@ class RasterAdjustTest {
         contrast: Float = 0f,
         brightness: Float = 0f,
         saturation: Float = 0f,
-    ) = LayerConfig("l", "s", contrast = contrast, brightness = brightness, saturation = saturation)
+        hue: Float = 0f,
+    ) = LayerConfig("l", "s", contrast = contrast, brightness = brightness, saturation = saturation, hue = hue)
 
     /** Applies a 4 x 5 matrix to a colour in 0..1 (the offset column is in 0..255). */
     private fun apply(
@@ -27,17 +31,40 @@ class RasterAdjustTest {
         contrast: Float,
         brightness: Float,
         saturation: Float,
+        hue: Float = 0f,
     ): FloatArray {
         val sat = if (saturation >= 0f) 1f - 1f / (1.001f - saturation) else -saturation
         val con = if (contrast > 0f) 1f / (1f - contrast) else 1f + contrast
         val range = RasterAdjust.brightnessRange(brightness)
+        // Hue first: MapLibre's spin weights, dot(rgb, w.xyz), dot(rgb, w.zxy), dot(rgb, w.yzx).
+        val a = Math.toRadians(hue.toDouble())
+        val w =
+            doubleArrayOf(
+                (2 * cos(a) + 1) / 3,
+                (-sqrt(3.0) * sin(a) - cos(a) + 1) / 3,
+                (sqrt(3.0) * sin(a) - cos(a) + 1) / 3,
+            ).map { it.toFloat() }
+        val spun =
+            floatArrayOf(
+                rgb[0] * w[0] + rgb[1] * w[1] + rgb[2] * w[2],
+                rgb[0] * w[2] + rgb[1] * w[0] + rgb[2] * w[1],
+                rgb[0] * w[1] + rgb[1] * w[2] + rgb[2] * w[0],
+            )
         val average = (rgb[0] + rgb[1] + rgb[2]) / 3f
         return FloatArray(3) { i ->
-            val s = rgb[i] + (average - rgb[i]) * sat
+            val s = spun[i] + (average - spun[i]) * sat
             val c = (s - 0.5f) * con + 0.5f
             range.min + (range.max - range.min) * c
         }
     }
+
+    private val samples =
+        listOf(
+            floatArrayOf(0.2f, 0.5f, 0.8f),
+            floatArrayOf(1f, 0f, 0f),
+            floatArrayOf(0.5f, 0.5f, 0.5f),
+            floatArrayOf(0.9f, 0.85f, 0.1f),
+        )
 
     @Test
     fun `a layer without adjustments needs no filter`() {
@@ -131,5 +158,51 @@ class RasterAdjustTest {
         assertEquals(0.4f, inverted.brightnessMin, 1e-6f)
         assertEquals(0f, inverted.brightnessMax)
         assertEquals(StackToStyle.desired(stack) { true }, StackToStyle.desired(stack, darkening = 0f) { true })
+    }
+
+    @Test
+    fun `the matrix does what the shader does with a hue, alone or with the other settings`() {
+        for (hue in listOf(-150f, -45f, 30f, 120f, 180f)) {
+            for ((contrast, brightness, saturation) in listOf(
+                Triple(0f, 0f, 0f),
+                Triple(0.3f, -0.4f, -0.3f),
+                Triple(-0.6f, 0.5f, 0.4f),
+                Triple(0f, 0f, -1f),
+            )) {
+                val m = assertNotNull(RasterAdjust.colorMatrix(layer(contrast, brightness, saturation, hue)))
+                for (c in samples) {
+                    val expected = shader(c, contrast, brightness, saturation, hue)
+                    val actual = apply(m, c)
+                    for (i in 0..2) assertEquals(expected[i], actual[i], 1e-4f, "h=$hue c=$contrast s=$saturation")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a third of a turn sends red to green, green to blue and blue to red, and keeps grey`() {
+        val m = assertNotNull(RasterAdjust.colorMatrix(layer(hue = 120f)))
+        val red = apply(m, floatArrayOf(1f, 0f, 0f))
+        val green = apply(m, floatArrayOf(0f, 1f, 0f))
+        val grey = apply(m, floatArrayOf(0.4f, 0.4f, 0.4f))
+        // The shader's neutral saturation is 0.001, not 0 exactly, hence the small tolerance.
+        for ((i, v) in listOf(0f, 1f, 0f).withIndex()) assertEquals(v, red[i], 1e-3f)
+        for ((i, v) in listOf(0f, 0f, 1f).withIndex()) assertEquals(v, green[i], 1e-3f)
+        for (v in grey) assertEquals(0.4f, v, 1e-5f)
+        // A full turn either way is the same.
+        val back = assertNotNull(RasterAdjust.colorMatrix(layer(hue = -180f)))
+        val forth = assertNotNull(RasterAdjust.colorMatrix(layer(hue = 180f)))
+        for (i in back.indices) assertEquals(back[i], forth[i], 1e-5f)
+    }
+
+    @Test
+    fun `a hue alone is an adjustment, and the style gets it clamped to half a turn`() {
+        assertEquals(true, layer(hue = 15f).hasAdjustments)
+        val stack = LayerStack().add("osm").setHue("l1", 400f)
+        assertEquals(RasterAdjust.MAX_HUE, stack["l1"]!!.hue)
+        assertEquals(180f, StackToStyle.desired(stack) { true }.single().props.hueRotate)
+        val turned = LayerStack().add("osm").setHue("l1", -75f)
+        assertEquals(-75f, StackToStyle.desired(turned) { true }.single().props.hueRotate)
+        assertEquals(0f, StackToStyle.desired(LayerStack().add("osm")) { true }.single().props.hueRotate)
     }
 }

@@ -80,6 +80,8 @@ internal fun BarPanel(
     modifier: Modifier = Modifier,
     header: (@Composable () -> Unit)? = null,
     footer: (@Composable () -> Unit)? = null,
+    /** How much of the panel's own background and shadow shows, 0 to 1 (a panel that fades away, P26.6). */
+    containerAlpha: Float = 1f,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
@@ -90,8 +92,8 @@ internal fun BarPanel(
                 // A tap on the panel itself must not reach the scrim behind it, which closes the panel.
                 .pointerInput(Unit) { detectTapGestures { } },
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.toolMap.panel,
-        shadowElevation = 8.dp,
+        color = MaterialTheme.toolMap.panel.copy(alpha = containerAlpha),
+        shadowElevation = 8.dp * containerAlpha,
     ) {
         Column {
             header?.invoke()

@@ -218,10 +218,11 @@ Depuis P29.3 (2026-10-27, variante C · Strates, ADR-076), la pile est le conten
 |---|---|
 | Poignée (glisser pour changer l'ordre ; TalkBack : actions Monter, Descendre) · vignette (cerclée de turquoise si le calque est dessiné au zoom de la carte, atténuée sinon) · nom (graisse 500 s'il est dessiné) · ligne d'état : « N % d'opacité » ; pour un calque limité : « Visible aux zooms 12 à 17 », « · inactif à ce zoom », bande d'altitude, l'opacité seulement sous 100 % (ADR-063, P20) · flèche · œil | ✅ (P29.3) |
 | Toucher la ligne : elle se déplie sur place (une à la fois) : « Opacité : N % » (curseur), puis Monter · Descendre · Conditions · Couleurs · Plus | ✅ (P29.3) |
-| Couleurs : contraste, luminosité, saturation, couleurs inversées, « Réinitialiser les couleurs », dépliés sous les commandes | ✅ (P29.3) |
+| Couleurs : contraste, luminosité, saturation, **« Teinte : N° »** (−180° à +180°, 0° au milieu, piste en roue des couleurs : ce que devient le rouge ; TalkBack lit « N° » ; P26.6, piste T2 de `docs/previews/p26-teinte.html` validée le 2026-10-29), couleurs inversées, « Réinitialiser les couleurs » (teinte comprise), dépliés sous les commandes | ✅ (P29.3) ; teinte 🔄 (P26.6, codée ; émulateur à faire) |
+| **Pendant un réglage** (P26.6, variante A validée le 2026-10-29, ADR-095) : tant que le doigt tient un curseur de la ligne dépliée (Opacité, Contraste, Luminosité, Saturation, Teinte), le reste du panneau s'efface en 0,15 s (fond, ombre, bandeau, favoris, autres lignes, commandes, autres curseurs) et le curseur tenu reste seul sur une pastille blanche avec son nom et sa valeur ; le panneau revient au relâcher | 🔄 (P26.6, codé ; émulateur à faire) |
 | Plus : Détails · Forcer la mise à jour des données locales (cette session) · Ne plus afficher · Ne plus afficher les autres | ✅ (P29.3) |
 | **Conditions d'affichage** (`maps/DisplayConditionsPanel.kt`, `MapsPage.CONDITIONS`) : panneau non modal en bas de la carte, la barre remonte au-dessus ; bandeau pétrole (titre, nom de la carte, ✕) ; Zoom et Altitude en une ligne chacun (libellé et valeur, barre, Réinitialiser en icône) ; « 0 m · centre N m · 4800 m et + » ; ET / OU et sa phrase seulement si les deux conditions sont posées ; ✕ et Retour ramènent au panneau, la ligne toujours dépliée | ✅ (P29.3, compact) |
-| Mode de fusion, teinte (panneau « Couleurs et fusion ») | ⬜ P26 (`docs/plan-fonctions-2026-10.md`) |
+| Mode de fusion, teinte d'une couleur choisie (panneau « Couleurs et fusion ») ; la rotation des couleurs est le curseur « Teinte » (P26.6) | ⬜ P26 (`docs/plan-fonctions-2026-10.md`) |
 
 ### 5.3 Écran « Cartes disponibles » (`maps/AvailableMapsScreen.kt`)
 

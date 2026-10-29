@@ -8,6 +8,8 @@ data class LayerProps(
     val brightnessMin: Float = 0f,
     val brightnessMax: Float = 1f,
     val saturation: Float = 0f,
+    /** MapLibre `raster-hue-rotate`, in degrees. */
+    val hueRotate: Float = 0f,
     /** MapLibre `minzoom` / `maxzoom` of the layer (camera zoom); `null` = not set. */
     val minZoom: Float? = null,
     val maxZoom: Float? = null,

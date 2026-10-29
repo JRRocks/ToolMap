@@ -62,6 +62,21 @@ class LayerStackTest {
     }
 
     @Test
+    fun `the hue is clamped to half a turn and the colours reset all together`() {
+        val s =
+            stack()
+                .setHue("l1", -270f)
+                .setAdjustments("l1", 0.2f, -0.3f, 0.4f)
+                .setInverted("l1", true)
+                .setOpacity("l1", 0.6f)
+        assertEquals(-180f, s["l1"]!!.hue)
+        val reset = s.resetColors("l1")["l1"]!!
+        assertEquals(LayerConfig("l1", "osm", opacity = 0.6f), reset)
+        assertEquals(false, reset.hasAdjustments)
+        assertEquals(s["l2"], s.resetColors("l1")["l2"])
+    }
+
+    @Test
     fun `replacing the base keeps position and settings and leaves overlays alone`() {
         val s = stack().setOpacity("l1", 0.8f).replaceBase("scan25", isBase)
         assertEquals(listOf("scan25", "pentes"), s.layers.map { it.sourceId })

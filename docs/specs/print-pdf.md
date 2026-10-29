@@ -48,7 +48,7 @@ Notations : `S` = dénominateur d'échelle, `d` = dpi, `(fw, fh)` = taille du ca
 
 ## 3. Composition
 - ~~`android.graphics.pdf.PdfDocument`~~ → **`PdfWriter` maison** (`:core`, ADR-020) : PDF 1.4, `MediaBox` réelle (A4 = 841,89 × 595,276 pt, pas 595 × 842), polices de base Helvetica, images JPEG. Unités de page en points PostScript (1 pt = 1/72 po).
-- **Cadre carte** : rendu **par bandes** (ex. 512 px de haut) pour borner la mémoire. Pour chaque bande : bitmap de `Pw × hauteur`, composition des calques dans l'ordre (opacité, réglages couleur, plages de zoom au zoom z*), tuiles lues dans `MbTilesStore`, puis `drawBitmap` dans le rectangle de la bande en points.
+- **Cadre carte** : rendu **par bandes** (ex. 512 px de haut) pour borner la mémoire. Pour chaque bande : bitmap de `Pw × hauteur`, composition des calques dans l'ordre (opacité, réglages couleur dont la teinte (même matrice que le shader de la carte, ADR-095), plages de zoom au zoom z*), tuiles lues dans `MbTilesStore`, puis `drawBitmap` dans le rectangle de la bande en points.
 - **Tuiles manquantes** : avant l'export, calcul de la liste des tuiles nécessaires puis proposition de les télécharger (réutilise P2.4). Sinon, les zones manquantes sont hachurées et signalées.
 - **Vectoriel** (net à toute résolution) : traces, waypoints, grille, textes et habillage sont dessinés directement sur le `Canvas` du PDF, jamais rastérisés.
 - **Taille de fichier** : `PdfDocument` encodait sans perte (Flate) ; une A3 à 300 dpi fait ≈ 17 Mpx, donc un fichier de plusieurs dizaines de Mo. Réglé par ADR-020 : bandes **JPEG** (qualité ≈ 88). Poids réel d'une A3 / 300 dpi avec de vraies tuiles : à mesurer sur téléphone.

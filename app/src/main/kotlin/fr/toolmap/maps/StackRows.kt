@@ -67,12 +67,14 @@ import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
+import kotlin.math.roundToInt
 
 /*
  * The lines of the layer stack in « Cartes et calques » (P29.3, « Strates »): a handle to drag the layer up or down,
  * its thumbnail (ringed in turquoise when the map draws it at its zoom, faded when it does not), its name and state,
  * its eye. A tap unfolds the line in place: opacity, Monter · Descendre · Conditions · Couleurs · Plus, the colours
- * unfolding under it in turn. The former « Cartes affichées » sheet and its ⋮ menu are gone.
+ * unfolding under it in turn. The former « Cartes affichées » sheet and its ⋮ menu are gone. While a slider is held,
+ * the lines fade away with the panel and leave that slider alone ([PanelFade], P26.6).
  */
 
 /** The layers, top first; [expanded] is the one unfolded (one at a time), [onExpand] changes it. */
@@ -85,6 +87,7 @@ internal fun StackRows(
     currentZoom: Double,
     expanded: String?,
     onExpand: (String?) -> Unit,
+    fade: PanelFade,
 ) {
     val forced by maps.forced.collectAsStateWithLifecycle()
     var details by remember { mutableStateOf<String?>(null) }
@@ -135,24 +138,26 @@ internal fun StackRows(
                             Modifier
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                                 .clip(MaterialTheme.shapes.medium)
-                                .background(MaterialTheme.toolMap.tile)
+                                .background(MaterialTheme.toolMap.tile.copy(alpha = fade.shown))
                         } else {
-                            Modifier.background(MaterialTheme.toolMap.panel)
+                            Modifier.background(MaterialTheme.toolMap.panel.copy(alpha = fade.shown))
                         },
                     ),
             ) {
-                LayerLine(
-                    layer = layer,
-                    source = byId[layer.sourceId],
-                    maps = maps,
-                    currentZoom = currentZoom,
-                    open = open,
-                    canUp = index > 0,
-                    canDown = index < layers.lastIndex,
-                    dragGesture = drag,
-                    onToggle = { onExpand(if (open) null else layer.id) },
-                    vm = vm,
-                )
+                Box(Modifier.alpha(fade.shown)) {
+                    LayerLine(
+                        layer = layer,
+                        source = byId[layer.sourceId],
+                        maps = maps,
+                        currentZoom = currentZoom,
+                        open = open,
+                        canUp = index > 0,
+                        canDown = index < layers.lastIndex,
+                        dragGesture = drag,
+                        onToggle = { onExpand(if (open) null else layer.id) },
+                        vm = vm,
+                    )
+                }
                 if (open) {
                     LayerSettings(
                         layer = layer,
@@ -162,13 +167,14 @@ internal fun StackRows(
                         onConditions = { maps.openConditions(layer.id) },
                         onDetails = { details = layer.id },
                         onForce = { maps.setForced(layer.sourceId, layer.sourceId !in forced) },
+                        fade = fade,
                         vm = vm,
                     )
                 }
             }
             if (!open && index < layers.lastIndex && expanded != layers[index + 1].id) {
                 HorizontalDivider(
-                    Modifier.padding(start = 48.dp),
+                    Modifier.padding(start = 48.dp).alpha(fade.shown),
                     color = MaterialTheme.colorScheme.outlineVariant,
                 )
             }
@@ -283,7 +289,10 @@ private fun LayerLine(
     }
 }
 
-/** What an unfolded line adds: the opacity, then the commands of the layer, the colours unfolding under them. */
+/**
+ * What an unfolded line adds: the opacity, then the commands of the layer, the colours unfolding under them (contrast,
+ * brightness, saturation, hue, inverted colours).
+ */
 @Composable
 private fun LayerSettings(
     layer: LayerConfig,
@@ -293,18 +302,19 @@ private fun LayerSettings(
     onConditions: () -> Unit,
     onDetails: () -> Unit,
     onForce: () -> Unit,
+    fade: PanelFade,
     vm: MapViewModel,
 ) {
     var colors by remember(layer.id) { mutableStateOf(false) }
-    Box(Modifier.padding(start = 56.dp, end = 16.dp)) {
-        LabeledSlider(
-            label = stringResource(R.string.layers_opacity, percentOf(layer.opacity)),
-            value = layer.opacity,
-            range = 0f..1f,
-            onChange = { vm.setOpacity(layer.id, it) },
-        )
-    }
-    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 8.dp)) {
+    AdjustSlider(
+        key = "opacity",
+        label = stringResource(R.string.layers_opacity, percentOf(layer.opacity)),
+        value = layer.opacity,
+        range = 0f..1f,
+        fade = fade,
+        onChange = { vm.setOpacity(layer.id, it) },
+    )
+    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 8.dp).alpha(fade.shown)) {
         Command(MapsIcons.ArrowUpward, stringResource(R.string.layers_move_up), enabled = canUp) {
             vm.moveLayerUp(layer.id)
         }
@@ -318,25 +328,43 @@ private fun LayerSettings(
         MoreCommand(layer, forced, onDetails, onForce, vm)
     }
     if (colors) {
-        Column(Modifier.padding(start = 56.dp, end = 16.dp, bottom = 8.dp)) {
-            LabeledSlider(
-                label = stringResource(R.string.layers_contrast, percentOf(layer.contrast)),
-                value = layer.contrast,
-                range = -1f..1f,
-                onChange = { vm.setAdjustments(layer.id, it, layer.brightness, layer.saturation) },
-            )
-            LabeledSlider(
-                label = stringResource(R.string.layers_brightness, percentOf(layer.brightness)),
-                value = layer.brightness,
-                range = -1f..1f,
-                onChange = { vm.setAdjustments(layer.id, layer.contrast, it, layer.saturation) },
-            )
-            LabeledSlider(
-                label = stringResource(R.string.layers_saturation, percentOf(layer.saturation)),
-                value = layer.saturation,
-                range = -1f..1f,
-                onChange = { vm.setAdjustments(layer.id, layer.contrast, layer.brightness, it) },
-            )
+        val hue = layer.hue.roundToInt()
+        AdjustSlider(
+            key = "contrast",
+            label = stringResource(R.string.layers_contrast, percentOf(layer.contrast)),
+            value = layer.contrast,
+            range = -1f..1f,
+            fade = fade,
+            onChange = { vm.setAdjustments(layer.id, it, layer.brightness, layer.saturation) },
+        )
+        AdjustSlider(
+            key = "brightness",
+            label = stringResource(R.string.layers_brightness, percentOf(layer.brightness)),
+            value = layer.brightness,
+            range = -1f..1f,
+            fade = fade,
+            onChange = { vm.setAdjustments(layer.id, layer.contrast, it, layer.saturation) },
+        )
+        AdjustSlider(
+            key = "saturation",
+            label = stringResource(R.string.layers_saturation, percentOf(layer.saturation)),
+            value = layer.saturation,
+            range = -1f..1f,
+            fade = fade,
+            onChange = { vm.setAdjustments(layer.id, layer.contrast, layer.brightness, it) },
+        )
+        AdjustSlider(
+            key = "hue",
+            label = stringResource(R.string.layers_hue, hue),
+            value = layer.hue,
+            range = HUE_RANGE,
+            fade = fade,
+            // Whole degrees: a favourite keeps the value its line shows.
+            onChange = { vm.setHue(layer.id, it.roundToInt().toFloat()) },
+            hueTrack = true,
+            valueText = "$hue°",
+        )
+        Column(Modifier.padding(start = 56.dp, end = 16.dp, bottom = 8.dp).alpha(fade.shown)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(R.string.maps_layer_inverted),
@@ -345,10 +373,9 @@ private fun LayerSettings(
                 )
                 Switch(checked = layer.inverted, onCheckedChange = { vm.setInverted(layer.id, it) })
             }
-            TextButton(onClick = {
-                vm.setAdjustments(layer.id, 0f, 0f, 0f)
-                vm.setInverted(layer.id, false)
-            }) { Text(stringResource(R.string.layers_reset_adjustments)) }
+            TextButton(onClick = { vm.resetColors(layer.id) }) {
+                Text(stringResource(R.string.layers_reset_adjustments))
+            }
         }
     }
 }

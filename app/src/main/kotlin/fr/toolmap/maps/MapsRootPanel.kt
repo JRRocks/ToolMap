@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -37,6 +38,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
@@ -86,7 +88,8 @@ class MapsRootActions(
  * the panel itself. The band says what is shown and how many maps are drawn at the zoom of the map; the favourites are
  * a row of chips; each layer is a line (drag handle, thumbnail, name and state, eye) that unfolds in place with its
  * opacity, its order, its conditions, its colours and the rest of its commands; at the foot, the offline mode and the
- * coverage as two switches, then the four ways to the catalogue, the zone, the downloads and the storage.
+ * coverage as two switches, then the four ways to the catalogue, the zone, the downloads and the storage. While a
+ * slider of the unfolded line is held, everything else fades away so that the map shows what it changes (P26.6).
  */
 @Composable
 fun MapsRootPanel(
@@ -109,43 +112,50 @@ fun MapsRootPanel(
     val byId = remember(sources) { sources.associateBy { it.id } }
     val layers = state.stack.topToBottom()
     val applied = favorites.firstOrNull { it.matches(state.stack) }
+    val drawn = layers.count { it.visible && it.opacity > 0f && LayerElevation.isDrawnAt(it, currentZoom) }
+    val fade = rememberPanelFade()
 
     BarPanel(
         maxHeight = maxHeight,
         modifier = modifier,
+        containerAlpha = fade.shown,
         header = {
-            MapsBand(
-                favorite = applied?.name,
-                single = layers.singleOrNull()?.let { byId[it.sourceId]?.name },
-                count = layers.size,
-                drawn = layers.count { it.visible && it.opacity > 0f && LayerElevation.isDrawnAt(it, currentZoom) },
-                zoom = floor(currentZoom).toInt(),
-                onSave = { showSave = true },
-                onHelp = actions.onHelp,
-            )
+            Box(Modifier.alpha(fade.shown)) {
+                MapsBand(
+                    favorite = applied?.name,
+                    single = layers.singleOrNull()?.let { byId[it.sourceId]?.name },
+                    count = layers.size,
+                    drawn = drawn,
+                    zoom = floor(currentZoom).toInt(),
+                    onSave = { showSave = true },
+                    onHelp = actions.onHelp,
+                )
+            }
         },
     ) {
-        FavoriteChips(
-            favorites = favorites,
-            applied = applied,
-            hiddenBuiltins = hiddenBuiltins.size,
-            byId = byId,
-            thumbnails = maps.thumbnails,
-            onApply = vm::applyWorkspace,
-            onDelete = { favorite ->
-                vm.deleteWorkspace(favorite.id)
-                actions.onFavoriteDeleted(favorite)
-            },
-            onRestore = vm::restoreBuiltinWorkspaces,
-        )
-        PanelCaption(stringResource(R.string.maps_stack_caption))
-        if (layers.isEmpty()) {
-            Text(
-                stringResource(R.string.maps_displayed_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        Column(Modifier.alpha(fade.shown)) {
+            FavoriteChips(
+                favorites = favorites,
+                applied = applied,
+                hiddenBuiltins = hiddenBuiltins.size,
+                byId = byId,
+                thumbnails = maps.thumbnails,
+                onApply = vm::applyWorkspace,
+                onDelete = { favorite ->
+                    vm.deleteWorkspace(favorite.id)
+                    actions.onFavoriteDeleted(favorite)
+                },
+                onRestore = vm::restoreBuiltinWorkspaces,
             )
+            PanelCaption(stringResource(R.string.maps_stack_caption))
+            if (layers.isEmpty()) {
+                Text(
+                    stringResource(R.string.maps_displayed_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
         }
         StackRows(
             layers = layers,
@@ -155,21 +165,24 @@ fun MapsRootPanel(
             currentZoom = currentZoom,
             expanded = expanded,
             onExpand = maps::setExpanded,
+            fade = fade,
         )
-        if (layers.isNotEmpty() && applied == null) {
-            // The stack matches no favourite: the way to keep it, next to it.
-            TextButton(onClick = { showSave = true }, modifier = Modifier.padding(start = 8.dp)) {
-                Icon(MapsIcons.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.maps_save_hint_button), modifier = Modifier.padding(start = 8.dp))
+        Column(Modifier.alpha(fade.shown)) {
+            if (layers.isNotEmpty() && applied == null) {
+                // The stack matches no favourite: the way to keep it, next to it.
+                TextButton(onClick = { showSave = true }, modifier = Modifier.padding(start = 8.dp)) {
+                    Icon(MapsIcons.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.maps_save_hint_button), modifier = Modifier.padding(start = 8.dp))
+                }
             }
+            SwitchCells(
+                offline = offline,
+                coverage = coverage,
+                onOffline = { vm.setOffline(!offline) },
+                onCoverage = { vm.setCoverage(!coverage) },
+            )
+            NavTiles(actions)
         }
-        SwitchCells(
-            offline = offline,
-            coverage = coverage,
-            onOffline = { vm.setOffline(!offline) },
-            onCoverage = { vm.setCoverage(!coverage) },
-        )
-        NavTiles(actions)
     }
     if (showSave) {
         SaveFavoriteDialog(

@@ -93,9 +93,20 @@ class WorkspaceTest {
         assertFalse(workspace.matches(stack.setVisible("l2", false)))
         assertFalse(workspace.matches(stack.setZoomRange("l2", 9, 16)))
         assertFalse(workspace.matches(stack.setInverted("l2", true)))
+        assertFalse(workspace.matches(stack.setHue("l2", 30f)))
         assertFalse(workspace.matches(stack.remove("l1")))
         // A hair of difference in a slider is not a change.
         assertTrue(workspace.matches(stack.setOpacity("l3", 0.502f)))
+    }
+
+    @Test
+    fun `the hue survives saving, writing and applying a workspace, and an older favourite has none`() {
+        val stack = LayerStack().add("osm").setHue("l1", -40f)
+        val written = WorkspaceCodec.encode(Workspace.of("mine", "x", stack))
+        val back = assertNotNull(WorkspaceCodec.decodeOrNull(written)).toStack { true }.stack
+        assertEquals(-40f, back.layers.single().hue)
+        val older = """{"id":"old","name":"Ancien","layers":[{"sourceId":"osm","saturation":0.2}]}"""
+        assertEquals(0f, assertNotNull(WorkspaceCodec.decodeOrNull(older)).layers.single().hue)
     }
 
     @Test
