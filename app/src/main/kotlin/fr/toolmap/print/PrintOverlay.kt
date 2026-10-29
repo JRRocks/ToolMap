@@ -446,7 +446,8 @@ fun CustomPaperDialog(
     var height by remember { mutableStateOf(setup.customHeightMm.roundToInt().toString()) }
     val w = width.replace(',', '.').toDoubleOrNull()
     val h = height.replace(',', '.').toDoubleOrNull()
-    val valid = w != null && h != null && w in CUSTOM_RANGE_MM && h in CUSTOM_RANGE_MM
+    // No largest size (2026-10-29): a sheet too big for its resolution is told on the confirmation.
+    val valid = w != null && h != null && PageSetup.isCustomSide(w) && PageSetup.isCustomSide(h)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.print_paper_custom_title)) },
@@ -542,4 +543,3 @@ private const val CORNERS = 4
 private const val PAGE_FILL_ALPHA = 0.08f
 private const val BADGE_RADIUS_DP = 9f
 private const val BADGE_INSET_DP = 12f
-private val CUSTOM_RANGE_MM = 50.0..1_200.0

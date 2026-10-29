@@ -8,7 +8,7 @@
 ## 1. Paramètres utilisateur
 | Paramètre | Valeurs |
 |---|---|
-| Format | A5, A4, A3, Letter, Autre… (largeur × hauteur en mm, 50 à 1 200) ; A2 et Legal se font par « Autre… » |
+| Format | A5, A4, A3, Letter, Autre… (largeur × hauteur en mm, 50 mm au moins, **sans maximum** depuis le 2026-10-29, ADR-096) ; A2 et Legal se font par « Autre… ». Une page trop grande pour sa résolution (plus de 150 Mpx, ou plus de 65 500 px de large, la limite du JPEG) est signalée sur la confirmation : « Page trop grande pour cette résolution : baissez les dpi ou le format. » |
 | Orientation | portrait, paysage ; bouton ⟲ pour tourner la feuille |
 | Marges | mm (défaut 8), dans « Plus d'options » |
 | Échelle | 1:10 000, 1:20 000, 1:25 000 (défaut), 1:50 000, 1:100 000, 1:250 000, autre (1:500 à 1:10 000 000) |
@@ -48,7 +48,7 @@ Notations : `S` = dénominateur d'échelle, `d` = dpi, `(fw, fh)` = taille du ca
 
 ## 3. Composition
 - ~~`android.graphics.pdf.PdfDocument`~~ → **`PdfWriter` maison** (`:core`, ADR-020) : PDF 1.4, `MediaBox` réelle (A4 = 841,89 × 595,276 pt, pas 595 × 842), polices de base Helvetica, images JPEG. Unités de page en points PostScript (1 pt = 1/72 po).
-- **Cadre carte** : rendu **par bandes** (ex. 512 px de haut) pour borner la mémoire. Pour chaque bande : bitmap de `Pw × hauteur`, composition des calques dans l'ordre (opacité, réglages couleur dont la teinte (même matrice que le shader de la carte, ADR-095), plages de zoom au zoom z*), tuiles lues dans `MbTilesStore`, puis `drawBitmap` dans le rectangle de la bande en points.
+- **Cadre carte** : rendu **par bandes** de 512 px de haut au plus pour borner la mémoire ; au-delà de 8 192 px de large, les bandes s'amincissent pour rester sous 4,2 Mpx (16 Mo de bitmap), 16 lignes au moins (`PrintRaster.bandHeightFor`, ADR-096). Pour chaque bande : bitmap de `Pw × hauteur`, composition des calques dans l'ordre (opacité, réglages couleur dont la teinte (même matrice que le shader de la carte, ADR-095), plages de zoom au zoom z*), tuiles lues dans `MbTilesStore`, puis `drawBitmap` dans le rectangle de la bande en points.
 - **Tuiles manquantes** : avant l'export, calcul de la liste des tuiles nécessaires puis proposition de les télécharger (réutilise P2.4). Sinon, les zones manquantes sont hachurées et signalées.
 - **Vectoriel** (net à toute résolution) : traces, waypoints, grille, textes et habillage sont dessinés directement sur le `Canvas` du PDF, jamais rastérisés.
 - **Taille de fichier** : `PdfDocument` encodait sans perte (Flate) ; une A3 à 300 dpi fait ≈ 17 Mpx, donc un fichier de plusieurs dizaines de Mo. Réglé par ADR-020 : bandes **JPEG** (qualité ≈ 88). Poids réel d'une A3 / 300 dpi avec de vraies tuiles : à mesurer sur téléphone.

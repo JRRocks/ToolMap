@@ -70,9 +70,7 @@ data class PageSetup(
     fun issues(): List<PageIssue> =
         buildList {
             if (marginMm !in 0.0..MAX_MARGIN_MM) add(PageIssue.MARGIN_RANGE)
-            if (paper == Paper.CUSTOM &&
-                (customWidthMm !in MIN_CUSTOM_MM..MAX_CUSTOM_MM || customHeightMm !in MIN_CUSTOM_MM..MAX_CUSTOM_MM)
-            ) {
+            if (paper == Paper.CUSTOM && !(isCustomSide(customWidthMm) && isCustomSide(customHeightMm))) {
                 add(PageIssue.CUSTOM_SIZE)
             }
             if (!(frameWidthMm >= MIN_FRAME_MM && frameHeightMm >= MIN_FRAME_MM)) add(PageIssue.FRAME_TOO_SMALL)
@@ -81,8 +79,9 @@ data class PageSetup(
     companion object {
         const val DEFAULT_MARGIN_MM = 8.0
         const val MAX_MARGIN_MM = 50.0
+
+        /** The smallest side of a custom sheet; there is no largest (2026-10-29): the plan says when a page is too big. */
         const val MIN_CUSTOM_MM = 50.0
-        const val MAX_CUSTOM_MM = 1500.0
         const val MIN_FRAME_MM = 20.0
 
         /** Room for the grid labels between the margin and the frame. */
@@ -93,6 +92,9 @@ data class PageSetup(
 
         /** Points per millimeter: 72 / 25.4. */
         const val PT_PER_MM = 72.0 / 25.4
+
+        /** A side a custom sheet can have: a number, at least [MIN_CUSTOM_MM]. */
+        fun isCustomSide(mm: Double): Boolean = mm.isFinite() && mm >= MIN_CUSTOM_MM
     }
 }
 

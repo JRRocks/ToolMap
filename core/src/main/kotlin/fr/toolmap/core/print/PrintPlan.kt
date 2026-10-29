@@ -96,6 +96,9 @@ object PrintPlanner {
     /** More pixels than this on one page would not fit in a PDF a phone can write or a printer can read. */
     const val MAX_PIXELS_PER_PAGE = 150_000_000L
 
+    /** The widest image JPEG can hold (libjpeg's JPEG_MAX_DIMENSION): every band of a page is that wide. */
+    const val MAX_WIDTH_PX = 65_500
+
     const val MAX_TILES = 40_000L
 
     /** Resolution of the assembly page of an atlas: a map for finding one's way among the pages, not for reading. */
@@ -154,7 +157,9 @@ object PrintPlanner {
         }
 
         val mapPages = pages.filter { it.kind == PageKind.MAP }
-        if (mapPages.any { it.raster.pixels > MAX_PIXELS_PER_PAGE }) issues += PrintIssue.HUGE_PAGE
+        if (mapPages.any { it.raster.pixels > MAX_PIXELS_PER_PAGE || it.raster.widthPx > MAX_WIDTH_PX }) {
+            issues += PrintIssue.HUGE_PAGE
+        }
         if (mapPages.isNotEmpty() && mapPages.all { it.layers.layers.isEmpty() }) issues += PrintIssue.NO_LAYER
 
         val byLayer = LinkedHashMap<String, Long>()

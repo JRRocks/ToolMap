@@ -24,12 +24,12 @@ data class TilePlacement(
 
 /**
  * The output image of a page at [dpi]: its size, its cut into bands of [bandHeightPx] rows (memory stays bounded
- * whatever the paper), and which tiles fall in each band.
+ * whatever the paper: a wide sheet gets thinner bands), and which tiles fall in each band.
  */
 class PrintRaster(
     val frame: FrameProjection,
     val dpi: Int,
-    val bandHeightPx: Int = DEFAULT_BAND_HEIGHT,
+    val bandHeightPx: Int = bandHeightFor(PrintMath.pixels(frame.frameWidthMm, dpi)),
 ) {
     init {
         require(dpi > 0 && bandHeightPx > 0) { "invalid raster" }
@@ -117,6 +117,14 @@ class PrintRaster(
     fun centerTile(z: Int): TileCoord = TileMath.tileAt(frame.centerLon, frame.centerLat, z)
 
     companion object {
-        const val DEFAULT_BAND_HEIGHT = 512
+        const val MAX_BAND_HEIGHT = 512
+        const val MIN_BAND_HEIGHT = 16
+
+        /** The pixels of a band at most: 512 rows of a sheet 8 192 px wide, a 16 MB bitmap however wide the sheet. */
+        const val MAX_BAND_PIXELS = MAX_BAND_HEIGHT * 8_192L
+
+        /** Rows of a band of a page [widthPx] wide: [MAX_BAND_HEIGHT] up to 8 192 px, fewer beyond. */
+        fun bandHeightFor(widthPx: Int): Int =
+            (MAX_BAND_PIXELS / maxOf(widthPx, 1)).coerceIn(MIN_BAND_HEIGHT.toLong(), MAX_BAND_HEIGHT.toLong()).toInt()
     }
 }

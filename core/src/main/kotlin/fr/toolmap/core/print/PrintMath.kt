@@ -31,11 +31,11 @@ object PrintMath {
     /** Web Mercator stretches distances by 1 / cos(latitude): meters of the projection per ground meter. */
     fun mercatorFactor(latitude: Double): Double = 1.0 / cos(Math.toRadians(latitude))
 
-    /** Pixels of [mm] of paper at [dpi]. */
+    /** Pixels of [mm] of paper at [dpi], at most [Int.MAX_VALUE] (a sheet that wide is refused by the plan). */
     fun pixels(
         mm: Double,
         dpi: Int,
-    ): Int = Math.round(mm / MM_PER_INCH * dpi).toInt()
+    ): Int = Math.round(mm / MM_PER_INCH * dpi).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
 
     /** Ground resolution of a tile at zoom [z], at [latitude]; 512 px tiles halve the figure. */
     fun tileResolution(

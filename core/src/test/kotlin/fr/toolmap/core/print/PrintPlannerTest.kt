@@ -89,6 +89,22 @@ class PrintPlannerTest {
     }
 
     @Test
+    fun `a custom sheet bigger than the old 1,5 m can be printed when its resolution allows it`() {
+        val poster =
+            plan(
+                PrintTemplate(
+                    page = PageSetup(Paper.CUSTOM, customWidthMm = 2_000.0, customHeightMm = 1_000.0),
+                    scale = 25_000.0,
+                    dpi = 150,
+                ),
+            )
+        assertTrue(poster.canExport, poster.issues.toString())
+        assertTrue(poster.mapPages.single().raster.widthPx > 11_000)
+        val atBest = plan(poster.template.copy(dpi = 300))
+        assertTrue(PrintIssue.HUGE_PAGE in atBest.issues, "too many pixels at 300 dpi: lower the dpi")
+    }
+
+    @Test
     fun `a huge sheet or a huge number of tiles is refused`() {
         val huge =
             plan(
@@ -99,6 +115,20 @@ class PrintPlannerTest {
                 ),
             )
         assertTrue(PrintIssue.HUGE_PAGE in huge.issues)
+        // Wider than a JPEG can be (65 500 px), though few pixels: a strip 12 m long at 150 dpi.
+        val strip =
+            plan(
+                PrintTemplate(
+                    page = PageSetup(Paper.CUSTOM, customWidthMm = 12_000.0, customHeightMm = 120.0),
+                    scale = 25_000.0,
+                    dpi = 150,
+                ),
+            )
+        assertTrue(strip.mapPages.single().raster.pixels < PrintPlanner.MAX_PIXELS_PER_PAGE)
+        assertTrue(PrintIssue.HUGE_PAGE in strip.issues)
+        // A sheet of a thousand kilometres is refused, not overflowed.
+        val absurd = plan(PrintTemplate(page = PageSetup(Paper.CUSTOM, customWidthMm = 1e9, customHeightMm = 1e9)))
+        assertTrue(PrintIssue.HUGE_PAGE in absurd.issues && !absurd.canExport)
         val area = Bounds(5.0, 44.0, 7.0, 45.5)
         val manyTiles =
             plan(PrintTemplate(scale = 50_000.0, atlas = AtlasMode.GRID), here.copy(bounds = area))

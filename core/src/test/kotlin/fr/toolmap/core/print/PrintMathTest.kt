@@ -137,6 +137,10 @@ class PrintMathTest {
         assertTrue(PageIssue.MARGIN_RANGE in PageSetup(marginMm = -1.0).issues())
         assertTrue(PageIssue.MARGIN_RANGE in PageSetup(marginMm = 60.0).issues())
         assertTrue(PageIssue.CUSTOM_SIZE in PageSetup(Paper.CUSTOM, customWidthMm = 10.0).issues())
+        assertTrue(PageIssue.CUSTOM_SIZE in PageSetup(Paper.CUSTOM, customWidthMm = Double.NaN).issues())
+        assertTrue(PageIssue.CUSTOM_SIZE in PageSetup(Paper.CUSTOM, customHeightMm = Double.POSITIVE_INFINITY).issues())
+        // No largest custom sheet (2026-10-29): 5 m by 1,5 m is a sheet like any other.
+        assertTrue(PageSetup(Paper.CUSTOM, customWidthMm = 5_000.0, customHeightMm = 1_500.0).issues().isEmpty())
         assertTrue(
             PageIssue.FRAME_TOO_SMALL in
                 PageSetup(Paper.CUSTOM, customWidthMm = 60.0, customHeightMm = 60.0, marginMm = 25.0).issues(),

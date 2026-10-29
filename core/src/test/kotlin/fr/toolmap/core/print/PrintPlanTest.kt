@@ -161,6 +161,20 @@ class PrintPlanTest {
     }
 
     @Test
+    fun `a wide sheet gets thinner bands so that a band stays under its pixel budget`() {
+        assertEquals(512, PrintRaster.bandHeightFor(3_272))
+        assertEquals(512, PrintRaster.bandHeightFor(8_192))
+        assertEquals(256, PrintRaster.bandHeightFor(16_384))
+        assertEquals(64, PrintRaster.bandHeightFor(65_500))
+        assertEquals(PrintRaster.MIN_BAND_HEIGHT, PrintRaster.bandHeightFor(Int.MAX_VALUE))
+        // A 2 m wide frame at 300 dpi: ≈ 23 600 px wide, bands of 177 rows, and still no row left out.
+        val raster = PrintRaster(FrameProjection(lat45, 6.0, 25_000.0, 2_000.0, 300.0), 300)
+        assertEquals(PrintRaster.bandHeightFor(raster.widthPx), raster.bandHeightPx)
+        assertTrue(raster.widthPx.toLong() * raster.bandHeightPx <= PrintRaster.MAX_BAND_PIXELS)
+        assertEquals(raster.heightPx, (0 until raster.bandCount).sumOf { raster.band(it).heightPx })
+    }
+
+    @Test
     fun `tile placements abut without a gap and cover the band`() {
         val frame = FrameProjection(lat45, 6.0, 25_000.0, 277.0, 190.0)
         val raster = PrintRaster(frame, 300)

@@ -20,6 +20,21 @@
 
 ---
 
+## 2026-10-29 — Session 83 — [P17.7][P17.8] Impression : format personnalisé sans maximum ; 5 variantes des menus Format et Réglages
+- **Branche / commit** : session cloud (claude.ai/code), branche `claude/vibrant-galileo-q3s99n` repartie de 392417d (0.4.137) ; poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : demande de l'utilisateur : « Dans Impression, retire la limite de taille du format de carte. Et propose moi un changement UI selon les règles dans https://github.com/pbakaus/impeccable, 5 proposition pour le menu selection de format et le menu de paramétrage avant génération du PDF. » Format « Autre… » sans maximum (logique, sans changement d'écran) ; aperçu de 5 variantes des deux menus, à valider avant tout code d'interface.
+- **Réalisé** :
+  - Versions au début : GitHub `claude/vibrant-galileo-q3s99n` 392417d en **0.4.137** (entrée « Session 82 »), `main` 6fa0aec en 0.4.134, `claude/pensive-edison-cgzr8t` en 0.4.102 ; Drive non lisible depuis le cloud ; local : clone de la branche en 0.4.136 (863f312), propre, en retard d'un commit. Référence : la branche 0.4.137 ; local remis dessus (`git checkout -B … origin/…`), rien de perdu.
+  - Environnement : `dl.google.com` toujours refusé (403) : pas de SDK Android. Comme en session 81 : build Gradle séparé dans le scratchpad (`:core` seul, `app`, `data`, `p2p` joints par liens symboliques pour ktlint) ; `:app`, lint et l'APK vérifiés par la CI ; `version.properties` calculé par le même algorithme en Python, vérifié sur 392417d (`5c17518609e9c876`, identique).
+  - **P17.7 (format sans maximum)** : bornes retirées (`CUSTOM_RANGE_MM` 50–1 200 du dialogue « Format personnalisé », `MAX_CUSTOM_MM` 1 500 de `PageSetup`) ; un côté vaut s'il est un nombre fini d'au moins 50 mm (`PageSetup.isCustomSide`). Pour que les grandes feuilles passent sans risque : bandes bornées en pixels (`PrintRaster.bandHeightFor` : 512 lignes jusqu'à 8 192 px de large, moins au-delà, 16 Mo de bitmap au plus), page refusée au-delà de 65 500 px de large (limite du JPEG) en plus des 150 Mpx, `PrintMath.pixels` saturé (ADR-096). Aucun texte ni écran changé : le message « Page trop grande pour cette résolution : baissez les dpi ou le format. » existait.
+- **Décisions (ADR)** : ADR-096 (format personnalisé sans maximum, bandes bornées en pixels, largeur JPEG).
+- **Tests / vérifications** :
+  - Build séparé de `:core` (Gradle 9.6 du dépôt) : `:core:test` **950 tests, 0 échec** (948 + 2 : `PrintPlannerTest` « une feuille personnalisée plus grande que l'ancien 1,5 m s'imprime quand sa résolution le permet » (2 000 × 1 000 mm, 1:25 000 : exportable à 150 dpi, `HUGE_PAGE` à 300 dpi), `PrintPlanTest` « une feuille large a des bandes plus fines » ; cas ajoutés à `PrintMathTest` (5 000 × 1 500 mm sans problème, NaN et infini refusés) et à `PrintPlannerTest` (bande de 12 m × 12 cm à 150 dpi refusée pour sa largeur, feuille de 10⁹ mm refusée sans débordement)) ; `spotlessCheck` (ktlint) vert sur `app`, `core`, `data`, `p2p`.
+- **Problèmes / dette technique** : écran du dialogue jamais vu sur un émulateur dans cette session (P17.7 reste 🔄).
+- **Prochaine étape recommandée** : choix de l'utilisateur sur `docs/previews/p17-impression-menus.html`, puis code de la variante choisie (P17.8).
+
+---
+
 ## 2026-10-29 — Session 82 — [P26.6] Teinte et panneau qui s'efface vérifiés sur l'émulateur
 - **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`, clone git), branche `claude/vibrant-galileo-q3s99n` repartie de 863f312 (0.4.136) ; poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : demande de l'utilisateur : « Fait les tests sur emulateur du travail de la session nested cloud » : essayer sur l'émulateur le curseur « Teinte » et le panneau qui s'efface pendant un réglage (P26.6, codés par la session 81 dans le cloud), et poser les captures à côté de l'aperçu validé.
