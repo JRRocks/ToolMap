@@ -25,6 +25,18 @@
 
 Correspondance des paquets : `fr.toolmap.core.<paquet>` (Kotlin) → `ios/ToolMapCore/Sources/ToolMapCore/<Paquet>/` (Swift). Les fonctions Kotlin qui lèvent `IllegalArgumentException` (`require`) deviennent des fonctions Swift `throws` (`ToolMapError.invalidArgument`), pour garder les tests d'erreur.
 
+### Règles d'écriture du Swift (le compilateur n'est que sur la CI)
+
+- `ToolMapCore` est en **Swift 6** (vérification stricte de la concurrence) ; l'application en Swift 5. Types de valeur `Sendable` ; une classe partagée entre fils : `final class … : @unchecked Sendable` avec un `NSLock`. Une constante statique d'un type non `Sendable` : `nonisolated(unsafe) private static let` (`NSRegularExpression` est `Sendable` : `static let` suffit).
+- Tests en **Swift Testing** (`import Testing`, `@Test("phrase du test Kotlin")`, `#expect`, `try #require`). Dans `#expect`, mettre `try` **au début** de l'expression (`#expect(try f() == x)`) ; calculer avant une valeur qui demanderait un `try` à droite d'un opérateur. Fichiers de test : `fixtures/` lus en place par `Fixtures.text("aqx/…")`.
+- Jamais un `#require` dans un autre `#require` (ni dans un `#expect`) : « recursive expansion of macro » ; passer par une variable.
+- Pas de `guard let x` ni `let x = x` dans la **même portée** qu'un `let x` déjà déclaré (« definition conflicts with previous value ») : nommer la valeur optionnelle autrement.
+- `try` jamais à droite d'un opérateur binaire (`a + try f()` est refusé) ; dans un argument d'appel, c'est permis mais on préfère une variable.
+- Les comportements de Kotlin ont leurs fonctions dans `Support/KotlinText.swift` : `kotlinTrim`, `kotlinInt` (`toIntOrNull`, 32 bits), `kotlinDouble` (`toDoubleOrNull`), `kotlinSplit` (garde les morceaux vides), `kotlinToInt` / `kotlinToLong` (saturés, NaN → 0), `kotlinRound` (`Math.round`), `kotlinRem` (`%` des `Double`), `formatFixed` (`%.nf` en `Locale.ROOT`), `Angle.radians` / `Angle.degrees` (même dernier bit que `Math.toRadians` du JVM).
+- `require(…)` de Kotlin → fonction `throws` (`try require(cond, "message")`, erreur `ToolMapError.invalidArgument`) ; une exception propre (`AqxParseException`) → une erreur Swift du même nom en `…Error`.
+- Une sous-classe d'une classe Apple ne redéfinit pas une propriété existante (`URLProtocol.task`) : nommer ses propriétés sans ambiguïté.
+- Pour vérifier un nom d'API de MapLibre, lire les en-têtes sur `raw.githubusercontent.com/maplibre/maplibre-native/main/platform/{ios,darwin}/src/` (joignable depuis le cloud).
+
 ## 3. Méthode de synchronisation avec Android
 
 Les deux applications n'ont aucun code commun : une fonction Android se **traduit** en Swift. Pour ne rien perdre :

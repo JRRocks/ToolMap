@@ -17,7 +17,8 @@ private func solidTile(_ red: CGFloat, _ green: CGFloat, _ blue: CGFloat, size: 
     let context = try #require(TileComposer.context(size))
     context.setFillColor(red: red, green: green, blue: blue, alpha: 1)
     context.fill(CGRect(x: 0, y: 0, width: size, height: size))
-    return try #require(TileComposer.png(try #require(context.makeImage())))
+    let image = try #require(context.makeImage())
+    return try #require(TileComposer.png(image))
 }
 
 /// The RGB of the pixel at (x, y), counted from the top-left corner.
@@ -138,7 +139,8 @@ struct TileComposerTests {
         context.fill(CGRect(x: 0, y: 0, width: 128, height: 256))
         context.setFillColor(red: 0, green: 0, blue: 1, alpha: 1)
         context.fill(CGRect(x: 128, y: 0, width: 128, height: 256))
-        let halves = try #require(TileComposer.png(try #require(context.makeImage())))
+        let image = try #require(context.makeImage())
+        let halves = try #require(TileComposer.png(image))
         let recipe = TileRecipe.enlarge(from: leaf(16, 2100, 1490), depth: 1, col: 1, row: 0)
         let png = try #require(TileComposer().compose(recipe) { _ in halves })
         #expect(try pixel(png, 10, 10) == [0, 0, 255])

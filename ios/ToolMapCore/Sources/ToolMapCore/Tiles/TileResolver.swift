@@ -52,6 +52,12 @@ public indirect enum TileRecipe: Equatable, Sendable {
         public let source: TileSource
         public let level: LevelDef
         public let tile: TileId
+
+        public init(source: TileSource, level: LevelDef, tile: TileId) {
+            self.source = source
+            self.level = level
+            self.tile = tile
+        }
     }
 
     /// The real tiles this recipe needs.

@@ -45,7 +45,8 @@ struct TileSetIdentityTests {
         let test4 = try #require(try fixture("user/USR.AQ_TEST_4.AQX").first { $0.id == "IGN_SCAN25TOUR" })
         #expect(storageOf(reference, 10) == "ign-scan25")
         #expect(storageOf(test4, 16) == "ign-scan25")
-        #expect(storageOf(test4, 16) != storageOf(try #require(file.first), 16))
+        let firstSource = try #require(file.first)
+        #expect(storageOf(test4, 16) != storageOf(firstSource, 16))
     }
 
     @Test("the personal multi-zoom file reuses the storage of five built-in maps")

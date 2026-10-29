@@ -17,7 +17,7 @@ public enum TileSetIdentity {
     private static let hashChars = 16
     private static let storagePrefix = "t-"
     /// Kotlin `^([a-z]|[a-z]{0,4}[0-9]{1,2}|\{\$[a-z]+\})$`.
-    nonisolated(unsafe) private static let rotatingLabel = try! NSRegularExpression(
+    private static let rotatingLabel = try! NSRegularExpression(
         pattern: "^([a-z]|[a-z]{0,4}[0-9]{1,2}|\\{\\$[a-z]+\\})$"
     )
 
