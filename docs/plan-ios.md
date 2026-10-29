@@ -38,7 +38,7 @@ Les deux applications n'ont aucun code commun : une fonction Android se **tradui
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
 | P32.0 | ✅ | **Architecture** validée par l'utilisateur le 2026-10-29 : Swift + SwiftUI natif, code indépendant d'Android (ADR-098), ce plan, phase P32 dans `docs/PLAN.md` | Validation explicite, consignée au journal |
-| P32.1 | 🔄 | **Paquet `ToolMapCore`, premier lot** et **CI iOS** : tuiles (`TileMath`, `TileUrlBuilder` avec `{$bbox}` arrondi comme `BigDecimal` HALF_UP), sources (`ZoomSet`, `LevelDef`, `TileSource`, `ClearColor`, `MapRef`, `UpdateDelay`), géo (`LonLat`, `LonLatZoom`, `Bounds`), lecture AQX (`AqxParser` sur `XMLParser`, DOCTYPE et entités refusés) ; workflow `ios.yml` | Run vert de `ios.yml` : `swift test` et `xcodebuild test` sur simulateur iPhone ; tests repris de `TileMathTest`, `TileUrlBuilderTest`, `AqxParserTest`, `ZoomSetTest`, `MapRefTest` (sauf l'aller-retour par `AqxWriter`), `UpdateDelayTest`, sur `fixtures/aqx/IGN_Topo_zoom_test.aqx` et `fixtures/aqx/user/` |
+| P32.1 | ✅ | **Paquet `ToolMapCore`, premier lot** et **CI iOS** : tuiles (`TileMath`, `TileUrlBuilder` avec `{$bbox}` arrondi comme `BigDecimal` HALF_UP), sources (`ZoomSet`, `LevelDef`, `TileSource`, `ClearColor`, `MapRef`, `UpdateDelay`), géo (`LonLat`, `LonLatZoom`, `Bounds`), lecture AQX (`AqxParser` sur `XMLParser`, DOCTYPE et entités refusés) ; workflow `ios.yml` | Vérifié le 2026-10-29 : run 40944407448 vert, 53 tests sur macOS et sur le simulateur iPhone 17 Pro (iOS 26.2). Run vert de `ios.yml` : `swift test` et `xcodebuild test` sur simulateur iPhone ; tests repris de `TileMathTest`, `TileUrlBuilderTest`, `AqxParserTest`, `ZoomSetTest`, `MapRefTest` (sauf l'aller-retour par `AqxWriter`), `UpdateDelayTest`, sur `fixtures/aqx/IGN_Topo_zoom_test.aqx` et `fixtures/aqx/user/` |
 | P32.2 | ⬜ | **Aperçu du squelette d'application** : écran carte sur iPhone (état Android actuel, propositions iOS en variantes : barre, boutons, panneaux en feuilles iOS) | Validation explicite de l'utilisateur |
 | P32.3 | ⬜ | **Squelette `ios/ToolMap`** fidèle à l'aperçu : XcodeGen, SwiftUI, MapLibre Native iOS, carte OpenStreetMap puis sources intégrées (`builtin-sources.aqx` lu par `AqxParser`) ; build simulateur et capture `xcrun simctl io booted screenshot` en artefact | Capture du simulateur montrant la carte, posée à côté de l'aperçu validé |
 | P32.4 | ⬜ | **Tuiles servies par l'application** : `URLProtocol` installé dans la configuration réseau de MapLibre iOS (`MLNNetworkConfiguration`), URL construites par `TileUrlBuilder`, Referer / User-Agent / en-têtes / cookie de la `LevelDef`, stockage MBTiles (SQLite), mode hors ligne | Tests sur serveur simulé (en-têtes, hors ligne sans requête) ; capture d'une tuile IGN servie par l'intercepteur |
@@ -77,10 +77,10 @@ Les deux applications n'ont aucun code commun : une fonction Android se **tradui
 
 | Domaine | Android (`core/src/main/kotlin/fr/toolmap/core/`) | iOS (`ios/ToolMapCore/Sources/ToolMapCore/`) | Statut |
 |---|---|---|---|
-| Géo : positions, emprises | `geo/LonLat.kt` (`LonLat`, `LonLatZoom`, `Bounds`) | `Geo/LonLat.swift` | 🔄 P32.1 |
-| Tuiles : maths, URL | `tiles/TileMath.kt`, `tiles/TileUrlBuilder.kt` | `Tiles/TileMath.swift`, `Tiles/TileUrlBuilder.swift`, `Tiles/DecimalText.swift` | 🔄 P32.1 |
-| Sources : niveaux, zooms, références, délais | `source/TileSource.kt`, `source/ZoomSet.kt`, `source/MapRef.kt`, `source/UpdateDelay.kt` | `Source/*.swift` | 🔄 P32.1 |
-| AQX : lecture | `aqx/AqxModel.kt`, `aqx/AqxParser.kt` | `Aqx/AqxModel.swift`, `Aqx/AqxParser.swift`, `Aqx/XmlTree.swift` | 🔄 P32.1 |
+| Géo : positions, emprises | `geo/LonLat.kt` (`LonLat`, `LonLatZoom`, `Bounds`) | `Geo/LonLat.swift` | ✅ P32.1 |
+| Tuiles : maths, URL | `tiles/TileMath.kt`, `tiles/TileUrlBuilder.kt` | `Tiles/TileMath.swift`, `Tiles/TileUrlBuilder.swift`, `Tiles/DecimalText.swift` | ✅ P32.1 |
+| Sources : niveaux, zooms, références, délais | `source/TileSource.kt`, `source/ZoomSet.kt`, `source/MapRef.kt`, `source/UpdateDelay.kt` | `Source/*.swift` | ✅ P32.1 |
+| AQX : lecture | `aqx/AqxModel.kt`, `aqx/AqxParser.kt` | `Aqx/AqxModel.swift`, `Aqx/AqxParser.swift`, `Aqx/XmlTree.swift` | ✅ P32.1 |
 | AQX : écriture, sources intégrées, catalogue | `aqx/AqxWriter.kt`, `source/BuiltinSources.kt`, `maps/OnlineCatalog.kt` | — | ⬜ P32.6 |
 | Tuiles : planification, recettes, PNG unis | `tiles/TilePlanner.kt`, `tiles/TileResolver.kt`, `tiles/SolidPng.kt` | — | ⬜ P32.4, P32.9 |
 | Sources : multi-zoom, identité, doublons, crédits | `source/MultiZoomDraft.kt`, `source/TileSetIdentity.kt`, `source/SourceDuplicates.kt`, `source/Credits.kt` | — | ⬜ P32.6 |
@@ -101,5 +101,5 @@ Les deux applications n'ont aucun code commun : une fonction Android se **tradui
 | Itinéraires | `route/*` (12 fichiers) | — | ⬜ P32.12 |
 | Sauvegarde, journal d'événements, plantages, état | `backup/*`, `eventlog/*`, `crash/*`, `state/*` | — | ⬜ |
 | Textes sur la carte | `text/*` | — | ⬜ |
-| XML, JSON | `xml/*` | `Aqx/XmlTree.swift` (lecture) | 🔄 P32.1 |
+| XML, JSON | `xml/*` | `Aqx/XmlTree.swift` (lecture) | ✅ P32.1 |
 | Mise à jour depuis GitHub | `update/AppUpdate.kt` | — | Pas d'équivalent (§ 5) |

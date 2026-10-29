@@ -400,7 +400,7 @@ Tuiles **Terrarium** (AWS open data `elevation-tiles-prod`) traitées comme une 
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
 | P32.0 | ✅ | Architecture validée le 2026-10-29 : Swift + SwiftUI natif, code indépendant (ADR-098), `docs/plan-ios.md` | Validation explicite de l'utilisateur, consignée au journal |
-| P32.1 | 🔄 | Paquet Swift `ToolMapCore` (premier lot : tuiles, sources, lecture AQX) et CI iOS | Run vert de `ios.yml` (tests sur simulateur iPhone, repris des tests Kotlin) |
+| P32.1 | ✅ | Paquet Swift `ToolMapCore` (premier lot : tuiles, sources, lecture AQX) et CI iOS. Vérifié le 2026-10-29 : run 40944407448 vert, 53 tests sur macOS et sur le simulateur iPhone 17 Pro (iOS 26.2) | Run vert de `ios.yml` (tests sur simulateur iPhone, repris des tests Kotlin) |
 | P32.2 à P32.13 | ⬜ | Aperçu puis squelette d'application avec carte MapLibre, tuiles servies par l'application, `.app` pour Appetize.io, suite du cœur, écrans, traces, téléchargement, partage, impression, itinéraires, installation sur iPhone : détail dans `docs/plan-ios.md` § 4 | Critères de chaque étape dans le plan détaillé |
 
 ## 4. Stratégie de test
