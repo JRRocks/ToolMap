@@ -104,31 +104,42 @@ Sans compte : le `.app` du simulateur (release `ios-<version>`) se lance dans un
 
 **Android de référence : 0.4.144**, `origin/claude/vibrant-galileo-q3s99n` au commit `1637cb9` (2026-10-29). Depuis 0.4.140 : menus de l'impression (P17.8, P17.9 ; à reporter avec P32.11), releases `android-<version>` (ADR-099, reprises par la CI iOS en `ios-<version>`), aucun changement des parties déjà portées.
 
-| Domaine | Android (`core/src/main/kotlin/fr/toolmap/core/`) | iOS (`ios/ToolMapCore/Sources/ToolMapCore/`) | Statut |
+### 6.1 Cœur (`ToolMapCore`, portage de `:core` et des parties testables de `:data` et `:p2p`)
+
+Tests Swift Testing repris des tests Kotlin, verts sur macOS (`swift test`) et sur le simulateur iPhone (`xcodebuild test`) : run iOS 40972000611 du 2026-10-29, **1 011 tests**.
+
+| Domaine | Android | iOS (`ios/ToolMapCore/Sources/ToolMapCore/`) | Statut |
 |---|---|---|---|
-| Géo : positions, emprises | `geo/LonLat.kt` (`LonLat`, `LonLatZoom`, `Bounds`) | `Geo/LonLat.swift` | ✅ P32.1 |
-| Tuiles : maths, URL | `tiles/TileMath.kt`, `tiles/TileUrlBuilder.kt` | `Tiles/TileMath.swift`, `Tiles/TileUrlBuilder.swift`, `Tiles/DecimalText.swift` | ✅ P32.1 |
-| Sources : niveaux, zooms, références, délais | `source/TileSource.kt`, `source/ZoomSet.kt`, `source/MapRef.kt`, `source/UpdateDelay.kt` | `Source/*.swift` | ✅ P32.1 |
-| AQX : lecture | `aqx/AqxModel.kt`, `aqx/AqxParser.kt` | `Aqx/AqxModel.swift`, `Aqx/AqxParser.swift`, `Aqx/XmlTree.swift` | ✅ P32.1 |
-| AQX : écriture, sources intégrées, catalogue | `aqx/AqxWriter.kt`, `source/BuiltinSources.kt`, `maps/OnlineCatalog.kt` | — | ⬜ P32.6 |
-| Tuiles : planification, recettes, PNG unis | `tiles/TilePlanner.kt`, `tiles/TileResolver.kt`, `tiles/SolidPng.kt` | — | ⬜ P32.4, P32.9 |
-| Sources : multi-zoom, identité, doublons, crédits | `source/MultiZoomDraft.kt`, `source/TileSetIdentity.kt`, `source/SourceDuplicates.kt`, `source/Credits.kt` | — | ⬜ P32.6 |
-| Géo : formats, projections, grilles, échelle | `geo/*` (14 fichiers) | — | ⬜ P32.6 |
-| Calques et favoris | `layers/*` (8 fichiers) | — | ⬜ P32.6, P32.7 |
-| Cartes : catalogue, zone, bande | `maps/*` (4 fichiers) | — | ⬜ P32.7, P32.9 |
-| Traces et waypoints | `track/*` (26 fichiers) | — | ⬜ P32.6, P32.8 |
-| Enregistreur | `record/*` (6 fichiers) | — | ⬜ P32.8 |
-| Alertes, suivi de trace | `alert/*` (4 fichiers) | — | ⬜ |
-| Altitude, baromètre, terrain | `altitude/*`, `elevation/*` | — | ⬜ |
-| Mesure | `measure/*` | — | ⬜ P32.6 |
-| Recherche | `search/*` | — | ⬜ P32.6 |
-| Réglages | `settings/*` | — | ⬜ P32.6 |
-| Assistant d'ajout de carte | `wizard/*` (6 fichiers) | — | ⬜ |
-| Téléchargement de zone | `download/ZoneRequest.kt` | — | ⬜ P32.9 |
-| Partage de position | `p2p/*` (13 fichiers) | — | ⬜ P32.10 |
-| Impression et PDF | `print/*` (15 fichiers), `pdf/*` | — | ⬜ P32.11 |
-| Itinéraires | `route/*` (12 fichiers) | — | ⬜ P32.12 |
-| Sauvegarde, journal d'événements, plantages, état | `backup/*`, `eventlog/*`, `crash/*`, `state/*` | — | ⬜ |
-| Textes sur la carte | `text/*` | — | ⬜ |
-| XML, JSON | `xml/*` | `Aqx/XmlTree.swift` (lecture) | ✅ P32.1 |
+| Géo : positions, formats, UTM, MGRS, Lambert 93, grilles, échelle, saisie | `geo/*` | `Geo/` | ✅ |
+| Tuiles : maths, URL, recettes, composition, planification, PNG unis, service | `tiles/*`, intercepteur `:data` | `Tiles/` (dont `TileService`) | ✅ |
+| Sources, AQX (lecture, écriture), sources intégrées, catalogue en ligne | `source/*`, `aqx/*`, `maps/OnlineCatalog.kt` | `Source/`, `Aqx/`, `Maps/` | ✅ |
+| Stockage MBTiles | `:data` tiles | `Storage/` | ✅ |
+| Calques, favoris, conditions d'affichage, couleurs | `layers/*` | `Layers/` | ✅ |
+| Relief, altitude, baromètre, géoïde | `elevation/*`, `altitude/*` | `Elevation/`, `Altitude/` | ✅ |
+| Traces et waypoints : GPX, KML, KMZ, GeoJSON, statistiques, opérations, icônes | `track/*` | `Track/`, `Glyphs/` (icônes reprises des drawables Android, `ios/tools/glyphs.py`) | ✅ |
+| Bibliothèque (base Room `tracks.db`, même schéma) | `:data` tracks | `Library/` | ✅ |
+| Enregistreur, alertes, suivi de trace | `record/*`, `alert/*` | `Record/`, `Alert/` | ✅ |
+| Mesure, recherche, assistant d'ajout de carte | `measure/*`, `search/*`, `wizard/*` | `Measure/`, `Search/`, `Wizard/` | ✅ |
+| Téléchargement de zone | `download/*` | `Download/` | ✅ |
+| Réglages (même JSON), recherche des réglages | `settings/*` | `Settings/` | ✅ |
+| Partage de position : trames, chiffrement, maillage, relais Firebase | `p2p/*`, `:p2p` | `P2P/` (vecteurs Kotlin relus au bit près, `ios/tools/p2p-vectors`) | ✅ sauf WebRTC direct |
+| Impression et PDF | `print/*`, `pdf/*` | `Print/`, `Pdf/` | ✅ |
+| Itinéraires | `route/*` | `Route/` (moteur `BRouterWebEngine`, ADR-102) | ✅ |
+| Sauvegarde, journal d'événements, plantages, état, textes | `backup/*`, `eventlog/*`, `crash/*`, `state/*`, `text/*` | `Backup/`, `EventLog/`, `Crash/`, `State/`, `Text/` | ✅ |
 | Mise à jour depuis GitHub | `update/AppUpdate.kt` | — | Pas d'équivalent (§ 5) |
+
+### 6.2 Application (`ios/ToolMap/Sources/`)
+
+| Écran ou fonction (`docs/specs/ui-index.md`) | iOS | Statut |
+|---|---|---|
+| Écran carte, pastilles, point central et son menu, boutons, barre (§2) | `UI/MapScreen.swift`, `UI/InfoPills.swift`, `UI/Map/` | écrit |
+| Menu principal, Masquer, Verrouiller (§3) | `UI/Panels/MenuPanel.swift`, `LockViews.swift` | écrit |
+| Positionnement, enregistreur (§4, T4) | `UI/Panels/PositionPanel.swift`, `UI/Record/`, `Controllers/RecorderController.swift` | écrit |
+| Cartes et calques, cartes disponibles, catalogue, assistant, multi-zoom (§5) | `UI/Panels/MapsPanel.swift`, `UI/Maps/`, `Controllers/MapsController.swift` | écrit |
+| Traces et waypoints : panneau, liste, détail, fiche, dialogue waypoint (§6, §2.4) | `UI/Panels/TracksPanel.swift`, `UI/Library/`, `Controllers/LibraryController.swift` | écrit |
+| Outils : mesure (T2), dessin et itinéraire (T1, T1b), zone (T5), impression (T3, T3b) | `UI/Tools/`, `UI/Print/`, `Controllers/` | écrit |
+| Aller vers, suivi de trace (G8, G9) | `UI/Route/`, `Controllers/RoutingController.swift` | écrit |
+| Recherche, partage, téléchargements, stockage, réglages, sauvegarde, aide, nouveautés (§7, §8) | `UI/Search/`, `UI/Share/`, `UI/Downloads/`, `UI/Settings/`, `UI/About/` | écrit |
+| Grille UTM / MGRS / Lambert 93 sur la carte | `Map/Layers/GridLayers.swift`, `UI/Map/GridFiguresOverlay.swift` | écrit |
+| Mode direct du partage (WebRTC, QR de réponse) | — | non porté (§ 5) |
+| Mise à jour depuis GitHub, Quitter, barre de navigation | — | sans objet sur iPhone |

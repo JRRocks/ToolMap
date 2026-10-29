@@ -1,0 +1,12 @@
+{
+  "entries": [
+    {
+      "title": "2026-10-29 — [P32.2 à P32.12] Version iPhone : réécriture de l'application en Swift + SwiftUI, sans validation pas à pas",
+      "goal": "consigne de l'utilisateur relayée par la session du poste Windows (2026-10-29) : « Pour le session cloud iOS, fait le travail jusqu'à la fin de la réécriture de l'app iOS, je ne pourrais pas faire de test, donc inutile de le faire étape par étape » : enchaîner P32.2 à P32.12, aperçus publiés et à valider a posteriori, décisions ouvertes prises au plus simple et réversible ; s'arrêter à P32.13 (com"
+    },
+    {
+      "title": "2026-10-29 — [P32.0][P32.1] Version iPhone : application Swift + SwiftUI indépendante, premier lot du cœur et CI iOS",
+      "goal": "demande de l'utilisateur, session dédiée à iOS : porter ToolMap sur iPhone, puis tenir ce portage à jour ; d'abord l'architecture, à faire valider, puis un premier incrément compilé et testé pour iOS par une CI sur runner macOS (l'utilisateur n'a ni Mac ni iPhone)."
+    }
+  ]
+}

@@ -71,8 +71,10 @@ jobs:
             -scheme "$scheme" \
             -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
             -resultBundlePath "$RUNNER_TEMP/ToolMapCore.xcresult" > "$log" 2>&1; then
-            grep -E "error:|failed|✘" "$log" | head -n 100 || true
-            tail -n 150 "$log"
+            tail -n 40 "$log"
+            echo "::group::Failures"
+            grep -E "\.swift:[0-9]+:[0-9]+: error|recorded an issue" "$log" | sed 's/^.*\/ToolMapCore\///' | sort -u | head -n 100 || true
+            echo "::endgroup::"
             exit 1
           fi
           grep -E "Test run with|Executed [0-9]+ test|\*\* TEST" "$log" | tail -n 5 | tee -a "$GITHUB_STEP_SUMMARY"
@@ -96,6 +98,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # « Nouveautés » of the app: the last iOS entries of docs/JOURNAL.md (Android embeds its own at build time).
+      - name: What's new
+        run: python3 ios/ci/whats_new.py
+
       - name: XcodeGen
         run: |
           brew install xcodegen
@@ -106,6 +112,10 @@ jobs:
       # Both simulator architectures (arm64 and x86_64), unsigned: the build Appetize.io runs in a browser.
       - name: Build for the iPhone simulator
         working-directory: ios/ToolMap
+        env:
+          # The sharing server, as for the Android APK (ci.yml); empty without the secrets.
+          TOOLMAP_FIREBASE_DB_URL: ${{ secrets.TOOLMAP_FIREBASE_DB_URL }}
+          TOOLMAP_FIREBASE_API_KEY: ${{ secrets.TOOLMAP_FIREBASE_API_KEY }}
         run: |
           log="$RUNNER_TEMP/xcodebuild-app.log"
           if ! xcodebuild build \
@@ -116,9 +126,14 @@ jobs:
             -destination "generic/platform=iOS Simulator" \
             -derivedDataPath "$RUNNER_TEMP/derived" \
             ONLY_ACTIVE_ARCH=NO \
+            TOOLMAP_FIREBASE_DB_URL="$TOOLMAP_FIREBASE_DB_URL" \
+            TOOLMAP_FIREBASE_API_KEY="$TOOLMAP_FIREBASE_API_KEY" \
             CODE_SIGNING_ALLOWED=NO > "$log" 2>&1; then
-            grep -E "error:" "$log" | sort -u | head -n 100 || true
-            tail -n 120 "$log"
+            tail -n 60 "$log"
+            # The errors last, one line each, where they are read without the whole log.
+            echo "::group::Errors"
+            grep -E "\.swift:[0-9]+:[0-9]+: error" "$log" | sed 's/^.*\/ios\///' | sort -u | head -n 200 || true
+            echo "::endgroup::"
             exit 1
           fi
           grep -E "warning:" "$log" | grep -v "/SourcePackages/" | sort -u | head -n 40 || true
@@ -163,12 +178,17 @@ jobs:
           path: ${{ env.ZIP }}
           if-no-files-found: error
 
+      # Also when a screen crashed: its log and the other screens are in the artifact.
       - name: Upload the screenshots
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: toolmap-ios-screenshots
-          path: ${{ runner.temp }}/screenshots/*.png
-          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/screenshots/*.png
+            ${{ runner.temp }}/screenshots/*.pdf
+            ${{ runner.temp }}/screenshots/*.txt
+          if-no-files-found: warn
 
       # Like android-<version> (ADR-099): the simulator app and its screenshots as the release ios-<version>, the two
       # newest versions kept. A version already published is kept as it is.

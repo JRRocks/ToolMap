@@ -1,0 +1,96 @@
+name: iOS TestFlight
+
+# P32.13, prepared but inactive: uploads a signed build of the iPhone app to TestFlight, so that it installs on a real
+# iPhone. It needs an Apple Developer account (99 € a year) that the user has not decided on yet (ADR-100, point 6):
+# until the secrets below exist, the workflow only says what is missing. Started by hand only (Actions ▸ Run workflow).
+# Steps on the user's side: docs/plan-ios.md, « Installer sur un iPhone (P32.13) ».
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testflight:
+    name: Archive, sign and upload to TestFlight
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      # App Store Connect API key (Users and Access ▸ Integrations ▸ App Store Connect API): id, issuer, .p8 content.
+      ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.APPLE_ASC_KEY_P8 }}
+      # The team of the account (10 characters, Membership details).
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      TOOLMAP_FIREBASE_DB_URL: ${{ secrets.TOOLMAP_FIREBASE_DB_URL }}
+      TOOLMAP_FIREBASE_API_KEY: ${{ secrets.TOOLMAP_FIREBASE_API_KEY }}
+    steps:
+      - name: Account settings present?
+        id: account
+        run: |
+          missing=""
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 TEAM_ID; do
+            if [ -z "${!name}" ]; then missing="$missing APPLE_${name}"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "No Apple Developer account configured yet (missing secrets:$missing). Nothing is uploaded." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.account.outputs.ready == 'true'
+
+      - name: XcodeGen
+        if: steps.account.outputs.ready == 'true'
+        run: |
+          brew install xcodegen
+          cd ios/ToolMap
+          xcodegen generate
+
+      # Automatic signing with the API key: Xcode creates the certificate and the profile of fr.toolmap.ios itself.
+      - name: Archive
+        if: steps.account.outputs.ready == 'true'
+        working-directory: ios/ToolMap
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          key="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s' "$ASC_KEY_P8" > "$key"
+          xcodebuild archive \
+            -project ToolMap.xcodeproj \
+            -scheme ToolMap \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/ToolMap.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$key" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            TOOLMAP_FIREBASE_DB_URL="$TOOLMAP_FIREBASE_DB_URL" \
+            TOOLMAP_FIREBASE_API_KEY="$TOOLMAP_FIREBASE_API_KEY"
+
+      - name: Upload to TestFlight
+        if: steps.account.outputs.ready == 'true'
+        run: |
+          key="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          cat > "$RUNNER_TEMP/export.plist" << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/ToolMap.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$key" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          echo "Build ${{ github.run_number }} sent to App Store Connect: it shows in TestFlight after Apple's processing." | tee -a "$GITHUB_STEP_SUMMARY"
