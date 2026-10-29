@@ -35,7 +35,9 @@
   - Arrondi du `{$bbox}` : l'algorithme de `DecimalText` refait en Python et comparé au module `decimal` (HALF_UP sur la valeur exacte, comme `BigDecimal`) sur 124 653 cas (bords de tuiles de z0 à z20 en degrés et en mètres, valeurs au hasard, demi exacts) : aucun écart.
   - `ios/ci/pick_simulator.py` essayé sur une liste de simulateurs inventée (iOS 17.5 et 18.2, iPad, montre) : choisit l'iPhone d'iOS 18.2.
   - `./gradlew check assembleDebug` : **non lancé** (SDK Android injoignable) ; rien d'Android n'a changé.
-- **Problèmes / dette technique** : pas de compilateur Swift dans le cloud : chaque essai passe par la CI macOS. Le journal reste commun : l'entrée d'une session iOS change le numéro de version Android (empreinte) et entre dans les « Nouveautés » de l'APK.
+  - Run iOS du push fae5a20 (run 40944407448, runner `macos-15`) : **vert du premier coup**. `swift test` sur macOS : « Test run with 53 tests passed » ; `xcodebuild test` sur le simulateur **iPhone 17 Pro, iOS 26.2** (choisi par `pick_simulator.py`) : « Test run with 53 tests passed », « ** TEST SUCCEEDED ** ». Les fixtures sont bien lues en place depuis le simulateur. P32.1 passe à ✅ (`docs/PLAN.md`, `docs/plan-ios.md`).
+  - CI Android du push fae5a20 (run 40944407244, **0.4.141**) : **verte** (empreinte de `version.properties` acceptée, ktlint, lint, tests, APK) ; artefact `toolmap-debug-apk` 12928602583.
+- **Problèmes / dette technique** : pas de compilateur Swift dans le cloud : chaque essai passe par la CI macOS (≈ 2 min 30 pour ce lot). Avertissement des deux workflows : `actions/checkout@v4` tourne sur Node.js 20, déprécié (une mise à jour Dependabot `checkout-7` attend déjà). Le journal reste commun : l'entrée d'une session iOS change le numéro de version Android (empreinte) et entre dans les « Nouveautés » de l'APK.
 - **Prochaine étape recommandée** : P32.2, l'aperçu du squelette d'application (écran carte sur iPhone, variantes) à faire valider, puis P32.3 (XcodeGen, SwiftUI, MapLibre Native iOS, capture du simulateur en artefact).
 
 ---
