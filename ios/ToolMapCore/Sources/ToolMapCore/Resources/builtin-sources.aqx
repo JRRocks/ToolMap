@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<aqx version="11">
+  <name>ToolMap - sources integrees</name>
+  <description>Cartes proposees par defaut. La cle IGN ign_scan_ws est la cle publique des services gratuits de l'IGN.</description>
+  <param name="ign-apikey">ign_scan_ws</param>
+
+  <source id="osm" type="roads">
+    <name>OpenStreetMap</name>
+    <copyright>(c) OpenStreetMap contributors</copyright>
+    <data-source>https://www.openstreetmap.org/copyright</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,14</preview-location>
+    <zoom-levels z="0-19">
+      <user-agent>ToolMap/0.1 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <update-delay>2W</update-delay>
+      <server><![CDATA[https://tile.openstreetmap.org/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="ign-maps" type="topo">
+    <name>IGN Cartes</name>
+    <copyright>IGN</copyright>
+    <data-source>https://data.geopf.fr</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,12</preview-location>
+    <zoom-levels z="1-18">
+      <max-threads>6</max-threads>
+      <referer><![CDATA[https://data.geopf.fr/]]></referer>
+      <server><![CDATA[https://data.geopf.fr/private/wmts?apikey={$param:ign-apikey}&layer=GEOGRAPHICALGRIDSYSTEMS.MAPS&style=normal&tilematrixset=PM&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={$z}&TileCol={$x}&TileRow={$y}]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="ign-scan25" type="topo">
+    <name>IGN SCAN 25 Touristique</name>
+    <copyright>IGN</copyright>
+    <data-source>https://data.geopf.fr</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,14</preview-location>
+    <zoom-levels z="6-16">
+      <max-threads>6</max-threads>
+      <referer><![CDATA[https://data.geopf.fr/]]></referer>
+      <server><![CDATA[https://data.geopf.fr/private/wmts?apikey={$param:ign-apikey}&layer=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&style=normal&tilematrixset=PM&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={$z}&TileCol={$x}&TileRow={$y}]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="ign-pentes" type="hillshade" layer="true" opacity="50">
+    <name>IGN Pentes (montagne)</name>
+    <copyright>IGN</copyright>
+    <data-source>https://data.geopf.fr</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,14</preview-location>
+    <zoom-levels z="1-16">
+      <max-threads>6</max-threads>
+      <server><![CDATA[https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={$z}&TILEROW={$y}&TILECOL={$x}&FORMAT=image/png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="opentopomap" type="topo">
+    <name>OpenTopoMap</name>
+    <copyright>(c) OpenStreetMap contributors, SRTM | Style : (c) OpenTopoMap (CC-BY-SA)</copyright>
+    <data-source>https://opentopomap.org</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,14</preview-location>
+    <zoom-levels z="0-17">
+      <user-agent>ToolMap/0.1 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <update-delay>4W</update-delay>
+      <server><![CDATA[https://a.tile.opentopomap.org/{$z}/{$x}/{$y}.png]]></server>
+      <server><![CDATA[https://b.tile.opentopomap.org/{$z}/{$x}/{$y}.png]]></server>
+      <server><![CDATA[https://c.tile.opentopomap.org/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="ign-plan" type="roads">
+    <name>IGN Plan v2</name>
+    <copyright>IGN</copyright>
+    <data-source>https://data.geopf.fr</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,12</preview-location>
+    <zoom-levels z="0-19">
+      <max-threads>6</max-threads>
+      <server><![CDATA[https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={$z}&TILEROW={$y}&TILECOL={$x}&FORMAT=image/png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="ign-ortho" type="satellite">
+    <name>IGN Photographies aériennes</name>
+    <copyright>IGN</copyright>
+    <data-source>https://data.geopf.fr</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,14</preview-location>
+    <zoom-levels z="0-19">
+      <max-threads>6</max-threads>
+      <server><![CDATA[https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={$z}&TILEROW={$y}&TILECOL={$x}&FORMAT=image/jpeg]]></server>
+    </zoom-levels>
+  </source>
+
+  <!-- Ski maps of the "Sortie Ski" favorite (ADR-069), from the author's COM.109.AQX (OpenSnowMap) and
+       USR.IGN+PENTES+YETI_TRANSITOIRE 2024_SANS GEOKEY.AQX (Yeti winter tracks). They keep the ids of those files, so
+       an imported copy is replaced by the built-in map and a saved stack still finds it. Served over https (the
+       files say http); the OpenSnowMap base map answers "access denied" without its referer. -->
+  <source id="OSMSNOWM" type="topo">
+    <name>SnowBase Map</name>
+    <copyright>OpenStreetMap contributors (CC-BY-SA)</copyright>
+    <data-source>https://www.opensnowmap.org/</data-source>
+    <region>WRLD</region>
+    <preview-location>6.79,45.57,13</preview-location>
+    <zoom-levels z="3,5,7-17">
+      <user-agent>ToolMap/0.1 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <update-delay>3M</update-delay>
+      <referer><![CDATA[http://www.opensnowmap.org/]]></referer>
+      <server><![CDATA[https://tiles.opensnowmap.org/base_snow_map/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <source id="OSMSKIM" type="other" layer="true">
+    <name>Pistes Layer</name>
+    <copyright>OpenStreetMap contributors (CC-BY-SA)</copyright>
+    <data-source>https://www.opensnowmap.org/</data-source>
+    <region>WRLD</region>
+    <preview-location>6.79,45.57,13</preview-location>
+    <zoom-levels z="3,5,7-17">
+      <user-agent>ToolMap/0.1 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <update-delay>3M</update-delay>
+      <referer><![CDATA[http://www.opensnowmap.org/]]></referer>
+      <server><![CDATA[https://tiles.opensnowmap.org/pistes/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+
+  <!-- Yeti winter ski-touring tracks (Petzl), a WMS of the ENSG asked in Web Mercator metres. -->
+  <source id="TRACESHIVERNALES" type="topo" layer="true">
+    <name>Traces_ski_yeti_api</name>
+    <copyright>PETZL</copyright>
+    <data-source>https://api.ensg.eu</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,12</preview-location>
+    <zoom-levels z="3,5,7-16">
+      <user-agent>ToolMap/0.1 (+https://github.com/JRRocks/ToolMap)</user-agent>
+      <max-threads>2</max-threads>
+      <referer><![CDATA[https://api.ensg.eu]]></referer>
+      <server><![CDATA[https://api.ensg.eu/geoserver/yeti/wms?VERSION=1.3.0&REQUEST=GetMap&FORMAT=image/png&TRANSPARENT=TRUE&LAYERS=TRACERANDOHIVERNALE&CRS=EPSG:3857&STYLES=&WIDTH=256&HEIGHT=256&BBOX={$bbox}]]></server>
+    </zoom-levels>
+  </source>
+
+  <!-- Multi-zoom map (ToolMap extension, ADR-031): IGN Cartes, but the 1:25,000 map is kept from zoom 13 to 18
+       instead of the products IGN picks there (zoom-15 tiles shrunk at 13-14, zoom-16 tiles enlarged at 17-18).
+       It stores nothing of its own: its tiles are those of ign-maps. -->
+  <source id="ign-topo25k" type="topo">
+    <name>IGN Topo 25k (zoom forcé)</name>
+    <copyright>IGN</copyright>
+    <data-source>https://data.geopf.fr</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,14</preview-location>
+    <zoom-levels z="1-12"><server>toolmap-map:ign-maps</server></zoom-levels>
+    <zoom-levels z="13-14"><server>toolmap-map:ign-maps?z=15</server></zoom-levels>
+    <zoom-levels z="15-16"><server>toolmap-map:ign-maps</server></zoom-levels>
+    <zoom-levels z="17-18"><server>toolmap-map:ign-maps?z=16</server></zoom-levels>
+  </source>
+
+  <!-- Elevation data (Terrarium encoding), used later by hillshade and profiles; hidden from the map picker. -->
+  <source id="terrarium" type="dem">
+    <name>Terrarium (altitudes)</name>
+    <copyright>Mapzen, AWS Open Data Terrain Tiles</copyright>
+    <data-source>https://registry.opendata.aws/terrain-tiles/</data-source>
+    <region>WRLD</region>
+    <preview-location>5.90,44.80,10</preview-location>
+    <zoom-levels z="0-15">
+      <server><![CDATA[https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{$z}/{$x}/{$y}.png]]></server>
+    </zoom-levels>
+  </source>
+</aqx>

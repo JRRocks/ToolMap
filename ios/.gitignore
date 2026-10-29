@@ -1,6 +1,9 @@
-# Swift Package Manager and Xcode outputs (the iOS app is built on the macOS runner only, ADR-098).
+# Swift Package Manager and Xcode outputs (the iOS app is built on the macOS runner only, ADR-100).
 .build/
 .swiftpm/
 DerivedData/
 *.xcresult
 xcuserdata/
+# Written by XcodeGen on the runner from ToolMap/project.yml.
+ToolMap/ToolMap.xcodeproj/
+ToolMap/Info.plist

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carte iPhone</title>
+<style>
+:root{--petrol:#163A4A;--turq:#14918C;--pill:#7FD6D1;--on:#122027;--on2:#506169;--bar:#C9D6DC;--line:#D5DEE2;--bg:#fff;--fg:#1d1d1b;--fg2:#5f5e5a}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15191b;--fg:#e8eaeb;--fg2:#a9b1b5}}
+:root[data-theme="dark"]{--bg:#15191b;--fg:#e8eaeb;--fg2:#a9b1b5}
+body{font-family:system-ui,-apple-system,sans-serif;margin:16px auto;max-width:900px;padding:0 16px;background:var(--bg);color:var(--fg)}
+h1{font-size:19px;font-weight:600}h2{font-size:16px;font-weight:600;margin-top:28px}
+p,li{font-size:14px;line-height:1.55;color:var(--fg2)}
+.grid{display:flex;flex-wrap:wrap;gap:20px}
+.ph{width:300px;height:640px;border-radius:40px;border:8px solid #1b1f22;overflow:hidden;position:relative;background:#E4EBCF;flex:none}
+.ph.android{border-radius:22px;border-width:6px}
+.cap{font-size:13px;color:var(--fg2);margin-top:6px;max-width:316px}
+.map{position:absolute;inset:0}
+.pills{position:absolute;left:10px;top:46px;display:flex;flex-direction:column;gap:6px}
+.android .pills{top:30px}
+.p{background:#fff;border-radius:10px;padding:5px 9px;font-size:11px;font-weight:500;color:var(--on);box-shadow:0 2px 6px rgba(0,0,0,.18);display:flex;gap:6px;align-items:center;width:max-content}
+.sb{display:inline-block;width:46px;height:3px;background:var(--petrol)}
+.rb{position:absolute;right:10px;display:flex;flex-direction:column;gap:9px}
+.r{width:40px;height:40px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;color:var(--petrol);font-size:22px;font-weight:500}
+.ring{position:absolute;left:50%;top:48%;width:14px;height:14px;margin:-9px;border:2.5px solid var(--turq);border-radius:50%;box-shadow:0 0 0 2.5px #fff}
+.bar{position:absolute;left:0;right:0;bottom:0;background:var(--petrol);display:flex;padding:6px 0 4px}
+.ios .bar{padding-bottom:22px}
+.it{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--bar);font-size:10px;font-weight:500}
+.ic{width:46px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center}
+.it.on{color:#fff}.it.on .ic{background:var(--pill)}
+.ic svg{fill:#fff}.it.on .ic svg{fill:var(--petrol)}
+.cr{position:absolute;left:10px;font-size:9px;background:rgba(255,255,255,.7);padding:1px 5px;border-radius:3px;color:var(--on)}
+.status{position:absolute;left:0;right:0;top:0;height:40px;display:flex;justify-content:space-between;padding:12px 26px 0;font-size:13px;font-weight:600;color:var(--on)}
+.android .status{height:24px;padding:4px 12px;font-size:11px;background:rgba(0,0,0,.05)}
+.island{position:absolute;left:50%;top:9px;width:86px;height:24px;margin-left:-43px;background:#000;border-radius:14px}
+.sheet{position:absolute;left:0;right:0;bottom:0;height:56%;background:#F2F2F7;border-radius:14px 14px 0 0;box-shadow:0 -4px 16px rgba(0,0,0,.2);overflow:hidden}
+.grab{width:36px;height:5px;border-radius:3px;background:#c4c6c9;margin:6px auto 0;position:relative;z-index:2}
+.sh{background:var(--petrol);color:#fff;padding:14px 14px 9px;margin-top:-11px}
+.sh b{font-size:14px;display:block}.sh span{font-size:11px;color:var(--bar)}
+.sec{font-size:10px;color:#6d6d72;text-transform:uppercase;margin:9px 16px 4px}
+.grp{background:#fff;border-radius:10px;margin:0 10px}
+.row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:.5px solid #e1e1e5;font-size:12px;color:var(--on)}
+.row:last-child{border-bottom:0}
+.row small{display:block;color:var(--on2);font-size:10px}
+.rad{width:14px;height:14px;border-radius:50%;border:2px solid var(--turq);flex:none}.rad.on{background:radial-gradient(var(--turq) 45%,#fff 48%)}
+.sw{margin-left:auto;width:30px;height:18px;border-radius:9px;background:#e5e5ea;position:relative;flex:none}.sw::after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.sw.on{background:var(--turq)}.sw.on::after{left:14px}
+.sl{height:3px;background:linear-gradient(90deg,var(--turq) 50%,#d1d1d6 50%);border-radius:2px;margin-top:6px;position:relative}
+.home{position:absolute;left:50%;bottom:6px;width:110px;height:4px;margin-left:-55px;border-radius:2px;background:#fff;opacity:.85}
+.panel{position:absolute;left:8px;right:8px;bottom:58px;height:46%;background:#fff;border-radius:18px;box-shadow:0 4px 16px rgba(0,0,0,.25);overflow:hidden}
+table{border-collapse:collapse;font-size:13px;margin-top:8px}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{font-weight:600}
+</style>
+</head>
+<body>
+<h1>P32.2 — L'écran carte sur iPhone : l'Android actuel et l'adaptation iOS</h1>
+<p><b>Statut : à valider a posteriori.</b> Consigne de l'utilisateur du 2026-10-29, relayée par la session du poste Windows : « fait le travail jusqu'à la fin de la réécriture de l'app iOS, je ne pourrais pas faire de test, donc inutile de le faire étape par étape ». L'interface iPhone reprend donc l'interface Android déjà validée (style « Crête », P29.0 ; carte en variante E « Pastilles », P29.1 ; panneaux de P29.2 à P29.10, <code>docs/specs/ui-index.md</code>), avec le moins de changements possible pour suivre les règles d'iOS. Les captures du simulateur de chaque lot sont jointes aux releases <code>ios-&lt;version&gt;</code> de GitHub.</p>
+
+<div class="grid">
+<div>
+<div class="ph android" id="a"></div>
+<div class="cap"><b>Android aujourd'hui</b> (0.4.144) : pastilles en haut à gauche, ronds blancs à droite, barre pétrole Menu · Cartes · Traces · Position, panneau posé au-dessus de la barre.</div>
+</div>
+<div>
+<div class="ph ios" id="i"></div>
+<div class="cap"><b>iPhone proposé</b> : mêmes pastilles, mêmes ronds, même barre ; la barre descend sous l'indicateur d'accueil, les pastilles commencent sous l'île dynamique.</div>
+</div>
+<div>
+<div class="ph ios" id="s"></div>
+<div class="cap"><b>iPhone, onglet Cartes</b> : le panneau devient une feuille iOS (poignée, mi-hauteur ou plein écran, glisser vers le bas pour fermer), bandeau pétrole gardé ; fond à la radio, calques à l'interrupteur (P29.6 « Bascule »).</div>
+</div>
+</div>
+
+<h2>Ce qui change pour suivre iOS</h2>
+<table>
+<tr><th>Android</th><th>iPhone</th><th>Pourquoi</th></tr>
+<tr><td>Panneau flottant au-dessus de la barre</td><td>Feuille iOS à deux hauteurs (moitié, plein écran), poignée, glissement vers le bas</td><td>Geste attendu sur iPhone ; la carte reste utilisable derrière la feuille à mi-hauteur</td></tr>
+<tr><td>Touche Retour d'Android</td><td>Glisser la feuille vers le bas ; dans un écran, le chevron « ‹ » en haut à gauche ou le glissement depuis le bord</td><td>Pas de touche Retour sur iPhone</td></tr>
+<tr><td>Icônes Material</td><td>Symboles SF d'Apple (montagne, carte, drapeau, flèche de position)</td><td>Icônes du système, nettes à toutes les tailles</td></tr>
+<tr><td>Interrupteurs et curseurs Material</td><td>Interrupteurs et curseurs iOS, teintés turquoise</td><td>Commandes natives (accessibilité VoiceOver, taille du texte)</td></tr>
+<tr><td>Listes en cartes blanches</td><td>Listes groupées iOS (fond gris clair, groupes blancs arrondis)</td><td>Présentation native des réglages et des listes</td></tr>
+</table>
+<p>Ne changent pas : la palette (bleu pétrole <code>#163A4A</code>, turquoise <code>#14918C</code>, turquoise clair <code>#7FD6D1</code>), les textes français, l'ordre des onglets, les pastilles d'information, le point central, le crédit des cartes en bas à gauche, le mode nuit (cartes assombries, pas les traces).</p>
+
+<script>
+(function(){
+const P={mtn:'M2 20L9 8l4 6 3-4 6 10z',map:'M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z',flag:'M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z',loc:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8.94 3A9 9 0 0 0 13 3.06V1h-2v2.06A9 9 0 0 0 3.06 11H1v2h2.06A9 9 0 0 0 11 20.94V23h2v-2.06A9 9 0 0 0 20.94 13H23v-2h-2.06zM12 19a7 7 0 1 1 0-14 7 7 0 0 1 0 14z'};
+const ic=n=>`<svg width="20" height="20" viewBox="0 0 24 24"><path d="${P[n]}"/></svg>`;
+function map(){let s='<svg class="map" viewBox="0 0 300 640" preserveAspectRatio="xMidYMid slice"><rect width="300" height="640" fill="#E4EBCF"/>';
+for(let i=0;i<22;i++){const y=-20+i*32;s+=`<path d="M-20 ${y} C80 ${y-18} 180 ${y+20} 320 ${y-8}" stroke="#C3A97E" stroke-width="1" fill="none" opacity=".7"/>`}
+s+='<path d="M210 -10 C190 160 150 330 100 650" stroke="#86B9DB" stroke-width="8" fill="none"/><path d="M-10 330 C80 300 170 360 310 300" stroke="#E2A23B" stroke-width="3.5" fill="none"/><path d="M40 -10 C70 200 40 420 90 650" stroke="#fff" stroke-width="2.5" fill="none" stroke-dasharray="6 4"/><circle cx="160" cy="250" r="22" fill="#9FC48C" opacity=".6"/><circle cx="70" cy="470" r="30" fill="#9FC48C" opacity=".5"/></svg>';return s}
+function bar(on){const items=[['mtn','Menu'],['map','Cartes'],['flag','Traces'],['loc','Position']];return '<div class="bar">'+items.map(([n,t],k)=>`<div class="it${k===on?' on':''}"><div class="ic">${ic(n)}</div>${t}</div>`).join('')+'</div>'}
+function chrome(ios,on,bottom){return map()+(ios?'<div class="status"><span>9:41</span><span>▮▮▮ 100 %</span></div><div class="island"></div>':'<div class="status"><span>9:41</span><span>▼◢ ▮ 100 %</span></div>')+
+'<div class="pills"><div class="p">45,56460° N  5,91780° E</div><div class="p">1:25 000 <span class="sb"></span> 500 m</div><div class="p">± 5 m · ↑ 312 m</div></div>'+
+'<div class="ring"></div>'+`<div class="rb" style="bottom:${bottom}px"><div class="r">+</div><div class="r">−</div></div>`+`<div class="cr" style="bottom:${bottom}px">© IGN</div>`+bar(on)+(ios?'<div class="home"></div>':'')}
+document.getElementById('a').innerHTML=chrome(false,-1,62);
+document.getElementById('i').innerHTML=chrome(true,-1,78);
+const rows=(a)=>a.join('');
+document.getElementById('s').innerHTML=chrome(true,1,78)+'<div class="sheet"><div class="grab"></div><div class="sh"><b>Cartes et calques</b><span>2 cartes</span></div>'+
+'<div class="sec">Cartes affichées</div><div class="grp"><div class="row"><div style="flex:1">IGN Pentes (montagne)<small>Opacité : 50 %</small><div class="sl"></div></div></div><div class="row">IGN Cartes <small style="margin-left:auto">Fond</small></div></div>'+
+'<div class="sec">Fonds de carte</div><div class="grp"><div class="row"><span class="rad"></span><div>OpenStreetMap<small>Zooms 0 à 19 · © OSM</small></div></div><div class="row"><span class="rad on"></span><div>IGN Cartes<small>Zooms 1 à 18 · © IGN</small></div></div></div>'+
+'<div class="sec">Calques</div><div class="grp"><div class="row"><div>IGN Pentes (montagne)<small>Zooms 1 à 16 · © IGN</small></div><span class="sw on"></span></div></div></div>';
+})();
+</script>
+</body>
+</html>
