@@ -115,7 +115,7 @@ class PrintPlannerTest {
                 ),
             )
         assertTrue(PrintIssue.HUGE_PAGE in huge.issues)
-        // Wider than a JPEG can be (65 500 px), though few pixels: a strip 12 m long at 150 dpi.
+        // Wider than a JPEG can be (65 500 px), though few pixels: a strip 12 m long at 150 dpi, drawn in pieces.
         val strip =
             plan(
                 PrintTemplate(
@@ -124,8 +124,8 @@ class PrintPlannerTest {
                     dpi = 150,
                 ),
             )
-        assertTrue(strip.mapPages.single().raster.pixels < PrintPlanner.MAX_PIXELS_PER_PAGE)
-        assertTrue(PrintIssue.HUGE_PAGE in strip.issues)
+        assertTrue(strip.mapPages.single().raster.widthPx > 65_500)
+        assertTrue(strip.canExport, strip.issues.toString())
         // A sheet of a thousand kilometres is refused, not overflowed.
         val absurd = plan(PrintTemplate(page = PageSetup(Paper.CUSTOM, customWidthMm = 1e9, customHeightMm = 1e9)))
         assertTrue(PrintIssue.HUGE_PAGE in absurd.issues && !absurd.canExport)

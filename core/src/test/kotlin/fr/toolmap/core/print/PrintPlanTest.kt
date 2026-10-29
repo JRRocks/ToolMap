@@ -161,17 +161,34 @@ class PrintPlanTest {
     }
 
     @Test
-    fun `a wide sheet gets thinner bands so that a band stays under its pixel budget`() {
-        assertEquals(512, PrintRaster.bandHeightFor(3_272))
-        assertEquals(512, PrintRaster.bandHeightFor(8_192))
-        assertEquals(256, PrintRaster.bandHeightFor(16_384))
-        assertEquals(64, PrintRaster.bandHeightFor(65_500))
-        assertEquals(PrintRaster.MIN_BAND_HEIGHT, PrintRaster.bandHeightFor(Int.MAX_VALUE))
-        // A 2 m wide frame at 300 dpi: ≈ 23 600 px wide, bands of 177 rows, and still no row left out.
+    fun `a wide page is cut in pieces no wider than 8 192 px that cover it edge to edge`() {
+        // A 2 m wide frame at 300 dpi: ≈ 23 600 px wide, three pieces in every band.
         val raster = PrintRaster(FrameProjection(lat45, 6.0, 25_000.0, 2_000.0, 300.0), 300)
-        assertEquals(PrintRaster.bandHeightFor(raster.widthPx), raster.bandHeightPx)
-        assertTrue(raster.widthPx.toLong() * raster.bandHeightPx <= PrintRaster.MAX_BAND_PIXELS)
-        assertEquals(raster.heightPx, (0 until raster.bandCount).sumOf { raster.band(it).heightPx })
+        assertEquals(512, raster.bandHeightPx)
+        assertEquals(3, raster.pieceCount)
+        val band = raster.band(0)
+        val pieces = raster.pieces(band)
+        assertEquals(listOf(0, 8_192, 16_384), pieces.map { it.x0 })
+        assertEquals(raster.widthPx, pieces.sumOf { it.widthPx })
+        assertTrue(pieces.all { it.widthPx <= PrintRaster.MAX_PIECE_WIDTH && it.heightPx == band.heightPx })
+        // The tiles of a piece are placed in its own bitmap, the ones cut by its edges reaching beyond it.
+        val z = 16
+        val middle = raster.placements(z, pieces[1])
+        assertTrue(middle.minOf { it.left } <= 0 && middle.maxOf { it.right } >= pieces[1].widthPx)
+        // A tile lands at the same place of the page whichever piece draws it.
+        val inBand = raster.placements(z, band).associateBy { it.tile }
+        for ((k, piece) in pieces.withIndex()) {
+            for (p in raster.placements(z, piece)) {
+                val whole = inBand.getValue(p.tile)
+                assertEquals(whole.left, p.left + piece.x0, "piece $k, ${p.tile}")
+                assertEquals(whole.right, p.right + piece.x0, "piece $k, ${p.tile}")
+            }
+        }
+        // Every tile of the band is drawn by one piece or two (when cut by an edge), never left out.
+        assertEquals(inBand.keys, pieces.flatMap { p -> raster.placements(z, p).map { it.tile } }.toSet())
+        // An A4 page is one piece, the whole band.
+        val a4 = PrintRaster(FrameProjection(lat45, 6.0, 25_000.0, 277.0, 190.0), 300)
+        assertEquals(listOf(a4.band(0)), a4.pieces(a4.band(0)))
     }
 
     @Test

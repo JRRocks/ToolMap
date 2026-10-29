@@ -58,7 +58,7 @@ class AndroidBandRenderer(
         page: PrintPagePlan,
         band: Band,
     ): RenderedBand {
-        val width = page.raster.widthPx
+        val width = band.widthPx
         val bitmap = Bitmap.createBitmap(width, band.heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.WHITE)

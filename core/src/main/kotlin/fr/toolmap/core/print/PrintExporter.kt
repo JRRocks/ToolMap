@@ -18,7 +18,7 @@ class RenderedBand(
  * is missing and compresses the result; tests plug in a drawing of their own.
  */
 fun interface BandRenderer {
-    /** Renders [band] of [page]'s raster (all its width, [Band.heightPx] rows from [Band.y0]) as one image. */
+    /** Renders [band] of [page]'s raster ([Band.widthPx] columns from [Band.x0], [Band.heightPx] rows from [Band.y0]). */
     fun render(
         page: PrintPagePlan,
         band: Band,
@@ -82,21 +82,27 @@ class PrintExporter(
                 for (i in 0 until raster.bandCount) {
                     ensureActive()
                     onProgress(PrintProgress(index, plan.pages.size, i, raster.bandCount))
-                    val band = raster.band(i)
-                    // Each strip reaches into the next one: a hairline between two images never shows.
-                    val extended = band.copy(heightPx = min(band.heightPx + SEAM_ROWS, raster.heightPx - band.y0))
-                    val rendered = renderer.render(pp, extended)
-                    pageMissing += rendered.missingTiles
-                    page.save()
-                    page.clipRect(setup.frameLeftMm, setup.frameTopMm, setup.frameWidthMm, setup.frameHeightMm)
-                    page.image(
-                        rendered.image,
-                        setup.frameLeftMm,
-                        setup.frameTopMm + band.y0 * mmPerPixelY,
-                        raster.widthPx * mmPerPixelX,
-                        extended.heightPx * mmPerPixelY,
-                    )
-                    page.restore()
+                    for (piece in raster.pieces(raster.band(i))) {
+                        // Each piece reaches into the next one below and to its right: a hairline between two
+                        // images never shows.
+                        val extended =
+                            piece.copy(
+                                heightPx = min(piece.heightPx + SEAM_ROWS, raster.heightPx - piece.y0),
+                                widthPx = min(piece.widthPx + SEAM_ROWS, raster.widthPx - piece.x0),
+                            )
+                        val rendered = renderer.render(pp, extended)
+                        pageMissing += rendered.missingTiles
+                        page.save()
+                        page.clipRect(setup.frameLeftMm, setup.frameTopMm, setup.frameWidthMm, setup.frameHeightMm)
+                        page.image(
+                            rendered.image,
+                            setup.frameLeftMm + piece.x0 * mmPerPixelX,
+                            setup.frameTopMm + piece.y0 * mmPerPixelY,
+                            extended.widthPx * mmPerPixelX,
+                            extended.heightPx * mmPerPixelY,
+                        )
+                        page.restore()
+                    }
                 }
                 ensureActive()
                 composer.drawOverlay(page, pp, plan.mapPages.size, pageMissing)
@@ -134,7 +140,7 @@ class PrintExporter(
     }
 
     companion object {
-        /** Rows by which a strip is rendered beyond its own, to be covered by the next strip. */
+        /** Rows (and columns) by which a piece is rendered beyond its own, to be covered by the next one. */
         const val SEAM_ROWS = 2
     }
 }

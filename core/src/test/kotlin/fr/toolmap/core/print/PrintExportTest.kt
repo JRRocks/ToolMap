@@ -32,7 +32,7 @@ private class SyntheticRenderer(
         band: Band,
     ): RenderedBand {
         calls += page.kind to band
-        val width = page.raster.widthPx
+        val width = band.widthPx
         val image = BufferedImage(width, band.heightPx, BufferedImage.TYPE_INT_RGB)
         val g = image.createGraphics()
         g.color = Color(238, 238, 230)
@@ -173,6 +173,35 @@ class PrintExportTest {
             expectedTop += raster.band(i).heightPx * mmPerRow
         }
         assertEquals(setup.frameTopMm + setup.frameHeightMm, expectedTop, 1e-2)
+    }
+
+    @Test
+    fun `a page wider than a piece is drawn in pieces side by side over the exact frame`() {
+        val sheet = PageSetup(Paper.CUSTOM, customWidthMm = 1_500.0, customHeightMm = 100.0)
+        val p = plan(PrintTemplate(page = sheet, scale = 50_000.0, dpi = 150))
+        assertTrue(p.canExport, p.issues.toString())
+        val raster = p.pages.single().raster
+        assertEquals(2, raster.pieceCount)
+        val renderer = SyntheticRenderer()
+        val (_, bytes) = export(p, renderer)
+        // Two calls per band: the first piece reaches two columns into the second, which ends at the frame's edge.
+        val calls = renderer.calls.map { it.second }
+        assertEquals(2 * raster.bandCount, calls.size)
+        assertEquals(PrintRaster.MAX_PIECE_WIDTH + PrintExporter.SEAM_ROWS, calls[0].widthPx)
+        assertEquals(PrintRaster.MAX_PIECE_WIDTH, calls[1].x0)
+        assertEquals(raster.widthPx, calls[1].x0 + calls[1].widthPx)
+        val content = PdfProbe(bytes).contentOfPage(0)
+        val placements =
+            Regex("\n([\\d.]+) 0 0 (-[\\d.]+) ([\\d.]+) ([\\d.]+) cm\n/Im\\d+ Do").findAll(content).toList()
+        assertEquals(2 * raster.bandCount, placements.size)
+        val mmPerColumn = sheet.frameWidthMm / raster.widthPx
+        for (pair in placements.chunked(2)) {
+            val (first, second) = pair.map { it.groupValues[3].toDouble() to it.groupValues[1].toDouble() }
+            assertEquals(sheet.frameLeftMm, first.first, 1e-6)
+            assertEquals(sheet.frameLeftMm + PrintRaster.MAX_PIECE_WIDTH * mmPerColumn, second.first, 1e-3)
+            assertTrue(first.first + first.second > second.first, "the first piece overlaps the second")
+            assertEquals(sheet.frameLeftMm + sheet.frameWidthMm, second.first + second.second, 1e-3)
+        }
     }
 
     @Test
