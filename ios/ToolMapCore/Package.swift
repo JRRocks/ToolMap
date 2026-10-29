@@ -16,6 +16,8 @@ let package = Package(
                 // Copies of core/src/main/resources/ (the two apps share no file at build time, ADR-100).
                 .copy("Resources/builtin-sources.aqx"),
                 .copy("Resources/online-catalog.aqx"),
+                // The waypoint, activity and token icons of Android, as path data (ios/tools/glyphs.py).
+                .copy("Resources/glyphs.json"),
             ]
         ),
         .testTarget(name: "ToolMapCoreTests", dependencies: ["ToolMapCore"]),
