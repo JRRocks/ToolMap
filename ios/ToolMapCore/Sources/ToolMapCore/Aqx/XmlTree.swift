@@ -53,10 +53,6 @@ final class XmlElement {
     }
 }
 
-/// The document is not well-formed XML.
-struct XmlReadError: Error {
-    let message: String
-}
 
 enum XmlTree {
     /// The root element of `text`. External entities are never resolved; the caller refuses DOCTYPEs beforehand.
