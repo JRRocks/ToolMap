@@ -80,7 +80,7 @@ final class TileURLProtocol: URLProtocol {
         manager.sessionConfiguration = configuration
     }
 
-    private var task: URLSessionDataTask?
+    private var upstreamTask: URLSessionDataTask?
 
     override class func canInit(with request: URLRequest) -> Bool {
         request.url?.host == TileAddress.host
@@ -124,13 +124,13 @@ final class TileURLProtocol: URLProtocol {
                 contentType: http?.value(forHTTPHeaderField: "Content-Type")
             )
         }
-        task = dataTask
+        upstreamTask = dataTask
         dataTask.resume()
     }
 
     override func stopLoading() {
-        task?.cancel()
-        task = nil
+        upstreamTask?.cancel()
+        upstreamTask = nil
     }
 
     private func answer(status: Int, data: Data? = nil, contentType: String? = nil) {
