@@ -25,7 +25,7 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
       # Robolectric fetches its Android jars from Maven Central into ~/.m2 on first use (ADR-013), outside Gradle and its
       # cache: on 2026-10-28 a failed download failed 16 test classes of :data before they ran. Kept between runs, the
