@@ -24,7 +24,8 @@ struct InfoPills: View {
                     Text(MapText.scaleRatio(metersPerPoint: model.metersPerPoint))
                     ScaleBarView(metersPerPoint: model.metersPerPoint)
                     if showZoom {
-                        Text("zoom \(Int(model.zoom.rounded(.down)))")
+                        // The zoom of the tiles on screen, as AlpineQuest and Android show it (ADR-032).
+                        Text("zoom \(Int((model.zoom + log2(512.0 / Double(MapStyle.declaredTileSize))).rounded()))")
                             .foregroundStyle(Crete.onSurfaceVariant)
                     }
                 }

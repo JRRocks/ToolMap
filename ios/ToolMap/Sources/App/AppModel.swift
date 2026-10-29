@@ -135,7 +135,10 @@ final class AppModel {
                 names.append(copyright)
             }
         }
-        return names.map { "© \($0)" }.joined(separator: " · ")
+        return names.map { name in
+            let lower = name.lowercased()
+            return lower.hasPrefix("©") || lower.hasPrefix("(c)") ? name : "© \(name)"
+        }.joined(separator: " · ")
     }
 
     /// Adds the maps of an `.aqx` file chosen by the user; returns a sentence for the alert.

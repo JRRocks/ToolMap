@@ -131,7 +131,7 @@ struct MapLibreView: UIViewRepresentable {
                         options: [
                             .minimumZoomLevel: NSNumber(value: spec.minZoom),
                             .maximumZoomLevel: NSNumber(value: spec.maxZoom),
-                            .tileSize: NSNumber(value: 256),
+                            .tileSize: NSNumber(value: MapStyle.declaredTileSize),
                         ]
                     )
                     style.addSource(source)
@@ -155,6 +155,13 @@ enum MapStyle {
         let layers: [LayerSpec]
         let nightMode: Bool
     }
+
+    /// Size given to MapLibre for the 256-pixel tiles (ADR-032, Android « Netteté des cartes » at its default, sharp):
+    /// one tile pixel on one screen pixel, as AlpineQuest draws its maps, so 256 / 3 points on a 3x screen.
+    static let declaredTileSize: Int = {
+        let scale = Double(UIScreen.main.scale)
+        return Int((256.0 / max(scale, 1)).rounded())
+    }()
 
     static func sourceId(_ id: String) -> String { "toolmap-source-\(id)" }
     static func layerId(_ id: String) -> String { "toolmap-layer-\(id)" }
