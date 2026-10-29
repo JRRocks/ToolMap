@@ -38,8 +38,10 @@
   - CI du push a8e9002 (run 40932442302, 0.4.138) : **rouge**, 470 tests de `:app`, 1 échec (`DrawViewModelTest`, ci-dessus) ; `:core`, ktlint et lint passés.
   - CI du push 13d5d0c (run 40934774377, **0.4.139**) : **verte** (ktlint, lint, tests de `:core`, `:data`, `:p2p`, `:app` dont `DrawViewModelTest`, APK) ; artefact `toolmap-debug-apk` 12925390443.
   - Aperçu publié pour l'utilisateur (page privée claude.ai) et notification envoyée pour demander le choix.
+  - CI du push b6998ff (run 40935912241, 0.4.139, journal seul) : **verte** ; artefact `toolmap-debug-apk` 12925382150.
+  - **Choix de l'utilisateur (2026-10-29)** : « Format : E · Réglages : A », et « Retire également la limite de DPI, cependant rajoute un message d'alerte du risque que cela engendre ». Aperçu de la suite, `docs/previews/p17-impression-qualite.html` : parcours E + A avec l'alerte à la place de « 200 dpi au plus » dans le format personnalisé ; sous-panneau « Qualité et marges » (150 · 200 · 300 · Autre…, champ « Résolution » de 72 dpi au moins, sans maximum) ; alerte de risque en trois formes (Q1 ligne orange, Q2 encadré, Q3 confirmation en créant le PDF) ; sous-panneau « Éléments de la feuille » (six éléments rangés par place sur la feuille, sous-titre). Rendu vérifié dans Chromium (1 100 et 390 px, jour et nuit, aucune erreur de console, pas de défilement horizontal). En attente de la réponse ; rien de l'interface n'est codé.
 - **Problèmes / dette technique** : écran du dialogue jamais vu sur un émulateur dans cette session (P17.7 reste 🔄). Au-delà de 5 080 mm de côté, la page dépasse la limite d'Acrobat (ADR-096). Les autres tests de `DrawViewModelTest` gardent le répartiteur « Unconfined » : un test qui modifie un itinéraire avant la fin d'un calcul en arrière-plan peut retomber sur la même course.
-- **Prochaine étape recommandée** : choix de l'utilisateur sur `docs/previews/p17-impression-menus.html`, puis code de la variante choisie (P17.8) ; sur le poste Windows, « Format personnalisé » à 2 000 × 1 000 mm sur l'émulateur (P17.7).
+- **Prochaine étape recommandée** : réponse de l'utilisateur sur `docs/previews/p17-impression-qualite.html` (forme de l'alerte, éléments de la feuille), puis code de E + A et de P17.9 ; sur le poste Windows, « Format personnalisé » à 2 000 × 1 000 mm sur l'émulateur (P17.7).
 
 ---
 
