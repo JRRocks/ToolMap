@@ -210,7 +210,7 @@ struct GridAtlasTests {
         let inside = GridPlanner.plan(try frame(), .mgrs, locale: france)
         #expect(inside.zones == ["31T"])
         #expect(inside.zoneEdges.isEmpty)
-        #expect(!inside.labels.contains(where: \.neighbour))
+        #expect(!inside.labels.contains { $0.neighbour })
         #expect(inside.squares.allSatisfy { $0.count == 2 }, "\(inside.squares)")
         // 48 N between bands T and U in zone 32: one grid, the parallel drawn, the squares named with their band.
         let band = GridPlanner.plan(try frame(48.0, 9.0), .mgrs, locale: france)
@@ -220,7 +220,7 @@ struct GridAtlasTests {
         #expect(!edge.meridian)
         #expect(edge.degrees == 48.0)
         #expect(edge.sides?.0 == "T" && edge.sides?.1 == "U")
-        #expect(!band.labels.contains(where: \.neighbour))
+        #expect(!band.labels.contains { $0.neighbour })
         #expect(band.squares.allSatisfy { $0.hasPrefix("32T ") || $0.hasPrefix("32U ") }, "\(band.squares)")
         #expect(band.zoneSides == ["32T": CompassSide.south, "32U": CompassSide.north])
     }

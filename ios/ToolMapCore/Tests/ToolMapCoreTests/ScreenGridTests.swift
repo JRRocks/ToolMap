@@ -527,7 +527,7 @@ struct ScreenGridTests {
         #expect(world.isEmpty, "no chip")
         let all = try lines(world)
         #expect(all.count > 10, "\(all.count) edges")
-        #expect(all.allSatisfy(\.isEdge))
+        #expect(all.allSatisfy { $0.isEdge })
         // WGS84 and Lambert 93 still say the region is too wide.
         let wide = ScreenGrid.plan(.lambert93, Bounds(minX: -60.0, minY: -40.0, maxX: 60.0, maxY: 60.0))
         #expect(wide.issue == ScreenGridIssue.tooWide)

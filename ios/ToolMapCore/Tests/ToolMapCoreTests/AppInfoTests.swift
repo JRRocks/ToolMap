@@ -11,6 +11,6 @@ struct AppInfoTests {
 
     @Test("tagline is not blank")
     func tagline() {
-        #expect(!AppInfo.tagline.allSatisfy(\.isWhitespace))
+        #expect(!AppInfo.tagline.allSatisfy { $0.isWhitespace })
     }
 }
