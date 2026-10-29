@@ -161,9 +161,10 @@ func kotlinRound(_ value: Double) -> Int {
     kotlinToLong((value + 0.5).rounded(.down))
 }
 
-/// Java `String.format(Locale.ROOT, "%.<decimals>f", value)`, half up on the shortest decimal form of the value.
+/// Java `String.format(Locale.ROOT, "%.<decimals>f", value)`, half up on the shortest decimal form of the value
+/// (`0.15` gives `0.2` where C's printf gives `0.1`).
 func formatFixed(_ value: Double, _ decimals: Int) -> String {
-    String(format: "%.\(decimals)f", value)
+    TrackNumberText.fixed(value, decimals)
 }
 
 /// Kotlin `Double % Double`: the remainder of the truncated division (sign of the dividend).
