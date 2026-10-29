@@ -37,9 +37,9 @@
   - Miroir Drive : 1er essai refusé (« Google Drive introuvable »), lancé après le retour du lecteur Google Drive : Drive en 0.4.143.
   - CI du push 34aa215 (run 40948355188, **0.4.143**) : **verte** ; artefact `toolmap-debug-apk` 12930437038.
   - `gh release list` : `android-0.4.143` (Latest), `android-0.4.142`, `debug-6fa0aec`. Script de miroir modifié : 1er passage, 0.4.142 et 0.4.143 de GitHub copiées (la 0.4.143 locale remplacée, 87 359 898 octets) ; erreur `jq` « expected an object but got: string » (Windows PowerShell 5.1 retire les guillemets d'un argument), corrigée par un filtre sans guillemets (`.assets[0].size`) ; dernier passage : « rien de nouveau à archiver ».
-  - P31.6 : `./gradlew spotlessApply` puis `./gradlew check assembleDebug` **verts** (2 min 42 s), version **0.4.144**. Run CI du push : voir le dernier message de la session.
+  - P31.6 : `./gradlew spotlessApply` puis `./gradlew check assembleDebug` **verts** (2 min 42 s), version **0.4.144**. CI du push 7d4aacc (run 40950601882, **0.4.144**) : **verte**, APK signé par la clé de publication (`APK_SIGNER: publication`), artefact 12931252028 ; l'étape a publié `android-0.4.144` (« Latest ») et supprimé `android-0.4.142` et son tag (`git ls-remote --tags origin 'android-*'` : 0.4.143 et 0.4.144). `drive-mirror.ps1` : `ToolMap.0.4.144.apk` archivé (87 360 022 octets) ; 0.4.142 reste sur le Drive. P31.6 ✅.
 - **Problèmes / dette technique** : émulateur presque plein (5,2 Go sur 5,8, 381 Mo libres) : plus d'installation possible d'un APK de 87 Mo sans faire de la place.
-- **Prochaine étape recommandée** : test dehors par l'utilisateur (téléphone en Wi-Fi, GPS accroché : les positions doivent passer) ; P31.6 ✅ une fois vu un run qui publie `android-<version>` et supprime la troisième ; sinon reprendre la tâche ⬜ suivante de `docs/PLAN.md`.
+- **Prochaine étape recommandée** : test dehors par l'utilisateur (téléphone en Wi-Fi, GPS accroché : les positions doivent passer) ; sinon reprendre la tâche ⬜ suivante de `docs/PLAN.md`.
 
 ---
 
