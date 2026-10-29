@@ -101,6 +101,7 @@ Google Drive est le **miroir des fichiers locaux** du poste Windows (2e sauvegar
 | `docs/specs/live-test.md` | Test en direct du partage de position : préparation, rôles, scénarios T0 à T19, analyse (`tools/livetest/`) |
 | `docs/plan-fonctions-2026-10.md` | **Plan détaillé de P22 à P28** (alerte et écoute du groupe, saisie des valeurs, grilles MGRS / UTM, partage des favoris, couleurs et fusion, waypoints du groupe, dessin) : décisions de l'utilisateur, tâches, critères |
 | `docs/plan-design-2026-10.md` | **Refonte de l'interface (P29)** : constats de l'audit, règles communes, étapes onglet par onglet ; 5 variantes à chaque changement et notification pour demander le choix (demande du 2026-10-26) |
+| `docs/plan-ios.md` | **Version iPhone (P32)** : application Swift + SwiftUI dans `ios/`, indépendante du code Android (ADR-098) ; règles, étapes, ce qui ne se porte pas, synchronisation avec Android, table de parité |
 | `docs/idees-futur.md` | Idées pour plus tard : **à ne lire que sur demande de l'utilisateur** |
 | `docs/plan-partage.md` | Plan de travail des tests en direct du partage de position (P21, **clos le 2026-10-24**) : règles, état, ordre des tests, problèmes notés pendant le test ; à relire seulement pour un nouveau test en direct |
 | `docs/specs/p21-corrections.md` | Défauts trouvés au premier test en direct (2026-10-24) : preuves, causes dans le code, corrections proposées, vérifications, ordre conseillé (P21.5, P21.6) |
@@ -115,6 +116,7 @@ Google Drive est le **miroir des fichiers locaux** du poste Windows (2e sauvegar
 - Kotlin, Jetpack Compose (Material 3), coroutines/Flow, Hilt, Room, WorkManager, OkHttp.
 - Carte : MapLibre Native Android (build OpenGL ES `android-sdk-opengl`, ADR-028), avec un intercepteur OkHttp qui construit les URL des tuiles à partir des définitions AQX et les sert depuis le stockage local MBTiles.
 - Modules Gradle : `:core` (Kotlin JVM pur, testable sans Android), `:data`, `:p2p`, `:app`.
+- **iPhone (P32, ADR-098)** : application Swift + SwiftUI dans `ios/`, **sans code commun avec Android** ; le travail iOS ne modifie aucun fichier du build Android. Compilée et testée seulement par `.github/workflows/ios.yml` (runner macOS) ; plan : `docs/plan-ios.md`.
 - AGP 9.4 + Gradle 9.6 + Kotlin 2.4 (Kotlin intégré à AGP : ne pas appliquer `kotlin-android`), compileSdk 37, minSdk 26 (ADR-007). Versions figées dans `gradle/libs.versions.toml`.
 
 ## Numéro de version

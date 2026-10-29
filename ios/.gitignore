@@ -1,0 +1,6 @@
+# Swift Package Manager and Xcode outputs (the iOS app is built on the macOS runner only, ADR-098).
+.build/
+.swiftpm/
+DerivedData/
+*.xcresult
+xcuserdata/

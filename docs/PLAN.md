@@ -394,6 +394,15 @@ Tuiles **Terrarium** (AWS open data `elevation-tiles-prod`) traitées comme une 
 | P31.4 | ✅ | CI : la pré-version `debug-<sha7>` n'est publiée que depuis `main` ; vu le 2026-10-29 sur la branche `claude/vibrant-galileo-q3s99n` (session 81, run 40876435037 : « Publish the debug APK » sauté, aucune pré-version `debug-adb1936`) | `ci.yml` ; run d'une autre branche sans pré-version |
 | P31.5 | ⬜ | Essai sur le téléphone de l'utilisateur : bandeau au lancement, téléchargement en 4G ou Wi-Fi, autorisation « Installer des applications inconnues », passage à la clé de publication (désinstallation unique après sauvegarde) | Mise à jour faite sur le téléphone, consignée au journal |
 
+### P32 — Version iPhone : application Swift + SwiftUI native, indépendante d'Android — plan détaillé : `docs/plan-ios.md` (ADR-098)
+> Demande de l'utilisateur (2026-10-29) : une version iPhone, dans une session dédiée, sans toucher à la version Android : « les 2 app sont indépendante sur le code », écrite en « Swift + SwiftUI natif ». Dossier `ios/`, CI `.github/workflows/ios.yml` sur runner macOS. Étapes, fonctions qui ne se portent pas telles quelles, méthode de synchronisation et table de parité dans le plan détaillé.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P32.0 | ✅ | Architecture validée le 2026-10-29 : Swift + SwiftUI natif, code indépendant (ADR-098), `docs/plan-ios.md` | Validation explicite de l'utilisateur, consignée au journal |
+| P32.1 | 🔄 | Paquet Swift `ToolMapCore` (premier lot : tuiles, sources, lecture AQX) et CI iOS | Run vert de `ios.yml` (tests sur simulateur iPhone, repris des tests Kotlin) |
+| P32.2 à P32.13 | ⬜ | Aperçu puis squelette d'application avec carte MapLibre, tuiles servies par l'application, `.app` pour Appetize.io, suite du cœur, écrans, traces, téléchargement, partage, impression, itinéraires, installation sur iPhone : détail dans `docs/plan-ios.md` § 4 | Critères de chaque étape dans le plan détaillé |
+
 ## 4. Stratégie de test
 - **JVM (`:core`)** : parseurs, URL de tuiles, maths d'échelle, statistiques, codec P2P. Rapides, exécutables partout.
 - **Robolectric + MockWebServer (`:data`, `:p2p`)** : Room, MbTilesStore, intercepteur (en-têtes, mode hors ligne, zooms complétés), relais Firebase (émulateur Firebase via `scripts/firebase-emulator-test.sh`).

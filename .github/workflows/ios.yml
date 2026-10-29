@@ -1,0 +1,80 @@
+name: iOS
+
+# The iPhone app (P32, ADR-098, docs/plan-ios.md): Swift code with no code shared with Android, built and tested on a
+# macOS runner only (the cloud sessions have neither Xcode nor a Swift compiler). Independent of the Android CI (ci.yml).
+on:
+  push:
+    paths:
+      - "ios/**"
+      - "fixtures/**"
+      - ".github/workflows/ios.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - "fixtures/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: ToolMapCore (macOS, then iPhone simulator)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode, Swift and simulators
+        run: |
+          xcodebuild -version
+          swift --version
+          xcrun simctl list runtimes available
+
+      # First check, with the compiler's own messages: build and test the package on the macOS host.
+      - name: swift test (macOS)
+        working-directory: ios/ToolMapCore
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee "$RUNNER_TEMP/swift-test.log"
+          grep -E "Test run with|Executed [0-9]+ test" "$RUNNER_TEMP/swift-test.log" | tail -n 5 >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Pick an iPhone simulator
+        id: simulator
+        run: |
+          udid="$(xcrun simctl list devices available --json | python3 ios/ci/pick_simulator.py)"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      # The same tests in an iPhone simulator: the platform the app ships on.
+      - name: xcodebuild test (iPhone simulator)
+        working-directory: ios/ToolMapCore
+        run: |
+          scheme=ToolMapCore
+          if xcodebuild -list | grep -q "ToolMapCore-Package"; then scheme=ToolMapCore-Package; fi
+          log="$RUNNER_TEMP/xcodebuild-test.log"
+          if ! xcodebuild test \
+            -scheme "$scheme" \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -resultBundlePath "$RUNNER_TEMP/ToolMapCore.xcresult" > "$log" 2>&1; then
+            grep -E "error:|failed|✘" "$log" | head -n 100 || true
+            tail -n 150 "$log"
+            exit 1
+          fi
+          grep -E "Test run with|Executed [0-9]+ test|\*\* TEST" "$log" | tail -n 5 | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the logs and test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-core-results
+          path: |
+            ${{ runner.temp }}/swift-test.log
+            ${{ runner.temp }}/xcodebuild-test.log
+            ${{ runner.temp }}/ToolMapCore.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
