@@ -4,6 +4,7 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import fr.toolmap.core.elevation.DemWindow
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.print.PrintArea
 import fr.toolmap.core.print.PrintPlanner
@@ -101,6 +102,71 @@ class AndroidBandRendererTest {
             }
             assertTrue(unavailable > 0, "the test needs at least one unavailable tile")
             assertEquals(unavailable, rendered.missingTiles)
+        }
+    }
+
+    /** A Terrarium tile at [meters] everywhere. */
+    private fun demTile(meters: Int): ByteArray {
+        val v = meters + 32768
+        return solidTile(Color.rgb(v / 256, v % 256, 0))
+    }
+
+    @Test
+    fun `a layer in an elevation band covers the one under it only inside the band, as on the screen`() {
+        // Sortie Ski: red IGN SCAN 25 under the blue snow map above 1550 m. Ground at 1000 m under even elevation
+        // tiles, 2000 m under odd ones; the elevation tiles of a few columns cannot be read.
+        val ski =
+            PrintPlanner.plan(
+                PrintTemplate(scale = 50_000.0, dpi = 150),
+                PrintArea(45.0, 6.0),
+                listOf(LayerConfig("l1", "ign-scan25"), LayerConfig("l2", "OSMSNOWM", displayMinElevation = 1550)),
+                sources::get,
+            )
+        val page = ski.pages.single()
+        val snowZoom = page.layers.layers.single { it.source.id == "OSMSNOWM" }.tileZoom
+        val shift = maxOf(0, snowZoom - DemWindow.MAX_DEM_ZOOM)
+        val noDem = setOf(page.raster.tiles(snowZoom).minOf { it.x } shr shift)
+        val snowRead = mutableListOf<TileId>()
+        val fetcher =
+            PrintTileFetcher { source: TileSource, tile: TileId ->
+                when (source.id) {
+                    "terrarium" -> {
+                        if (tile.x in
+                            noDem
+                        ) {
+                            TileFetch.Unavailable
+                        } else {
+                            TileFetch.Found(demTile(1000 + tile.x % 2 * 1000))
+                        }
+                    }
+
+                    "OSMSNOWM" -> {
+                        synchronized(snowRead) { snowRead += tile }
+                        TileFetch.Found(solidTile(Color.BLUE))
+                    }
+
+                    else -> {
+                        TileFetch.Found(solidTile(Color.RED))
+                    }
+                }
+            }
+        AndroidBandRenderer(fetcher).use { renderer ->
+            val band = page.raster.band(0)
+            val rendered = renderer.render(page, band)
+            val image = decode(rendered.image.data)
+            val placements = page.raster.placements(snowZoom, band)
+            for (p in placements) {
+                val cx = ((p.left + p.right) / 2).coerceIn(0, image.width - 1)
+                val cy = ((p.top + p.bottom) / 2).coerceIn(0, image.height - 1)
+                val demX = p.tile.x shr shift
+                val expected = if (demX in noDem || demX % 2 == 0) Color.RED else Color.BLUE
+                val pixel = image.getPixel(cx, cy)
+                assertTrue(near(pixel, expected), "tile ${p.tile}: #${Integer.toHexString(pixel)}")
+            }
+            // Under low ground the snow tiles are not even read; without elevations they are missing.
+            assertTrue(snowRead.none { (it.x shr shift) % 2 == 0 || (it.x shr shift) in noDem })
+            assertEquals(placements.count { (it.tile.x shr shift) in noDem }, rendered.missingTiles)
+            assertTrue(rendered.missingTiles > 0, "the test needs a column without elevations")
         }
     }
 

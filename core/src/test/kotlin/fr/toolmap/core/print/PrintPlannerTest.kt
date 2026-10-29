@@ -4,6 +4,7 @@ import fr.toolmap.core.geo.Bounds
 import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.source.BuiltinSources
+import fr.toolmap.core.tiles.TileId
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -49,6 +50,25 @@ class PrintPlannerTest {
         assertEquals(setOf("ign-maps", "ign-pentes"), tiles.keys)
         assertEquals(plan().tilesByLayer.getValue("l1"), tiles.getValue("ign-maps").size.toLong())
         assertTrue(tiles.getValue("ign-maps").all { it.z == 15 })
+    }
+
+    @Test
+    fun `a layer in an elevation band also needs the elevation tiles under its own`() {
+        val ski = listOf(LayerConfig("l1", "ign-scan25"), LayerConfig("l2", "OSMSNOWM", displayMinElevation = 1550))
+        val p = plan(PrintTemplate(scale = 25_000.0), layers = ski)
+        val tiles = p.requiredTiles()
+        assertEquals(setOf("ign-scan25", "OSMSNOWM", "terrarium"), tiles.keys)
+        val snow = tiles.getValue("OSMSNOWM")
+        val dem = tiles.getValue("terrarium")
+        // Zoom 16 tiles read their elevations at zoom 13: one elevation tile for 8 × 8 of them.
+        assertTrue(snow.all { it.z == 16 })
+        assertTrue(dem.all { it.z == 13 })
+        assertEquals(snow.map { TileId(13, it.x shr 3, it.y shr 3) }.toSet(), dem)
+        // Without a band, no elevation tile.
+        assertEquals(
+            setOf("ign-scan25"),
+            plan(PrintTemplate(scale = 25_000.0), layers = ski.take(1)).requiredTiles().keys,
+        )
     }
 
     @Test

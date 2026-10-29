@@ -1,5 +1,6 @@
 package fr.toolmap.core.print
 
+import fr.toolmap.core.elevation.DemWindow
 import fr.toolmap.core.geo.Bounds
 import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.layers.LayerConfig
@@ -72,13 +73,18 @@ class PrintPlan(
 
     /**
      * The distinct tiles every page needs, source by source: what to look for in local storage before exporting
-     * and what to download for the missing ones.
+     * and what to download for the missing ones. A layer drawn in an elevation band also needs the elevation tiles
+     * under its own.
      */
     fun requiredTiles(): Map<String, Set<TileId>> {
         val out = LinkedHashMap<String, MutableSet<TileId>>()
         for (page in rasters) {
             for (layer in page.layers.layers) {
-                out.getOrPut(layer.source.id) { LinkedHashSet() } += page.raster.tiles(layer.tileZoom)
+                val tiles = page.raster.tiles(layer.tileZoom)
+                out.getOrPut(layer.source.id) { LinkedHashSet() } += tiles
+                val band = layer.band ?: continue
+                out.getOrPut(band.dem.id) { LinkedHashSet() } +=
+                    tiles.map { DemWindow.of(it.z, it.x, it.y).let { w -> TileId(w.demZ, w.demX, w.demY) } }
             }
         }
         return out

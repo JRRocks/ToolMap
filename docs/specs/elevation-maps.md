@@ -75,6 +75,10 @@ Une nouvelle bande est une nouvelle source : le calque reconstruit est vide jusq
 
 Avec la carte et ses altitudes stockées, tout seuil se règle hors ligne : le masque se recalcule sur les tuiles stockées (§5). Les tuiles masquées ne sont jamais stockées : changer de bande ne demande aucun téléchargement.
 
+### 4.1 Impression (2026-10-29)
+
+Le PDF montre ce que montre le cadre d'impression : un calque à bande d'altitude y est découpé comme à l'écran (`PrintLayer.band`, `AndroidBandRenderer`, mêmes règles que `TileInterceptor.masked` : rien où la bande ne couvre pas la tuile, la tuile entière où elle la couvre, la tuile découpée sinon). Avec « OU », le calque est entier quand le zoom équivalent de la page est dans sa plage et réduit à sa bande ailleurs, au lieu d'être laissé de côté (`LayerElevation.isDrawnAt`). Les tuiles d'altitude (zoom ≤ 13) font partie des tuiles requises : « Télécharger les tuiles manquantes » les prend ; sans elles (hors ligne et non stockées), les tuiles du calque comptent comme manquantes.
+
 ## 5. Coût mesuré (émulateur « Medium_Phone », APK benchmark, 2026-10-23)
 
 | Mesure | Résultat |

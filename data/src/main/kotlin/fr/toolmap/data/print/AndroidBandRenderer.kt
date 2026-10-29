@@ -8,6 +8,9 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Rect
+import fr.toolmap.core.elevation.DemWindow
+import fr.toolmap.core.elevation.ElevationMask
+import fr.toolmap.core.elevation.MaskRaster
 import fr.toolmap.core.layers.RasterAdjust
 import fr.toolmap.core.pdf.PdfImage
 import fr.toolmap.core.print.Band
@@ -18,6 +21,8 @@ import fr.toolmap.core.print.RenderedBand
 import fr.toolmap.core.print.TilePlacement
 import fr.toolmap.core.tiles.TileId
 import fr.toolmap.data.download.BulkPolicy
+import fr.toolmap.data.tiles.BitmapElevationMasker
+import fr.toolmap.data.tiles.ElevationMasker
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.util.concurrent.Callable
@@ -28,12 +33,14 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Draws a strip of a printed map with Android's graphics: the tiles of each layer of the page plan are read (several at
- * a time), decoded and drawn at their exact pixel place with the layer's opacity and colour settings; tiles that could
- * not be read are hatched. The strip comes out as a JPEG for the PDF.
+ * a time), cut to the layer's elevation band if it has one, decoded and drawn at their exact pixel place with the
+ * layer's opacity and colour settings; tiles that could not be read are hatched. The strip comes out as a JPEG for the
+ * PDF.
  */
 class AndroidBandRenderer(
     private val fetcher: PrintTileFetcher,
     private val jpegQuality: Int = DEFAULT_JPEG_QUALITY,
+    private val masker: ElevationMasker = BitmapElevationMasker(),
 ) : BandRenderer,
     Closeable {
     private val pool: ExecutorService by lazy {
@@ -104,13 +111,52 @@ class AndroidBandRenderer(
                 Callable {
                     gate.acquire()
                     try {
-                        p.tile to fetcher.fetch(layer.source, p.tile)
+                        p.tile to fetch(layer, p.tile)
                     } finally {
                         gate.release()
                     }
                 }
             }
         return pool.invokeAll(tasks).associate { it.get() }
+    }
+
+    /**
+     * A tile of [layer] as the screen draws it (P20, `TileInterceptor.masked`): in an elevation band, nothing where the
+     * band covers none of it, the plain tile where it covers all of it, else the tile cut out along the contour.
+     * Without the elevations (offline and not stored) the tile is missing.
+     */
+    private fun fetch(
+        layer: PrintLayer,
+        tile: TileId,
+    ): TileFetch {
+        val band = layer.band ?: return fetcher.fetch(layer.source, tile)
+        val window = DemWindow.of(tile.z, tile.x, tile.y)
+        val dem =
+            masker.dem("${window.demZ}/${window.demX}/${window.demY}") {
+                (fetcher.fetch(band.dem, TileId(window.demZ, window.demX, window.demY)) as? TileFetch.Found)?.bytes
+            } ?: return TileFetch.Unavailable
+        val (low, high) = MaskRaster.range(dem.elevations, dem.size, window)
+        return when (band.mask.coverage(low, high)) {
+            ElevationMask.Coverage.NONE -> {
+                TileFetch.Empty
+            }
+
+            ElevationMask.Coverage.ALL -> {
+                fetcher.fetch(layer.source, tile)
+            }
+
+            ElevationMask.Coverage.PART -> {
+                when (val plain = fetcher.fetch(layer.source, tile)) {
+                    is TileFetch.Found -> {
+                        masker.mask(plain.bytes, dem, window, band.mask)?.let(TileFetch::Found) ?: TileFetch.Unavailable
+                    }
+
+                    else -> {
+                        plain
+                    }
+                }
+            }
+        }
     }
 
     private fun paintOf(layer: PrintLayer): Paint =

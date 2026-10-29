@@ -1,6 +1,10 @@
 package fr.toolmap.core.print
 
+import fr.toolmap.core.elevation.ElevationMask
 import fr.toolmap.core.layers.LayerConfig
+import fr.toolmap.core.layers.LayerElevation
+import fr.toolmap.core.layers.RangeLogic
+import fr.toolmap.core.layers.Workspaces
 import fr.toolmap.core.source.BuiltinSources
 import fr.toolmap.core.tiles.TileMath
 import java.util.Locale
@@ -8,6 +12,8 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PrintPlanTest {
@@ -97,6 +103,35 @@ class PrintPlanTest {
         val p = plan(stack(layer("ign-maps", min = 1, max = 5)), respect = false)
         assertEquals(listOf("ign-maps"), p.layers.map { it.source.id })
         assertTrue(p.warnings.isEmpty())
+    }
+
+    @Test
+    fun `a layer in an elevation band is printed in that band, read from the elevation map, as on the screen`() {
+        // Sortie Ski: IGN SCAN 25 under the snow map above 1550 m; the IGN layer stays whole.
+        val ski = Workspaces.sortieSki.toStack { true }.stack.layers
+        val p = plan(ski)
+        val scan = p.layers.single { it.source.id == "ign-scan25" }
+        val snow = p.layers.single { it.source.id == "OSMSNOWM" }
+        assertNull(scan.band)
+        assertEquals(ElevationMask(1550, null), assertNotNull(snow.band).mask)
+        assertEquals(LayerElevation.DEM_SOURCE_ID, snow.band?.dem?.id)
+        // Ignoring the zoom ranges does not drop the elevation band.
+        assertNotNull(plan(ski, respect = false).layers.single { it.source.id == "OSMSNOWM" }.band)
+    }
+
+    @Test
+    fun `with OU the band is printed outside the zoom range and the layer whole inside it`() {
+        val either =
+            layer("ign-maps", min = 8, max = 15).copy(displayMinElevation = 1500, rangeLogic = RangeLogic.OR)
+        // Equivalent zoom 15.67: inside 8–15, the layer is drawn whole.
+        assertNull(plan(stack(either)).layers.single().band)
+        // Equivalent zoom 17.0: outside the range, the screen still draws the band, and so does the page.
+        val closer = plan(stack(either), scale = 10_000.0)
+        assertEquals(1500, closer.layers.single().band?.mask?.min)
+        assertTrue(closer.warnings.none { it is PrintWarning.OutsideRange })
+        // With ET, outside the range, it is left out as before.
+        val both = either.copy(rangeLogic = RangeLogic.AND)
+        assertTrue(plan(stack(both), scale = 10_000.0).layers.isEmpty())
     }
 
     @Test

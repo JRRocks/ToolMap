@@ -4,6 +4,9 @@ import fr.toolmap.core.elevation.ElevationMask
 
 /** A layer's elevation band (P20) as the map draws it. */
 object LayerElevation {
+    /** The elevation map the bands of the layers are read from (`builtin-sources.aqx`). */
+    const val DEM_SOURCE_ID = "terrarium"
+
     /** Highest tile zoom an open zoom range stands for in a mask. */
     private const val MAX_TILE_ZOOM = 30
 

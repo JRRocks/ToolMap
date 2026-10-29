@@ -3,6 +3,7 @@ package fr.toolmap.data.tiles
 import fr.toolmap.core.elevation.DemWindow
 import fr.toolmap.core.elevation.ElevationMask
 import fr.toolmap.core.elevation.MaskRaster
+import fr.toolmap.core.layers.LayerElevation
 import fr.toolmap.core.source.LevelDef
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.source.UpdateDelay
@@ -408,6 +409,6 @@ class TileInterceptor(
         private const val COMPOSED_CONTENT_TYPE = "image/png"
 
         /** The elevation map the bands of the layers are read from (`builtin-sources.aqx`). */
-        const val DEM_SOURCE_ID = "terrarium"
+        const val DEM_SOURCE_ID = LayerElevation.DEM_SOURCE_ID
     }
 }

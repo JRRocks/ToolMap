@@ -84,6 +84,7 @@ Notations : `S` = dénominateur d'échelle, `d` = dpi, `(fw, fh)` = taille du ca
 |---|---|---|
 | Maths | zoom de tuiles `z* = ceil(zoom équivalent)` (léger : `z* − 1`), résolution, emprise, avertissement de sur-échantillonnage, erreur d'échelle aux bords | `PrintMath`, `FrameProjection`, `PrintLayers` |
 | Plages de zoom des calques | comparées au zoom équivalent **fractionnaire** (pas à `z*`) ; un calque hors plage n'est pas imprimé et le résumé le dit | `PrintLayers` |
+| Bandes d'altitude (P20, 2026-10-29) | le calque est découpé à sa bande comme à l'écran, tuiles d'altitude comprises dans les tuiles requises ; « OU » : entier dans sa plage de zoom, réduit à sa bande ailleurs (`specs/elevation-maps.md` §4.1) | `PrintLayers` (`PrintBand`), `PrintPlan.requiredTiles`, `AndroidBandRenderer` |
 | Bandes | 512 lignes, 2 lignes de recouvrement, tuiles posées en pixels entiers | `PrintRaster`, `PrintExporter` |
 | PDF | `PdfWriter` (Helvetica WinAnsi, JPEG `DCTDecode`, `MediaBox` réelle) | `fr.toolmap.core.pdf` |
 | Habillage | titre / sous-titre, échelle numérique, barre graphique, nord + déclinaison (`GeomagneticField`) + convergence, grille (UTM, Lambert 93, WGS84, MGRS) étiquetée, traces, waypoints, légende, cartouche avec attributions, coordonnées des coins, mini-carte | `PageComposer`, `GridPlanner`, `ScaleBarPlan` |
