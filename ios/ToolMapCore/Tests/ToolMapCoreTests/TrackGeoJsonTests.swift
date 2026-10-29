@@ -16,8 +16,9 @@ struct TrackGeoJsonTests {
         let straight = (0 ..< 1000).map { TrackPoint(lat: 45.0, lon: 6.0 + Double($0) * 1e-4) }
         #expect(PathSimplifier.simplify(straight, 1.0) == [straight[0], straight[999]])
 
-        let corner = (0 ..< 50).map { TrackPoint(lat: 45.0, lon: 6.0 + Double($0) * 1e-4) } +
-            (0 ..< 50).map { TrackPoint(lat: 45.0 + Double($0 + 1) * 1e-4, lon: 6.0049) }
+        let east: [TrackPoint] = (0 ..< 50).map { TrackPoint(lat: 45.0, lon: 6.0 + Double($0) * 1e-4) }
+        let north: [TrackPoint] = (0 ..< 50).map { TrackPoint(lat: 45.0 + Double($0 + 1) * 1e-4, lon: 6.0049) }
+        let corner = east + north
         let simplified = PathSimplifier.simplify(corner, 1.0)
         try #require(simplified.count == 3)
         #expect(simplified[1] == corner[49])

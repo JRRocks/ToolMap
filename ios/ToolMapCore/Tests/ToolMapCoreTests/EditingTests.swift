@@ -169,8 +169,9 @@ struct EditingTests {
 
     @Test("freehand keeps real corners")
     func freehandCorners() {
-        let stroke = (0 ..< 50).map { TrackPoint(lat: 45.0 + Double($0) * 0.00002, lon: 6.0) } +
-            (0 ..< 50).map { TrackPoint(lat: 45.00098, lon: 6.0 + Double($0 + 1) * 0.00002) }
+        let north: [TrackPoint] = (0 ..< 50).map { TrackPoint(lat: 45.0 + Double($0) * 0.00002, lon: 6.0) }
+        let east: [TrackPoint] = (0 ..< 50).map { TrackPoint(lat: 45.00098, lon: 6.0 + Double($0 + 1) * 0.00002) }
+        let stroke = north + east
         let thin = Freehand.thin(stroke, 2.0)
         #expect(thin.count >= 3 && thin.count <= 6, "kept \(thin.count)")
         #expect(thin.contains { abs($0.lat - 45.00098) < 1e-6 && abs($0.lon - 6.0) < 3e-5 }, "corner kept")

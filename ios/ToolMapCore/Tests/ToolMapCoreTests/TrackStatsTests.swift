@@ -85,8 +85,10 @@ struct TrackStatsTests {
 
     @Test("up, down, up swings are each counted in full")
     func swings() {
-        let profile = (0 ..< 51).map { Double($0) } + (0 ..< 30).map { 49.0 - Double($0) } +
-            (0 ..< 20).map { 20.0 + Double($0) + 1 }
+        let up: [Double] = (0 ..< 51).map { Double($0) }
+        let down: [Double] = (0 ..< 30).map { 49.0 - Double($0) }
+        let upAgain: [Double] = (0 ..< 20).map { 20.0 + Double($0) + 1 }
+        let profile = up + down + upAgain
         let stats = TrackStatsCalculator.compute([walk(profile.count) { profile[$0] }])
         // The median filter shaves about a meter off every turning point.
         #expect(abs(stats.ascentMeters - 70.0) <= 3.0)
