@@ -127,9 +127,13 @@ class SearchViewModelTest {
     @Test
     fun `my own items are found as the text changes, without any network`() {
         seedLibrary()
+        // The library joins four Room flows that catch up one by one: the track can be read before the second
+        // waypoint. Wait for the whole library, not only for what "ecrin" finds.
         waitFor("library read") {
+            vm.onQueryChange("lautaret")
+            val lautaret = vm.ui.value.here.size == 1
             vm.onQueryChange("ecrin")
-            vm.ui.value.here.size == 2
+            lautaret && vm.ui.value.here.size == 2
         }
         val kinds = vm.ui.value.here.map { it.libraryKind }
         assertTrue(LibraryKind.WAYPOINT in kinds && LibraryKind.TRACK in kinds)
