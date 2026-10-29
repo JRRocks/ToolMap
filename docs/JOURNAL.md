@@ -20,6 +20,30 @@
 
 ---
 
+## 2026-10-29 — Session 85 — [P17.7][P17.8][P17.9] Impression vérifiée sur l'émulateur : format sans maximum, parcours E + A, alerte Q2 et PDF en carreaux
+- **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`, clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 1637cb9 (0.4.144) ; poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : demande de l'utilisateur : « Pour le session cloud iOS, fait le travail jusqu'à la fin de la réécriture de l'app iOS, je ne pourrais pas faire de test, donc inutile de le faire étape par étape. Utilise l'emulateur pour faire quelque check des derniers version. Si tout est bon, fait un /clear des sessions autres que iOS. Et fini le tout par un shutdown de mon PC ».
+- **Réalisé** :
+  - Versions au début : local en **0.4.144**, propre, égal à `origin/claude/vibrant-galileo-q3s99n` (0.4.144, référence) ; Drive en 0.4.144 ; `claude/blissful-hopper-8kr9d6` (iOS, P32) en 0.4.141, `main` en 0.4.134, `claude/pensive-edison-cgzr8t` en 0.4.102. Rien à mettre à jour.
+  - Session cloud « Portage iOS de ToolMap » : consigne de l'utilisateur relayée mot pour mot : enchaîner P32.2 à P32.12 sans validation entre les étapes, aperçus publiés et notés « à valider a posteriori », décisions ouvertes prises au plus simple et consignées en ADR « à confirmer », arrêt à P32.13 (compte Apple), sans toucher au code Android. Une session cloud ne répond pas : son avancement se lit dans sa propre conversation et sur sa branche.
+  - Émulateur (« Medium_Phone », Android 37, système en anglais) : 0.4.144 installée par-dessus la 0.4.136 en gardant les données (désinstallation `-k`, seuil de stockage bas abaissé le temps de l'installation puis remis par défaut, 91 Mo de tuiles conservés). L'application démarre, la carte et le groupe s'affichent, aucun plantage (`logcat -b crash` vide).
+  - **P17.7** : « Autre » accepte 2 000 × 1 000 mm (« 50 mm au moins, pas de maximum »), taille au sol 49,2 × 23,5 km ; PDF créé à 150 dpi : 28,3 Mo en ≈ 3 min 30, page de 5 669,3 × 2 834,6 pt (2 000,0 × 1 000,0 mm), 11 bandes de 2 carreaux (8 194 + 3 423 px), 8 100 tuiles manquantes hachurées (au-delà de 1 500).
+  - **P17.8** : parcours E (format) + A (réglages) et sous-panneau « Qualité et marges » comparés aux aperçus validés : `docs/previews/p17-impression-emulateur.html` (aperçu à gauche, capture recadrée sur le panneau à droite). Conformes ; seul écart : la carte « Autre » reste en fin de rangée (l'aperçu la montre en tête).
+  - **P17.9** : 600 dpi saisis par « Autre… » ; encadré Q2 « Résolution élevée » (1 030 Mpx, 154,4 Mo à 2,1 Go) et « PDF très lourd » sur les réglages, conformes. « Créer le PDF » est grisé quelques secondes pendant le calcul du plan, puis actif. PDF de 800 × 120 mm à 300 dpi (1 137 tuiles manquantes au départ) : 2,3 Mo, page de 800,0 × 120,0 mm, carreaux de 8 194 + 865 px sur 2 bandes ; jointures examinées à 100 % (images extraites du PDF) : aucune marque.
+  - PDF d'essai effacés de l'émulateur.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `adb install -g` (0.4.144), parcours d'impression par `adb shell input` et `uiautomator dump`, captures `screencap` ; PDF relus par `adb pull` (`/MediaBox`, `/Width`, `/Height` des images) ; jointure recomposée avec System.Drawing.
+  - Aperçus validés rendus par Chrome sans interface (`--headless=new --screenshot`) depuis `p17-impression-qualite.html`, bandes « parcours » et Q2.
+  - Aucun code changé. `./gradlew spotlessApply` (vert, 2 s) puis `./gradlew check assembleDebug` : **vert** en 2 min 43 s (ktlint, lint, tests unitaires), APK `ToolMap-debug-0.4.145.apk` (le journal entre dans « Nouveautés » : version augmentée). Premier essai refusé faute de `JAVA_HOME` : relancé avec le JDK d'Android Studio (`C:\Program Files\Android\Android Studio\jbr`).
+- **Problèmes / dette technique** :
+  - Feuille de 800 × 60 mm : le dialogue du format affiche « Sur le terrain 19.2 km × -0.0 km » sans avertir ; l'écran suivant refuse bien (« Le format de page ou les marges ne laissent pas de place à la carte. »). À corriger : 0 au lieu de « -0.0 » et l'avertissement dès le dialogue (changement visible : aperçu d'abord).
+  - Émulateur presque plein : 170 Mo libres après l'essai (le cache des tuiles a grossi) ; la prochaine installation demandera encore la désinstallation `-k` et le seuil abaissé, ou un ménage.
+  - Système de l'émulateur en anglais : nombres et date au format américain (« 2,000 », « 38.6 Mo », « 10/29/26 ») ; en français sur un téléphone réglé en français.
+- **Prochaine étape recommandée** : sur le téléphone, un PDF à 600 dpi (durée, poids) ; corriger l'affichage « -0.0 km » (aperçu) ; sinon la tâche ⬜ suivante de `docs/PLAN.md`.
+
+---
+
 ## 2026-10-29 — Session 84 — [P21][P31.6] Partage : « ne part pas en Wi-Fi », en fait le GPS en intérieur ; releases GitHub des deux dernières versions et APK signés archivés sur le Drive
 - **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`, clone git), branche `claude/vibrant-galileo-q3s99n` avancée de 392417d (0.4.137) à c0e8e2d (0.4.142) ; poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : demande de l'utilisateur : « Lance l'émulateur et rejoins moi dans le groupe de partage, renomme toi en claude et inspecte pourquoi nos positions ne s'échangent pas », puis : « le partage de position ne semble pas partir en wifi, être passé en 4g a fonctionné » ; ensuite : « Peut-on push la version commit de Github sur mon Drive afin d'avoir la version avec les clés ? Si oui instaure le comme nouvelle règle. À chaque nouveau APK build par Github, archive le sur Drive. De plus, met en Github release les 2 derniers version Android / iOS ».
