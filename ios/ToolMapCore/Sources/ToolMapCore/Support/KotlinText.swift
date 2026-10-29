@@ -155,3 +155,18 @@ extension String {
         return String(self[self.index(after: index)...])
     }
 }
+
+/// Java `Math.round(double)`: `floor(x + 0.5)`, saturated to the 64-bit range, 0 for NaN.
+func kotlinRound(_ value: Double) -> Int {
+    kotlinToLong((value + 0.5).rounded(.down))
+}
+
+/// Java `String.format(Locale.ROOT, "%.<decimals>f", value)`, half up on the shortest decimal form of the value.
+func formatFixed(_ value: Double, _ decimals: Int) -> String {
+    String(format: "%.\(decimals)f", value)
+}
+
+/// Kotlin `Double % Double`: the remainder of the truncated division (sign of the dividend).
+func kotlinRem(_ a: Double, _ b: Double) -> Double {
+    a.truncatingRemainder(dividingBy: b)
+}

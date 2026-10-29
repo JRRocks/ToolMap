@@ -49,6 +49,10 @@ final class AppModel {
     var panel: Panel?
     var showInfo = true
     var nightMode = false
+    /// Android "Mode hors ligne": only the stored tiles are shown, nothing is requested.
+    var offline = false {
+        didSet { TileService.shared.offline = offline }
+    }
     var cameraRequest: CameraRequest?
 
     /// Camera as last reported by the map.
@@ -60,7 +64,7 @@ final class AppModel {
     init() {
         let loaded = (try? BuiltinSources.load()) ?? []
         sources = loaded
-        TileRegistry.shared.register(loaded)
+        TileService.shared.register(loaded, builtins: loaded)
         baseId = loaded.first { $0.id == "ign-maps" }?.id ?? loaded.first?.id ?? ""
         applyLaunchArguments()
     }
@@ -75,7 +79,7 @@ final class AppModel {
 
     /// Background maps offered in the panel: drawable sources that are not overlays (elevation data left out).
     var baseMaps: [TileSource] {
-        sources.filter { !$0.isLayer && $0.type != "dem" && $0.isSupported && !$0.isMultiZoom }
+        sources.filter { !$0.isLayer && $0.type != "dem" && $0.isSupported }
     }
 
     var overlayMaps: [TileSource] {

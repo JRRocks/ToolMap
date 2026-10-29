@@ -23,7 +23,8 @@ shot() {
   xcrun simctl terminate "$udid" "$bundle" 2> /dev/null || true
   xcrun simctl launch "$udid" "$bundle" "$@" > /dev/null
   sleep "${WAIT:-20}"
-  if ! xcrun simctl spawn "$udid" launchctl list | grep -q "$bundle"; then
+  # Simulator apps are ordinary processes of the Mac.
+  if ! pgrep -f "ToolMap.app/ToolMap" > /dev/null; then
     echo "ToolMap is not running after the launch of $name"
     xcrun simctl spawn "$udid" log show --last 3m --style compact --predicate 'process == "ToolMap"' | tail -n 80 || true
     exit 1

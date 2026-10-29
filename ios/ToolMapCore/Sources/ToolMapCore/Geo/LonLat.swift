@@ -38,3 +38,19 @@ public struct Bounds: Equatable, Hashable, Sendable {
         self.maxY = maxY
     }
 }
+
+/// How a position is written on screen and in the dialogs.
+public enum CoordinateSystem: String, Codable, CaseIterable, Sendable {
+    case dd = "DD"
+    case ddm = "DDM"
+    case dms = "DMS"
+    case utm = "UTM"
+    case mgrs = "MGRS"
+    case lambert93 = "LAMBERT93"
+}
+
+/// Angles in degrees and radians as the JVM computes them (Java 9 and later), so that both apps get the same last bit.
+enum Angle {
+    static func radians(_ degrees: Double) -> Double { degrees * 0.017453292519943295 }
+    static func degrees(_ radians: Double) -> Double { radians * 57.29577951308232 }
+}

@@ -7,6 +7,13 @@ struct MapsPanel: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        NavigationStack {
+            content
+                .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    private var content: some View {
         VStack(spacing: 0) {
             PanelHeader(title: "Cartes et calques", subtitle: subtitle)
             List {
@@ -42,6 +49,22 @@ struct MapsPanel: View {
                             }
                         }
                         .buttonStyle(.plain)
+                    }
+                }
+                Section("Options") {
+                    Toggle(isOn: Binding(get: { model.offline }, set: { model.offline = $0 })) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Mode hors ligne")
+                            Text("Seules les tuiles déjà stockées sont affichées.")
+                                .font(.footnote)
+                                .foregroundStyle(Crete.onSurfaceVariant)
+                        }
+                    }
+                    .tint(Crete.turquoise)
+                    NavigationLink {
+                        StorageView()
+                    } label: {
+                        Label("Stockage hors ligne", systemImage: "internaldrive")
                     }
                 }
                 Section("Calques") {
