@@ -265,8 +265,8 @@ private fun SheetCard(
             )
             Text(
                 when {
-                    !other -> String.format(Locale.getDefault(), "%,.0f × %,.0f", paper.widthMm, paper.heightMm)
-                    selected -> String.format(Locale.getDefault(), "%,.0f × %,.0f", page.widthMm, page.heightMm)
+                    !other -> sizeText(paper.widthMm, paper.heightMm)
+                    selected -> sizeText(page.widthMm, page.heightMm)
                     else -> stringResource(R.string.print_paper_other_dims)
                 },
                 style = MaterialTheme.typography.labelSmall,
@@ -1018,6 +1018,12 @@ private fun PrintTemplate.withDressing(change: Dressing.() -> Dressing) = copy(d
 /** The warning of a heavy PDF in [plan], if any (P17.9). */
 private fun heavyOf(plan: PrintPlan?): PrintWarning.Heavy? =
     plan?.warnings?.filterIsInstance<PrintWarning.Heavy>()?.firstOrNull()
+
+/** "210 × 297", "2 000 × 1 000": the millimetres of a sheet in the phone's language. */
+private fun sizeText(
+    widthMm: Double,
+    heightMm: Double,
+): String = String.format(Locale.getDefault(), "%,.0f × %,.0f", widthMm, heightMm)
 
 /** "21,8" or "257": millions of pixels in the phone's language. */
 private fun megapixels(pixels: Long): String {
