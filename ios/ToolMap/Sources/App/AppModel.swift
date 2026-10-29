@@ -10,6 +10,22 @@ enum Panel: String, Identifiable, CaseIterable {
     var id: String { rawValue }
 }
 
+/// How the map follows the position (Android « La carte suit », L5): not at all, the position, the position and the
+/// compass heading.
+enum FollowMode: String, CaseIterable, Identifiable {
+    case free, position, heading
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .free: "Libre"
+        case .position: "Position"
+        case .heading: "Position et cap"
+        }
+    }
+}
+
 /// One map drawn on the map view, bottom to top.
 struct LayerSpec: Equatable {
     let sourceId: String
@@ -40,7 +56,9 @@ struct Overlay: Identifiable, Equatable {
 /// State of the map screen, shared by the map view and the panels.
 @Observable
 final class AppModel {
-    let sources: [TileSource]
+    private(set) var sources: [TileSource]
+    /// Ids of the maps shipped with the app (the others come from imported `.aqx` files).
+    private(set) var builtinIds: Set<String> = []
     let location = LocationService()
 
     var baseId: String
@@ -54,6 +72,7 @@ final class AppModel {
         didSet { TileService.shared.offline = offline }
     }
     var cameraRequest: CameraRequest?
+    var followMode: FollowMode = .free
 
     /// Camera as last reported by the map.
     var center = LonLat(lon: 5.9178, lat: 45.5646)
@@ -62,9 +81,13 @@ final class AppModel {
     var metersPerPoint: Double = 10
 
     init() {
-        let loaded = (try? BuiltinSources.load()) ?? []
+        let builtins = (try? BuiltinSources.load()) ?? []
+        let ids = Set(builtins.map(\.id))
+        let imported = SourceLibrary.load().filter { !ids.contains($0.id) }
+        let loaded = builtins + imported
         sources = loaded
-        TileService.shared.register(loaded, builtins: loaded)
+        builtinIds = ids
+        TileService.shared.register(loaded, builtins: builtins)
         baseId = loaded.first { $0.id == "ign-maps" }?.id ?? loaded.first?.id ?? ""
         applyLaunchArguments()
     }
@@ -113,6 +136,31 @@ final class AppModel {
             }
         }
         return names.map { "© \($0)" }.joined(separator: " · ")
+    }
+
+    /// Adds the maps of an `.aqx` file chosen by the user; returns a sentence for the alert.
+    func importMaps(from url: URL) -> String {
+        do {
+            let result = try SourceLibrary.importFile(url, existing: Set(sources.map(\.id)))
+            sources.append(contentsOf: result.added)
+            TileService.shared.register(result.added, builtins: sources.filter { builtinIds.contains($0.id) })
+            var text = result.added.isEmpty
+                ? "Aucune carte ajoutée."
+                : (result.added.count == 1 ? "1 carte ajoutée : " : "\(result.added.count) cartes ajoutées : ")
+                    + result.added.map(\.name).joined(separator: ", ") + "."
+            if !result.skipped.isEmpty {
+                text += " Déjà présentes : " + result.skipped.joined(separator: ", ") + "."
+            }
+            let unsupported = result.added.filter { !$0.isSupported }
+            if !unsupported.isEmpty {
+                text += " Non affichables : " + unsupported.map { "\($0.name) (\($0.unsupportedReason ?? "?"))" }.joined(separator: ", ") + "."
+            }
+            return text
+        } catch let error as AqxParseError {
+            return "Ce fichier n'est pas un fichier AQX lisible : \(error.message)"
+        } catch {
+            return "Le fichier n'a pas pu être lu : \(error.localizedDescription)"
+        }
     }
 
     func isOverlayShown(_ id: String) -> Bool {

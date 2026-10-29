@@ -9,6 +9,7 @@ struct MapLibreView: UIViewRepresentable {
     let layers: [LayerSpec]
     let nightMode: Bool
     let cameraRequest: CameraRequest?
+    let followMode: FollowMode
 
     func makeCoordinator() -> Coordinator {
         Coordinator(model: model)
@@ -41,6 +42,15 @@ struct MapLibreView: UIViewRepresentable {
         if model.location.isAuthorized, !mapView.showsUserLocation {
             mapView.showsUserLocation = true
         }
+        let tracking: MLNUserTrackingMode
+        switch followMode {
+        case .free: tracking = .none
+        case .position: tracking = .follow
+        case .heading: tracking = .followWithHeading
+        }
+        if mapView.userTrackingMode != tracking {
+            mapView.setUserTrackingMode(tracking, animated: true, completionHandler: nil)
+        }
     }
 
     final class Coordinator: NSObject, MLNMapViewDelegate {
@@ -59,6 +69,13 @@ struct MapLibreView: UIViewRepresentable {
             styleLoaded = true
             applied = nil
             applyStyle()
+        }
+
+        /// A gesture stops the following: the panel then shows « Libre ».
+        func mapView(_ mapView: MLNMapView, didChange mode: MLNUserTrackingMode, animated: Bool) {
+            if mode == .none, model.followMode != .free {
+                model.followMode = .free
+            }
         }
 
         func mapViewRegionIsChanging(_ mapView: MLNMapView) {

@@ -13,7 +13,8 @@ struct MapScreen: View {
                 model: model,
                 layers: model.layerSpecs,
                 nightMode: model.nightMode,
-                cameraRequest: model.cameraRequest
+                cameraRequest: model.cameraRequest,
+                followMode: model.followMode
             )
             .ignoresSafeArea()
 

@@ -31,6 +31,15 @@ struct PositionPanel: View {
                             .foregroundStyle(Crete.onSurfaceVariant)
                     }
                 }
+                Section("La carte suit") {
+                    Picker("La carte suit", selection: Binding(get: { model.followMode }, set: { model.followMode = $0 })) {
+                        ForEach(FollowMode.allCases) { mode in
+                            Text(mode.title).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(!model.location.isAuthorized)
+                }
                 Section {
                     Button {
                         model.centerOnPosition()
