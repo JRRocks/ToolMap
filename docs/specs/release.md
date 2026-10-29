@@ -48,6 +48,20 @@ Les fichiers d'une release GitHub ne comptent pas dans le quota d'artefacts. Don
 
 Le dépôt étant public (depuis le 2026-10-27), ce lien se télécharge sans compte GitHub ; l'artefact d'un run, lui, demande d'être connecté. **Seule `main` publie** (P31, ADR-094) : l'application propose la plus récente de ces pré-versions comme mise à jour (§7), une branche de travail ne doit donc pas en créer ; son APK n'est livré que par l'artefact du run, et la garde de livraison ne regarde alors que lui.
 
+### Releases Android (les deux dernières versions) et archive sur le Drive
+
+Demande de l'utilisateur du 2026-10-29 (ADR-099). À chaque push, **sur toute branche sauf `dependabot/…`**, l'étape « Publish the Android release » de `ci.yml` publie l'APK du run en **release** (pas une pré-version) `android-<version>`, titrée « ToolMap Android <version> », sur le commit exact, avec l'APK sous son nom `ToolMap-debug-<version>.apk` :
+
+`https://github.com/JRRocks/ToolMap/releases/download/android-<version>/ToolMap-debug-<version>.apk`
+
+- **Seules les deux versions les plus récentes sont gardées** (ordre des numéros de version, pas des dates) : la plus récente est marquée « Latest », la troisième est supprimée avec son tag. Une version déjà publiée garde sa release (un commit qui ne change pas la version, comme une ligne de journal, n'en crée pas d'autre) ; une version plus ancienne que les deux publiées n'est pas publiée.
+- L'application **ignore ces tags** : sa recherche de mise à jour ne lit que `debug-*` (§7, ADR-094).
+- Étape non bloquante, comme la pré-version de debug : la garde de livraison ne la regarde pas.
+- **Archive sur le Drive** : `scripts/drive-mirror.ps1`, lancé sur le poste Windows après le run vert du dernier push, copie dans `APK release/ToolMap.<version>.apk` chaque release `android-*` absente du Drive (ou de taille différente) et, si la version du commit courant n'a pas de release, l'artefact de son run. Jamais l'APK compilé en local, signé avec la clé de debug publique (§2). Un APK compilé par une session cloud n'est archivé que s'il est encore dans les deux releases gardées à la session suivante sur le poste Windows.
+- **iOS** : même règle (`ios-<version>`) dès que la CI iOS (`ios.yml`, branche de P32) produit une application ; elle ne compile aujourd'hui que des tests (P32.1).
+
+Premières releases, publiées à la main le 2026-10-29 avec les APK des runs 40944025576 et 40948355188 (clé de publication vérifiée par `apksigner`) : `android-0.4.142` et `android-0.4.143`.
+
 ## 2. Signature
 
 La clé de publication **n'est jamais dans le dépôt** (`*.jks` et `*.keystore` sont ignorés, sauf la clé de debug publique). `app/build.gradle.kts` crée la configuration `release` si `TOOLMAP_KEYSTORE_FILE` existe dans l'environnement, avec `TOOLMAP_KEYSTORE_PASSWORD`, `TOOLMAP_KEY_ALIAS` et `TOOLMAP_KEY_PASSWORD`. Sans clé, `assembleRelease` et `bundleRelease` réussissent et produisent des fichiers **non signés** (un APK non signé ne s'installe pas ; Google Play signe lui-même un bundle déposé).

@@ -125,6 +125,44 @@ jobs:
             [ "$old" = "$tag" ] || gh release delete "$old" --cleanup-tag --yes
           done
 
+      # Every push (any branch but Dependabot's) also publishes its APK as the release android-<version>, and only the two
+      # newest versions are kept (ADR-099). The app ignores these tags (it reads debug-* only, ADR-094); the Windows
+      # workstation copies them to the Drive (scripts/drive-mirror.ps1). A version already published is kept as it is,
+      # and a version older than the two published ones is not published.
+      - name: Publish the Android release
+        if: github.event_name == 'push' && !startsWith(github.ref_name, 'dependabot/')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk="$(ls app/build/outputs/apk/debug/ToolMap-debug-*.apk)"
+          version="$(basename "$apk" .apk)"
+          version="${version#ToolMap-debug-}"
+          tag="android-$version"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "$tag is already published: kept as it is."
+            exit 0
+          fi
+          published="$(gh release list --limit 100 --json tagName -q '.[].tagName | select(startswith("android-"))')"
+          newest="$(printf '%s\n' $published "$tag" | sort -uVr | head -n 2)"
+          if ! printf '%s\n' "$newest" | grep -qx "$tag"; then
+            echo "$tag is older than the two published versions: not published."
+            exit 0
+          fi
+          latest=false
+          [ "$(printf '%s\n' "$newest" | head -n 1)" = "$tag" ] && latest=true
+          if [ "$APK_SIGNER" = "publication" ]; then
+            signed="signé avec la clé de publication de ToolMap"
+          else
+            signed="signé avec la clé de debug publique : aucune clé de publication dans les secrets"
+          fi
+          gh release create "$tag" "$apk" --target "$GITHUB_SHA" --latest="$latest" \
+            --title "ToolMap Android $version" \
+            --notes "APK $version compilé par la CI depuis le commit ${GITHUB_SHA} (branche ${GITHUB_REF_NAME}), $signed. Seules les deux dernières versions sont gardées ici ; toutes sont archivées sur le Drive."
+          for old in $(printf '%s\n' $published "$tag" | sort -uVr | tail -n +3); do
+            gh release delete "$old" --cleanup-tag --yes
+          done
+
       # Not blocking: the account's storage quota can refuse the upload. The APK still reaches the pre-release published
       # above, which does not count in the quota (docs/specs/release.md §1, ADR-045).
       - name: Upload debug APK

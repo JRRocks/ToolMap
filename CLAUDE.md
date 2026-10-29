@@ -62,9 +62,10 @@ Chaque session (humaine ou IA) **doit** suivre ce protocole. C'est ce qui permet
      `https://github.com/JRRocks/ToolMap/actions/runs/<run_id>/artifacts/<artifact_id>`
      (téléchargement connecté à GitHub ; c'est un zip qui contient `ToolMap-debug-<version>.apk` (version de `version.properties`) ; l'artefact expire au bout de 90 jours, et la CI efface les plus anciens à chaque push : seul le dernier reste, voir `docs/specs/release.md` §1) ;
    - la CI publie aussi l'APK en pré-release GitHub `debug-<sha7>` (hors quota d'artefacts, `docs/specs/release.md` §1) : si le téléversement de l'artefact est bloqué, donner ce lien : `https://github.com/JRRocks/ToolMap/releases/download/debug-<sha7>/ToolMap-debug-<version>.apk` ;
+   - **releases GitHub des deux dernières versions** (demande de l'utilisateur, 2026-10-29, ADR-099) : à chaque push (toute branche sauf Dependabot), la CI publie l'APK signé en release `android-<version>` et ne garde que les deux versions les plus récentes ; le lien public sans compte, à donner aussi : `https://github.com/JRRocks/ToolMap/releases/download/android-<version>/ToolMap-debug-<version>.apk`. iOS : même règle (`ios-<version>`) dès que la CI iOS produit une application ;
    - une session sans changement de code donne quand même le lien de l'APK du dernier run vert de la branche ;
    - si le lien ne peut pas être obtenu (CI bloquée, quota…), le dire explicitement avec la raison, et donner le chemin de l'APK compilé en local (`app/build/outputs/apk/debug/ToolMap-debug-<version>.apk`).
-8. **Miroir Google Drive** (demande de l'utilisateur, 2026-10-17) : en fin de session sur le poste Windows, après le build local, lancer `powershell -ExecutionPolicy Bypass -File scripts\drive-mirror.ps1` (voir § « Miroir Google Drive » ci-dessous) et le signaler dans le dernier message.
+8. **Miroir Google Drive** (demande de l'utilisateur, 2026-10-17) : en fin de session sur le poste Windows, **après le run CI vert du dernier push**, lancer `powershell -ExecutionPolicy Bypass -File scripts\drive-mirror.ps1` (voir § « Miroir Google Drive » ci-dessous) et le signaler dans le dernier message. **Chaque APK compilé par GitHub est archivé sur le Drive** (demande de l'utilisateur, 2026-10-29) : le script copie celui du dernier push et ceux des releases `android-<version>` qui manquent ; jamais un APK compilé en local (signé avec la clé de debug publique, pas avec la clé de publication).
 
 ## Miroir Google Drive (2e sauvegarde)
 
@@ -73,9 +74,9 @@ Google Drive est le **miroir des fichiers locaux** du poste Windows (2e sauvegar
 | Drive | Contenu |
 |---|---|
 | `2 - Jean/Claude Code/ToolMap/` | copie exacte du dossier local du poste qui fait le miroir : `C:\Bureau\Desktop\Jean\ToolMap` ou `C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap` (fichiers sources ; sans `.git/`, `build/`, `.gradle/`, `.kotlin/`, `.idea/`, `local.properties`, APK) |
-| `2 - Jean/Claude Code/APK release/` | APK compilés, **nommés `AppName.version.apk`**, ex. `ToolMap.0.4.1.apk` (version de `version.properties`) |
+| `2 - Jean/Claude Code/APK release/` | APK **compilés par GitHub** (CI, signés avec la clé de publication), **nommés `AppName.version.apk`**, ex. `ToolMap.0.4.1.apk` (version de `version.properties`) ; ceux d'avant le 2026-10-29 (sauf 0.4.142 et 0.4.143) sont des builds locaux signés avec la clé de debug |
 
-- `scripts/drive-mirror.ps1` fait les deux : `robocopy /MIR` vers le dossier ToolMap (ce qui est supprimé en local l'est aussi sur le Drive), puis copie de `ToolMap-debug-<version>.apk` vers `APK release/ToolMap.<version>.apk`.
+- `scripts/drive-mirror.ps1` fait les deux : `robocopy /MIR` vers le dossier ToolMap (ce qui est supprimé en local l'est aussi sur le Drive), puis archive dans `APK release/ToolMap.<version>.apk` les APK de GitHub (avec `gh`) : chaque release `android-<version>` absente du Drive (ou de taille différente), et l'artefact du run CI vert du commit courant quand sa version n'a pas de release. Les APK compilés par une session cloud ne restent sur GitHub que tant que leur release fait partie des deux dernières : ils sont archivés à la session suivante sur le poste Windows s'ils y sont encore.
 - Il passe par **Google Drive pour ordinateur** (Drive monté en lecteur local, `<lecteur>:\Mon Drive\…`, détecté automatiquement). Le connecteur Google Drive de Claude ne sert qu'à vérifier ou créer des dossiers : il ne peut pas téléverser un projet entier ni un APK de plusieurs dizaines de Mo.
 - Le miroir va toujours du local vers le Drive, jamais dans l'autre sens : ne pas modifier les fichiers directement sur le Drive.
 

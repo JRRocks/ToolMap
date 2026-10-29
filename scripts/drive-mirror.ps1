@@ -1,6 +1,6 @@
-﻿# Mirrors the local ToolMap folder to Google Drive (second backup) and
-# publishes the compiled debug APK to "APK release" as ToolMap.<version>.apk.
-# Needs Google Drive for desktop (the Drive is mounted as a local drive).
+﻿# Mirrors the local ToolMap folder to Google Drive (second backup) and archives
+# the APKs built by GitHub to "APK release" as ToolMap.<version>.apk.
+# Needs Google Drive for desktop (the Drive is mounted as a local drive) and gh.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\drive-mirror.ps1
 #   powershell -ExecutionPolicy Bypass -File scripts\drive-mirror.ps1 -DriveRoot "G:\Mon Drive"
@@ -50,16 +50,54 @@ robocopy $projectDir $mirrorDir /MIR /FFT /R:2 /W:5 /NP /NDL `
 if ($LASTEXITCODE -ge 8) { throw "robocopy a échoué (code $LASTEXITCODE)" }
 
 if (-not $SkipApk) {
-    # The version of the last local build (version.properties, ADR-059).
-    $props = Get-Content (Join-Path $projectDir "version.properties") -Raw
-    $version = [regex]::Match($props, '(?m)^version=(\S+)').Groups[1].Value
-    $apk = Join-Path $projectDir "app\build\outputs\apk\debug\ToolMap-debug-$version.apk"
-    if (Test-Path $apk) {
-        $target = Join-Path $apkDir "ToolMap.$version.apk"
-        Copy-Item $apk $target -Force
-        Write-Host "APK publié : $target"
-    } else {
-        Write-Warning "APK absent ($apk) : lancer ./gradlew assembleDebug d'abord."
+    # Only APKs built by GitHub, signed with the publication key (ADR-047, ADR-099), never the local build (public debug
+    # key): the APK of the green CI run of this commit, and each android-<version> release missing from the Drive (or
+    # there with another size: a local build left by an older version of this script).
+    # gh writes its progress on stderr: not a failure here.
+    $ErrorActionPreference = "Continue"
+    $repo = "JRRocks/ToolMap"
+    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
+        Write-Warning "gh absent : aucun APK de GitHub archivé."
+        exit 0
+    }
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) ("toolmap-apk-" + [guid]::NewGuid())
+    New-Item -ItemType Directory $tmp | Out-Null
+    $archived = 0
+    function Copy-ToDrive([string]$dir) {
+        foreach ($apk in Get-ChildItem $dir -Recurse -Filter "ToolMap-debug-*.apk") {
+            $target = Join-Path $apkDir ("ToolMap." + $apk.BaseName.Substring("ToolMap-debug-".Length) + ".apk")
+            Copy-Item $apk.FullName $target -Force
+            Write-Host "APK de GitHub archivé : $target"
+            $script:archived++
+        }
+    }
+    try {
+        $tags = @(gh release list --repo $repo --limit 100 --json tagName -q '.[].tagName' |
+            Where-Object { $_ -like "android-*" })
+        # This commit's version has no release (older than the two kept, or publication failed): its CI artifact.
+        if ($tags -notcontains "android-$localVersion") {
+            $sha = (git -C $projectDir rev-parse HEAD).Trim()
+            $run = gh run list --repo $repo --commit $sha --workflow CI --event push --status success --limit 1 `
+                --json databaseId -q '.[0].databaseId'
+            if ($run) {
+                gh run download $run --repo $repo -n toolmap-debug-apk -D (Join-Path $tmp "run") | Out-Null
+                Copy-ToDrive (Join-Path $tmp "run")
+            } else {
+                Write-Warning "Pas d'APK de GitHub pour $($sha.Substring(0, 7)) : relancer ce script après la CI."
+            }
+        }
+        foreach ($tag in $tags) {
+            $target = Join-Path $apkDir ("ToolMap." + $tag.Substring("android-".Length) + ".apk")
+            # One asset per android-* release (ci.yml). No quotes in the filter: Windows PowerShell 5.1 strips them.
+            $size = gh release view $tag --repo $repo --json assets -q '.assets[0].size'
+            if (-not (Test-Path $target) -or (Get-Item $target).Length -ne [long]$size) {
+                gh release download $tag --repo $repo -p "ToolMap-debug-*.apk" -D (Join-Path $tmp $tag) | Out-Null
+                Copy-ToDrive (Join-Path $tmp $tag)
+            }
+        }
+        if ($archived -eq 0) { Write-Host "APK de GitHub : rien de nouveau à archiver." }
+    } finally {
+        Remove-Item -Recurse -Force $tmp
     }
 }
 exit 0
