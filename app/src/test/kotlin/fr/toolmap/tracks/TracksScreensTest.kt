@@ -54,7 +54,7 @@ class TracksScreensTest {
 
     private fun waitForLibrary(empty: Boolean = false) =
         fixture.await(rule::waitForIdle) {
-            fixture.vm.library.value?.let { it.isEmpty == empty && (empty || it.waypoints.size == 5) } == true
+            fixture.vm.library.value.let { if (empty) it?.isEmpty == true else fixture.isFilled(it) }
         }
 
     private fun list(

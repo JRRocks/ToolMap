@@ -10,6 +10,7 @@ import fr.toolmap.data.tracks.ItemKind
 import fr.toolmap.data.tracks.ItemRef
 import fr.toolmap.data.tracks.TrackDatabase
 import fr.toolmap.data.tracks.TrackDisplay
+import fr.toolmap.data.tracks.TrackLibrary
 import fr.toolmap.data.tracks.TrackRepository
 import fr.toolmap.testing.stopTurningLooper
 import kotlinx.coroutines.runBlocking
@@ -79,6 +80,17 @@ class TracksFixture {
             tetes = repository.createWaypoint(Waypoint(45.49, 5.99, 1020.0, at(21), "Les Trois Têtes", sym = "Peak"))
             repository.createWaypoint(Waypoint(45.42, 5.97, 410.0, at(12), "Pont du Furet"))
         }
+
+    /**
+     * Whether the view model's library holds all of [fill]: it joins four Room flows that catch up one by one, so five
+     * waypoints can be read before the track « Fort Barraux » (a sheet of a track not in the library draws nothing).
+     */
+    fun isFilled(library: TrackLibrary?) =
+        library != null &&
+            library.folders.size == 1 &&
+            library.tracks.size == 3 &&
+            library.routes.size == 1 &&
+            library.waypoints.size == 5
 
     /**
      * Waits until [done], letting the main thread run with [idle] (the view model reads the database there): the

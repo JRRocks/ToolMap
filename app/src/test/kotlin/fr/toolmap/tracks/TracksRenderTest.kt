@@ -143,7 +143,7 @@ class TracksRenderTest {
         val out = folder()
         fixture.fill(empty)
         fixture.await(rule::waitForIdle) {
-            fixture.vm.library.value?.let { if (empty) it.isEmpty else it.waypoints.size == 5 } == true
+            fixture.vm.library.value.let { if (empty) it?.isEmpty == true else fixture.isFilled(it) }
         }
         // The folder open, as in the preview.
         fixture.vm.library.value?.folders?.firstOrNull()?.let { fixture.vm.expandFolder(it.id) }
@@ -191,7 +191,7 @@ class TracksRenderTest {
     ) {
         val out = folder()
         fixture.fill()
-        fixture.await(rule::waitForIdle) { fixture.vm.library.value?.waypoints?.size == 5 }
+        fixture.await(rule::waitForIdle) { fixture.isFilled(fixture.vm.library.value) }
         val library = fixture.vm.library.value!!
         val ref = if (track) ItemRef(ItemKind.TRACK, fixture.fbt) else ItemRef(ItemKind.WAYPOINT, fixture.tetes)
         rule.setContent {
