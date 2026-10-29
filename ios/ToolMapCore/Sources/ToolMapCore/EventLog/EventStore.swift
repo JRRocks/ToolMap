@@ -22,7 +22,7 @@ public final class EventStore: EventSink, @unchecked Sendable {
     public static let defaultMemoryLines = 256
     private static let epochBytes = 4
     private static let tailBytes = 16 * 1024
-    private static let flushWaitMs: Int64 = 5000
+    public static let flushWaitMs: Int64 = 5000
 
     private let dir: URL
     private let maxFileBytes: Int64
