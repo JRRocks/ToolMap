@@ -36,6 +36,9 @@
   - `adb install -g` (0.4.144), parcours d'impression par `adb shell input` et `uiautomator dump`, captures `screencap` ; PDF relus par `adb pull` (`/MediaBox`, `/Width`, `/Height` des images) ; jointure recomposée avec System.Drawing.
   - Aperçus validés rendus par Chrome sans interface (`--headless=new --screenshot`) depuis `p17-impression-qualite.html`, bandes « parcours » et Q2.
   - Aucun code changé. `./gradlew spotlessApply` (vert, 2 s) puis `./gradlew check assembleDebug` : **vert** en 2 min 43 s (ktlint, lint, tests unitaires), APK `ToolMap-debug-0.4.145.apk` (le journal entre dans « Nouveautés » : version augmentée). Premier essai refusé faute de `JAVA_HOME` : relancé avec le JDK d'Android Studio (`C:\Program Files\Android\Android Studio\jbr`).
+  - CI du push 21998e8 (run 40957749403, **0.4.145**) : **verte** ; artefact `toolmap-debug-apk` 12935076378 ; release `android-0.4.145` (« Latest ») publiée, `android-0.4.144` gardée.
+  - Session « Local - ToolMap » (lancée par cette session) effacée (`/clear`) à la demande de l'utilisateur ; les autres sessions ToolMap sont dans le cloud ou n'ont pas été lancées d'ici : l'outil ne permet pas de les effacer.
+  - Fin de session : commit du journal, CI attendue, puis `scripts\drive-mirror.ps1` et arrêt du PC (demande de l'utilisateur) ; leur résultat n'est que dans le dernier message de la session.
 - **Problèmes / dette technique** :
   - Feuille de 800 × 60 mm : le dialogue du format affiche « Sur le terrain 19.2 km × -0.0 km » sans avertir ; l'écran suivant refuse bien (« Le format de page ou les marges ne laissent pas de place à la carte. »). À corriger : 0 au lieu de « -0.0 » et l'avertissement dès le dialogue (changement visible : aperçu d'abord).
   - Émulateur presque plein : 170 Mo libres après l'essai (le cache des tuiles a grossi) ; la prochaine installation demandera encore la désinstallation `-k` et le seuil abaissé, ou un ménage.
