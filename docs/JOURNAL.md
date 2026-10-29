@@ -20,6 +20,24 @@
 
 ---
 
+## 2026-10-29 — Session 84 — [P21] Partage : « ne part pas en Wi-Fi », en fait le GPS en intérieur
+- **Branche / commit** : poste Windows (`C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`, clone git), branche `claude/vibrant-galileo-q3s99n` avancée de 392417d (0.4.137) à c0e8e2d (0.4.142) ; poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : demande de l'utilisateur : « Lance l'émulateur et rejoins moi dans le groupe de partage, renomme toi en claude et inspecte pourquoi nos positions ne s'échangent pas », puis : « le partage de position ne semble pas partir en wifi, être passé en 4g a fonctionné ».
+- **Réalisé** :
+  - Versions au début : GitHub `claude/vibrant-galileo-q3s99n` en **0.4.142** (entrée « Session 83 », référence), `claude/blissful-hopper-8kr9d6` en 0.4.141 (nouvelle branche, P32 « version iPhone », non fusionnée), `main` en 0.4.134, `claude/pensive-edison-cgzr8t` en 0.4.102 ; Drive en 0.4.137 (lu par le connecteur : Google Drive pour ordinateur n'est pas monté sur ce poste) ; local en 0.4.137, propre : avancé par `git merge --ff-only` sur la branche distante.
+  - Invitation lue sur la capture du téléphone (QR en Base45 décodé dans le navigateur avec jsQR, converti en lien `toolmap://join?d=…`, jamais écrit dans un fichier du dépôt) ; émulateur (« Medium_Phone_API_36.1 », 0.4.136 déjà installé : la 0.4.142 refusée faute de place, 381 Mo libres ; aucun fichier du partage changé entre les deux) : ancien groupe d'essai quitté, groupe rejoint, nom « claude », icône Robot, partage allumé avec une position fictive.
+  - Constats (journal `TMEvent` de l'émulateur) : serveur joint en 0,9 s, liens ouverts avec les membres ; mes positions partent (`relay.write what=p ms=40`) ; celles du téléphone, passé en 4G, arrivent toutes les 5 à 25 s ; la tablette, « En ligne » (battement et `PING` reçus, `sharing=true`), n'envoie sa 1re position qu'à 21:08:54 (`acc=110`), plus de 4 min après. Sur la capture du téléphone en Wi-Fi : « Serveur joignable », « 1 connecté(s) » : le serveur passait en Wi-Fi.
+  - Analyse : le relais n'a qu'un client HTTPS, pareil en Wi-Fi et en 4G ; le partage ne prend que le GPS (`AndroidLocationSource`, `GPS_PROVIDER`, ADR-019) et n'envoie rien sans fix. Cause retenue avec l'utilisateur : premier fix GPS en intérieur (l'assistance A-GPS passe souvent par les données mobiles), pas le Wi-Fi. Défauts déjà connus (c) et (k) de `docs/specs/p21-corrections.md`, complétés ; problèmes notés dans `docs/plan-partage.md` § 5.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - Aucun code changé.
+  - `./gradlew spotlessApply` (vert, 11 s) puis `./gradlew check assembleDebug` : **vert** en 4 min 9 s (ktlint, lint, tests unitaires), APK `ToolMap-debug-0.4.143.apk` (le journal entre dans « Nouveautés » : version augmentée).
+  - Miroir Drive : 1er essai refusé (« Google Drive introuvable »), lancé après le retour du lecteur Google Drive (voir le dernier message de la session).
+- **Problèmes / dette technique** : émulateur presque plein (5,2 Go sur 5,8, 381 Mo libres) : plus d'installation possible d'un APK de 87 Mo sans faire de la place.
+- **Prochaine étape recommandée** : test dehors par l'utilisateur (téléphone en Wi-Fi, GPS accroché : les positions doivent passer) ; sinon reprendre la tâche ⬜ suivante de `docs/PLAN.md`.
+
+---
+
 ## 2026-10-29 — Session 83 — [P17.7][P17.8] Impression : format personnalisé sans maximum ; 5 variantes des menus Format et Réglages
 - **Branche / commit** : session cloud (claude.ai/code), branche `claude/vibrant-galileo-q3s99n` repartie de 392417d (0.4.137) ; poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : demande de l'utilisateur : « Dans Impression, retire la limite de taille du format de carte. Et propose moi un changement UI selon les règles dans https://github.com/pbakaus/impeccable, 5 proposition pour le menu selection de format et le menu de paramétrage avant génération du PDF. » Format « Autre… » sans maximum (logique, sans changement d'écran) ; aperçu de 5 variantes des deux menus, à valider avant tout code d'interface.
