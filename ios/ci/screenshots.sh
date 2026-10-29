@@ -57,6 +57,11 @@ shot 02-cartes-et-calques "$map" "${centre[@]}" -ToolMapOverlays ign-pentes -Too
 shot 03-menu "$page" -ToolMapPanel menu
 shot 04-position "$page" -ToolMapPanel position
 shot 05-osm-nuit "$map" -ToolMapBase osm -ToolMapNight YES -ToolMapCenter 45.19,5.72,12
+# Layers: a provided favourite with a row open, display conditions, coverage of the stored tiles.
+shot 05b-calques-favori "$map" "${centre[@]}" -ToolMapFavorite rando-multizoom -ToolMapLayerOpen top -ToolMapPanel maps \
+  -ToolMapDemo YES
+shot 05c-conditions "$map" -ToolMapCenter 45.36,6.59,13 -ToolMapFavorite sortie-ski -ToolMapConditions top -ToolMapPanel maps
+shot 05d-couverture "$map" "${centre[@]}" -ToolMapCoverage YES
 # Tracks and waypoints, with the demonstration library.
 shot 06-traces-carte "$map" -ToolMapDemo YES -ToolMapCenter 45.5646,5.9178,14
 shot 07-panneau-traces "$page" -ToolMapDemo YES -ToolMapPanel tracks
