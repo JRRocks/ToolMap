@@ -9,7 +9,7 @@
     /// Draws a tile that no server serves as such (ADR-031): part of a coarser tile enlarged, or finer tiles shrunk
     /// together, following a `TileRecipe` of `TileResolver`. The result is never stored: it is rebuilt from the stored
     /// tiles whenever the map asks for it. Missing parts stay transparent.
-    public struct TileComposer {
+    public struct TileComposer: Sendable {
         public static let defaultTileSize = 256
 
         private let tileSize: Int

@@ -1,13 +1,10 @@
 import Foundation
-import ToolMapCore
 
 /// The tile pipeline of the app (Android: `TileInterceptor`, `TileResolver`, `MbTilesStore`, `BitmapTileComposer`,
 /// PLAN §2.3): for each tile MapLibre asks, the recipe (the map's own tile, a referenced map, a neighbouring zoom shrunk
 /// or enlarged), then every real tile from its MBTiles file, or from its server (stored after), then the composed image.
 /// Offline, nothing is requested: stored tiles only, even expired ones.
-final class TileService: @unchecked Sendable {
-    static let shared = TileService()
-
+public final class TileService: @unchecked Sendable {
     private let lock = NSLock()
     private var sources: [String: TileSource] = [:]
     private var builders: [String: TileUrlBuilder] = [:]
@@ -15,24 +12,37 @@ final class TileService: @unchecked Sendable {
     private var files: [String: MbTilesFile] = [:]
     private var offlineFlag = false
     private let composer = TileComposer()
+    private let session: URLSession
+    private let userAgent: String
 
-    /// Folder of the MBTiles files: Application Support/tiles (kept by iOS, not backed up to iCloud).
-    let directory: URL = {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        var url = base.appendingPathComponent("tiles", isDirectory: true)
-        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        var values = URLResourceValues()
-        values.isExcludedFromBackup = true
-        try? url.setResourceValues(values)
-        return url
-    }()
+    /// Folder of the MBTiles files.
+    public let directory: URL
 
-    var offline: Bool {
+    /// `directory` is created when missing; `session` makes the real tile requests (a plain one by default, outside
+    /// MapLibre's configuration, so the requests are not intercepted again).
+    public init(directory: URL, session: URLSession = TileService.makeSession(), userAgent: String = "ToolMap (iOS)") {
+        self.directory = directory
+        self.session = session
+        self.userAgent = userAgent
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    }
+
+    /// The session of the real tile requests: six connections per server, no HTTP cache (the MBTiles is the cache).
+    public static func makeSession() -> URLSession {
+        let configuration = URLSessionConfiguration.default
+        configuration.httpMaximumConnectionsPerHost = 6
+        configuration.timeoutIntervalForRequest = 20
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.urlCache = nil
+        return URLSession(configuration: configuration)
+    }
+
+    public var offline: Bool {
         get { lock.lock(); defer { lock.unlock() }; return offlineFlag }
         set { lock.lock(); offlineFlag = newValue; lock.unlock() }
     }
 
-    func register(_ list: [TileSource], builtins: [TileSource]) {
+    public func register(_ list: [TileSource], builtins: [TileSource]) {
         lock.lock()
         defer { lock.unlock() }
         storageKeys = StorageKeys(builtins: builtins)
@@ -42,20 +52,27 @@ final class TileService: @unchecked Sendable {
         }
     }
 
-    func source(_ id: String) -> TileSource? {
+    public func source(_ id: String) -> TileSource? {
         lock.lock()
         defer { lock.unlock() }
         return sources[id]
     }
 
-    /// The image of `address`, or nil when nothing can be shown there; `completion` is called once, on any thread.
-    func load(_ address: TileAddress, completion: @escaping (Data?, String?) -> Void) {
-        guard let source = source(address.sourceId) else {
+    /// The image of tile `z`/`x`/`y` of the map `sourceId`, or nil when nothing can be shown there; `completion` is
+    /// called once, on any thread.
+    public func load(
+        _ sourceId: String,
+        _ z: Int,
+        _ x: Int,
+        _ y: Int,
+        completion: @escaping @Sendable (Data?, String?) -> Void
+    ) {
+        guard let source = source(sourceId) else {
             completion(nil, nil)
             return
         }
         let resolver = TileResolver { [weak self] in self?.source($0) }
-        let recipe = resolver.resolve(source, address.z, address.x, address.y, ScalingPolicy())
+        let recipe = resolver.resolve(source, z, x, y, ScalingPolicy())
         if case let .direct(leafSource, level, tile) = recipe {
             fetch(TileRecipe.Leaf(source: leafSource, level: level, tile: tile)) { stored in
                 completion(stored?.bytes, stored?.contentType)
@@ -84,7 +101,7 @@ final class TileService: @unchecked Sendable {
 
     /// One real tile: stored and fresh, or from the server (then stored), or stored though expired when the server
     /// fails or the app is offline.
-    func fetch(_ leaf: TileRecipe.Leaf, completion: @escaping (StoredTile?) -> Void) {
+    public func fetch(_ leaf: TileRecipe.Leaf, completion: @escaping @Sendable (StoredTile?) -> Void) {
         let storageId = storageId(leaf)
         let file = storageId.flatMap { try? self.file($0) }
         let stored = try? file?.get(leaf.tile)
@@ -101,7 +118,7 @@ final class TileService: @unchecked Sendable {
             completion(stored)
             return
         }
-        TileService.upstream.dataTask(with: request) { data, response, _ in
+        session.dataTask(with: request) { data, response, _ in
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             guard (200 ..< 300).contains(status), let data, let type = MbTilesFile.contentTypeOf(data) else {
                 completion(stored)
@@ -114,15 +131,15 @@ final class TileService: @unchecked Sendable {
     }
 
     /// The server request of a real tile: URL from the AQX templates, Referer, User-Agent, headers and cookie.
-    func request(_ leaf: TileRecipe.Leaf) -> URLRequest? {
+    public func request(_ leaf: TileRecipe.Leaf) -> URLRequest? {
         lock.lock()
         let builder = builders[leaf.source.id] ?? TileUrlBuilder(leaf.source)
         lock.unlock()
-        guard let address = try? builder.build(leaf.level, leaf.tile.z, leaf.tile.x, leaf.tile.y, serverIndex: Self.nextServer()),
+        guard let address = try? builder.build(leaf.level, leaf.tile.z, leaf.tile.x, leaf.tile.y, serverIndex: nextServer()),
               let url = URL(string: address)
         else { return nil }
         var request = URLRequest(url: url)
-        request.setValue(leaf.level.userAgent ?? TileService.userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(leaf.level.userAgent ?? userAgent, forHTTPHeaderField: "User-Agent")
         if let referer = leaf.level.referer {
             request.setValue(referer, forHTTPHeaderField: "Referer")
         }
@@ -135,14 +152,14 @@ final class TileService: @unchecked Sendable {
         return request
     }
 
-    func storageId(_ leaf: TileRecipe.Leaf) -> String? {
+    public func storageId(_ leaf: TileRecipe.Leaf) -> String? {
         lock.lock()
         defer { lock.unlock() }
         return storageKeys.storageIdOf(leaf.source, leaf.level)
     }
 
     /// The MBTiles file of a storage, opened once.
-    func file(_ storageId: String) throws -> MbTilesFile {
+    public func file(_ storageId: String) throws -> MbTilesFile {
         lock.lock()
         defer { lock.unlock() }
         if let open = files[storageId] { return open }
@@ -155,13 +172,13 @@ final class TileService: @unchecked Sendable {
     }
 
     /// One MBTiles file on disk.
-    struct StoredFile: Identifiable, Equatable {
-        let id: String
-        let bytes: Int64
+    public struct StoredFile: Identifiable, Equatable, Sendable {
+        public let id: String
+        public let bytes: Int64
     }
 
     /// Every MBTiles file on disk, by storage id, with its size.
-    func storedFiles() -> [StoredFile] {
+    public func storedFiles() -> [StoredFile] {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
         return names.filter { $0.hasSuffix(".mbtiles") }.sorted().map { name in
             let id = String(name.dropLast(".mbtiles".count))
@@ -176,32 +193,16 @@ final class TileService: @unchecked Sendable {
     }
 
     /// Deletes the tiles of one storage.
-    func clear(_ storageId: String) {
+    public func clear(_ storageId: String) {
         try? file(storageId).clear()
     }
 
-    static let userAgent: String = {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
-        return "ToolMap/\(version) (iOS)"
-    }()
-
-    /// Real tile requests: a plain session, outside MapLibre's configuration, so they are not intercepted again.
-    static let upstream: URLSession = {
-        let configuration = URLSessionConfiguration.default
-        configuration.httpMaximumConnectionsPerHost = 6
-        configuration.timeoutIntervalForRequest = 20
-        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        configuration.urlCache = nil
-        return URLSession(configuration: configuration)
-    }()
-
-    private static let serverLock = NSLock()
-    private static var serverCounter = 0
+    private var serverCounter = 0
 
     /// Servers are used in turn across all tiles (Android: `TileUrlBuilder` round robin).
-    private static func nextServer() -> Int {
-        serverLock.lock()
-        defer { serverLock.unlock() }
+    private func nextServer() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
         serverCounter &+= 1
         return serverCounter
     }

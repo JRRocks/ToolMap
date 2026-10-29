@@ -55,7 +55,7 @@ final class TileURLProtocol: URLProtocol {
             answer(status: 404)
             return
         }
-        TileService.shared.load(tile) { [weak self] data, contentType in
+        TileService.shared.load(tile.sourceId, tile.z, tile.x, tile.y) { [weak self] data, contentType in
             guard let self, !self.state.isStopped else { return }
             if let data {
                 self.answer(status: 200, data: data, contentType: contentType)
