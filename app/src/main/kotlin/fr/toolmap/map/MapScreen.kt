@@ -197,6 +197,12 @@ import fr.toolmap.ui.rememberNotificationAsk
 import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.TextButton
+import fr.toolmap.update.UpdateBanner
+import fr.toolmap.update.UpdateController
+import fr.toolmap.update.UpdateProgressDialog
+import fr.toolmap.update.UpdateRefusedDialog
+import fr.toolmap.update.UpdatesDialog
+import fr.toolmap.update.updateMenuSubtitle
 import fr.toolmap.waypoints.WaypointDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -234,12 +240,15 @@ fun MapScreen(
     onOpenSearch: () -> Unit,
     alerts: AlertController,
     altitude: AltitudeController,
+    /** The update of the app from GitHub (P31): banner, menu row, dialogs. */
+    updates: UpdateController,
     /** A full screen is open over the map: it is kept alive and stopped, not rebuilt on return (PF1). */
     covered: Boolean = false,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val state by vm.state.collectAsStateWithLifecycle()
+    val updateUi by updates.ui.collectAsStateWithLifecycle()
     val sources by vm.sources.collectAsStateWithLifecycle()
     val importPreview by vm.importPreview.collectAsStateWithLifecycle()
     val coverage by vm.coverage.collectAsStateWithLifecycle()
@@ -934,6 +943,7 @@ fun MapScreen(
             measureAllowed = !drawUi.active && !measureUi.active && !printUi.active,
             printAllowed = !drawUi.active && !measureUi.active && !printUi.active,
             diagnostics = BuildConfig.DEBUG,
+            updateSubtitle = updateMenuSubtitle(updateUi),
         )
     val trackLibrary = library
     val tracksState =
@@ -1047,6 +1057,7 @@ fun MapScreen(
     // « Nouveautés » (the text, once read) and « Signaler une erreur » (asked, then built off the main thread) (P16.3).
     var whatsNew by remember { mutableStateOf<String?>(null) }
     var reportAsked by remember { mutableStateOf(false) }
+    var updatesShown by remember { mutableStateOf(false) }
     val runMenuAction: (MenuAction) -> Unit = { action ->
         showMenu = false
         when (action) {
@@ -1059,6 +1070,10 @@ fun MapScreen(
 
             MenuAction.REPORT_ERROR -> {
                 reportAsked = true
+            }
+
+            MenuAction.UPDATES -> {
+                updatesShown = true
             }
 
             MenuAction.EXIT -> {
@@ -1179,6 +1194,47 @@ fun MapScreen(
     if (exitAsked) {
         val activity = context as? Activity
         ExitDialog(running = runningServices, onExit = { activity?.finish() }, onDismiss = { exitAsked = false })
+    }
+
+    // The update (P31): the banner closes by itself after 15 s; Android's confirmation is started once the map is shown.
+    LaunchedEffect(updateUi.banner) {
+        if (updateUi.banner) {
+            delay(UPDATE_BANNER_MILLIS)
+            updates.dismissBanner()
+        }
+    }
+    LaunchedEffect(updateUi.confirm) {
+        val confirm = updateUi.confirm ?: return@LaunchedEffect
+        runCatching { context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        updates.confirmStarted()
+    }
+    if (updatesShown) {
+        UpdatesDialog(
+            ui = updateUi,
+            onCheck = { updates.check() },
+            onUpdate = {
+                updatesShown = false
+                updates.startDownload()
+            },
+            onCheckOnLaunch = updates::setCheckOnLaunch,
+            onDismiss = { updatesShown = false },
+        )
+    }
+    updateUi.download?.takeIf { it.shown }?.let { download ->
+        UpdateProgressDialog(
+            download = download,
+            failed = updateUi.failed,
+            onHide = updates::hideProgress,
+            onCancel = updates::cancelDownload,
+            onRetry = updates::startDownload,
+            onDismissFailed = updates::dismissFailed,
+        )
+    }
+    if (updateUi.refused) {
+        UpdateRefusedDialog(
+            version = updateUi.available?.version?.toString().orEmpty(),
+            onDismiss = updates::dismissRefused,
+        )
     }
 
     whatsNew?.let { text ->
@@ -1494,6 +1550,14 @@ fun MapScreen(
                         if (printUi.stage == PrintStage.FRAME) {
                             PrintFrameBar(ui = printUi, onUpdate = print::update, onRotate = print::rotate)
                         }
+                        if (updateUi.banner && !framing) {
+                            UpdateBanner(
+                                ui = updateUi,
+                                onUpdate = updates::startDownload,
+                                onDismiss = updates::dismissBanner,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                         ShareHud(
                             ui = shareUi,
                             onOpen = onOpenShare,
@@ -1586,6 +1650,7 @@ fun MapScreen(
                                 positionOpen = showPositioning,
                                 mapsOpen = mapsPage == MapsPage.ROOT,
                                 menuOpen = showMenu,
+                                menuBadge = updateUi.available != null,
                                 onMenu = { showMenu = true },
                                 onMaps = {
                                     if (mapsPage == MapsPage.ROOT) maps.close() else maps.open(MapsPage.ROOT)
@@ -2247,6 +2312,9 @@ private class WaypointDraft(
     val existing: Pair<Long, Waypoint>?,
     val at: Pair<Double, Double>,
 )
+
+/** The banner of a new version stays this long over the map (P31, variant D). */
+private const val UPDATE_BANNER_MILLIS = 15_000L
 
 /** A tap selects a vertex when it falls within this distance of it. */
 private const val TAP_REACH_DP = 24f

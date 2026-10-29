@@ -42,11 +42,11 @@ Le téléversement de l'APK (`Upload debug APK`) et celui des rapports (`Upload 
 
 ### Release de debug
 
-Les fichiers d'une release GitHub ne comptent pas dans le quota d'artefacts. Donc, à chaque push, l'étape « Publish the debug APK » crée une **pré-release** `debug-<sha7>` (commit exact, titre « ToolMap debug <version> (<sha7>) ») qui porte l'APK sous son nom `ToolMap-debug-<version>.apk`. Seule la plus récente est gardée : les anciennes pré-releases `debug-*` et leurs étiquettes sont supprimées. Le lien de téléchargement direct est :
+Les fichiers d'une release GitHub ne comptent pas dans le quota d'artefacts. Donc, à chaque push **sur `main`**, l'étape « Publish the debug APK » crée une **pré-release** `debug-<sha7>` (commit exact, titre « ToolMap debug <version> (<sha7>) ») qui porte l'APK sous son nom `ToolMap-debug-<version>.apk`. Seule la plus récente est gardée : les anciennes pré-releases `debug-*` et leurs étiquettes sont supprimées. Le lien de téléchargement direct est :
 
 `https://github.com/JRRocks/ToolMap/releases/download/debug-<sha7>/ToolMap-debug-<version>.apk`
 
-Le dépôt étant privé, le téléchargement demande d'être connecté à GitHub.
+Le dépôt étant public (depuis le 2026-10-27), ce lien se télécharge sans compte GitHub ; l'artefact d'un run, lui, demande d'être connecté. **Seule `main` publie** (P31, ADR-094) : l'application propose la plus récente de ces pré-versions comme mise à jour (§7), une branche de travail ne doit donc pas en créer ; son APK n'est livré que par l'artefact du run, et la garde de livraison ne regarde alors que lui.
 
 ## 2. Signature
 
@@ -79,6 +79,8 @@ Pour que le workflow signe : dans les paramètres du dépôt GitHub (Settings �
 
 Puis supprimer `toolmap-release.b64` : le secret suffit.
 
+**État (2026-10-29, P31.1)** : la clé existe, créée sur le poste Windows de l'utilisateur dans un dossier hors du dépôt (`C:\Users\<utilisateur>\.toolmap-signing\`), avec un fichier de mot de passe et un script `set-github-secrets.ps1` qui pose les quatre secrets par `gh secret set`. Empreinte SHA-256 du certificat : `85:33:4C:0A:85:37:07:F5:7F:B2:BE:DF:6E:65:49:9A:5E:B4:51:EE:DB:93:87:32:C9:2F:4F:CD:A6:A0:D3:A4` (ADR-094). À ranger, avec son mot de passe, dans un gestionnaire de mots de passe. Tant que `TOOLMAP_KEYSTORE_BASE64` manque, la CI signe avec la clé de debug publique.
+
 ## 3. Lancer une release
 
 Actions ▸ Release ▸ Run workflow (ou pousser une étiquette `v<version>`, par exemple `v0.2.0`). Le numéro de version interne (`versionCode`) est le numéro d'exécution du workflow ; le nom (`versionName`) est dans `version.properties`, à jour après un build local, avant l'étiquette. Les artefacts : `toolmap-release-apk`, `toolmap-release-aab` (et `toolmap-r8-mapping` si R8 était demandé : sans ce fichier, les traces de plantage ne se lisent pas).
@@ -100,3 +102,20 @@ R8 renomme et retire du code : toute bibliothèque qui passe par la réflexion o
 - Choisir la licence (§5) et le nom du paquet définitif (`fr.toolmap` pour l'instant : le changer plus tard coûte une désinstallation).
 - Dépôt public (2026-10-27, journal sessions 65 et 66) : `JRRocks/ToolMap` est reparti d'un seul commit, sans l'historique, qui portait l'adresse e-mail de l'utilisateur ; l'historique complet reste dans le dépôt privé `JRRocks/ToolMap-Archive`. Un dépôt public montre tout : historique, `refs/pull/*`, journaux des runs, artefacts et pré-version `debug-<sha7>` (son APK contient l'adresse et la clé Firebase, comme tout APK distribué). Les commits se font avec l'adresse `noreply` de GitHub ; les 4 secrets de §2 et les 2 du serveur (`TOOLMAP_FIREBASE_DB_URL`, `TOOLMAP_FIREBASE_API_KEY`) sont à créer dans chaque nouveau dépôt.
 - Fiche Google Play : politique de confidentialité (le texte de l'écran « Aide et à propos » est le point de départ), déclaration de l'usage de la localisation en arrière-plan (services de premier plan de type `location`) et de la caméra (scan de QR).
+
+## 7. Mise à jour depuis GitHub (P31, ADR-094)
+
+L'application cherche elle-même une version plus récente et l'installe, à partir de la pré-version de debug de `main` (§1, « Release de debug »). Écrans validés le 2026-10-29 : `docs/previews/p31-mise-a-jour.html`, variante D pour le message, B pour la progression.
+
+| Étape | Ce qui se passe | Code |
+|---|---|---|
+| Recherche | Au lancement (nouvelle activité, pas une rotation), sauf mode hors ligne ou « Rechercher au lancement » coupé ; ou « Rechercher » du dialogue « Mises à jour ». Requête anonyme `GET https://api.github.com/repos/JRRocks/ToolMap/releases?per_page=10` (limite de GitHub : 60 par heure et par adresse) | `UpdateController.check`, `GitHubReleases` (`:core`) |
+| Choix | Pré-versions non brouillons dont l'étiquette commence par `debug-` ; version lue dans le nom `ToolMap-debug-<version>.apk` de leur fichier ; la plus haute, proposée si elle dépasse strictement la version installée (nombre par nombre) et servie en https | `GitHubReleases.latestApk`, `UpdateDecision.offer`, `AppVersion` |
+| Message | Bandeau sur la carte 15 s (✕ pour le fermer) ; point rouge sur « Menu » tant qu'une version attend ; ligne « Mises à jour » sous « Plus » (« 0.4.131 disponible », « 0.4.126 · à jour, vérifiée à 10:42 ») ; dialogue « Mises à jour » (versions, interrupteur, « Mettre à jour » ou « Rechercher ») | `UpdateViews.kt`, `MainMenu.kt`, `MapScreen.kt` |
+| Téléchargement | Dans l'application, écrit directement dans une session `PackageInstaller` ouverte avec la taille de l'APK (Android réserve la place d'abord : un téléphone plein échoue tout de suite, pas après le téléchargement ; aucune copie dans le cache, donc la place d'un seul APK) ; dialogue « Téléchargement de la X » (barre, Mo, « Annuler ») et notification du canal « Mises à jour de ToolMap » ; le dialogue fermé, le téléchargement continue ; une coupure : « Téléchargement interrompu », « Réessayer » | `UpdateController.startDownload`, `UpdateNotifications` |
+| Installation | La session est remise à Android (permission `REQUEST_INSTALL_PACKAGES`) : Android demande la confirmation, et la première fois l'autorisation « Installer des applications inconnues » pour ToolMap ; sa réponse revient à `UpdateInstallReceiver`. | `UpdateController.install`, `UpdateInstallReceiver` |
+| Refus | APK signé par une autre clé que l'installation (`STATUS_FAILURE_CONFLICT` ou `INCOMPATIBLE`) : dialogue « Installation refusée », qui dit de faire une sauvegarde, désinstaller, installer la nouvelle version, restaurer. C'est le cas, une fois, au passage à la clé de publication (§2) | `UpdateRefusedDialog` |
+
+Un APK de debug de la CI garde le `versionCode` 1 (§3 : seul le workflow de release passe le numéro du run) ; Android remplace une installation de même `versionCode`, c'est donc le `versionName` qui décide. Les APK compilés en local ont aussi le `versionCode` 1 : une version locale plus récente que `main` ne se voit rien proposer.
+
+Pour essayer sur l'émulateur sans vieille version : un APK de debug lit la version installée dans la préférence `installed_override` du fichier `updates` (`run-as fr.toolmap`, puis relancer l'application). Le journal d'événements note `update.check`, `update.downloaded`, `update.failed`, `update.install` et `update.unreachable`.

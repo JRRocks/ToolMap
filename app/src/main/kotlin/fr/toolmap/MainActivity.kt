@@ -101,6 +101,7 @@ import fr.toolmap.ui.Formats
 import fr.toolmap.ui.LocalAppSettings
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.ToolMapTheme
+import fr.toolmap.update.UpdateController
 import fr.toolmap.wizard.SourceWizardScreen
 import fr.toolmap.wizard.SourceWizardViewModel
 import kotlinx.coroutines.Dispatchers
@@ -147,6 +148,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var altitudeController: AltitudeController
 
+    @Inject
+    lateinit var updateController: UpdateController
+
     private val viewModel: MapViewModel by viewModels()
     private val downloadViewModel: DownloadViewModel by viewModels()
     private val storageViewModel: StorageViewModel by viewModels()
@@ -191,6 +195,8 @@ class MainActivity : ComponentActivity() {
             return
         }
         (application as ToolMapApp).ensureMapLibre()
+        // A new start of the app asks GitHub for a newer version (P31); a turned screen is not a start.
+        if (savedInstanceState == null) updateController.checkAtLaunch()
         enableEdgeToEdge()
         setContent {
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
@@ -385,6 +391,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     alerts = alertController,
                                     altitude = altitudeController,
+                                    updates = updateController,
                                     onOpenSearch = {
                                         val camera = viewModel.state.value.camera
                                         searchViewModel.open(camera.lat, camera.lon)

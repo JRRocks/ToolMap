@@ -1,0 +1,108 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mise à jour depuis GitHub</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+<style>body{margin:0;padding:16px;background:#fff}:root{--text-primary:#1d1d1b;--text-secondary:#5f5e5a}@media (prefers-color-scheme:dark){:root{--text-primary:#e8e8e3;--text-secondary:#a9a9a2}body{background:#16191b}}.wrap{max-width:1000px;margin:0 auto}h1{font:500 19px system-ui,sans-serif;color:var(--text-primary)}</style></head><body><div class="wrap"><h1>P31 · Mise à jour depuis GitHub : état actuel et variantes A à E</h1><p style="font:14px system-ui,sans-serif;color:var(--text-primary);background:rgba(15,110,86,.12);border-left:3px solid #0f6e56;padding:8px 12px;margin:0 0 16px"><b>Validé le 2026-10-29</b> : <b>D</b> pour le message (bandeau sur la carte, point rouge sur « Menu », ligne « Mises à jour »), <b>B</b> pour la progression (dialogue, puis confirmation d’Android), avec les écrans communs. ADR-094, P31.0.</p>
+<style>
+.u{font-family:var(--font-sans,system-ui,sans-serif);color:var(--text-primary,#1d1d1b)}
+.u h3{font-size:16px;font-weight:500;margin:26px 0 4px}
+.u p.c{font-size:13px;line-height:1.5;color:var(--text-secondary,#5f5e5a);margin:0 0 10px;max-width:640px}
+.u .row{display:flex;flex-wrap:wrap;gap:16px}
+.u figure{margin:0;width:288px;max-width:100%}
+.u figcaption{font-size:12px;line-height:1.45;color:var(--text-secondary,#5f5e5a);margin-top:6px}
+.u .pick{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 6px}
+.ph{width:288px;height:512px;overflow:hidden;border-radius:20px;border:1px solid #b5b5ae;position:relative;background:#000}
+.in{width:360px;height:640px;transform:scale(.8);transform-origin:0 0;position:relative;overflow:hidden;font-family:Roboto,system-ui,sans-serif;background:#F2F5F6;color:#122027}
+.in *{box-sizing:border-box}
+.sb{height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:13px;background:#163A4A;color:#fff}
+.map{position:absolute;left:0;right:0;top:26px;bottom:0;overflow:hidden}
+.topo{position:absolute;inset:0;width:100%;height:100%}
+.pill{position:absolute;background:#fff;border-radius:16px;padding:6px 10px;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.rbtn{position:absolute;right:12px;width:44px;height:44px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-size:22px;color:#163A4A}
+.bbar{position:absolute;left:0;right:0;bottom:0;height:66px;background:#163A4A;display:flex;justify-content:space-around;align-items:center}
+.bbar>div{display:flex;flex-direction:column;align-items:center;font-size:11px;gap:2px;color:#C9D6DC;width:70px}
+.bbar i{font-size:24px;color:#fff}
+.bi{position:relative}.dot{position:absolute;right:-3px;top:-1px;width:10px;height:10px;border-radius:50%;background:#D32F2F;border:2px solid #163A4A}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.36);display:flex;align-items:center;justify-content:center;padding:22px}
+.dlg{background:#fff;border-radius:24px;padding:22px 22px 12px;width:100%}
+.dlg .hi{font-size:26px;color:#14918C;display:block;text-align:center;margin-bottom:6px}
+.dlg h4{margin:0 0 12px;font-size:22px;font-weight:400;line-height:28px}
+.dlg h4.ce{text-align:center}
+.dlg p{font-size:14px;line-height:20px;color:#506169;margin:0 0 10px}
+.dlg p b{color:#122027;font-weight:500}
+.dlg ul{margin:0 0 10px;padding-left:18px;font-size:14px;line-height:20px;color:#122027}
+.acts{display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-top:8px;flex-wrap:wrap}
+.acts .sp{flex:1}
+.tbtn{font-size:14px;font-weight:500;color:#163A4A;padding:10px 12px;border-radius:20px;white-space:nowrap}
+.fbtn{font-size:14px;font-weight:500;color:#fff;background:#163A4A;padding:10px 20px;border-radius:20px;white-space:nowrap;text-align:center}
+.obtn{font-size:14px;font-weight:500;color:#163A4A;border:1px solid #6F8790;padding:9px 20px;border-radius:20px;white-space:nowrap;text-align:center}
+.chk{display:flex;align-items:center;gap:10px;font-size:14px;margin:4px 0 2px}
+.cb{width:18px;height:18px;border-radius:3px;background:#163A4A;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
+.pb{height:6px;border-radius:3px;background:#D5DEE2;margin:6px 0 4px;overflow:hidden}.pb div{width:41%;height:100%;background:#14918C}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;padding:10px 20px 20px;box-shadow:0 -2px 12px rgba(0,0,0,.18)}
+.sheet .hd{width:32px;height:4px;border-radius:2px;background:#B7C6CC;margin:0 auto 14px}
+.sheet h4{margin:0 0 4px;font-size:20px;font-weight:400}
+.sheet .b{font-size:13px;color:#506169;margin-bottom:12px}
+.news{background:#F2F5F6;border-radius:12px;padding:10px 12px;font-size:13px;line-height:19px;margin-bottom:10px}
+.news b{display:block;font-weight:500;margin-bottom:2px}
+.two{display:flex;gap:10px;margin-top:12px}.two>div{flex:1}
+.swr{display:flex;align-items:center;justify-content:space-between;font-size:14px;padding:4px 0}
+.swt{width:52px;height:32px;border-radius:16px;background:#14918C;position:relative;flex:none}
+.swt::after{content:"";position:absolute;width:24px;height:24px;border-radius:50%;background:#fff;left:24px;top:4px}
+.bnr{position:absolute;left:12px;right:12px;top:52px;border-radius:12px;padding:10px 6px 10px 12px;font-size:14px;font-weight:500;line-height:19px;display:flex;align-items:center;gap:10px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.bnr .tx{flex:1;min-width:0}.bnr small{display:block;font-size:12px;font-weight:400;color:#506169}
+.bnr .ic{font-size:22px;color:#14918C}
+.menu{position:absolute;left:0;right:0;bottom:66px;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -2px 12px rgba(0,0,0,.18);padding:8px 0 0}
+.ml{display:flex;align-items:center;gap:14px;min-height:50px;padding:4px 14px 4px 18px}
+.ml>i{font-size:22px;color:#506169}
+.ml .tx{flex:1;min-width:0}.ml .a{font-size:15px;line-height:20px}.ml .b{font-size:12px;line-height:16px;color:#506169}
+.ml.sub{padding-left:30px;min-height:46px}
+.ml.new{background:#E3F2F1;box-shadow:inset 3px 0 0 #14918C}
+.mh{display:flex;align-items:center;gap:12px;padding:6px 14px 8px 18px;border-bottom:1px solid #D5DEE2}
+.lg{width:40px;height:40px;border-radius:10px;background:#163A4A;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px}
+.tiles{display:flex;gap:6px;padding:8px 10px 10px;border-top:1px solid #D5DEE2}
+.tiles div{flex:1;background:#F2F5F6;border-radius:12px;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;gap:3px;color:#506169}
+.tiles i{font-size:20px;color:#163A4A}
+.sys{background:#2C3236;color:#E6EBED;border-radius:24px;padding:22px 22px 12px;width:100%}
+.sys p{color:#AFBBC0;font-size:14px;margin:6px 0 14px}.sys .tbtn{color:#9CCFD8}
+</style>
+<div class="u" id="u31"></div>
+<script>
+(function(){
+const T='<svg class="topo" viewBox="0 0 360 614" preserveAspectRatio="none" aria-hidden="true"><rect width="360" height="614" fill="#EEF0E4"/><path d="M0 440 C80 400 140 460 220 410 S330 370 360 385 V614 H0Z" fill="#E1E8D3"/><path d="M40 260 C100 200 170 240 220 200 S320 170 360 140" fill="none" stroke="#C9B48F" stroke-width="1.4"/><path d="M0 310 C90 260 170 290 240 250 S330 225 360 210" fill="none" stroke="#C9B48F"/><path d="M0 365 C70 330 160 355 250 312 S330 288 360 280" fill="none" stroke="#C9B48F"/><path d="M60 175 C120 130 190 158 250 115 S330 80 360 72" fill="none" stroke="#C9B48F"/><path d="M0 520 C120 478 200 540 360 480" fill="none" stroke="#7FB2D9" stroke-width="2.5"/><path d="M30 600 L120 445 L180 405 L260 260 L300 105" fill="none" stroke="#B84A3A" stroke-width="2" stroke-dasharray="6 4"/></svg>';
+const SB='<div class="sb"><span>10:42</span><span>4G ▮▮▮ 82 %</span></div>';
+const BB=d=>'<div class="bbar"><div><span class="bi"><i class="ti ti-menu-2"></i>'+(d?'<b class="dot"></b>':'')+'</span>Menu</div><div><i class="ti ti-stack-2"></i>Cartes</div><div><i class="ti ti-flag"></i>Traces</div><div><i class="ti ti-current-location"></i>Position</div></div>';
+const MAP=(x,d)=>SB+'<div class="map">'+T+'<div class="pill" style="left:12px;top:10px">1:25 000 · Alt. 2 140 m</div><div class="rbtn" style="top:120px"><i class="ti ti-plus"></i></div><div class="rbtn" style="top:172px"><i class="ti ti-minus"></i></div>'+(x||'')+BB(d)+'</div>';
+const ph=(i,c)=>'<figure><div class="ph"><div class="in">'+i+'</div></div><figcaption>'+c+'</figcaption></figure>';
+const D=b=>MAP()+'<div class="scrim"><div class="dlg">'+b+'</div></div>';
+const ML=(ic,a,b,cl)=>'<div class="ml'+(cl?' '+cl:'')+'"><i class="ti ti-'+ic+'"></i><div class="tx"><div class="a">'+a+'</div>'+(b?'<div class="b">'+b+'</div>':'')+'</div></div>';
+const MENU=n=>MAP('<div class="menu"><div class="mh"><span class="lg"><i class="ti ti-mountain"></i></span><div style="flex:1"><div style="font-size:17px">ToolMap</div><div style="font-size:12px;color:#506169">Version 0.4.126</div></div><i class="ti ti-help-circle" style="font-size:22px;color:#506169"></i></div>'
+ +ML('dots','Plus','')+ML('speakerphone','Nouveautés','Les 5 dernières mises à jour','sub')+ML('bug','Signaler une erreur','Vous choisissez à qui l\'envoyer','sub')
+ +(n?ML('cloud-download','Mises à jour','0.4.126 · à jour, vérifiée à 10:42','sub new'):'')+ML('power','Quitter','')
+ +ML('settings','Réglages…','')+ML('info-square','Informations à l\'écran','Position, échelle, GPS')+ML('moon','Mode nuit','Assombrit la carte à 60 %')
+ +'<div class="tiles"><div><i class="ti ti-eye-off"></i>Masquer</div><div><i class="ti ti-lock"></i>Verrouiller</div><div><i class="ti ti-printer"></i>Imprimer</div><div><i class="ti ti-ruler-measure"></i>Mesurer</div></div></div>');
+const NEWS='Itinéraires : points d\'intérêt, tuiles autour d\'un tracé';
+const v=[];
+v.push(['Actuel, et ce qui s\'ajoute dans toutes les variantes','Aujourd\'hui, rien n\'est recherché : la carte s\'ouvre, et la version ne se lit que dans l\'en-tête du menu. Dans toutes les variantes, « Plus » gagne une ligne « Mises à jour ».',
+ ph(MENU(false),'<b>Actuel (0.4.126)</b> · Menu ▸ Plus déplié : Nouveautés, Signaler une erreur, Quitter.')
++ph(MENU(true),'<b>Proposé, commun</b> · ligne « Mises à jour » sous « Plus » : version installée et dernière recherche ; un appui ouvre le dialogue ci-dessous.')
++ph(D('<h4>Mises à jour</h4><p>Version installée : <b>0.4.126</b><br>Dernière version : <b>0.4.131</b> (29 oct.)</p><div class="swr">Rechercher au lancement<span class="swt"></span></div><div class="acts"><span class="tbtn">Fermer</span><span class="fbtn">Mettre à jour</span></div>'),'<b>Commun</b> · dialogue « Mises à jour » : recherche à la demande, interrupteur « Rechercher au lancement » (allumé par défaut). À jour : « Rechercher » à la place de « Mettre à jour ».')
++ph(D('<i class="ti ti-alert-triangle hi" style="color:#B26A00"></i><h4 class="ce">Installation refusée</h4><p>La 0.4.131 est signée par la clé de publication de ToolMap, et la version installée par une autre clé. Android refuse de remplacer l\'une par l\'autre.</p><p><b>Une seule fois :</b> faites une sauvegarde, désinstallez ToolMap, installez la 0.4.131, puis restaurez la sauvegarde.</p><div class="acts"><span class="tbtn">Fermer</span></div>'),'<b>Commun aux variantes B à E</b> · si Android refuse l\'APK (clé différente : cas du premier passage à la clé de publication), le message dit pourquoi et quoi faire.')]);
+v.push(['A · Dialogue simple, téléchargement par le navigateur','Au lancement, un dialogue court. « Télécharger » ouvre le fichier APK dans le navigateur ; Android l\'installe depuis sa notification de téléchargement. Pas de nouvelle autorisation, mais l\'appli ne voit plus rien ensuite (ni progression ni refus).',
+ ph(D('<i class="ti ti-cloud-download hi"></i><h4 class="ce">Mise à jour disponible</h4><p>ToolMap <b>0.4.131</b> est disponible. Vous avez la 0.4.126.</p><p>Nouveautés : '+NEWS+'</p><div class="acts"><span class="tbtn">Plus tard</span><span class="fbtn">Télécharger</span></div>'),'<b>A</b> · « Plus tard » : redemandé au lancement suivant. Le refus d\'Android (autre clé) n\'est pas expliqué.')]);
+v.push(['B · Dialogue, téléchargement et installation dans l\'appli','Même dialogue, avec la taille. « Mettre à jour » télécharge dans l\'appli, puis Android demande lui-même la confirmation. La première fois, Android demande d\'autoriser ToolMap à installer des applis (un interrupteur).',
+ ph(D('<i class="ti ti-cloud-download hi"></i><h4 class="ce">Mise à jour disponible</h4><p>ToolMap <b>0.4.131</b> est disponible. Vous avez la 0.4.126.</p><p>Nouveautés : '+NEWS+'</p><p>83 Mo · Wi-Fi conseillé</p><div class="acts"><span class="tbtn">Plus tard</span><span class="fbtn">Mettre à jour</span></div>'),'<b>B</b> · premier écran.')
++ph(D('<h4>Téléchargement de la 0.4.131</h4><div class="pb"><div></div></div><p>34 / 83 Mo</p><div class="acts"><span class="tbtn">Annuler</span></div>').replace('<div class="dlg">','<div class="dlg">'),'<b>B</b> · progression, puis la demande d\'Android : « Voulez-vous mettre à jour cette application ? ». Fermer le dialogue n\'arrête pas le téléchargement (notification).')]);
+v.push(['C · Dialogue complet : nouveautés et « Ignorer cette version »','Un dialogue plus riche : les 3 dernières nouveautés, la taille, une case pour ne plus rechercher au lancement, et « Ignorer cette version » (redemandé seulement à la version suivante). Téléchargement et installation comme B.',
+ ph(D('<h4>ToolMap 0.4.131</h4><p>Vous avez la 0.4.126 · 83 Mo</p><ul><li>'+NEWS+'</li><li>Alerte au groupe et écoute permanente</li><li>Zones à éviter des itinéraires</li></ul><div class="chk"><span class="cb"><i class="ti ti-check"></i></span>Rechercher au lancement</div><div class="acts"><span class="tbtn" style="padding-left:0">Ignorer cette version</span><span class="sp"></span><span class="tbtn">Plus tard</span><span class="fbtn">Mettre à jour</span></div>'),'<b>C</b> · tout en un dialogue ; trois boutons.')]);
+v.push(['D · Bandeau discret en haut de la carte','Rien ne bloque la carte : un bandeau blanc s\'affiche 15 s sous la barre d\'état. Fermé ou passé, il laisse un point rouge sur « Menu », et la ligne « Mises à jour » dit « 0.4.131 disponible ». Téléchargement et installation comme B.',
+ ph(MAP('<div class="bnr"><i class="ti ti-cloud-download ic"></i><div class="tx">ToolMap 0.4.131 disponible<small>Vous avez la 0.4.126 · 83 Mo</small></div><span class="tbtn">Mettre à jour</span><i class="ti ti-x" style="font-size:20px;color:#506169;padding:6px"></i></div>',true),'<b>D</b> · le bandeau et le point rouge sur « Menu ».')]);
+v.push(['E · Feuille du bas, téléchargement dans la feuille','Une feuille monte du bas, comme les fiches de ToolMap : version, taille, nouveautés, interrupteur « Rechercher au lancement ». La progression s\'affiche dans la même feuille, puis Android demande la confirmation.',
+ ph(MAP('<div class="sheet" style="bottom:66px"><div class="hd"></div><h4>Nouvelle version : 0.4.131</h4><div class="b">Vous avez la 0.4.126 · 83 Mo · Wi-Fi conseillé</div><div class="news"><b>Nouveautés</b>'+NEWS+'</div><div class="swr">Rechercher au lancement<span class="swt"></span></div><div class="two"><div class="obtn">Plus tard</div><div class="fbtn">Mettre à jour</div></div></div>'),'<b>E</b> · la feuille au lancement (glisser vers le bas = « Plus tard »).')
++ph(MAP('<div class="sheet" style="bottom:66px"><div class="hd"></div><h4>Nouvelle version : 0.4.131</h4><div class="b">Téléchargement · 34 / 83 Mo</div><div class="pb"><div></div></div><div class="news" style="margin-top:12px"><b>Nouveautés</b>'+NEWS+'</div><div class="two"><div class="obtn">Annuler</div><div class="fbtn" style="opacity:.4">Installer</div></div></div>'),'<b>E</b> · progression dans la feuille ; « Installer » s\'allume à la fin.')]);
+let h='';
+for(const [t,c,p] of v) h+='<h3>'+t+'</h3><p class="c">'+c+'</p><div class="row">'+p+'</div>';
+h+='<div class="pick">'+['A','B','C','D','E'].map(x=>'<button type="button" data-v="'+x+'">Choisir '+x+' ↗</button>').join('')+'</div>';
+const el=document.getElementById('u31');el.innerHTML=h;
+el.querySelectorAll('button[data-v]').forEach(b=>b.addEventListener('click',()=>{const m='Je choisis la variante '+b.dataset.v+' pour la mise à jour.';if(typeof sendPrompt==='function')sendPrompt(m);else{b.textContent='Choix noté : '+b.dataset.v;}}));
+})();
+</script>
+</div></body></html>

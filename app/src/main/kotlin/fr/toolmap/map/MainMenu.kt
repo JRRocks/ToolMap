@@ -52,6 +52,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -88,6 +89,7 @@ enum class MenuAction {
     DIAGNOSTICS,
     WHATS_NEW,
     REPORT_ERROR,
+    UPDATES,
     IMPORT_TRACKS,
 }
 
@@ -101,6 +103,8 @@ data class MainMenuState(
     val printAllowed: Boolean,
     /** « Diagnostic des tuiles », a tool for developers: shown in debug builds only (N4). */
     val diagnostics: Boolean = false,
+    /** The second line of « Mises à jour » (P31): the version found, or the one installed and the last check. */
+    val updateSubtitle: String = "",
 )
 
 /**
@@ -145,6 +149,15 @@ fun MainMenuPanel(
                 indented = true,
             ) {
                 onAction(MenuAction.REPORT_ERROR)
+            }
+            // The update from GitHub (P31, common to the variants of docs/previews/p31-mise-a-jour.html).
+            MenuRow(
+                stringResource(R.string.menu_updates),
+                icon = MenuIcons.CloudDownload,
+                subtitle = state.updateSubtitle,
+                indented = true,
+            ) {
+                onAction(MenuAction.UPDATES)
             }
             if (state.diagnostics) {
                 MenuRow(
@@ -306,6 +319,8 @@ fun MapBottomBar(
     modifier: Modifier = Modifier,
     mapsOpen: Boolean = false,
     menuOpen: Boolean = false,
+    /** A red dot on « Menu »: a newer version of the app waits (P31, variant D). */
+    menuBadge: Boolean = false,
     bottomBleed: Dp = 0.dp,
 ) {
     val tm = MaterialTheme.toolMap
@@ -326,7 +341,14 @@ fun MapBottomBar(
             .height(NAV_HEIGHT),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        NavItem(MenuIcons.Mountain, R.string.menu, R.string.menu, selected = menuOpen, onClick = onMenu)
+        NavItem(
+            MenuIcons.Mountain,
+            R.string.menu,
+            R.string.menu,
+            selected = menuOpen,
+            badge = if (menuBadge) stringResource(R.string.a11y_update_waiting) else null,
+            onClick = onMenu,
+        )
         // A map, as AlpineQuest (P16.7); the panel keeps its title « Cartes et calques ».
         NavItem(MapsIcons.Map, R.string.maps_open, R.string.maps_open, selected = mapsOpen, onClick = onMaps)
         NavItem(MenuIcons.Flag, R.string.bar_tracks, R.string.menu_tracks, selected = tracksOpen, onClick = onTracks)
@@ -359,6 +381,8 @@ private fun RowScope.NavItem(
     tintOnPill: Color = MaterialTheme.toolMap.onNavIndicator,
     onLongClick: (() -> Unit)? = null,
     longClickLabel: String? = null,
+    /** A red dot at the corner of the icon, read out as this text (`null`: no dot). */
+    badge: String? = null,
     onClick: () -> Unit,
 ) {
     val tm = MaterialTheme.toolMap
@@ -375,6 +399,7 @@ private fun RowScope.NavItem(
             ).semantics {
                 contentDescription = spoken
                 this.selected = selected
+                if (badge != null) stateDescription = badge
             },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -387,6 +412,20 @@ private fun RowScope.NavItem(
             contentAlignment = Alignment.Center,
         ) {
             Icon(icon, contentDescription = null, tint = if (selected) tintOnPill else tint)
+            if (badge != null) {
+                // On the top right of the icon, ringed with the bar's petrol so that it stands out of the icon.
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 2.dp, end = 13.dp)
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(tm.shell)
+                        .padding(2.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.error),
+                )
+            }
         }
         Spacer(Modifier.height(4.dp))
         Text(
@@ -599,6 +638,15 @@ object MenuIcons {
     }
 
     val Pause: ImageVector by lazy { icon("Pause", "M6,19h4V5H6v14zM14,5v14h4V5h-4z") }
+
+    /** A cloud with an arrow going down: « Mises à jour » and the banner of a new version (P31). */
+    val CloudDownload: ImageVector by lazy {
+        icon(
+            "CloudDownload",
+            "M19.35,10.04C18.67,6.59 15.64,4 12,4 9.11,4 6.6,5.64 5.35,8.04 2.34,8.36 0,10.91 0,14" +
+                "c0,3.31 2.69,6 6,6h13c2.76,0 5,-2.24 5,-5 0,-2.64 -2.05,-4.78 -4.65,-4.96zM17,13l-5,5 -5,-5h3V9h4v4h3z",
+        )
+    }
 
     val Measure: ImageVector by lazy {
         icon(

@@ -23,6 +23,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- The camera only reads the QR codes of the position sharing; it is optional (a link can be pasted instead). -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- The update from GitHub hands the downloaded APK to Android's installer, which asks the user (P31, ADR-094). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Apps that open a geographic position, for « Ouvrir avec » of the centre point (ADR-044): from Android 11 the
          other apps are hidden unless they are declared here, the handlers of geo: links and Waze. -->
@@ -204,6 +206,11 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!-- The answer of Android's installer to an update of the app (P31). -->
+        <receiver
+            android:name=".update.UpdateInstallReceiver"
+            android:exported="false" />
 
         <service
             android:name=".alert.AlertService"

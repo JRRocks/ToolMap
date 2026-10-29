@@ -99,10 +99,11 @@ jobs:
 
       # Release assets are not counted in the Actions storage quota, so the APK also goes to a pre-release tagged with the
       # commit (debug-<sha7>), titled with its version. Only the newest debug pre-release is kept, as for the artifacts.
-      # Push events only.
+      # Pushes to main only: the app offers the newest of these pre-releases as its update (P31, ADR-094), so a work
+      # branch must not publish one; its APK is the artifact below.
       - name: Publish the debug APK
         id: publish-apk
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -149,8 +150,8 @@ jobs:
 
       # Last check (ADR-046): a push must leave the APK somewhere. It passes when the artifact was uploaded, or when the
       # commit's pre-release already carries the APK (also on a re-run, where the release exists and the publish step fails).
-      # It fails only when both are missing. Push events only: pull requests have no pre-release. Runs only while the
-      # blocking steps before it succeeded.
+      # It fails only when both are missing. Push events only: pull requests have no pre-release, and on a branch other
+      # than main only the artifact can deliver the APK. Runs only while the blocking steps before it succeeded.
       - name: Check that the APK was delivered
         if: success() && github.event_name == 'push'
         env:
