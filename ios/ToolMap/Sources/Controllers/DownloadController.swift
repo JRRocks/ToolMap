@@ -441,11 +441,10 @@ final class DownloadController {
     private func areaRows() -> (rows: [ZoneAreaRow], sliderMax: Int) {
         let maps = app.maps
         var only: TileSource?
-        if let id = onlyMap ?? maps.zoneMap, let source = maps.source(id), source.isSupported, !source.isLocalOnly {
+        if let id = onlyMap, let source = maps.source(id), source.isSupported, !source.isLocalOnly {
             only = source
         }
         onlyMap = nil
-        maps.zoneMap = nil
         let layers = maps.stack.layers
         var seen = Set<String>()
         var shown: [ZoneAreaRow] = []
