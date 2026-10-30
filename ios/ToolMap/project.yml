@@ -17,7 +17,7 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     # The iOS version, shown in the menu and used for the ios-<version> release (ADR-099).
-    MARKETING_VERSION: "0.1.1"
+    MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: "1"
     # No Apple Developer account yet (P32.13): simulator builds only, signed to run locally.
     CODE_SIGN_STYLE: Automatic
@@ -56,6 +56,9 @@ targets:
         NSLocationWhenInUseUsageDescription: ToolMap affiche votre position sur la carte et l'enregistre dans vos traces.
         NSLocationAlwaysAndWhenInUseUsageDescription: ToolMap continue d'enregistrer votre trace et de partager votre position écran éteint, quand vous le lui demandez.
         NSMotionUsageDescription: ToolMap lit le baromètre pour calculer l'altitude.
+        # The exact position asked for a recording when the user chose an approximate one.
+        NSLocationTemporaryUsageDescriptionDictionary:
+          Recording: ToolMap a besoin de votre position exacte pour enregistrer votre trace.
         NSCameraUsageDescription: ToolMap lit le code QR d'une invitation au partage de position.
         NSPhotoLibraryUsageDescription: ToolMap prend l'image que vous choisissez pour votre profil dans le partage de position.
         ToolMapFirebaseDbUrl: $(TOOLMAP_FIREBASE_DB_URL)

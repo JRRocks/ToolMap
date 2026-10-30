@@ -12,6 +12,10 @@ enum Crete {
     static let outline = Color(hex: 0xD5DEE2)
     static let warning = Color(hex: 0x9A5B1E)
     static let barText = Color(hex: 0xC9D6DC)
+    /// Background of the tiles of the panels.
+    static let tile = Color(hex: 0xE2ECEF)
+    /// Destructive actions and errors.
+    static let danger = Color(hex: 0xC62828)
 }
 
 extension Color {

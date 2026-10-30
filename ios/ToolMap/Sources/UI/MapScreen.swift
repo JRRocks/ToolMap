@@ -8,31 +8,86 @@ struct MapScreen: View {
 
     var body: some View {
         @Bindable var model = model
+        // Android M2 / M3: the controls go while hidden or locked; T3: while the sheet and frame of a print are chosen.
+        let framing = model.printer.hidesMapChrome
+        let controlsShown = !model.controlsHidden && !model.locked
         ZStack {
             MapLibreView(
                 model: model,
-                layers: model.layerSpecs,
+                layers: model.maps.layerSpecs,
                 nightMode: model.nightMode,
                 cameraRequest: model.cameraRequest,
-                followMode: model.followMode
+                followMode: model.followMode,
+                features: model.mapFeatures,
+                locked: model.locked
             )
             .ignoresSafeArea()
 
-            CenterRing()
-                .allowsHitTesting(false)
+            MapOverlayHost()
 
-            VStack(spacing: 0) {
-                HStack(alignment: .top) {
-                    if model.showInfo {
-                        InfoPills()
-                    }
-                    Spacer()
+            if controlsShown && !framing {
+                // At the centre of the map view, which goes under the bars (safe areas ignored).
+                CenterRing()
+                    .contentShape(Circle().inset(by: -12))
+                    .onTapGesture { model.centerMenuOpen.toggle() }
+                    .accessibilityLabel("Menu du point central")
+                    .accessibilityAddTraits(.isButton)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea()
+            }
+
+            if controlsShown {
+                MapChrome(framing: framing)
+            }
+
+            LockOverlay()
+        }
+        .settingsEffects()
+        .fullScreenCover(item: $model.screen) { screen in
+            ScreenHost(screen: screen)
+                .environment(model)
+        }
+        .sheet(item: $model.panel) { panel in
+            PanelSheet(panel: panel)
+                .environment(model)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+        }
+        .onAppear {
+            // Back on, unless the user turned the position off (L3).
+            model.location.resume()
+        }
+        .alert(
+            "ToolMap",
+            isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(model.notice ?? "")
+        }
+    }
+}
+
+/// The pills, the credits, the round buttons, the snack bar, the tool panel and the bottom bar.
+struct MapChrome: View {
+    @Environment(AppModel.self) private var model
+    let framing: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .top) {
+                if model.showInfo && !framing {
+                    InfoPills()
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
                 Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            Spacer()
+            if !framing {
                 HStack(alignment: .bottom) {
-                    Text(model.credits)
+                    Text(model.maps.credits)
                         .font(.system(size: 10))
                         .foregroundStyle(Crete.onSurface)
                         .padding(.horizontal, 6)
@@ -44,26 +99,21 @@ struct MapScreen: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 10)
+            }
+            if let snack = model.snack {
+                SnackBar(snack: snack)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+            }
+            if let tool = model.tool {
+                ToolPanelHost(tool: tool)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 6)
+            }
+            // Hidden while a print or a zone is being framed, as on Android.
+            if !framing && !model.downloads.hidesBottomBar {
                 BottomBar()
             }
-        }
-        .sheet(item: $model.panel) { panel in
-            PanelSheet(panel: panel)
-                .environment(model)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-        }
-        .onAppear {
-            model.location.start()
-        }
-        .alert(
-            "ToolMap",
-            isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(model.notice ?? "")
         }
     }
 }

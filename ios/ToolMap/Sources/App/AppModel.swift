@@ -20,18 +20,10 @@ enum FollowMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .free: "Libre"
-        case .position: "Position"
-        case .heading: "Position et cap"
+        case .position: "Suivi"
+        case .heading: "Boussole"
         }
     }
-}
-
-/// One map drawn on the map view, bottom to top.
-struct LayerSpec: Equatable {
-    let sourceId: String
-    let opacity: Double
-    let minZoom: Int
-    let maxZoom: Int
 }
 
 /// A camera move asked by the interface; the map applies each request once (by its id).
@@ -39,6 +31,8 @@ struct CameraRequest: Equatable {
     enum Kind: Equatable {
         case zoomBy(Double)
         case center(LonLat, zoom: Double?)
+        /// Shows the whole area, with `padding` points around it.
+        case fit(Bounds, padding: Double)
         case resetNorth
     }
 
@@ -46,27 +40,42 @@ struct CameraRequest: Equatable {
     let kind: Kind
 }
 
-/// A map shown above the background, with its own opacity.
-struct Overlay: Identifiable, Equatable {
-    let sourceId: String
-    var opacity: Double
-    var id: String { sourceId }
-}
-
-/// State of the map screen, shared by the map view and the panels.
+/// State of the map screen, shared by the map view, the panels and the feature controllers. Each feature keeps its
+/// state in its own controller (`Controllers/`), created on first use.
 @Observable
 final class AppModel {
-    private(set) var sources: [TileSource]
-    /// Ids of the maps shipped with the app (the others come from imported `.aqx` files).
-    private(set) var builtinIds: Set<String> = []
     let location = LocationService()
 
-    var baseId: String
-    var baseOpacity: Double = 1
-    var overlays: [Overlay] = []
+    @ObservationIgnored lazy var settingsStore = SettingsStore()
+    @ObservationIgnored lazy var maps = MapsController(app: self)
+    @ObservationIgnored lazy var library = LibraryController(app: self)
+    @ObservationIgnored lazy var recorder = RecorderController(app: self)
+    @ObservationIgnored lazy var measure = MeasureController(app: self)
+    @ObservationIgnored lazy var search = SearchController(app: self)
+    @ObservationIgnored lazy var downloads = DownloadController(app: self)
+    @ObservationIgnored lazy var printer = PrintController(app: self)
+    @ObservationIgnored lazy var routing = RoutingController(app: self)
+    @ObservationIgnored lazy var sharing = ShareController(app: self)
+    @ObservationIgnored lazy var grid = GridController(app: self)
+    @ObservationIgnored lazy var backup = BackupController(app: self)
+    @ObservationIgnored lazy var draw = DrawController(app: self)
+
     var panel: Panel?
-    var showInfo = true
-    var nightMode = false
+    /// A full-screen page above the map.
+    var screen: Screen?
+    /// The tool panel above the bottom bar (measure, drawing, print, zone).
+    var tool: Tool?
+    /// Android M8 « Informations à l'écran », kept from one launch to the next.
+    var showInfo: Bool {
+        get { settingsStore.settings.showCoordinates }
+        set { settingsStore.update { $0.showCoordinates = newValue } }
+    }
+    /// Android M2 « Masquer »: every control hidden but a white disc with the logo, which brings them back.
+    var controlsHidden = false
+    /// Android M3 « Verrouiller »: map gestures off, controls hidden, « Écran verrouillé » pill; a long press unlocks.
+    var locked = false
+    /// The quick menu of the centre point (Android G12) is open.
+    var centerMenuOpen = false
     /// Android "Mode hors ligne": only the stored tiles are shown, nothing is requested.
     var offline = false {
         didSet { TileService.shared.offline = offline }
@@ -75,6 +84,8 @@ final class AppModel {
     var followMode: FollowMode = .free
     /// A message for the user (import results, errors), shown as an alert on the map.
     var notice: String?
+    /// A short message at the bottom of the map (Android snackbar), with an optional action.
+    var snack: Snack?
 
     /// Camera as last reported by the map.
     var center = LonLat(lon: 5.9178, lat: 45.5646)
@@ -82,123 +93,71 @@ final class AppModel {
     var direction: Double = 0
     var metersPerPoint: Double = 10
 
+    /// GeoJSON drawn above the maps, by `FeatureLayerSet.id` (see `MapFeatureRegistry`).
+    var mapFeatures: [String: String] = [:]
+
+    @ObservationIgnored let mapProxy = MapProxy()
+    /// What a tap on a feature does, by `FeatureLayerSet.id`; set by the feature controllers.
+    @ObservationIgnored var tapHandlers: [String: (FeatureTap) -> Void] = [:]
+    /// A tap on the map where there is no feature.
+    @ObservationIgnored var emptyTapHandler: ((LonLat) -> Void)?
+    /// A long press on the map (Android G1: waypoint, measure, target or nothing, from the settings).
+    @ObservationIgnored var longPressHandler: ((LonLat) -> Void)?
+
     init() {
-        let builtins = (try? BuiltinSources.load()) ?? []
-        let ids = Set(builtins.map(\.id))
-        let imported = SourceLibrary.load().filter { !ids.contains($0.id) }
-        let loaded = builtins + imported
-        sources = loaded
-        builtinIds = ids
-        TileService.shared.register(loaded, builtins: builtins)
-        baseId = loaded.first { $0.id == "ign-maps" }?.id ?? loaded.first?.id ?? ""
         applyLaunchArguments()
+        // Android G1: one action for a long press on the map, chosen in the settings.
+        longPressHandler = { [unowned self] position in
+            MapToolsBridge.longPress(self, at: position)
+        }
     }
 
     var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
     }
 
-    func source(_ id: String) -> TileSource? {
-        sources.first { $0.id == id }
+    var settings: AppSettings {
+        get { settingsStore.settings }
+        set { settingsStore.settings = newValue }
     }
 
-    /// Background maps offered in the panel: drawable sources that are not overlays (elevation data left out).
-    var baseMaps: [TileSource] {
-        sources.filter { !$0.isLayer && $0.type != "dem" && $0.isSupported }
-    }
-
-    var overlayMaps: [TileSource] {
-        sources.filter { $0.isLayer && $0.isSupported }
-    }
-
-    /// What the map draws, bottom to top.
-    var layerSpecs: [LayerSpec] {
-        var specs: [LayerSpec] = []
-        if let base = source(baseId) {
-            specs.append(spec(for: base, opacity: baseOpacity))
-        }
-        for overlay in overlays {
-            if let source = source(overlay.sourceId) {
-                specs.append(spec(for: source, opacity: overlay.opacity))
-            }
-        }
-        return specs
-    }
-
-    private func spec(for source: TileSource, opacity: Double) -> LayerSpec {
-        LayerSpec(sourceId: source.id, opacity: opacity, minZoom: source.minZoom ?? 0, maxZoom: source.maxZoom ?? 22)
-    }
-
-    /// Copyright of the maps on screen, for the attribution line.
-    var credits: String {
-        var names: [String] = []
-        for spec in layerSpecs {
-            if let copyright = source(spec.sourceId)?.copyright, !names.contains(copyright) {
-                names.append(copyright)
-            }
-        }
-        return names.map { name in
-            let lower = name.lowercased()
-            return lower.hasPrefix("©") || lower.hasPrefix("(c)") ? name : "© \(name)"
-        }.joined(separator: " · ")
+    /// Android M9: the maps are darkened, not the tracks.
+    var nightMode: Bool {
+        get { settingsStore.settings.maps.nightMode }
+        set { settingsStore.update { $0.maps.nightMode = newValue } }
     }
 
     /// A file opened with ToolMap from Files, Mail or AirDrop (« Ouvrir avec »).
     func open(_ url: URL) {
         switch url.pathExtension.lowercased() {
         case "aqx":
-            notice = importMaps(from: url)
+            notice = maps.importMaps(from: url)
+        case "gpx", "kml", "kmz", "geojson", "json":
+            library.importFiles([url])
+        case "mbtiles":
+            downloads.importMbTiles(url)
         default:
-            notice = "ToolMap ne sait pas encore ouvrir les fichiers .\(url.pathExtension) sur iPhone."
-        }
-    }
-
-    /// Adds the maps of an `.aqx` file chosen by the user; returns a sentence for the alert.
-    func importMaps(from url: URL) -> String {
-        do {
-            let result = try SourceLibrary.importFile(url, existing: Set(sources.map(\.id)))
-            sources.append(contentsOf: result.added)
-            TileService.shared.register(result.added, builtins: sources.filter { builtinIds.contains($0.id) })
-            var text = result.added.isEmpty
-                ? "Aucune carte ajoutée."
-                : (result.added.count == 1 ? "1 carte ajoutée : " : "\(result.added.count) cartes ajoutées : ")
-                    + result.added.map(\.name).joined(separator: ", ") + "."
-            if !result.skipped.isEmpty {
-                text += " Déjà présentes : " + result.skipped.joined(separator: ", ") + "."
+            if url.scheme == "toolmap" {
+                sharing.openLink(url)
+            } else {
+                notice = "ToolMap ne sait pas ouvrir les fichiers .\(url.pathExtension)."
             }
-            let unsupported = result.added.filter { !$0.isSupported }
-            if !unsupported.isEmpty {
-                text += " Non affichables : " + unsupported.map { "\($0.name) (\($0.unsupportedReason ?? "?"))" }.joined(separator: ", ") + "."
-            }
-            return text
-        } catch let error as AqxParseError {
-            return "Ce fichier n'est pas un fichier AQX lisible : \(error.message)"
-        } catch {
-            return "Le fichier n'a pas pu être lu : \(error.localizedDescription)"
         }
-    }
-
-    func isOverlayShown(_ id: String) -> Bool {
-        overlays.contains { $0.sourceId == id }
-    }
-
-    func setOverlay(_ id: String, shown: Bool) {
-        if shown {
-            guard !isOverlayShown(id), let source = source(id) else { return }
-            overlays.append(Overlay(sourceId: id, opacity: Double(source.opacity) / 100))
-        } else {
-            overlays.removeAll { $0.sourceId == id }
-        }
-    }
-
-    func setOverlayOpacity(_ id: String, _ opacity: Double) {
-        guard let index = overlays.firstIndex(where: { $0.sourceId == id }) else { return }
-        overlays[index].opacity = opacity
     }
 
     func zoomIn() { cameraRequest = CameraRequest(kind: .zoomBy(1)) }
     func zoomOut() { cameraRequest = CameraRequest(kind: .zoomBy(-1)) }
     func resetNorth() { cameraRequest = CameraRequest(kind: .resetNorth) }
+
+    func show(_ position: LonLat, zoom: Double? = nil) {
+        followMode = .free
+        cameraRequest = CameraRequest(kind: .center(position, zoom: zoom))
+    }
+
+    func show(_ bounds: Bounds, padding: Double = 48) {
+        followMode = .free
+        cameraRequest = CameraRequest(kind: .fit(bounds, padding: padding))
+    }
 
     func centerOnPosition() {
         guard let position = location.location else {
@@ -209,18 +168,16 @@ final class AppModel {
         cameraRequest = CameraRequest(kind: .center(target, zoom: max(zoom, 14)))
     }
 
-    /// Debug only: `-ToolMapPanel maps`, `-ToolMapBase osm`, `-ToolMapOverlays ign-pentes`, `-ToolMapCenter 45.56,5.92,14`
-    /// set the screen captured by the iOS CI (.github/workflows/ios.yml).
+    /// Shows a short message at the bottom of the map.
+    func say(_ text: String, action: String? = nil, perform: (() -> Void)? = nil) {
+        snack = Snack(text: text, action: action, perform: perform)
+    }
+
+    /// Debug only: `-ToolMapPanel maps`, `-ToolMapBase osm`, `-ToolMapOverlays ign-pentes`, `-ToolMapCenter 45.56,5.92,14`,
+    /// `-ToolMapScreen settings`, `-ToolMapTool measure` set the screen captured by the iOS CI (.github/workflows/ios.yml).
     private func applyLaunchArguments() {
         let defaults = UserDefaults.standard
-        if let base = defaults.string(forKey: "ToolMapBase"), source(base) != nil {
-            baseId = base
-        }
-        if let list = defaults.string(forKey: "ToolMapOverlays") {
-            for id in list.split(separator: ",") {
-                setOverlay(String(id), shown: true)
-            }
-        }
+        maps.applyLaunchArguments(defaults)
         if let text = defaults.string(forKey: "ToolMapCenter") {
             let parts = text.split(separator: ",").compactMap { Double($0) }
             if parts.count >= 2 {
@@ -236,5 +193,41 @@ final class AppModel {
         if defaults.bool(forKey: "ToolMapNight") {
             nightMode = true
         }
+        if defaults.bool(forKey: "ToolMapCenterMenu") {
+            centerMenuOpen = true
+        }
+        if defaults.bool(forKey: "ToolMapLocked") {
+            locked = true
+        }
+        switch defaults.string(forKey: "ToolMapScreen") {
+        case "library": screen = .library
+        case "search": screen = .search
+        case "share": screen = .share
+        case "downloads": screen = .downloads
+        case "storage": screen = .storage
+        case "available-maps": screen = .availableMaps
+        case "settings": screen = .settings
+        case "backup": screen = .backup
+        case "about": screen = .about(nil)
+        case "about-maps": screen = .about("maps")
+        case "whats-new": screen = .whatsNew
+        default: break
+        }
+        switch defaults.string(forKey: "ToolMapTool") {
+        case "measure": tool = .measure
+        case "draw": tool = .draw(.track(nil))
+        case "route": tool = .draw(.route(nil))
+        case "print": tool = .print(alongTrack: nil)
+        case "zone": tool = .zone(around: nil)
+        default: break
+        }
     }
+}
+
+/// A short message at the bottom of the map (Android snackbar).
+struct Snack: Identifiable {
+    let id = UUID()
+    let text: String
+    let action: String?
+    let perform: (() -> Void)?
 }

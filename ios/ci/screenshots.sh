@@ -63,16 +63,22 @@ shot 05b-calques-favori "$map" "${centre[@]}" -ToolMapFavorite rando-multizoom -
 shot 05c-conditions "$map" -ToolMapCenter 45.36,6.59,13 -ToolMapFavorite sortie-ski -ToolMapConditions top -ToolMapPanel maps
 shot 05d-couverture "$map" "${centre[@]}" -ToolMapCoverage YES
 # Tracks and waypoints, with the demonstration library.
-shot 06-traces-carte "$map" -ToolMapDemo YES -ToolMapCenter 45.5646,5.9178,14
-shot 07-panneau-traces "$page" -ToolMapDemo YES -ToolMapPanel tracks
+shot 06-traces-carte "$map" -ToolMapDemo YES -ToolMapCenter 45.567,5.922,14
+shot 07-panneau-traces "$page" -ToolMapDemo YES -ToolMapPanel tracks -ToolMapCenter 45.567,5.922,14
 shot 08-bibliotheque "$page" -ToolMapDemo YES -ToolMapScreen library
-shot 09-enregistrement "$map" -ToolMapDemo YES -ToolMapCenter 45.5646,5.9178,15
+shot 08b-detail-trace "$page" -ToolMapDemo YES -ToolMapLibrary detail
+shot 08c-fiche-trace "$map" -ToolMapDemo YES -ToolMapLibrary sheet
+shot 08d-fiche-waypoint "$map" -ToolMapDemo YES -ToolMapLibrary waypoint
+shot 08e-nouveau-waypoint "$page" -ToolMapDemo YES -ToolMapLibrary new -ToolMapCenter 45.5646,5.9178,15
+shot 09-enregistrement "$map" -ToolMapDemo YES -ToolMapCenter 45.5646,5.9178,14
+shot 09b-position-enregistrement "$page" -ToolMapDemo YES -ToolMapPanel position
 # Map tools.
 shot 10-mesure "$map" -ToolMapTool measure -ToolMapDemo YES -ToolMapCenter 45.5646,5.9178,14
 shot 11-recherche "$page" -ToolMapScreen search -ToolMapSearch "45.19, 5.72"
 shot 12-menu-centre "$map" -ToolMapCenterMenu YES -ToolMapCenter 45.5646,5.9178,14
 shot 13-grille-utm "$map" -ToolMapGrid UTM -ToolMapCenter 45.5646,5.9178,13
 shot 14-itineraire "$map" -ToolMapTool route -ToolMapDemo YES -ToolMapCenter 45.5646,5.9178,14
+shot 14b-dessin "$map" -ToolMapTool draw "${centre[@]}"
 # Offline maps.
 shot 15-cartes-disponibles "$page" -ToolMapScreen available-maps
 shot 16-zone "$map" -ToolMapTool zone "${centre[@]}"
