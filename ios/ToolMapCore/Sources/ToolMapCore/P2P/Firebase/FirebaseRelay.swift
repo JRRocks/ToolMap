@@ -64,9 +64,113 @@ private struct RelayStateError: Error, CustomStringConvertible {
 }
 
 /// The waiting thread and the task that reads the stream.
-private final class StreamOutcome: @unchecked Sendable {
+/// Reads the event stream on the delegate queue of its session, not on Swift's shared pool of threads, so that the
+/// stream is served even while that pool is busy (the iPhone simulator running a thousand tests, 2026-10-29), like the
+/// stream thread of Android. `opened` gets the status code at the first bytes (or at the end) and returns the error that
+/// ends the stream, if any; each line, without its break, goes to `line`; `done` is signalled at the end, with `error`
+/// set when the stream failed or was cancelled.
+private final class StreamReader: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     let done = DispatchSemaphore(value: 0)
-    var error: (any Error)?
+    var opened: (Int) -> (any Error)? = { _ in nil }
+    var line: (String) throws -> Void = { _ in }
+    private let lock = NSLock()
+    private var failure: (any Error)?
+    private var cancelled = false
+    private var task: URLSessionTask?
+    // Only touched on the session's delegate queue.
+    private var answered = false
+    private var pending: [UInt8] = []
+
+    var error: (any Error)? {
+        lock.lock()
+        defer { lock.unlock() }
+        return failure
+    }
+
+    func start(_ session: URLSession, _ request: URLRequest) {
+        let task = session.dataTask(with: request)
+        task.delegate = self
+        lock.lock()
+        self.task = task
+        let stop = cancelled
+        lock.unlock()
+        task.resume()
+        if stop { task.cancel() }
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        let task = self.task
+        lock.unlock()
+        task?.cancel()
+    }
+
+    private func fail(_ error: any Error) {
+        lock.lock()
+        if failure == nil { failure = error }
+        let task = self.task
+        lock.unlock()
+        task?.cancel()
+    }
+
+    /// The status of the answer, once: a refusal or a failure ends the stream.
+    private func answer(_ task: URLSessionTask) -> Bool {
+        if answered { return true }
+        answered = true
+        let code = (task.response as? HTTPURLResponse)?.statusCode ?? 0
+        if let error = opened(code) {
+            fail(error)
+            return false
+        }
+        return true
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        guard answer(dataTask) else { return }
+        for byte in data {
+            if byte == 0x0A {
+                let text = ServerSentEvents.lineText(pending)
+                pending.removeAll(keepingCapacity: true)
+                do {
+                    try line(text)
+                } catch {
+                    fail(error)
+                    return
+                }
+            } else {
+                pending.append(byte)
+            }
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
+        lock.lock()
+        let failed = failure != nil
+        let stopped = cancelled
+        lock.unlock()
+        if !failed {
+            if let error {
+                lock.lock()
+                failure = stopped ? CancellationError() : error
+                lock.unlock()
+            } else if answer(task), !pending.isEmpty {
+                let text = ServerSentEvents.lineText(pending)
+                pending.removeAll()
+                do {
+                    try line(text)
+                } catch {
+                    lock.lock()
+                    failure = error
+                    lock.unlock()
+                }
+            }
+        }
+        lock.lock()
+        self.task = nil
+        lock.unlock()
+        done.signal()
+    }
 }
 
 /// The link to a member present in the room: everything sent on it is written once to the room, which every member
@@ -163,7 +267,7 @@ public final class FirebaseRelay: RelayTransport, RoomStateSink, @unchecked Send
     private let identityValue = RelayAtomic<TransportIdentity?>(nil)
     private let onStateValue = RelayAtomic<(@Sendable (ServerState) -> Void)?>(nil)
     private let stateValue = RelayAtomic(ServerState.connecting)
-    private let streamTask = RelayAtomic<Task<Void, Never>?>(nil)
+    private let streamTask = RelayAtomic<StreamReader?>(nil)
     private let streamUp = RelayAtomic(false)
     private let streamOpenedAt = RelayAtomic<Int64>(0)
     private let writesOk = RelayAtomic(true)
@@ -544,58 +648,37 @@ public final class FirebaseRelay: RelayTransport, RoomStateSink, @unchecked Send
         // The stream that used the previous network's sessions has ended: nothing there is in use any more.
         http.releaseRetired()
         let token = try auth.token()
-        let outcome = StreamOutcome()
-        let task = Task { [self] in
-            do {
-                try await readStream(token)
-            } catch {
-                outcome.error = error
-            }
-            outcome.done.signal()
-        }
-        streamTask.value = task
-        outcome.done.wait()
-        if let error = outcome.error { throw error }
-    }
-
-    /// Opens the stream with `token` and hands its events to a fresh `RoomState` until it ends.
-    private func readStream(_ token: String) async throws {
         let session = try http.streamSession()
         let request = try db.streamRequest("rooms/\(room)/b", token)
-        let (bytes, response) = try await session.bytes(for: request)
-        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let state = RoomState(self)
+        var events = ServerSentEvents()
+        let reader = StreamReader()
+        reader.opened = { [self] code in streamOpened(code, token) }
+        reader.line = { [self] text in
+            if let e = events.line(text) { try onEvent(state, token, e.event, e.data) }
+        }
+        streamTask.value = reader
+        reader.start(session, request)
+        reader.done.wait()
+        if let error = reader.error { throw error }
+    }
+
+    /// The answer of the stream: a refusal or a failure ends it, else the stream is up.
+    private func streamOpened(_ code: Int, _ token: String) -> (any Error)? {
         let ok = code >= 200 && code < 300
         if !ok { EventLog.event("fb.http", ("method", "STREAM"), ("code", code)) }
         if code == 401 || code == 403 {
-            bytes.task.cancel()
             auth.invalidate(token)
-            throw FirebaseRefused("permission denied (\(code))")
+            return FirebaseRefused("permission denied (\(code))")
         }
-        if !ok {
-            bytes.task.cancel()
-            throw FirebaseIOError("HTTP \(code)")
-        }
+        if !ok { return FirebaseIOError("HTTP \(code)") }
         EventLog.event("relay.stream.open", ("ms", clockMs() - streamOpenedAt.value))
         streamToken.value = token
         streamUp.value = true
         publishState()
         // A position held during the outage goes at once, not at the next heartbeat (P21.5 e).
         if pendingPosition.value != nil, let node = ownNode() { queuePosition(node) }
-        let state = RoomState(self)
-        var reader = ServerSentEvents()
-        var line: [UInt8] = []
-        for try await byte in bytes {
-            if byte == 0x0A {
-                let text = ServerSentEvents.lineText(line)
-                line.removeAll(keepingCapacity: true)
-                if let e = reader.line(text) { try onEvent(state, token, e.event, e.data) }
-            } else {
-                line.append(byte)
-            }
-        }
-        if !line.isEmpty, let e = reader.line(ServerSentEvents.lineText(line)) {
-            try onEvent(state, token, e.event, e.data)
-        }
+        return nil
     }
 
     /// A write renewed the token (2 min before it expires) but the stream still carries the old one, which the server
