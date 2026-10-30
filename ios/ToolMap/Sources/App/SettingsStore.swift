@@ -13,6 +13,8 @@ final class SettingsStore {
     }
 
     @ObservationIgnored private let file: URL
+    /// False for a launch of the CI screenshots that changes a setting (`-ToolMapNight`): the change stays in memory.
+    @ObservationIgnored var persists = true
 
     init(file: URL = AppFiles.support.appendingPathComponent("settings.json")) {
         self.file = file
@@ -36,7 +38,7 @@ final class SettingsStore {
     }
 
     private func save() {
-        guard let text = try? AppSettingsCodec.encode(settings) else { return }
+        guard persists, let text = try? AppSettingsCodec.encode(settings) else { return }
         try? text.write(to: file, atomically: true, encoding: .utf8)
     }
 }

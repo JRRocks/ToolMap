@@ -56,18 +56,18 @@ Les deux applications n'ont aucun code commun : une fonction Android se **tradui
 |---|---|---|---|
 | P32.0 | ✅ | **Architecture** validée par l'utilisateur le 2026-10-29 : Swift + SwiftUI natif, code indépendant d'Android (ADR-100), ce plan, phase P32 dans `docs/PLAN.md` | Validation explicite, consignée au journal |
 | P32.1 | ✅ | **Paquet `ToolMapCore`, premier lot** et **CI iOS** : tuiles (`TileMath`, `TileUrlBuilder` avec `{$bbox}` arrondi comme `BigDecimal` HALF_UP), sources (`ZoomSet`, `LevelDef`, `TileSource`, `ClearColor`, `MapRef`, `UpdateDelay`), géo (`LonLat`, `LonLatZoom`, `Bounds`), lecture AQX (`AqxParser` sur `XMLParser`, DOCTYPE et entités refusés) ; workflow `ios.yml` | Vérifié le 2026-10-29 : run 40944407448 vert, 53 tests sur macOS et sur le simulateur iPhone 17 Pro (iOS 26.2). Run vert de `ios.yml` : `swift test` et `xcodebuild test` sur simulateur iPhone ; tests repris de `TileMathTest`, `TileUrlBuilderTest`, `AqxParserTest`, `ZoomSetTest`, `MapRefTest` (sauf l'aller-retour par `AqxWriter`), `UpdateDelayTest`, sur `fixtures/aqx/IGN_Topo_zoom_test.aqx` et `fixtures/aqx/user/` |
-| P32.2 | 🔄 | **Aperçu du squelette d'application** : écran carte sur iPhone (état Android actuel, propositions iOS en variantes : barre, boutons, panneaux en feuilles iOS) | Validation explicite de l'utilisateur |
+| P32.2 | 🔄 | **Aperçu du squelette d'application** : écran carte sur iPhone (état Android actuel, propositions iOS en variantes : barre, boutons, panneaux en feuilles iOS) | Validation explicite de l'utilisateur — aperçu `docs/previews/p32-ios-carte.html` et captures de tous les écrans `docs/previews/p32-ios-ecrans-simulateur.html`, **à valider a posteriori** (consigne du 2026-10-29) |
 | P32.3 | ✅ | **Squelette `ios/ToolMap`** fidèle à l'aperçu : XcodeGen, SwiftUI, MapLibre Native iOS, carte OpenStreetMap puis sources intégrées (`builtin-sources.aqx` lu par `AqxParser`) ; build simulateur et capture `xcrun simctl io booted screenshot` en artefact | Capture du simulateur montrant la carte, posée à côté de l'aperçu validé |
 | P32.4 | ✅ | **Tuiles servies par l'application** : `URLProtocol` installé dans la configuration réseau de MapLibre iOS (`MLNNetworkConfiguration`), URL construites par `TileUrlBuilder`, Referer / User-Agent / en-têtes / cookie de la `LevelDef`, stockage MBTiles (SQLite), mode hors ligne | Vérifié le 2026-10-29 : `TileServiceTests` (en-têtes de la `LevelDef`, tuile stockée puis resservie sans réseau, aucune requête hors ligne, erreur du serveur, zoom forcé composé) verts sur macOS et le simulateur (run 40959653747) ; carte IGN servie par l'intercepteur sur les captures de `ios-0.1.0` et `ios-0.1.1`. Tests sur serveur simulé (en-têtes, hors ligne sans requête) ; capture d'une tuile IGN servie par l'intercepteur |
 | P32.5 | 🔄 | **`.app` du simulateur zippé** en artefact, à ouvrir dans le navigateur avec Appetize.io | Artefact téléchargeable ; ouverture dans Appetize faite par l'utilisateur |
-| P32.6 | ⬜ | **Suite du cœur**, par lots avec leurs tests : écriture AQX, géo (formats de coordonnées, UTM, MGRS, Lambert 93, grilles), sources (multi-zoom, identité des jeux de tuiles), calques (pile, plages de zoom, couleurs, favoris), traces (GPX, KML, GeoJSON, statistiques, opérations), réglages, recherche, mesures | Un run vert par lot ; tests Kotlin du domaine repris |
-| P32.7 | ⬜ | **Cartes et calques** à l'écran (pile de calques, plages de zoom, catalogue, ajout d'une carte), chaque écran par son aperçu | Captures du simulateur à côté des aperçus validés |
-| P32.8 | ⬜ | **Traces et waypoints** : stockage SQLite, import et export (document picker, « Ouvrir avec »), enregistreur GPS CoreLocation en arrière-plan | Tests du stockage ; parcours simulé (`simctl location`) |
-| P32.9 | ⬜ | **Téléchargement de zones** (`URLSession` en arrière-plan) et stockage hors ligne | Zone téléchargée puis affichée hors ligne sur le simulateur |
-| P32.10 | ⬜ | **Partage de position** par le serveur de coordination Firebase (REST + SSE, AES-GCM par CryptoKit), interopérable avec Android | Vecteurs de test Kotlin décodés en Swift et inversement ; un groupe mixte Android + simulateur |
-| P32.11 | ⬜ | **Impression PDF** (maths de `print/`, écrivain PDF, rendu CoreGraphics) | Segment de 10 km = 200 mm ± 0,5 % à 1:50 000 sur le PDF |
-| P32.12 | ⬜ | **Itinéraires** : décision de l'utilisateur sur le moteur (§ 5), puis portage du plan d'étapes | Selon la décision |
-| P32.13 | ⬜ | **Installation sur un iPhone** : décision de l'utilisateur (compte Apple Developer, TestFlight) | Selon la décision |
+| P32.6 | ✅ | **Suite du cœur**, par lots avec leurs tests : écriture AQX, géo (formats de coordonnées, UTM, MGRS, Lambert 93, grilles), sources (multi-zoom, identité des jeux de tuiles), calques (pile, plages de zoom, couleurs, favoris), traces (GPX, KML, GeoJSON, statistiques, opérations), réglages, recherche, mesures ; puis bibliothèque, enregistreur, alertes, itinéraires, impression, partage, sauvegarde | Vérifié le 2026-10-30 : run iOS 40979054267 vert, **1 052 tests** sur macOS et sur le simulateur iPhone, repris des tests Kotlin (table § 6.1). Un run vert par lot ; tests Kotlin du domaine repris |
+| P32.7 | 🔄 | **Cartes et calques** à l'écran (pile de calques, plages de zoom, catalogue, ajout d'une carte), chaque écran par son aperçu | Écrits, compilés, captures du simulateur (release `ios-0.2.x`) ; comparaison aux aperçus Android validés à faire par l'utilisateur (a posteriori) |
+| P32.8 | 🔄 | **Traces et waypoints** : stockage SQLite, import et export (document picker, « Ouvrir avec »), enregistreur GPS CoreLocation en arrière-plan | Tests du stockage verts (`LibraryRepositoryTests`, `LibraryCreationTests`, `LibraryDisplayTests`, `LibraryFoldersTests`) ; écrans et enregistreur compilés, captures avec la bibliothèque de démonstration ; **reste** : parcours simulé (`simctl location`) |
+| P32.9 | 🔄 | **Téléchargement de zones** et stockage hors ligne (une file dans l'app, `beginBackgroundTask` en arrière-plan : une session `URLSession` d'arrière-plan espacerait les milliers de petites requêtes d'une zone) | Écrans compilés, captures ; **reste** : zone téléchargée puis affichée hors ligne sur le simulateur |
+| P32.10 | 🔄 | **Partage de position** par le serveur de coordination Firebase (REST + SSE, AES-GCM par CryptoKit), interopérable avec Android | Vecteurs de test Kotlin relus et réécrits au bit près en Swift (verts) ; écrans compilés ; **reste** : un groupe mixte Android + iPhone (appareil réel) |
+| P32.11 | 🔄 | **Impression PDF** (maths de `print/`, écrivain PDF, rendu CoreGraphics) | PDF produit sur le simulateur (capture 29, « PDF enregistré · 1 page ») ; maths vérifiées par les tests du cœur ; **reste** : mesurer 10 km = 200 mm ± 0,5 % à 1:50 000 sur le PDF imprimé |
+| P32.12 | 🔄 | **Itinéraires** : moteur BRouter en ligne (ADR-102, **à confirmer par l'utilisateur**), plan d'étapes, dessin, « Aller vers », suivi de trace et alertes | Écrans compilés, itinéraire de démonstration sur la capture 14 ; **reste** : confirmation de l'ADR-102 et essai avec réseau |
+| P32.13 | ⬜ | **Installation sur un iPhone** : décision de l'utilisateur (compte Apple Developer, TestFlight) ; préparé : `.github/workflows/ios-testflight.yml`, inactif sans les secrets (§ 5 bis) | Selon la décision |
 
 ## 5. Ce qui ne se porte pas tel quel
 
@@ -77,15 +77,16 @@ Les deux applications n'ont aucun code commun : une fonction Android se **tradui
 | Mise à jour depuis GitHub (P31, ADR-094) | Interdit : une application ne s'installe que par l'App Store ou TestFlight | Pas d'équivalent |
 | Services de premier plan : enregistreur, alertes, écoute du groupe (ADR-024, ADR-051, ADR-090) | Localisation en arrière-plan permise (`UIBackgroundModes` `location`), pas de service permanent sans elle | Enregistreur et alertes par la localisation en arrière-plan ; écoute du groupe à décider (pendant la localisation, ou notifications push, qui demandent un serveur) |
 | Intercepteur OkHttp des tuiles (ADR-002) | `URLProtocol` dans la configuration réseau de MapLibre iOS | P32.4 |
-| WorkManager (téléchargement de zone) | `URLSession` en arrière-plan | P32.9 |
-| Room (traces, waypoints) | SQLite (bibliothèque à choisir à P32.8, ADR à ce moment) | P32.8 |
+| WorkManager (téléchargement de zone) | File de téléchargement dans l'app, poursuivie un moment en arrière-plan (`beginBackgroundTask`), reprise au lancement | ADR-103 (une session `URLSession` d'arrière-plan espacerait les milliers de petites requêtes d'une zone) |
+| Room (traces, waypoints) | SQLite du système par le petit enveloppeur de `ToolMapCore`, **même schéma** que la base Room (`tracks.db`, version 1) | ADR-103 |
 | Hilt | Injection simple en Swift | — |
-| WebRTC direct et QR par la caméra (mode direct, P8) | WebRTC iOS (paquet tiers) et AVFoundation | Après le serveur Firebase (P32.10) |
+| WebRTC direct et QR par la caméra (mode direct, P8) | Serveur Firebase seul ; QR d'invitation lu par AVFoundation | ADR-103 : pas de mode direct (paquet tiers WebRTC) |
 | SAF, « Ouvrir avec », partage Android | `UIDocumentPicker`, types de documents déclarés, `ShareLink` | Avec chaque fonction |
 | Baromètre (`SensorManager`) | `CMAltimeter` | Avec l'altimètre |
 | Rendu PDF par `Bitmap` / `Canvas` | CoreGraphics ; l'écrivain PDF maison (ADR-020) se porte | P32.11 |
 | Rapport de plantage affiché sur le téléphone (ADR-029) | Pas de capture globale simple des plantages Swift | À revoir |
 | Textes `strings.xml` | Catalogue de chaînes Xcode (`Localizable.xcstrings`), en français | Avec chaque écran |
+| Serveurs de cartes en `http://` (acceptés par Android) | Refusés par iOS (App Transport Security) : l'assistant le dit | À décider par l'utilisateur : lever la protection pour tous les serveurs est une baisse de sécurité (ADR-103) |
 | Vérification sur appareil (GPS réel, capteurs, caméra, deux téléphones, écran éteint) | Simulateur seulement : position simulée, pas de capteurs | Tant que l'utilisateur n'a pas d'iPhone |
 
 ## 5 bis. Installer sur un iPhone (P32.13, préparé)
@@ -102,7 +103,7 @@ Sans compte : le `.app` du simulateur (release `ios-<version>`) se lance dans un
 
 ## 6. Table de parité
 
-**Android de référence : 0.4.144**, `origin/claude/vibrant-galileo-q3s99n` au commit `1637cb9` (2026-10-29). Depuis 0.4.140 : menus de l'impression (P17.8, P17.9 ; à reporter avec P32.11), releases `android-<version>` (ADR-099, reprises par la CI iOS en `ios-<version>`), aucun changement des parties déjà portées.
+**Android de référence : 0.4.144**, `origin/claude/vibrant-galileo-q3s99n` au commit `1637cb9` (2026-10-29) ; relevé le 2026-10-30 : cette branche est passée en 0.4.145 (`b4852ff`) sans changement de code (journal, plan et aperçu de l'impression vérifiée sur l'émulateur). Depuis 0.4.140 : menus de l'impression (P17.8, P17.9 ; à reporter avec P32.11), releases `android-<version>` (ADR-099, reprises par la CI iOS en `ios-<version>`), aucun changement des parties déjà portées.
 
 ### 6.1 Cœur (`ToolMapCore`, portage de `:core` et des parties testables de `:data` et `:p2p`)
 

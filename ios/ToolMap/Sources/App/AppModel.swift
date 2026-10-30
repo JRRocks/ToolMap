@@ -191,6 +191,8 @@ final class AppModel {
             panel = Panel(rawValue: name)
         }
         if defaults.bool(forKey: "ToolMapNight") {
+            // For this launch only: the next screenshots keep the day map.
+            settingsStore.persists = false
             nightMode = true
         }
         if defaults.bool(forKey: "ToolMapCenterMenu") {

@@ -17,7 +17,7 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     # The iOS version, shown in the menu and used for the ios-<version> release (ADR-099).
-    MARKETING_VERSION: "0.2.0"
+    MARKETING_VERSION: "0.2.1"
     CURRENT_PROJECT_VERSION: "1"
     # No Apple Developer account yet (P32.13): simulator builds only, signed to run locally.
     CODE_SIGN_STYLE: Automatic
