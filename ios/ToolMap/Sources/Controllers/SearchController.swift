@@ -25,7 +25,7 @@ final class SearchController {
     /// A short message at the bottom of the page (« Waypoint enregistré. »).
     var message: String?
 
-    @ObservationIgnored private var items: [LibraryItem] = []
+    @ObservationIgnored private var items: [ToolMapCore.LibraryItem] = []
     @ObservationIgnored private var task: Task<Void, Never>?
 
     init(app: AppModel) {

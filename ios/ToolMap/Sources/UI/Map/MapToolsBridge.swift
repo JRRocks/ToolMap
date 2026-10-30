@@ -26,7 +26,7 @@ enum MapToolsBridge {
     }
 
     /// The tracks, routes and waypoints of the library as the search sees them.
-    static func libraryItems(_ app: AppModel) -> [LibraryItem] {
+    static func libraryItems(_ app: AppModel) -> [ToolMapCore.LibraryItem] {
         app.library.searchItems()
     }
 

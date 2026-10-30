@@ -469,13 +469,13 @@ final class LibraryController {
 
     /// The library as the search of the core sees it (`LocalSearch`): lines at the middle of their extent with it,
     /// waypoints at their place; the comment and the description as the note.
-    func libraryItems() -> [LibraryItem] {
+    func libraryItems() -> [ToolMapCore.LibraryItem] {
         guard let lib = snapshot() else { return [] }
-        var out: [LibraryItem] = []
+        var out: [ToolMapCore.LibraryItem] = []
         for t in lib.tracks where t.pointCount > 0 {
             let bounds = Bounds(minX: t.minLon, minY: t.minLat, maxX: t.maxLon, maxY: t.maxLat)
             out.append(
-                LibraryItem(
+                ToolMapCore.LibraryItem(
                     kind: .track,
                     id: t.id,
                     name: t.name,
@@ -489,7 +489,7 @@ final class LibraryController {
         for r in lib.routes where r.pointCount > 0 {
             let bounds = Bounds(minX: r.minLon, minY: r.minLat, maxX: r.maxLon, maxY: r.maxLat)
             out.append(
-                LibraryItem(
+                ToolMapCore.LibraryItem(
                     kind: .route,
                     id: r.id,
                     name: r.name,
@@ -502,7 +502,7 @@ final class LibraryController {
         }
         for w in lib.waypoints {
             out.append(
-                LibraryItem(kind: .waypoint, id: w.id, name: w.name, note: LibraryController.note(w.cmt, w.desc), lat: w.lat, lon: w.lon)
+                ToolMapCore.LibraryItem(kind: .waypoint, id: w.id, name: w.name, note: LibraryController.note(w.cmt, w.desc), lat: w.lat, lon: w.lon)
             )
         }
         return out
@@ -983,7 +983,7 @@ extension LibraryController {
     }
 
     /// The library as the search sees it (same as `libraryItems()`).
-    func searchItems() -> [LibraryItem] {
+    func searchItems() -> [ToolMapCore.LibraryItem] {
         libraryItems()
     }
 }
