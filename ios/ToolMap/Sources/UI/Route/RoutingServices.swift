@@ -112,7 +112,7 @@ enum RouteGeo {
 extension Color {
     /// A colour of the core (ARGB in a signed 32-bit integer, as Android's).
     init(routeArgb: Int32) {
-        let value = UInt32(bitPattern: argb)
+        let value = UInt32(bitPattern: routeArgb)
         self.init(
             red: Double((value >> 16) & 0xFF) / 255,
             green: Double((value >> 8) & 0xFF) / 255,
