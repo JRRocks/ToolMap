@@ -5,9 +5,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /*
- * The update of the app from its GitHub pre-releases (P31, ADR-094): the CI publishes the debug APK of every push on
- * `main` as a pre-release `debug-<sha7>` that carries `ToolMap-debug-<version>.apk` (docs/specs/release.md §1). The app
- * reads the list of releases, keeps the highest version and offers it when it is above its own.
+ * The update of the app from its GitHub releases (P31, ADR-094, ADR-104): the CI publishes the APK of every push as a
+ * release `android-<version>` (the two newest are kept, ADR-099), and that of a push on `main` also as a pre-release
+ * `debug-<sha7>`; both carry `ToolMap-debug-<version>.apk` (docs/specs/release.md §1). The app reads the list of
+ * releases, keeps the highest version and offers it when it is above its own.
  */
 
 /** A version name `MAJOR.MINOR.PATCH` (ADR-040), compared number by number; a missing number counts as 0. */
@@ -47,18 +48,18 @@ data class PublishedApk(
 
 /** Reads the answer of the GitHub API (`GET /repos/<owner>/<repo>/releases`). */
 object GitHubReleases {
-    /** The releases of the public repository, newest first; ten are more than enough (the CI keeps one debug). */
+    /** The releases of the public repository, newest first; ten are plenty (the CI keeps one debug, two Android). */
     const val API_URL = "https://api.github.com/repos/JRRocks/ToolMap/releases?per_page=10"
 
     private val APK_NAME = Regex("""ToolMap-debug-(\d+(?:\.\d+)+)\.apk""")
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** The highest debug APK of [body], or `null` when there is none or the text is not a list of releases. */
+    /** The highest Android APK of [body], or `null` when there is none or the text is not a list of releases. */
     fun latestApk(body: String): PublishedApk? {
         val releases = runCatching { json.decodeFromString<List<Release>>(body) }.getOrNull() ?: return null
         return releases
             .asSequence()
-            .filter { !it.draft && it.tag.startsWith(DEBUG_TAG) }
+            .filter { release -> !release.draft && APK_TAGS.any { release.tag.startsWith(it) } }
             .flatMap { release ->
                 release.assets.asSequence().mapNotNull { asset ->
                     val version = APK_NAME.matchEntire(asset.name)?.groupValues?.get(1)?.let(AppVersion::parse)
@@ -67,7 +68,8 @@ object GitHubReleases {
             }.maxByOrNull { it.version }
     }
 
-    private const val DEBUG_TAG = "debug-"
+    /** `android-<version>` (every branch, ADR-099) and `debug-<sha7>` (`main`); `ios-<version>` carries no APK. */
+    private val APK_TAGS = listOf("android-", "debug-")
 
     @Serializable
     private data class Release(

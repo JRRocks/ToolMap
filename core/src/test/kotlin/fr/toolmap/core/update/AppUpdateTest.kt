@@ -39,6 +39,27 @@ class AppUpdateTest {
     }
 
     @Test
+    fun `an Android release of a work branch counts as much as the debug pre-release of main`() {
+        val body =
+            """
+            [
+              {"tag_name":"ios-0.2.1","draft":false,"prerelease":true,"assets":[{"name":"ToolMap-ios-simulator-0.2.1.zip","browser_download_url":"https://x/ios.zip","size":1}]},
+              {"tag_name":"android-0.4.145","draft":false,"prerelease":false,"published_at":"2026-10-29T21:21:03Z","assets":[{"name":"ToolMap-debug-0.4.145.apk","browser_download_url":"https://github.com/JRRocks/ToolMap/releases/download/android-0.4.145/ToolMap-debug-0.4.145.apk","size":87360074}]},
+              {"tag_name":"android-0.4.144","draft":false,"prerelease":false,"assets":[{"name":"ToolMap-debug-0.4.144.apk","browser_download_url":"https://x/144.apk","size":1}]},
+              {"tag_name":"debug-6fa0aec","draft":false,"prerelease":true,"assets":[{"name":"ToolMap-debug-0.4.134.apk","browser_download_url":"https://x/134.apk","size":1}]}
+            ]
+            """.trimIndent()
+        val apk = GitHubReleases.latestApk(body)!!
+        assertEquals("0.4.145", apk.version.toString())
+        assertEquals(
+            "https://github.com/JRRocks/ToolMap/releases/download/android-0.4.145/ToolMap-debug-0.4.145.apk",
+            apk.url,
+        )
+        assertEquals(apk, UpdateDecision.offer("0.4.144", apk))
+        assertNull(UpdateDecision.offer("0.4.145", apk))
+    }
+
+    @Test
     fun `drafts, other tags and other files are left out`() {
         val body =
             """
