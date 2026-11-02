@@ -51,6 +51,8 @@ import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.geo.LonLatZoom
 import fr.toolmap.core.geo.NavTarget
 import fr.toolmap.core.geo.ZoomMapping
+import fr.toolmap.core.layers.FavoritesFileCodec
+import fr.toolmap.core.maps.OnlineCatalog
 import fr.toolmap.core.settings.ThemeMode
 import fr.toolmap.core.track.TrackImporter
 import fr.toolmap.crash.CrashActivity
@@ -70,8 +72,11 @@ import fr.toolmap.map.MapScreen
 import fr.toolmap.map.MapViewModel
 import fr.toolmap.maps.AvailableMapsActions
 import fr.toolmap.maps.AvailableMapsScreen
+import fr.toolmap.maps.FavoritesImportViewModel
 import fr.toolmap.maps.FavoritesShareViewModel
+import fr.toolmap.maps.MapKeyDialog
 import fr.toolmap.maps.MapsViewModel
+import fr.toolmap.maps.ReceiveFavoritesSheet
 import fr.toolmap.maps.ShareFavoritesScreen
 import fr.toolmap.measure.MeasureViewModel
 import fr.toolmap.multizoom.MultiZoomScreen
@@ -171,6 +176,7 @@ class MainActivity : ComponentActivity() {
     private val backupViewModel: BackupViewModel by viewModels()
     private val multiZoomViewModel: MultiZoomViewModel by viewModels()
     private val favoritesViewModel: FavoritesShareViewModel by viewModels()
+    private val favoritesImport: FavoritesImportViewModel by viewModels()
 
     /** The map can be used over the lock screen: a call from API 27, the window flag before it (minSdk 26). */
     @Suppress("DEPRECATION")
@@ -312,6 +318,14 @@ class MainActivity : ComponentActivity() {
                         LaunchedEffect(Unit) {
                             // A pairing link opened from a message or a browser shows the sharing screen.
                             shareViewModel.openRequests.collect { open(Screen.SHARE) }
+                        }
+                        val incomingFavorites by favoritesImport.incoming.collectAsStateWithLifecycle()
+                        val keysToType by favoritesImport.keysToType.collectAsStateWithLifecycle()
+                        // A `.toolmap` file opened from another app: its sheet is over the map, and so is its message
+                        // (P25.3).
+                        LaunchedEffect(incomingFavorites != null) { if (incomingFavorites != null) toMap() }
+                        LaunchedEffect(Unit) {
+                            favoritesImport.messages.collect { viewModel.notify(it.resId, *it.args.toTypedArray()) }
                         }
                         val sources by repository.sources.collectAsStateWithLifecycle()
                         val shareUi by shareViewModel.ui.collectAsStateWithLifecycle()
@@ -657,6 +671,24 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+                        incomingFavorites?.let { incoming ->
+                            ReceiveFavoritesSheet(
+                                incoming = incoming,
+                                sources = sources,
+                                thumbnails = mapsViewModel.thumbnails,
+                                onToggle = favoritesImport::toggle,
+                                onAdd = favoritesImport::add,
+                                onDismiss = favoritesImport::dismiss,
+                            )
+                        }
+                        keysToType.firstOrNull()?.let { map ->
+                            MapKeyDialog(
+                                source = map,
+                                keyParams = OnlineCatalog.keyParams(map),
+                                onConfirm = favoritesImport::setKey,
+                                onDismiss = favoritesImport::skipKey,
+                            )
+                        }
                         // An alert of the group comes before everything else, on whichever screen is showing; once
                         // lifted before it was seen, « Alerte levée » takes its place until « OK » (P22, variant C).
                         shareUi.sosLifted.firstOrNull { it.dialog }?.let { lifted ->
@@ -712,14 +744,27 @@ class MainActivity : ComponentActivity() {
         if (uri != null) lifecycleScope.launch(Dispatchers.IO) { readForImport(uri, tracksOnly = false) }
     }
 
-    /** The content decides what a file is: a track file goes to the library, anything else is tried as a map. */
+    /**
+     * The content decides what a file is: favorites (`.toolmap`, P25.3) open their sheet, a track file goes to the
+     * library, anything else is tried as a map.
+     */
     private fun readForImport(
         uri: Uri,
         tracksOnly: Boolean,
     ) {
         try {
             val read = UriReader.readBytes(this, uri, TrackImporter.MAX_BYTES)
+            // Before the tracks: a `.toolmap` file is JSON, which they would take for GeoJSON.
+            val favorites =
+                read.bytes
+                    .takeIf { !tracksOnly && it.size <= FavoritesFileCodec.MAX_BYTES }
+                    ?.let { String(it, Charsets.UTF_8) }
+                    ?.takeIf(FavoritesFileCodec::looksLike)
             when {
+                favorites != null -> {
+                    favoritesImport.receive(favorites, read.name)
+                }
+
                 tracksOnly || TrackImporter.detect(read.bytes) != null -> {
                     tracksViewModel.import(read.bytes, read.name)
                 }

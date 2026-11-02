@@ -2174,4 +2174,29 @@
   <string name="fav_share_footer">Envoyé par le partage d\'Android</string>
   <string name="fav_share_button">Partager…</string>
   <string name="fav_share_failed">Fichier non écrit : %1$s</string>
+
+  <!-- P25.3: opening a .toolmap file, sheet « Ajouter N favoris ? » (preview p25-partage-sauvegarde.html) -->
+  <plurals name="fav_import_title">
+    <item quantity="one">Ajouter %1$d favori ?</item>
+    <item quantity="other">Ajouter %1$d favoris ?</item>
+  </plurals>
+  <plurals name="fav_import_button">
+    <item quantity="one">Ajouter %1$d favori</item>
+    <item quantity="other">Ajouter %1$d favoris</item>
+  </plurals>
+  <string name="fav_import_note">Rien n\'est appliqué : les favoris s\'ajoutent à vos puces.</string>
+  <string name="fav_import_renamed">Nom déjà pris : ajouté en « %1$s »</string>
+  <plurals name="fav_import_added">
+    <item quantity="one">%1$d carte ajoutée (%2$s)</item>
+    <item quantity="other">%1$d cartes ajoutées (%2$s)</item>
+  </plurals>
+  <string name="fav_import_need_key">clé à saisir</string>
+  <plurals name="fav_import_unhidden">
+    <item quantity="one">%1$d carte remise dans la liste (%2$s)</item>
+    <item quantity="other">%1$d cartes remises dans la liste (%2$s)</item>
+  </plurals>
+  <string name="fav_import_done">Favoris ajoutés : %1$d</string>
+  <string name="fav_import_unreadable">Import impossible : ce fichier de favoris est illisible</string>
+  <string name="fav_import_newer">Import impossible : ce fichier vient d\'une version plus récente de ToolMap</string>
+  <string name="fav_import_empty">Import impossible : ce fichier ne contient aucun favori</string>
 </resources>

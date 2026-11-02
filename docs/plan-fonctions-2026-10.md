@@ -164,7 +164,7 @@ export AQX d'une carte avec clés retirées (`SourceRepository.export`) ; appui 
 | P25.0 | ✅ | Aperçu : commandes d'un favori (Partager, Renommer), choix des clés, import, message du groupe. **Validé le 2026-11-02 : variante « C · Poids »** de `docs/previews/p25-partage-sauvegarde.html` (partage, ouverture ; « Renommer » et le message du groupe n'y sont pas) | Validation explicite, date au journal |
 | P25.1 | ✅ | `:core` : format `.toolmap` (versions, AQX inclus, clés), plan d'import (cartes réutilisées ou ajoutées, nom « (2) », clé à saisir, carte masquée remise) ; ADR-105. Fait en session 87 | Tests JVM d'aller-retour, clés retirées et gardées : `FavoritesFileTest` (11) ✅ |
 | P25.2 | ✅ | Export : icône « Partager » du bandeau, écran « Partager des favoris » (variante C), partage d'Android | Émulateur : fichier produit ; capture à côté de l'aperçu |
-| P25.3 | ⬜ | Import (« Ouvrir avec », feuille « Ajouter N favoris ? », cartes, clés, cartes masquées) | Tests ; émulateur : import d'un favori avec une carte ajoutée absente |
+| P25.3 | ✅ | Import (« Ouvrir avec », feuille « Ajouter N favoris ? », cartes, clés, cartes masquées) | Tests ; émulateur : import d'un favori avec une carte ajoutée absente |
 | P25.4 | ⬜ | Envoi au groupe (après P27) : trame chiffrée (au-delà de 4096 octets : compression ou découpage), « Ajouter » | `MeshNodeTest` ; deux émulateurs |
 | P25.5 | ⬜ | « Renommer » un favori (décision du 2026-10-24) : absent de l'aperçu validé, aperçu à faire avant le code | Aperçu validé ; émulateur : favori renommé |
 

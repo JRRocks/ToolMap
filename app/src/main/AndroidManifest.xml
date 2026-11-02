@@ -81,7 +81,8 @@
                 <data android:scheme="toolmap" android:host="join" />
             </intent-filter>
 
-            <!-- "Open with" for .aqx map definitions (no registered MIME type: match on the file name). -->
+            <!-- "Open with" for .aqx map definitions and .toolmap favorites (P25.3; no registered MIME type: match on
+                 the file name). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -93,6 +94,9 @@
                 <data android:pathPattern=".*\\.aqx" />
                 <data android:pathPattern=".*\\..*\\.aqx" />
                 <data android:pathPattern=".*\\..*\\..*\\.aqx" />
+                <data android:pathPattern=".*\\.toolmap" />
+                <data android:pathPattern=".*\\..*\\.toolmap" />
+                <data android:pathPattern=".*\\..*\\..*\\.toolmap" />
             </intent-filter>
             <!-- Same files when the sender declares a generic or XML type. -->
             <intent-filter>
@@ -104,7 +108,7 @@
                 <data android:mimeType="application/xml" />
                 <data android:mimeType="text/xml" />
             </intent-filter>
-            <!-- "Share" of an .aqx file. -->
+            <!-- "Share" of an .aqx or .toolmap file. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />

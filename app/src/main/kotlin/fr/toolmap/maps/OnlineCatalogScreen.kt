@@ -53,6 +53,7 @@ import fr.toolmap.R
 import fr.toolmap.core.maps.CatalogEntry
 import fr.toolmap.core.maps.CatalogProvider
 import fr.toolmap.core.maps.MapCatalog
+import fr.toolmap.core.source.TileSource
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.groupedShape
 import fr.toolmap.ui.screenInsets
@@ -331,18 +332,30 @@ internal fun CatalogKeyDialog(
     entry: CatalogEntry,
     onConfirm: (Map<String, String>) -> Unit,
     onDismiss: () -> Unit,
+) = MapKeyDialog(entry.source, entry.keyParams, onConfirm, onDismiss)
+
+/**
+ * Asks for the [keyParams] of [source], one field each: a map of the catalogue, or a map a `.toolmap` file added without
+ * its key (P25.3).
+ */
+@Composable
+internal fun MapKeyDialog(
+    source: TileSource,
+    keyParams: List<String>,
+    onConfirm: (Map<String, String>) -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    var values by remember(entry.source.id) { mutableStateOf(entry.keyParams.associateWith { "" }) }
+    var values by remember(source.id) { mutableStateOf(keyParams.associateWith { "" }) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.catalog_key_title, entry.source.name)) },
+        title = { Text(stringResource(R.string.catalog_key_title, source.name)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    stringResource(R.string.catalog_key_hint, entry.source.dataSource.orEmpty()),
+                    stringResource(R.string.catalog_key_hint, source.dataSource.orEmpty()),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                for (key in entry.keyParams) {
+                for (key in keyParams) {
                     OutlinedTextField(
                         value = values[key].orEmpty(),
                         onValueChange = { values = values + (key to it) },
