@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -57,6 +59,7 @@ class PrintPanelsTest {
                 onBack = {},
                 onPage = { page -> ui = ui.copy(sheetPage = page) },
                 onClose = {},
+                onCancel = {},
                 onDownload = {},
                 onExport = {},
                 onCancelJob = {},
@@ -76,6 +79,26 @@ class PrintPanelsTest {
         rule.onNodeWithText("50 mm au moins, pas de maximum").assertExists()
         rule.onNodeWithText("Largeur").performTextReplacement("2000")
         assertEquals(2_000.0, holder.ui.template.page.widthMm, 1e-9)
+    }
+
+    @Test
+    fun `a custom sheet with no room for the map shows the short side and its minimum, and the zone waits`() {
+        val holder = Holder(PrintUi(stage = PrintStage.SETUP))
+        rule.setContent {
+            ToolMapTheme { PrintSetupPanel(ui = holder.ui, actions = holder.actions, maxHeight = 800.dp) }
+        }
+        rule.onNodeWithText("Autre").performClick()
+        rule.onNodeWithText("Choisir la zone").assertIsEnabled()
+        rule.onNodeWithText("Largeur").performTextReplacement("800")
+        rule.onNodeWithText("Hauteur").performTextReplacement("60")
+        // Variant C of docs/previews/p17-format-sans-place.html: the minimum takes the place of « 50 mm au moins ».
+        rule.onNodeWithText("Hauteur : 82 mm au moins avec cette largeur").assertExists()
+        rule.onAllNodesWithText("50 mm au moins, pas de maximum").assertCountEquals(0)
+        rule.onNodeWithText("Sur le terrain —").assertExists()
+        rule.onNodeWithText("Choisir la zone").assertIsNotEnabled()
+        rule.onNodeWithText("Hauteur").performTextReplacement("82")
+        rule.onNodeWithText("50 mm au moins, pas de maximum").assertExists()
+        rule.onNodeWithText("Choisir la zone").assertIsEnabled()
     }
 
     @Test

@@ -29,6 +29,7 @@ import fr.toolmap.core.print.PrintTemplate
 import fr.toolmap.core.print.PrintTexts
 import fr.toolmap.core.print.PrintWaypoint
 import fr.toolmap.core.source.TileSource
+import fr.toolmap.core.state.CameraState
 import fr.toolmap.data.download.RefusalReason
 import fr.toolmap.data.download.ZoneDownloader
 import fr.toolmap.data.download.ZoneResult
@@ -166,6 +167,9 @@ class PrintViewModel
         private var stack: List<LayerConfig> = emptyList()
         private var job: Job? = null
 
+        /** Where the map was before « Imprimer »: « Annuler » puts it back there ([cancel]). */
+        private var cameraBefore: CameraState? = null
+
         init {
             viewModelScope.launch {
                 inputs.filterNotNull().debounce(PLAN_DEBOUNCE_MS).collectLatest { compute(it) }
@@ -176,14 +180,17 @@ class PrintViewModel
 
         /**
          * « Imprimer »: the two questions, with the settings of the last print; the first print takes the grid of the
-         * coordinate format of the settings. The frame will be centred on [lat], [lon] (the map centre).
+         * coordinate format of the settings. The frame will be centred on [lat], [lon] (the map centre); [before] is the
+         * camera « Annuler » comes back to.
          */
         fun open(
             lat: Double,
             lon: Double,
             layers: List<LayerConfig>,
             coordinates: CoordinateSystem = CoordinateSystem.UTM,
+            before: CameraState? = null,
         ) {
+            cameraBefore = before
             stack = layers
             val last = templates.lastOrNull() ?: PrintTemplate(grid = gridFor(coordinates))
             val template = last.copy(atlas = AtlasMode.SINGLE, title = defaultTitle(layers), subtitle = "")
@@ -200,8 +207,10 @@ class PrintViewModel
             path: List<LonLat>,
             layers: List<LayerConfig>,
             coordinates: CoordinateSystem = CoordinateSystem.UTM,
+            before: CameraState? = null,
         ) {
             if (path.size < 2) return
+            cameraBefore = before
             stack = layers
             val last = templates.lastOrNull() ?: PrintTemplate(grid = gridFor(coordinates))
             val template = last.copy(atlas = AtlasMode.TRACK, title = defaultTitle(layers), subtitle = "")
@@ -247,7 +256,19 @@ class PrintViewModel
             }
         }
 
+        /**
+         * « Annuler » of the sheet choice and of the frame: the print closes and the map is to go back to the camera it
+         * returns, the one before « Imprimer » (P17.10, variant P1 of docs/previews/p17-format-sans-place.html, validated
+         * on 2026-11-02). The other ways out ([close]: ✕, back, the end of a PDF) leave the map on the frame.
+         */
+        fun cancel(): CameraState? {
+            val before = cameraBefore.takeIf { mutableUi.value.active }
+            close()
+            return before
+        }
+
         fun close() {
+            cameraBefore = null
             job?.cancel()
             if (mutableUi.value.active) templates.remember(mutableUi.value.template)
             inputs.value = null

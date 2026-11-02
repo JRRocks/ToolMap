@@ -765,6 +765,8 @@ class MainActivity : ComponentActivity() {
                 path.map { LonLat(it.lon, it.lat) },
                 viewModel.state.value.stack.layers,
                 coordinates,
+                // The camera of the map when it last stopped: « Annuler » comes back to it (P17.10, variant P1).
+                before = viewModel.state.value.camera,
             )
             onReady()
         }

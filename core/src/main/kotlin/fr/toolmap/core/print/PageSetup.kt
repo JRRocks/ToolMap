@@ -1,6 +1,7 @@
 package fr.toolmap.core.print
 
 import kotlinx.serialization.Serializable
+import kotlin.math.ceil
 
 /** Paper sizes in millimeters, portrait. */
 @Serializable
@@ -66,6 +67,18 @@ data class PageSetup(
     val widthPt: Int get() = Math.round(widthMm * PT_PER_MM).toInt()
     val heightPt: Int get() = Math.round(heightMm * PT_PER_MM).toInt()
 
+    /** The map would be narrower than [MIN_FRAME_MM]: the sheet is too narrow for its borders. */
+    val tooNarrow: Boolean get() = !(frameWidthMm >= MIN_FRAME_MM)
+
+    /** The map would be lower than [MIN_FRAME_MM]: the sheet is too low for its borders and its footer. */
+    val tooLow: Boolean get() = !(frameHeightMm >= MIN_FRAME_MM)
+
+    /** The narrowest sheet that leaves [MIN_FRAME_MM] to the map, in whole millimetres (P17.10, variant C). */
+    val minWidthMm: Int get() = minSide(2 * borderMm + MIN_FRAME_MM)
+
+    /** The lowest sheet that leaves [MIN_FRAME_MM] to the map at this width: a narrow sheet has more footer rows. */
+    val minHeightMm: Int get() = minSide(2 * borderMm + footerHeightMm + MIN_FRAME_MM)
+
     /** Problems that would make the frame unusable (empty list when fine). */
     fun issues(): List<PageIssue> =
         buildList {
@@ -73,7 +86,7 @@ data class PageSetup(
             if (paper == Paper.CUSTOM && !(isCustomSide(customWidthMm) && isCustomSide(customHeightMm))) {
                 add(PageIssue.CUSTOM_SIZE)
             }
-            if (!(frameWidthMm >= MIN_FRAME_MM && frameHeightMm >= MIN_FRAME_MM)) add(PageIssue.FRAME_TOO_SMALL)
+            if (tooNarrow || tooLow) add(PageIssue.FRAME_TOO_SMALL)
         }
 
     companion object {
@@ -95,6 +108,8 @@ data class PageSetup(
 
         /** A side a custom sheet can have: a number, at least [MIN_CUSTOM_MM]. */
         fun isCustomSide(mm: Double): Boolean = mm.isFinite() && mm >= MIN_CUSTOM_MM
+
+        private fun minSide(mm: Double): Int = maxOf(ceil(mm).toInt(), MIN_CUSTOM_MM.toInt())
     }
 }
 

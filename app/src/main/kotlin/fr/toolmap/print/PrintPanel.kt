@@ -103,6 +103,8 @@ class PrintActions(
     /** A page of the settings (P17.8): « Éléments de la feuille », « Qualité et marges », or the main one. */
     val onPage: (PrintSheetPage) -> Unit,
     val onClose: () -> Unit,
+    /** « Annuler » of the sheet choice: closes the print and puts the map back where it was (P17.10, variant P1). */
+    val onCancel: () -> Unit,
     val onDownload: () -> Unit,
     val onExport: () -> Unit,
     val onCancelJob: () -> Unit,
@@ -125,6 +127,9 @@ fun PrintSetupPanel(
     val template = ui.template
     val page = template.page
     var customScale by remember { mutableStateOf(false) }
+    // A custom sheet that leaves no room for the map: its size is fixed first (P17.10, variant C). A sheet of the list
+    // only lacks room with wide margins, which are set after the frame.
+    val noRoom = page.paper == Paper.CUSTOM && (page.tooNarrow || page.tooLow)
     ToolPanel(
         title = stringResource(R.string.print_title),
         maxHeight = maxHeight,
@@ -134,10 +139,14 @@ fun PrintSetupPanel(
                 modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                OutlinedButton(onClick = actions.onClose, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                OutlinedButton(onClick = actions.onCancel, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
                     Text(stringResource(R.string.print_cancel))
                 }
-                Button(onClick = actions.onChooseZone, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                Button(
+                    onClick = actions.onChooseZone,
+                    enabled = !noRoom,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                ) {
                     Text(stringResource(R.string.print_choose_zone))
                 }
             }
@@ -276,7 +285,11 @@ private fun SheetCard(
     }
 }
 
-/** Width and height of a custom sheet, applied as soon as both are numbers of at least 50 mm; no largest. */
+/**
+ * Width and height of a custom sheet, applied as soon as both are numbers of at least 50 mm; no largest. A sheet that
+ * leaves no room for the map shows the short side in error and the size it needs (P17.10, variant C, validated on
+ * 2026-11-02).
+ */
 @Composable
 private fun CustomSize(
     page: PageSetup,
@@ -284,36 +297,53 @@ private fun CustomSize(
 ) {
     var width by remember { mutableStateOf(page.widthMm.roundToInt().toString()) }
     var height by remember { mutableStateOf(page.heightMm.roundToInt().toString()) }
+    val w = millimetres(width)
+    val h = millimetres(height)
+    val typed =
+        if (w != null && h != null && PageSetup.isCustomSide(w) && PageSetup.isCustomSide(h)) {
+            page.copy(paper = Paper.CUSTOM, customWidthMm = w, customHeightMm = h, landscape = w >= h)
+        } else {
+            null
+        }
+    val narrow = typed?.tooNarrow == true
+    val low = typed?.tooLow == true
 
     fun push() {
-        val w = millimetres(width)
-        val h = millimetres(height)
-        if (w != null && h != null && PageSetup.isCustomSide(w) && PageSetup.isCustomSide(h)) onSize(w, h)
+        val pw = millimetres(width)
+        val ph = millimetres(height)
+        if (pw != null && ph != null && PageSetup.isCustomSide(pw) && PageSetup.isCustomSide(ph)) onSize(pw, ph)
     }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        MillimetreField(R.string.print_custom_width_short, width, Modifier.weight(1f)) {
+        MillimetreField(R.string.print_custom_width_short, width, short = narrow, Modifier.weight(1f)) {
             width = it
             push()
         }
-        MillimetreField(R.string.print_custom_height_short, height, Modifier.weight(1f)) {
+        MillimetreField(R.string.print_custom_height_short, height, short = low, Modifier.weight(1f)) {
             height = it
             push()
         }
     }
+    val minimums =
+        listOfNotNull(
+            typed?.takeIf { narrow }?.let { stringResource(R.string.print_custom_min_width, it.minWidthMm) },
+            typed?.takeIf { low }?.let { stringResource(R.string.print_custom_min_height, it.minHeightMm) },
+        )
     Text(
-        stringResource(R.string.print_custom_unlimited),
+        if (minimums.isEmpty()) stringResource(R.string.print_custom_unlimited) else minimums.joinToString("\n"),
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = if (minimums.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
         modifier = Modifier.padding(start = 4.dp),
     )
 }
 
 private fun millimetres(text: String): Double? = text.replace(" ", "").replace(',', '.').toDoubleOrNull()
 
+/** A side of a custom sheet: in error when it is not a number of at least 50 mm, or when it leaves no room ([short]). */
 @Composable
 private fun MillimetreField(
     label: Int,
     text: String,
+    short: Boolean,
     modifier: Modifier,
     onText: (String) -> Unit,
 ) {
@@ -323,7 +353,7 @@ private fun MillimetreField(
         onValueChange = onText,
         label = { Text(stringResource(label)) },
         suffix = { Text(stringResource(R.string.print_mm)) },
-        isError = value == null || !PageSetup.isCustomSide(value),
+        isError = short || value == null || !PageSetup.isCustomSide(value),
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         modifier = modifier,
@@ -393,17 +423,22 @@ private fun ScaleChips(
     }
 }
 
-/** « Sur le terrain 6,6 × 3,7 km ». */
+/** « Sur le terrain 6,6 × 3,7 km », or « Sur le terrain — » when the sheet leaves no room for the map (P17.10). */
 @Composable
 private fun GroundLine(template: PrintTemplate) {
     val label = stringResource(R.string.print_ground_label)
-    val (w, h) = groundSize(template)
+    val size =
+        if (template.page.tooNarrow || template.page.tooLow) {
+            stringResource(R.string.print_ground_none)
+        } else {
+            groundSize(template).let { (w, h) -> "$w × $h" }
+        }
     val strong = MaterialTheme.colorScheme.onSurface
     Text(
         buildAnnotatedString {
             append(label)
             append(' ')
-            withStyle(SpanStyle(color = strong, fontSize = 16.sp, fontWeight = FontWeight.Medium)) { append("$w × $h") }
+            withStyle(SpanStyle(color = strong, fontSize = 16.sp, fontWeight = FontWeight.Medium)) { append(size) }
         },
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,

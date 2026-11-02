@@ -789,6 +789,10 @@
   <string name="print_custom_height_short">Hauteur</string>
   <string name="print_mm">mm</string>
   <string name="print_custom_unlimited">50 mm au moins, pas de maximum</string>
+  <!-- P17.10 : feuille sans place pour la carte (variante C, validée le 2026-11-02) -->
+  <string name="print_custom_min_width">Largeur : %1$d mm au moins</string>
+  <string name="print_custom_min_height">Hauteur : %1$d mm au moins avec cette largeur</string>
+  <string name="print_ground_none">—</string>
   <string name="print_ground_label">Sur le terrain</string>
   <string name="print_status_title">%1$s %2$s %3$s · %4$s</string>
   <string name="print_status_details">%1$s × %2$s · %3$d dpi · %4$s à %5$s</string>

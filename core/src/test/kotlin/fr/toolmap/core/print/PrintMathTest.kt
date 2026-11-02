@@ -151,6 +151,45 @@ class PrintMathTest {
         )
     }
 
+    /** A custom sheet as the panel makes it from its two fields: landscape when wider than high. */
+    private fun custom(
+        widthMm: Double,
+        heightMm: Double,
+        marginMm: Double = PageSetup.DEFAULT_MARGIN_MM,
+    ) = PageSetup(Paper.CUSTOM, widthMm >= heightMm, marginMm, widthMm, heightMm)
+
+    @Test
+    fun `a sheet with no room for the map says which side is short and the size it needs`() {
+        // 800 x 60 mm (P17.10): one footer row of 28.6 mm and borders of 2 x 16.6 mm leave -1.8 mm to the map.
+        val strip = custom(800.0, 60.0)
+        assertTrue(strip.tooLow)
+        assertTrue(!strip.tooNarrow)
+        assertEquals(82, strip.minHeightMm)
+        assertTrue(custom(800.0, 82.0).issues().isEmpty())
+        // 50 mm wide: the four boxes of the footer go on four rows, and the map is too narrow as well.
+        val narrow = custom(50.0, 120.0)
+        assertTrue(narrow.tooNarrow && narrow.tooLow)
+        assertEquals(54, narrow.minWidthMm)
+        assertEquals(156, narrow.minHeightMm)
+        // A sheet with room asks for no more than the smallest side of a custom sheet.
+        assertEquals(50, custom(210.0, 297.0, marginMm = 0.0).minWidthMm)
+    }
+
+    @Test
+    fun `the sizes given are always enough, and one millimetre less is not`() {
+        for (margin in listOf(0.0, 2.5, 8.0, 12.3, 25.0, 50.0)) {
+            for (typed in 50..1_200 step 7) {
+                val width = maxOf(typed, custom(typed.toDouble(), 60.0, margin).minWidthMm).toDouble()
+                val height = custom(width, 60.0, margin).minHeightMm.toDouble()
+                val fixed = custom(width, height, margin)
+                assertTrue(!fixed.tooNarrow && !fixed.tooLow, "margin $margin, width $width: $fixed")
+                if (height > PageSetup.MIN_CUSTOM_MM) {
+                    assertTrue(custom(width, height - 1, margin).tooLow, "margin $margin, width $width")
+                }
+            }
+        }
+    }
+
     @Test
     fun `the frame projection puts the centre at the middle and keeps the scale along both axes`() {
         val frame = FrameProjection(lat45, 6.0, 25_000.0, 277.0, 190.0)

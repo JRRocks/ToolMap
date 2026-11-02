@@ -758,6 +758,9 @@ fun MapScreen(
         val shiftLat = ScaleBar.metersPerDp(fit.lat, fit.zoom) * shiftDp / METERS_PER_DEGREE_OF_LATITUDE
         controller.flyTo(fit.lat - shiftLat, fit.lon, fit.zoom)
     }
+    // « Annuler » of the sheet choice and of the frame puts the map back where it was before « Imprimer » (P17.10, P1).
+    val cancelPrint: () -> Unit =
+        remember(print) { { print.cancel()?.let { controller.flyTo(it.lat, it.lon, it.zoom, it.bearing) } } }
     val printActions =
         remember(print) {
             PrintActions(
@@ -768,6 +771,7 @@ fun MapScreen(
                 onBack = print::backToFrame,
                 onPage = print::openSheetPage,
                 onClose = print::close,
+                onCancel = cancelPrint,
                 onDownload = print::downloadMissing,
                 onExport = { createPdf.launch(print.suggestedFileName()) },
                 onCancelJob = print::cancelJob,
@@ -1114,9 +1118,10 @@ fun MapScreen(
             }
 
             MenuAction.PRINT -> {
-                controller.resetNorth(northOffset)
+                // Read before the map turns north: « Annuler » comes back to this camera, bearing included.
                 val c = controller.liveCamera
-                print.open(c.lat, c.lon, state.stack.layers, formats.coordinates)
+                controller.resetNorth(northOffset)
+                print.open(c.lat, c.lon, state.stack.layers, formats.coordinates, before = c)
             }
 
             MenuAction.SETTINGS -> {
@@ -2013,14 +2018,14 @@ fun MapScreen(
                     } else if (printUi.stage == PrintStage.FRAME && printUi.alongTrack) {
                         PrintTrackActions(
                             ui = printUi,
-                            onCancel = print::close,
+                            onCancel = cancelPrint,
                             onNext = print::confirm,
                             maxHeight = toolMaxHeight,
                             modifier = printModifier,
                         )
                     } else if (printUi.stage == PrintStage.FRAME) {
                         PrintFrameActions(
-                            onCancel = print::close,
+                            onCancel = cancelPrint,
                             onNext = print::confirm,
                             maxHeight = toolMaxHeight,
                             modifier = printModifier,

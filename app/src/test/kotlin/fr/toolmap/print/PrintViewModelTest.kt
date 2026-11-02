@@ -4,10 +4,12 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.net.Uri
 import fr.toolmap.core.geo.CoordinateSystem
+import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.print.AtlasMode
 import fr.toolmap.core.print.GridKind
 import fr.toolmap.core.print.PrintIssue
+import fr.toolmap.core.state.CameraState
 import fr.toolmap.data.download.ZoneDownloader
 import fr.toolmap.data.print.PrintTemplateStore
 import fr.toolmap.data.print.PrintTileFetcher
@@ -205,6 +207,29 @@ class PrintViewModelTest {
         vm.close()
         assertNull(vm.ui.value.stage)
         assertTrue(!vm.ui.value.active)
+    }
+
+    @Test
+    fun `Annuler gives back the camera before Imprimer, the other ways out do not`() {
+        val before = CameraState(45.115, 5.877, 13.2, 37.0)
+        // From the sheet choice.
+        vm.open(45.115, 5.877, stack, before = before)
+        assertEquals(before, vm.cancel())
+        assertNull(vm.ui.value.stage)
+        // From the frame, after the confirmation and back.
+        vm.open(45.115, 5.877, stack, before = before)
+        vm.chooseZone()
+        vm.moveFrame(45.06, 5.88)
+        vm.confirm()
+        vm.backToFrame()
+        assertEquals(before, vm.cancel())
+        // ✕, back or the end of a PDF close the print with the map left on the frame; nothing is kept for later.
+        vm.open(45.115, 5.877, stack, before = before)
+        vm.close()
+        assertNull(vm.cancel())
+        // Along a track too.
+        vm.openAlongTrack(listOf(LonLat(5.8, 45.1), LonLat(5.9, 45.2)), stack, before = before)
+        assertEquals(before, vm.cancel())
     }
 
     @Test
