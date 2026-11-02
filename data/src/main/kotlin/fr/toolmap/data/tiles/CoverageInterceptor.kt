@@ -9,11 +9,18 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 
-/** Fake host of the "stored coverage" overlay: `https://coverage.toolmap.local/<sourceId>/<z>/<x>/<y>`. */
+/**
+ * Fake host of the "stored coverage" overlay: `https://coverage.toolmap.local/<sourceId>/<z>/<x>/<y>?v=<generation>`.
+ * MapLibre keeps the tiles it got in its own cache: each drawing of the overlay asks for another [generation] (the time it was drawn), so that
+ * it shows what is stored now and not what was stored the last time.
+ */
 object CoverageHost {
     const val HOST = "coverage.toolmap.local"
 
-    fun templateFor(sourceId: String): String {
+    fun templateFor(
+        sourceId: String,
+        generation: Long = 0,
+    ): String {
         val base =
             HttpUrl
                 .Builder()
@@ -23,19 +30,21 @@ object CoverageHost {
                 .build()
                 .toString()
                 .trimEnd('/')
-        return "$base/{z}/{x}/{y}"
+        return "$base/{z}/{x}/{y}?v=$generation"
     }
 }
 
 /**
  * Draws the stored coverage as map tiles: green with a frame where the tile of that source is stored, pale green
- * where only deeper tiles are stored, 404 (no tile) elsewhere. Never touches the network.
+ * where only deeper tiles are stored, red where nothing is stored (the map needs the network there). Never touches
+ * the network.
  */
 class CoverageInterceptor(
     private val store: MbTilesStore,
 ) : Interceptor {
     private val full = SolidPng.create(TILE_SIZE, FULL_FILL, FULL_FRAME, frameWidth = 2)
     private val partial = SolidPng.create(TILE_SIZE, PARTIAL_FILL)
+    private val missing = SolidPng.create(TILE_SIZE, MISSING_FILL)
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
@@ -59,7 +68,7 @@ class CoverageInterceptor(
         return when (coverage) {
             Coverage.FULL -> reply(request, 200, full)
             Coverage.PARTIAL -> reply(request, 200, partial)
-            Coverage.NONE -> reply(request, 404, ByteArray(0))
+            Coverage.NONE -> reply(request, 200, missing)
         }
     }
 
@@ -85,6 +94,7 @@ class CoverageInterceptor(
         const val FULL_FILL = 0x6633CC33
         const val FULL_FRAME = 0xCC1E7A1E.toInt()
         const val PARTIAL_FILL = 0x4466DD66
+        const val MISSING_FILL = 0x66E53935
         val PNG = "image/png".toMediaType()
     }
 }

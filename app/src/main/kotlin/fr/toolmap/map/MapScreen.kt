@@ -107,6 +107,7 @@ import fr.toolmap.core.geo.ScaleBar
 import fr.toolmap.core.geo.ScreenGrid
 import fr.toolmap.core.geo.ScreenGridPlan
 import fr.toolmap.core.geo.ZoomMapping
+import fr.toolmap.core.layers.CoverageSpans
 import fr.toolmap.core.layers.StackToStyle
 import fr.toolmap.core.p2p.MemberStatus
 import fr.toolmap.core.p2p.PeerState
@@ -128,6 +129,7 @@ import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.core.track.Waypoint
 import fr.toolmap.core.track.WaypointNames
 import fr.toolmap.crash.CrashReporter
+import fr.toolmap.data.tiles.TileOutcome
 import fr.toolmap.data.tracks.ItemKind
 import fr.toolmap.data.tracks.ItemRef
 import fr.toolmap.data.tracks.TrackSelection
@@ -207,6 +209,10 @@ import fr.toolmap.update.updateMenuSubtitle
 import fr.toolmap.waypoints.WaypointDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.ln
@@ -457,10 +463,22 @@ fun MapScreen(
         if (controller.isReady) controller.applyCanvas(appSettings.canvas)
     }
 
-    // The coverage overlay follows the base map (bottom layer) of the stack.
-    val coverageSource = if (coverage) state.stack.baseLayer(vm::isBase)?.sourceId else null
-    LaunchedEffect(controller.isReady, coverageSource) {
-        if (controller.isReady) controller.showCoverage(coverageSource)
+    // The coverage overlay follows, zoom by zoom, the base map drawn at that zoom.
+    val coverageSpans = if (coverage) CoverageSpans.of(state.stack, vm::isBase) else emptyList()
+    LaunchedEffect(controller.isReady, coverageSpans) {
+        if (!controller.isReady) return@LaunchedEffect
+        controller.showCoverage(coverageSpans)
+        if (coverageSpans.isEmpty()) return@LaunchedEffect
+        // A tile shown while the overlay is on is stored just after its coverage was asked, so it stayed red: the
+        // overlay is drawn again once the downloads pause.
+        vm.tileStats.state
+            .map { it.count(TileOutcome.NETWORK_OK) }
+            .distinctUntilChanged()
+            .drop(1)
+            .collectLatest {
+                delay(COVERAGE_REFRESH_DELAY_MS)
+                controller.showCoverage(coverageSpans)
+            }
     }
 
     // Tracks, routes and waypoints are data of two GeoJSON sources, refreshed whenever the library changes.
@@ -2371,6 +2389,9 @@ private const val TAP_REACH_DP = 24f
 
 /** The elevation of the map centre is looked up once the map has stood still this long (P20 panel). */
 private const val CENTER_ELEVATION_DELAY_MS = 300L
+
+/** Pause in the downloads after which the coverage overlay is drawn again (ADR-109). */
+private const val COVERAGE_REFRESH_DELAY_MS = 1_000L
 
 /** The one track, route or waypoint of a sheet, as the GPX writer takes it (« Partager », « Exporter »). */
 private fun ItemRef.selection(): TrackSelection =

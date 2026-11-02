@@ -15,6 +15,7 @@ import fr.toolmap.core.geo.ScaleBar
 import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.layers.AppliedLayer
 import fr.toolmap.core.layers.BandSwap
+import fr.toolmap.core.layers.CoverageSpan
 import fr.toolmap.core.layers.StyleDiff
 import fr.toolmap.core.layers.StyleOp
 import fr.toolmap.core.layers.StyleSources
@@ -119,7 +120,8 @@ class MapController(
                 applyLocationMode(followMode)
             }
         }
-    private var coverageSourceId: String? = null
+    private var coverage: List<CoverageSpan> = emptyList()
+    private var findSource: (String) -> TileSource? = { null }
     private var tracks: DisplayData? = null
     private var cursor: TrackPoint? = null
     private var edit: EditShown? = null
@@ -228,6 +230,7 @@ class MapController(
         mapping: ZoomMapping = ZoomMapping.STANDARD,
         find: (String) -> TileSource?,
     ) {
+        findSource = find
         val s = style ?: return
         val signatures =
             desired.map { it.sourceId }.distinct().associateWith { id ->
@@ -266,7 +269,7 @@ class MapController(
             applied = desired
             appliedSignatures = signatures
         }.onFailure { Log.e(TAG, "Layer rebuild failed", it) }
-        showCoverage(coverageSourceId)
+        showCoverage(coverage)
     }
 
     /**
@@ -612,12 +615,12 @@ class MapController(
         return ZoneShape.Rectangle(b.getLonWest(), b.getLatSouth(), b.getLonEast(), b.getLatNorth())
     }
 
-    /** Shows the stored coverage of the source [sourceId] over the map, or hides it when `null`. */
-    fun showCoverage(sourceId: String?) {
-        coverageSourceId = sourceId
+    /** Shows the stored coverage of the maps of [spans] over the map, or hides it when empty. */
+    fun showCoverage(spans: List<CoverageSpan>) {
+        coverage = spans
         val s = style ?: return
         runCatching {
-            StyleApplier.setCoverage(s, sourceId, mapping)
+            StyleApplier.setCoverage(s, spans, findSource, mapping, System.currentTimeMillis())
         }.onFailure { Log.e(TAG, "Coverage overlay failed", it) }
     }
 

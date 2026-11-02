@@ -2,7 +2,9 @@ package fr.toolmap.map
 
 import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.layers.AppliedLayer
+import fr.toolmap.core.layers.CoverageSpan
 import fr.toolmap.core.layers.LayerProps
+import fr.toolmap.core.layers.LayerZoom
 import fr.toolmap.core.layers.StyleOp
 import fr.toolmap.core.layers.StyleSources
 import fr.toolmap.core.source.TileSource
@@ -113,35 +115,48 @@ object StyleApplier {
             .forEach { style.removeLayer(it) }
         style.sources
             .map { it.id }
-            .filter { it != COVERAGE_SOURCE && !it.startsWith(OWN_PREFIX) && !it.startsWith(LOCATION_PREFIX) }
+            .filter { !it.startsWith(OWN_PREFIX) && !it.startsWith(LOCATION_PREFIX) }
             .forEach { style.removeSource(it) }
     }
 
     /**
-     * Shows the stored coverage of [sourceId] above everything else, or removes the overlay when `null`. Its tiles
-     * are declared like those of the maps ([mapping]) so that it shows the coverage of the zoom on screen.
+     * Shows the stored coverage of the maps of [spans] above everything else, each over its zoom range, or removes the
+     * overlay when [spans] is empty. Its tiles are declared like those of the maps ([mapping]) and stop at the map's
+     * last level, so that it shows the coverage of the tiles on screen, stretched like them beyond that level. A new
+     * [generation] makes MapLibre ask for every tile again instead of showing the ones in its cache.
      */
     fun setCoverage(
         style: Style,
-        sourceId: String?,
+        spans: List<CoverageSpan>,
+        find: (String) -> TileSource?,
         mapping: ZoomMapping = ZoomMapping.STANDARD,
+        generation: Long = 0,
     ) {
-        style.removeLayer(COVERAGE_LAYER)
-        style.removeSource(COVERAGE_SOURCE)
-        if (sourceId == null) return
-        val tileSet = TileSet(TILEJSON_VERSION, CoverageHost.templateFor(sourceId))
-        tileSet.setMinZoom(0f)
-        tileSet.setMaxZoom(COVERAGE_MAX_ZOOM)
-        style.addSource(RasterSource(COVERAGE_SOURCE, tileSet, mapping.declaredTileSize(COVERAGE_TILE_PIXELS)))
-        // After the anchor, so layers inserted later (below the anchor) stay under the overlay, and under the tracks.
-        val layer = RasterLayer(COVERAGE_LAYER, COVERAGE_SOURCE)
-        layer.setProperties(PropertyFactory.rasterOpacity(COVERAGE_OPACITY))
-        if (style.getLayer(TrackOverlay.CASING_LAYER) != null) {
-            style.addLayerBelow(layer, TrackOverlay.CASING_LAYER)
-        } else {
-            style.addLayer(layer)
+        style.layers.map { it.id }.filter { it.startsWith(COVERAGE_LAYER) }.forEach { style.removeLayer(it) }
+        style.sources.map { it.id }.filter { it.startsWith(COVERAGE_SOURCE) }.forEach { style.removeSource(it) }
+        for (sourceId in spans.map { it.sourceId }.distinct()) {
+            val tileSet = TileSet(TILEJSON_VERSION, CoverageHost.templateFor(sourceId, generation))
+            tileSet.setMinZoom(0f)
+            tileSet.setMaxZoom(find(sourceId)?.maxZoom?.toFloat() ?: COVERAGE_MAX_ZOOM)
+            style.addSource(
+                RasterSource(coverageSourceId(sourceId), tileSet, mapping.declaredTileSize(COVERAGE_TILE_PIXELS)),
+            )
+        }
+        spans.forEachIndexed { index, span ->
+            val layer = RasterLayer("$COVERAGE_LAYER-$index", coverageSourceId(span.sourceId))
+            layer.setProperties(PropertyFactory.rasterOpacity(COVERAGE_OPACITY))
+            val range = LayerZoom.cameraRange(span.displayMin, span.displayMax, mapping)
+            applyZoomRange(layer, LayerProps(minZoom = range.minZoom, maxZoom = range.maxZoom))
+            // After the anchor, so layers inserted later (below the anchor) stay under the overlay, and under the tracks.
+            if (style.getLayer(TrackOverlay.CASING_LAYER) != null) {
+                style.addLayerBelow(layer, TrackOverlay.CASING_LAYER)
+            } else {
+                style.addLayer(layer)
+            }
         }
     }
+
+    private fun coverageSourceId(sourceId: String) = "$COVERAGE_SOURCE-$sourceId"
 
     /**
      * Tile zoom range given to MapLibre for [source]: beyond the maximum MapLibre stretches the last level itself

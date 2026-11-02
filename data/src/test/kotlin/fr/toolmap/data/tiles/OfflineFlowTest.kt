@@ -111,16 +111,28 @@ class OfflineFlowTest {
             y: Int,
         ) = client.newCall(Request.Builder().url("https://${CoverageHost.HOST}/s/$z/$x/$y").build()).execute()
 
-        coverage(12, 100, 200).use {
-            assertEquals(200, it.code)
-            assertEquals("image/png", it.header("Content-Type"))
-            assertEquals("image/png", MbTilesFile.contentTypeOf(it.body!!.bytes()))
+        val full =
+            coverage(12, 100, 200).use {
+                assertEquals(200, it.code)
+                assertEquals("image/png", it.header("Content-Type"))
+                it.body!!.bytes().also { bytes -> assertEquals("image/png", MbTilesFile.contentTypeOf(bytes)) }
+            }
+        val partial = coverage(11, 50, 100).use { it.body!!.bytes() } // parent: partial
+        // The generation that keeps MapLibre from reusing its cached tiles changes nothing.
+        val template = CoverageHost.templateFor("s", generation = 7)
+        val url = template.replace("{z}", "12").replace("{x}", "100").replace("{y}", "200")
+        client.newCall(Request.Builder().url(url).build()).execute().use {
+            assertContentEquals(full, it.body!!.bytes())
         }
-        coverage(11, 50, 100).use { assertEquals(200, it.code) } // parent: partial
-        coverage(12, 101, 200).use { assertEquals(404, it.code) }
-        coverage(12, 100, 200).use { assertEquals(200, it.code) }
+        // Nothing stored: a tile of its own colour, so that what is missing shows too.
+        val missing =
+            coverage(12, 101, 200).use {
+                assertEquals(200, it.code)
+                it.body!!.bytes()
+            }
+        assertEquals(3, setOf(full.toList(), partial.toList(), missing.toList()).size)
         client.newCall(Request.Builder().url("https://${CoverageHost.HOST}/unknown/12/1/1").build()).execute().use {
-            assertEquals(404, it.code)
+            assertEquals(missing.toList(), it.body!!.bytes().toList())
         }
         client.newCall(Request.Builder().url("https://${CoverageHost.HOST}/s/12/99999/1").build()).execute().use {
             assertEquals(400, it.code)
