@@ -45,11 +45,13 @@
   - `./gradlew :core:test --tests 'fr.toolmap.core.update.*'` : BUILD SUCCESSFUL, `AppUpdateTest` 8 tests, 0 échec (nouveau : « an Android release of a work branch counts as much as the debug pre-release of main » : `android-0.4.145` choisie devant `debug-6fa0aec` (0.4.134), `ios-0.2.1` ignorée, proposée à 0.4.144, pas à 0.4.145).
   - Aperçu rendu par Chrome sans interface (`--headless=new --screenshot`, 1 200 et 390 px de large) : images chargées, lisible.
   - `./gradlew spotlessApply` seul (vert, rien changé), puis `./gradlew check assembleDebug` : **BUILD SUCCESSFUL** en 3 min 26 s (ktlint, lint, tests unitaires), 0.4.145 → **0.4.146**, `ToolMap-debug-0.4.146.apk` ; tests core 953, data 313, p2p 29 (2 ignorés), app 473 (74 ignorés), 0 échec. JDK d'Android Studio (`JAVA_HOME`).
+  - Push de 9953174 : run « CI » 41400875473 **vert** (job `build`), artefact `toolmap-debug-apk` 13121378054, release `android-0.4.146` publiée (« Latest », `ToolMap-debug-0.4.146.apk`, 87 360 074 octets) ; `android-0.4.145` gardée, plus anciennes effacées.
+  - **P31.7 de bout en bout** : release `android-0.4.146` installée par `adb install -r -g` par-dessus la 0.4.145 (même clé, données gardées ; seuil de stockage abaissé le temps de l'installation puis remis) ; menu « Plus » : « 0.4.146 · à jour, vérifiée à 7:45 AM » ; dialogue « Mises à jour » : « Version installée : 0.4.146 », « **Dernière version : 0.4.146 (2 Nov)** » (la 0.4.145 aurait encore lu 0.4.134). Préférence `installed_override` à 0.4.145 dans `shared_prefs/updates.xml` (`run-as`), relance : bandeau « ToolMap 0.4.146 disponible · Vous avez la 0.4.145 · 87 MB · Mettre à jour » ; pas touché (87 Mo sur un émulateur presque plein ; téléchargement et installation vus en session 80). Fichier de test effacé, relance : plus de bandeau ; `logcat -b crash` vide. **Conforme** ; P31.7 ✅.
 - **Problèmes / dette technique** :
   - Émulateur trop petit pour ces essais : 5,8 Go de stockage (92 Mo libres au plus bas pendant les essais, avant qu'Android ne libère de la place) et 2 Go de mémoire. Agrandir l'AVD (stockage interne et mémoire, Device Manager ▸ Edit) reste conseillé.
   - Après `pm uninstall -k`, Android garde la signature de l'ancien paquet : passer de la clé de debug à la clé de publication demande une désinstallation complète (données à copier avant, comme ici).
   - Dans ce flux d'impression, le clavier de l'émulateur s'ouvre en lettres pour les champs en mm (`KeyboardType.Decimal` est bien posé) : vu sur l'émulateur seulement.
-- **Prochaine étape recommandée** : choix de l'utilisateur sur `docs/previews/p17-format-sans-place.html`, puis le coder ; P31.7 vérifié de bout en bout avec la release suivante ; P31.5 et P30.3 écran éteint sur le téléphone.
+- **Prochaine étape recommandée** : choix de l'utilisateur sur `docs/previews/p17-format-sans-place.html`, puis le coder ; P31.5 et P30.3 écran éteint sur le téléphone.
 
 ---
 
