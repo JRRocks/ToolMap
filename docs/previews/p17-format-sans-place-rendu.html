@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rendu impression P17.10</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: one column of sections; each section a wrapping row of phone-sized figures, preview first, emulator after. */
+  :root {
+    --bg: #eef1f2; --ink: #1b2b33; --muted: #566770; --card: #ffffff; --line: #c9d3d8;
+    --head: #17394a; --primary: #163a4c; --chip: #d3eeee; --chip-ink: #0f4d4d;
+    --error: #c62828; --ok: #2e6b3a; --ok-bg: #e5f2e7;
+    --font: Roboto, "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12191c; --ink: #e3eaed; --muted: #9fb0b8; --card: #1d2629; --line: #34444b;
+      --head: #0e2834; --primary: #9fd3e3; --chip: #1f4a4a; --chip-ink: #c9f0f0;
+      --error: #ff8a80; --ok: #9ad1a5; --ok-bg: #1d3323; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12191c; --ink: #e3eaed; --muted: #9fb0b8; --card: #1d2629; --line: #34444b;
+    --head: #0e2834; --primary: #9fd3e3; --chip: #1f4a4a; --chip-ink: #c9f0f0;
+    --error: #ff8a80; --ok: #9ad1a5; --ok-bg: #1d3323; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font); }
+  main {
+    max-width: 1180px; margin: 0 auto; padding-block: 24px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  h1 { font-size: 23px; line-height: 1.25; margin: 0; text-wrap: balance; }
+  h2 { font-size: 19px; margin: 22px 0 0; text-wrap: balance; }
+  p { margin: 0; max-width: 68ch; }
+  .lead { color: var(--muted); }
+  .row { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+  figure { margin: 0; width: 300px; max-width: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .row.small figure { width: 160px; }
+  main > * { min-width: 0; }
+  figcaption { font-size: 14px; color: var(--muted); }
+  figcaption b { color: var(--ink); font-weight: 600; }
+  .coords { font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; font-weight: 700; font-size: 12px; letter-spacing: .03em; padding: 1px 8px; border-radius: 10px; margin-right: 6px; }
+  .tag.ok { background: var(--ok-bg); color: var(--ok); }
+  .tag.mock { background: var(--chip); color: var(--chip-ink); }
+  img.cap { width: 100%; max-width: 100%; border-radius: 14px; border: 1px solid var(--line); display: block; }
+  ul { margin: 0; padding-left: 20px; max-width: 72ch; display: flex; flex-direction: column; gap: 4px; }
+  /* The format panel of the validated preview, variant C, as drawn in docs/previews/p17-format-sans-place.html. */
+  .panel { background: var(--card); border-radius: 18px; overflow: hidden; border: 1px solid var(--line); }
+  .panel .head { background: var(--head); color: #fff; font-size: 18px; font-weight: 500; padding: 14px 16px; }
+  .panel .body { padding: 12px 14px 14px; }
+  .sheets { display: flex; gap: 6px; margin-bottom: 10px; }
+  .sheet { flex: 1; border: 1px solid var(--line); border-radius: 10px; text-align: center; padding: 8px 6px; font-size: 12px; color: var(--muted); }
+  .sheet b { display: block; font-size: 14px; color: var(--ink); }
+  .sheet.on { border: 2px solid #138a8a; background: var(--chip); }
+  .sheet.on b { color: var(--chip-ink); }
+  .fields { display: flex; gap: 8px; }
+  .field { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px 8px; position: relative; }
+  .field small { display: block; font-size: 11px; color: var(--muted); }
+  .field span { font-size: 17px; }
+  .field i { position: absolute; right: 10px; bottom: 9px; font-style: normal; color: var(--muted); }
+  .field.err { border: 2px solid var(--error); }
+  .field.err small { color: var(--error); }
+  .hint { font-size: 12px; color: var(--muted); margin: 4px 2px 10px; }
+  .hint.err { color: var(--error); }
+  .scales { display: flex; gap: 6px; margin-bottom: 10px; font-size: 13px; }
+  .scales span { border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+  .scales span.on { background: var(--chip); color: var(--chip-ink); border-color: transparent; }
+  .ground { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .ground b { font-size: 16px; color: var(--ink); font-weight: 500; }
+  .btns { display: flex; gap: 8px; margin-top: 8px; }
+  .btns span { flex: 1; text-align: center; border-radius: 22px; padding: 9px 0; font-weight: 500; }
+  .btns .out { border: 1px solid var(--primary); color: var(--primary); }
+  .btns .fill.off { background: var(--line); color: var(--muted); }
+  code { font-size: 13px; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Impression : les variantes C et P1 sur l'émulateur</h1>
+  <p class="lead">Aperçu <code>docs/previews/p17-format-sans-place.html</code> validé le 2 novembre 2026 (« 1 : C , 2 : P1 »). Rendu de la release <code>android-0.4.147</code> (commit aa970d4) sur l'émulateur Android 16, le même jour.</p>
+
+  <h2>1. Une feuille sans place pour la carte (Autre, 800 × 60 mm, 1:25 000)</h2>
+  <p>À 800 mm de large, le bandeau du bas prend 28,6 mm et les bords 2 × 16,6 mm : il faut 82 mm de hauteur pour garder 20 mm de carte.</p>
+  <div class="row">
+    <figure>
+      <div class="panel" role="img" aria-label="Aperçu validé, variante C : champ Hauteur en rouge, Hauteur : 82 mm au moins avec cette largeur, Sur le terrain tiret, Choisir la zone grisé"><div class="head">Imprimer à l'échelle</div><div class="body">
+        <div class="sheets"><div class="sheet"><b>A4</b>210 × 297</div><div class="sheet"><b>A3</b>297 × 420</div><div class="sheet on"><b>Autre</b>800 × 60</div></div>
+        <div class="fields"><div class="field"><small>Largeur</small><span>800</span><i>mm</i></div><div class="field err"><small>Hauteur</small><span>60</span><i>mm</i></div></div>
+        <div class="hint err">Hauteur : 82 mm au moins avec cette largeur</div>
+        <div class="scales"><span>1:20 000</span><span class="on">✓ 1:25 000</span><span>1:50 000</span></div>
+        <div class="ground">Sur le terrain <b>—</b></div>
+        <div class="btns"><span class="out">Annuler</span><span class="fill off">Choisir la zone</span></div>
+      </div></div>
+      <figcaption><span class="tag mock">Aperçu C</span><b>Validé</b> : champ fautif en rouge, son minimum à la place de « 50 mm au moins », taille au sol « — », bouton grisé.</figcaption>
+    </figure>
+    <figure>
+      <img class="cap" src="p17-format-sans-place/rendu-c-800x60.jpg" alt="Émulateur, 800 × 60 mm : champ Hauteur en rouge, Hauteur : 82 mm au moins avec cette largeur, Sur le terrain tiret, Choisir la zone grisé">
+      <figcaption><span class="tag ok">Émulateur</span><b>800 × 60 mm</b> : conforme à l'aperçu.</figcaption>
+    </figure>
+    <figure>
+      <img class="cap" src="p17-format-sans-place/rendu-c-800x82.jpg" alt="Émulateur, 800 × 82 mm : 50 mm au moins, pas de maximum ; Sur le terrain 19.2 km × 0.5 km ; Choisir la zone actif">
+      <figcaption><span class="tag ok">Émulateur</span><b>82 mm saisis</b> : le message habituel revient, « 19.2 km × 0.5 km », le bouton redevient actif.</figcaption>
+    </figure>
+    <figure>
+      <img class="cap" src="p17-format-sans-place/rendu-c-50x82.jpg" alt="Émulateur, 50 × 82 mm : les deux champs en rouge, Largeur : 54 mm au moins, Hauteur : 156 mm au moins avec cette largeur">
+      <figcaption><span class="tag ok">Émulateur</span><b>50 × 82 mm</b> : la même règle sur la largeur, une ligne par côté trop court. Cas absent de l'aperçu.</figcaption>
+    </figure>
+  </div>
+
+  <h2>2. « Annuler » remet la carte où elle était</h2>
+  <p>Carte de départ tournée de 40°, au 1:37 155. Les captures 1, 3 et 5 sont identiques à l'octet près : centre, zoom et orientation reviennent exactement.</p>
+  <div class="row small">
+    <figure><img class="cap" src="p17-format-sans-place/rendu-p1-avant.jpg" alt="Carte avant Imprimer : 45.11500, 5.87700, 1:37 155, carte tournée"><figcaption><b>1. Avant « Imprimer »</b><br><span class="coords">45.11500, 5.87700 · 1:37 155</span></figcaption></figure>
+    <figure><img class="cap" src="p17-format-sans-place/rendu-p1-feuille.jpg" alt="Choix de la feuille : carte au nord, cadre A4 paysage au 1:25 000 au-dessus du panneau"><figcaption><b>2. Choix de la feuille</b><br>carte au nord, cadre A4 au 1:25 000</figcaption></figure>
+    <figure><img class="cap" src="p17-format-sans-place/rendu-p1-apres-feuille.jpg" alt="Après Annuler : 45.11500, 5.87700, 1:37 155, carte tournée"><figcaption><span class="tag ok">Conforme</span><b>3. « Annuler »</b><br><span class="coords">45.11500, 5.87700 · 1:37 155</span></figcaption></figure>
+    <figure><img class="cap" src="p17-format-sans-place/rendu-p1-cadre.jpg" alt="Cadre posé sur la carte et glissé vers le haut"><figcaption><b>4. Cadre glissé</b><br>« Choisir la zone », puis un glissé</figcaption></figure>
+    <figure><img class="cap" src="p17-format-sans-place/rendu-p1-apres-cadre.jpg" alt="Après Annuler sur le cadre : 45.11500, 5.87700, 1:37 155, carte tournée"><figcaption><span class="tag ok">Conforme</span><b>5. « Annuler » du cadre</b><br><span class="coords">45.11500, 5.87700 · 1:37 155</span></figcaption></figure>
+  </div>
+  <ul>
+    <li>Le ✕ de la confirmation laisse la carte sur la zone (<span class="coords">44.94025 · 1:311 117</span> dans l'essai), comme le prévoit P1. Retour arrière et « Fermer » après un PDF font de même.</li>
+    <li>Le même « Annuler » vaut pour l'impression le long d'une trace (test JVM ; pas refait sur l'émulateur).</li>
+  </ul>
+</main>
+</body>
+</html>
