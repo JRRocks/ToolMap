@@ -46,6 +46,7 @@
   <string name="cond_at_until">jusqu\'au zoom %1$d</string>
   <string name="cond_at_single">au zoom %1$d</string>
   <string name="cond_at_between">aux zooms %1$d à %2$d</string>
+  <string name="cond_line_zoom_all">tous les zooms</string>
   <string name="cond_line_zoom_from">à partir du zoom %1$d</string>
   <string name="cond_line_zoom_until">jusqu\'au zoom %1$d</string>
   <string name="cond_line_zoom_single">zoom %1$d</string>
@@ -2130,6 +2131,27 @@
   <string name="maps_favorite_deleted">Favori supprimé : %1$s</string>
   <string name="maps_favorite_restore_short">Rétablir (%1$d)</string>
   <string name="maps_save_hint_button">Enregistrer comme favori…</string>
+  <!-- « Enregistrer sur un favori », variant B · Deux boutons (P25.9, ADR-108) -->
+  <string name="maps_band_modified">%1$s (modifié)</string>
+  <string name="maps_favorite_modified_state">modifié</string>
+  <string name="maps_favorite_update">Mettre à jour</string>
+  <string name="maps_favorite_new_short">Nouveau…</string>
+  <string name="maps_favorite_update_title">Mettre à jour « %1$s » ?</string>
+  <string name="maps_favorite_updated">Favori mis à jour : %1$s</string>
+  <string name="maps_favorite_restore_original">Rétablir l\'original</string>
+  <string name="maps_layer_line_opacity_was">Opacité %1$d %% (%2$d %% dans le favori)</string>
+  <string name="maps_layer_line_zoom_was">%1$s (%2$s dans le favori)</string>
+  <string name="maps_layer_line_new">%1$s · absente du favori</string>
+  <string name="fav_change_line">%1$s : %2$s</string>
+  <string name="fav_change_opacity">%1$d %% → %2$d %%</string>
+  <string name="fav_change_zoom">%1$s → %2$s</string>
+  <string name="fav_change_shown">affichée</string>
+  <string name="fav_change_hidden">masquée</string>
+  <string name="fav_change_elevation">altitudes changées</string>
+  <string name="fav_change_colours">couleurs changées</string>
+  <string name="fav_change_added">ajoutée</string>
+  <string name="fav_change_removed">retirée</string>
+  <string name="fav_change_order">Ordre des cartes changé</string>
   <string name="cond_short_zoom_all">tous</string>
   <string name="cond_short_zoom_from">dès %1$d</string>
   <string name="cond_short_zoom_until">jusqu\'à %1$d</string>

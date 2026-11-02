@@ -278,6 +278,20 @@ fun zoomRangeText(
         else -> stringResource(R.string.layers_display_between, min, max)
     }
 
+/** "zooms 8 à 16": the zoom range inside a line (`null` = unbounded on that side). */
+@Composable
+internal fun zoomLineText(
+    min: Int?,
+    max: Int?,
+): String =
+    when {
+        min == null && max == null -> stringResource(R.string.cond_line_zoom_all)
+        max == null -> stringResource(R.string.cond_line_zoom_from, min ?: 0)
+        min == null -> stringResource(R.string.cond_line_zoom_until, max)
+        min == max -> stringResource(R.string.cond_line_zoom_single, min)
+        else -> stringResource(R.string.cond_line_zoom_between, min, max)
+    }
+
 /** "Zooms 8 à 16": the zoom range as the panel says it. */
 @Composable
 private fun zoomSummary(
@@ -360,15 +374,7 @@ fun conditionsLineText(layer: LayerConfig): String? {
     if (!layer.hasElevationRange) return null
     val band = bandSummary(layer.displayMinElevation, layer.displayMaxElevation)
     if (!layer.hasZoomRange) return band
-    val min = layer.displayMinZoom
-    val max = layer.displayMaxZoom
-    val zooms =
-        when {
-            max == null -> stringResource(R.string.cond_line_zoom_from, min ?: 0)
-            min == null -> stringResource(R.string.cond_line_zoom_until, max)
-            min == max -> stringResource(R.string.cond_line_zoom_single, min)
-            else -> stringResource(R.string.cond_line_zoom_between, min, max)
-        }
+    val zooms = zoomLineText(layer.displayMinZoom, layer.displayMaxZoom)
     return if (layer.rangeLogic ==
         RangeLogic.OR
     ) {

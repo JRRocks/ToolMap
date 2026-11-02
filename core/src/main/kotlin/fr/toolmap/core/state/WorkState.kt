@@ -21,6 +21,11 @@ data class WorkState(
     /** Most recent first, at most two entries. */
     val recentBases: List<String> = listOf("osm"),
     val offline: Boolean = false,
+    /**
+     * Id of the favorite last applied or saved, the one « Mettre à jour » replaces (P25.8, ADR-108); forgotten when
+     * the stack is emptied.
+     */
+    val favorite: String? = null,
 ) {
     /** Remembers [sourceId] as the base map in use (keeps the two latest distinct ones). */
     fun withBaseUsed(sourceId: String): WorkState =
@@ -29,7 +34,10 @@ data class WorkState(
     /** Base map to switch to with the quick-swap button: the previous one, if there is one. */
     fun swapTarget(): String? = recentBases.getOrNull(1)
 
-    fun withStack(stack: LayerStack): WorkState = copy(stack = stack)
+    fun withStack(stack: LayerStack): WorkState = copy(stack = stack, favorite = favorite.takeUnless { stack.isEmpty })
+
+    /** Remembers [id] as the favorite the stack comes from (none while the stack is empty). */
+    fun withFavorite(id: String?): WorkState = copy(favorite = id.takeUnless { stack.isEmpty })
 
     fun withCamera(camera: CameraState): WorkState = copy(camera = camera)
 }

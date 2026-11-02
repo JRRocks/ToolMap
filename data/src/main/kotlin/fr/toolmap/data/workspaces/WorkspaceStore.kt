@@ -1,6 +1,7 @@
 package fr.toolmap.data.workspaces
 
 import fr.toolmap.core.backup.BackupPaths
+import fr.toolmap.core.layers.Favorites
 import fr.toolmap.core.layers.Workspace
 import fr.toolmap.core.layers.WorkspaceCodec
 import fr.toolmap.core.layers.Workspaces
@@ -12,28 +13,42 @@ import java.util.UUID
 
 /**
  * The workspaces the user saved, one JSON file each (`<dir>/<id>.json`, replaced atomically). The built-in
- * presets live in code (`Workspaces.builtin`) and are not stored; the ones the user deleted are listed in
+ * presets live in code (`Workspaces.builtin`); the user's version of one is a file under the built-in id, which takes
+ * its place until « Rétablir l'original » (ADR-108). The ones the user deleted are listed in
  * `<dir>/hidden-builtins.txt`. A damaged file is ignored, never fatal.
  */
 class WorkspaceStore(
     private val dir: File,
 ) {
-    private val state = MutableStateFlow(load())
-    private val hidden = MutableStateFlow(loadHidden())
-    private val favoritesState = MutableStateFlow(favoritesOf(hidden.value, state.value))
+    private val loaded = load()
+    private val state = MutableStateFlow(loaded.filterNot { it.isBuiltin })
 
-    /** Saved workspaces, oldest first. */
+    // The user's versions of the built-in presets; a file of a preset no longer shipped is ignored.
+    private val overrides =
+        MutableStateFlow(loaded.filter { Favorites.original(it.id) != null }.associateBy { it.id })
+    private val hidden = MutableStateFlow(loadHidden())
+    private val favoritesState = MutableStateFlow(Favorites.list(hidden.value, overrides.value, state.value))
+
+    /** Saved workspaces, oldest first (the user's versions of built-in presets are in [favorites] only). */
     val workspaces: StateFlow<List<Workspace>> = state.asStateFlow()
 
     /** Ids of the built-in presets the user deleted. */
     val hiddenBuiltins: StateFlow<Set<String>> = hidden.asStateFlow()
 
-    /** What the favorites list shows: the built-in presets not deleted, then the saved workspaces. */
+    /**
+     * What the favorites list shows: the built-in presets not deleted (the user's version of each when there is one),
+     * then the saved workspaces.
+     */
     val favorites: StateFlow<List<Workspace>> = favoritesState.asStateFlow()
 
-    /** Saves [stackAsWorkspace] under a fresh id (or replaces the saved workspace with the same id). */
+    /**
+     * Saves [workspace]: a new one, or in place of the one with the same id. A built-in preset is stored as the user's
+     * version of it; saved as shipped, it is the original again.
+     */
     fun save(workspace: Workspace) {
-        require(!workspace.isBuiltin) { "Built-in presets cannot be overwritten" }
+        val original = Favorites.original(workspace.id)
+        require(!workspace.isBuiltin || original != null) { "Unknown built-in preset ${workspace.id}" }
+        if (workspace == original) return restoreOriginal(workspace.id)
         dir.mkdirs()
         val target = fileFor(workspace.id)
         val temp = File(dir, target.name + ".tmp")
@@ -42,7 +57,19 @@ class WorkspaceStore(
             target.delete()
             check(temp.renameTo(target)) { "Cannot write ${target.name}" }
         }
-        state.value = state.value.filterNot { it.id == workspace.id } + workspace
+        if (original != null) {
+            overrides.value += workspace.id to workspace
+        } else {
+            state.value = state.value.filterNot { it.id == workspace.id } + workspace
+        }
+        refresh()
+    }
+
+    /** Puts back the built-in preset [id] as shipped, forgetting the user's version of it (ADR-108). */
+    fun restoreOriginal(id: String) {
+        if (Favorites.original(id) == null) return
+        fileFor(id).delete()
+        overrides.value -= id
         refresh()
     }
 
@@ -70,7 +97,7 @@ class WorkspaceStore(
     }
 
     private fun refresh() {
-        favoritesState.value = favoritesOf(hidden.value, state.value)
+        favoritesState.value = Favorites.list(hidden.value, overrides.value, state.value)
     }
 
     private fun writeHidden(ids: Set<String>) {
@@ -99,7 +126,6 @@ class WorkspaceStore(
             .mapNotNull { file ->
                 runCatching { file.readText(Charsets.UTF_8) }.getOrNull()?.let(WorkspaceCodec::decodeOrNull)
             }
-            .filterNot { it.isBuiltin }
 
     private fun fileFor(id: String): File =
         File(
@@ -113,11 +139,6 @@ class WorkspaceStore(
 
         // Part of the backup's `workspaces` area (BackupPaths), so that deleted built-ins stay deleted after a restore.
         private const val HIDDEN_FILE = BackupPaths.HIDDEN_BUILTINS_FILE
-
-        private fun favoritesOf(
-            hidden: Set<String>,
-            saved: List<Workspace>,
-        ): List<Workspace> = Workspaces.builtin.filterNot { it.id in hidden } + saved
 
         /** An id for a workspace the user is saving now. */
         fun newId(): String = "ws-${UUID.randomUUID()}"

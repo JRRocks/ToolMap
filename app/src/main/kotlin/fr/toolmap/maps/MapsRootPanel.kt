@@ -23,7 +23,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +44,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.inset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -49,13 +58,19 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
+import fr.toolmap.core.layers.FavoriteChange
+import fr.toolmap.core.layers.FavoriteChanges
+import fr.toolmap.core.layers.Favorites
+import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.layers.LayerElevation
+import fr.toolmap.core.layers.LayerField
 import fr.toolmap.core.layers.Workspace
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.state.WorkState
@@ -68,6 +83,7 @@ import fr.toolmap.map.PanelCaption
 import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.DropdownMenu
+import fr.toolmap.ui.theme.FilledTonalButton
 import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
@@ -85,6 +101,8 @@ class MapsRootActions(
     val onFavoriteDeleted: (Workspace) -> Unit = {},
     /** The « Partager » icon of the band: « Partager des favoris », the favourite applied ticked (P25.2). */
     val onShareFavorites: (applied: String?) -> Unit = {},
+    /** A favourite was just updated: the screen offers « Annuler », which puts back [previous] (P25.9). */
+    val onFavoriteUpdated: (previous: Workspace) -> Unit = {},
 )
 
 /*
@@ -113,9 +131,13 @@ fun MapsRootPanel(
     val sources by maps.sources.collectAsStateWithLifecycle()
     val expanded by maps.expandedLayer.collectAsStateWithLifecycle()
     var showSave by remember { mutableStateOf(false) }
+    var showUpdate by remember { mutableStateOf(false) }
     val byId = remember(sources) { sources.associateBy { it.id } }
     val layers = state.stack.topToBottom()
-    val applied = favorites.firstOrNull { it.matches(state.stack) }
+    val applied = Favorites.applied(favorites, state.favorite, state.stack)
+    // The favourite the stack came from, changed since: « Mettre à jour » replaces it (P25.9, variant B).
+    val modified = Favorites.modified(favorites, state.favorite, state.stack)
+    val changes = remember(modified, state.stack) { modified?.let { FavoriteChanges.of(it, state.stack) }.orEmpty() }
     val drawn = layers.count { it.visible && it.opacity > 0f && LayerElevation.isDrawnAt(it, currentZoom) }
     val fade = rememberPanelFade()
 
@@ -126,7 +148,7 @@ fun MapsRootPanel(
         header = {
             Box(Modifier.alpha(fade.shown)) {
                 MapsBand(
-                    favorite = applied?.name,
+                    favorite = applied?.name ?: modified?.let { stringResource(R.string.maps_band_modified, it.name) },
                     single = layers.singleOrNull()?.let { byId[it.sourceId]?.name },
                     count = layers.size,
                     drawn = drawn,
@@ -142,6 +164,7 @@ fun MapsRootPanel(
             FavoriteChips(
                 favorites = favorites,
                 applied = applied,
+                modified = modified,
                 hiddenBuiltins = hiddenBuiltins.size,
                 byId = byId,
                 thumbnails = maps.thumbnails,
@@ -150,6 +173,7 @@ fun MapsRootPanel(
                     vm.deleteWorkspace(favorite.id)
                     actions.onFavoriteDeleted(favorite)
                 },
+                onRestoreOriginal = { vm.restoreOriginalWorkspace(it.id) },
                 onRestore = vm::restoreBuiltinWorkspaces,
             )
             PanelCaption(stringResource(R.string.maps_stack_caption))
@@ -171,9 +195,20 @@ fun MapsRootPanel(
             expanded = expanded,
             onExpand = maps::setExpanded,
             fade = fade,
+            changes =
+                changes
+                    .mapNotNull { change ->
+                        when (change) {
+                            is FavoriteChange.Changed -> change.layerId to change
+                            is FavoriteChange.Added -> change.layerId to change
+                            else -> null
+                        }
+                    }.toMap(),
         )
         Column(Modifier.alpha(fade.shown)) {
-            if (layers.isNotEmpty() && applied == null) {
+            if (layers.isNotEmpty() && modified != null) {
+                UpdateButtons(onUpdate = { showUpdate = true }, onNew = { showSave = true })
+            } else if (layers.isNotEmpty() && applied == null) {
                 // The stack matches no favourite: the way to keep it, next to it.
                 TextButton(onClick = { showSave = true }, modifier = Modifier.padding(start = 8.dp)) {
                     Icon(MapsIcons.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -199,7 +234,158 @@ fun MapsRootPanel(
             onDismiss = { showSave = false },
         )
     }
+    if (showUpdate && modified != null) {
+        UpdateFavoriteDialog(
+            name = modified.name,
+            lines = changeLines(changes, state.stack.layers.associateBy { it.id }, byId),
+            onConfirm = {
+                vm.updateFavorite(modified)
+                actions.onFavoriteUpdated(modified)
+                showUpdate = false
+            },
+            onDismiss = { showUpdate = false },
+        )
+    }
 }
+
+/**
+ * Under the stack changed from a favourite (P25.9, variant B): « Mettre à jour » (tonal, the free width), which asks
+ * first, and « Nouveau… », the « Nouveau favori » dialog of before.
+ */
+@Composable
+private fun UpdateButtons(
+    onUpdate: () -> Unit,
+    onNew: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().padding(start = PANEL_INSET, end = PANEL_INSET, top = 8.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilledTonalButton(
+            onClick = onUpdate,
+            shape = CircleShape,
+            colors =
+                ButtonDefaults.filledTonalButtonColors(
+                    containerColor = scheme.primaryContainer,
+                    contentColor = scheme.onPrimaryContainer,
+                ),
+            modifier = Modifier.weight(1f).height(40.dp),
+        ) {
+            Icon(MapsIcons.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(
+                stringResource(R.string.maps_favorite_update),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+        TextButton(onClick = onNew, shape = CircleShape) {
+            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(stringResource(R.string.maps_favorite_new_short), modifier = Modifier.padding(start = 8.dp))
+        }
+    }
+}
+
+/** « Mettre à jour « Rando été » ? » and what changes, one line per map, nothing else (validated 2026-11-02). */
+@Composable
+private fun UpdateFavoriteDialog(
+    name: String,
+    lines: List<String>,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        // The name holds on one line, as « Rando été » in the preview.
+        title = { Text(stringResource(R.string.maps_favorite_update_title, name.replace(' ', NBSP))) },
+        text = { Text(lines.joinToString("\n")) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.maps_favorite_update)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+/** One line per change, as the dialog says them: « IGN Pentes : 31 % → 50 % ». */
+@Composable
+internal fun changeLines(
+    changes: List<FavoriteChange>,
+    layers: Map<String, LayerConfig>,
+    byId: Map<String, TileSource>,
+): List<String> {
+    fun nameOf(sourceId: String) = byId[sourceId]?.name ?: sourceId
+    return changes.map { change ->
+        when (change) {
+            is FavoriteChange.Changed -> {
+                val now = layers[change.layerId]
+                val was = change.was
+                val what =
+                    change.fields.sorted().map { field ->
+                        when (field) {
+                            LayerField.VISIBILITY -> {
+                                stringResource(
+                                    if (now?.visible ==
+                                        false
+                                    ) {
+                                        R.string.fav_change_hidden
+                                    } else {
+                                        R.string.fav_change_shown
+                                    },
+                                )
+                            }
+
+                            LayerField.OPACITY -> {
+                                stringResource(
+                                    R.string.fav_change_opacity,
+                                    percentOf(was.opacity),
+                                    percentOf(now?.opacity ?: was.opacity),
+                                )
+                            }
+
+                            LayerField.ZOOM -> {
+                                stringResource(
+                                    R.string.fav_change_zoom,
+                                    zoomLineText(was.displayMinZoom, was.displayMaxZoom),
+                                    zoomLineText(now?.displayMinZoom, now?.displayMaxZoom),
+                                )
+                            }
+
+                            LayerField.ELEVATION -> {
+                                stringResource(R.string.fav_change_elevation)
+                            }
+
+                            LayerField.COLOURS -> {
+                                stringResource(R.string.fav_change_colours)
+                            }
+                        }
+                    }
+                stringResource(R.string.fav_change_line, nameOf(change.sourceId), what.joinToString(", "))
+            }
+
+            is FavoriteChange.Added -> {
+                stringResource(
+                    R.string.fav_change_line,
+                    nameOf(change.sourceId),
+                    stringResource(R.string.fav_change_added),
+                )
+            }
+
+            is FavoriteChange.Removed -> {
+                stringResource(
+                    R.string.fav_change_line,
+                    nameOf(change.was.sourceId),
+                    stringResource(R.string.fav_change_removed),
+                )
+            }
+
+            FavoriteChange.Reordered -> {
+                stringResource(R.string.fav_change_order)
+            }
+        }
+    }
+}
+
+private const val NBSP = ' '
 
 /**
  * The band of the panel: its title, then what is shown (the favourite applied, else the only map, with the number of
@@ -245,19 +431,22 @@ private fun MapsBand(
 }
 
 /**
- * The favourites as chips: the round picture of the top base map of each, its name; the one applied is filled. A tap
- * applies it (the panel stays open); a long press offers « Appliquer » and « Supprimer ». « Rétablir (n) » last brings
- * back the provided ones deleted.
+ * The favourites as chips: the round picture of the top base map of each, its name; the one applied is filled, the
+ * one the stack came from and changed since is dashed with a dot (P25.9). A tap applies it (the panel stays open); a
+ * long press offers « Appliquer », « Rétablir l'original » for a provided one the user updated, and « Supprimer ».
+ * « Rétablir (n) » last brings back the provided ones deleted.
  */
 @Composable
 private fun FavoriteChips(
     favorites: List<Workspace>,
     applied: Workspace?,
+    modified: Workspace?,
     hiddenBuiltins: Int,
     byId: Map<String, TileSource>,
     thumbnails: MapThumbnails,
     onApply: (Workspace) -> Unit,
     onDelete: (Workspace) -> Unit,
+    onRestoreOriginal: (Workspace) -> Unit,
     onRestore: () -> Unit,
 ) {
     LazyRow(
@@ -271,11 +460,13 @@ private fun FavoriteChips(
             FavoriteChip(
                 favorite = favorite,
                 selected = favorite.id == applied?.id,
+                modified = favorite.id == modified?.id,
                 cover = cover,
                 coverName = cover?.let { byId[it]?.name } ?: favorite.name,
                 thumbnails = thumbnails,
                 onApply = { onApply(favorite) },
                 onDelete = { onDelete(favorite) },
+                onRestoreOriginal = { onRestoreOriginal(favorite) }.takeIf { Favorites.isOverridden(favorite) },
             )
         }
         if (hiddenBuiltins > 0) {
@@ -308,17 +499,20 @@ internal fun coverOf(
 private fun FavoriteChip(
     favorite: Workspace,
     selected: Boolean,
+    modified: Boolean,
     cover: String?,
     coverName: String,
     thumbnails: MapThumbnails,
     onApply: () -> Unit,
     onDelete: () -> Unit,
+    onRestoreOriginal: (() -> Unit)?,
 ) {
     var menu by remember { mutableStateOf(false) }
     Box {
-        ChipFrame(selected = selected, onClick = onApply, onLongClick = { menu = true }) {
+        ChipFrame(selected = selected, modified = modified, onClick = onApply, onLongClick = { menu = true }) {
             MapThumbnail(cover.orEmpty(), coverName, thumbnails, size = 24.dp, shape = CircleShape)
             Text(favorite.name, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+            if (modified) Box(Modifier.size(8.dp).background(MaterialTheme.toolMap.accent, CircleShape))
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
@@ -328,6 +522,15 @@ private fun FavoriteChip(
                     onApply()
                 },
             )
+            if (onRestoreOriginal != null) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.maps_favorite_restore_original)) },
+                    onClick = {
+                        menu = false
+                        onRestoreOriginal()
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.layers_remove)) },
                 onClick = {
@@ -339,27 +542,37 @@ private fun FavoriteChip(
     }
 }
 
-/** A chip of 32 dp (a 48 dp touch target): filled with the secondary container when selected, outlined otherwise. */
+/**
+ * A chip of 32 dp (a 48 dp touch target): filled with the secondary container when selected, outlined otherwise;
+ * [modified] (P25.9): dashed in the accent colour, 1.5 dp.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ChipFrame(
     selected: Boolean,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
+    modified: Boolean = false,
     content: @Composable RowScope.() -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val shape = MaterialTheme.shapes.small
+    val accent = MaterialTheme.toolMap.accent
+    val modifiedState = stringResource(R.string.maps_favorite_modified_state)
     Surface(
-        shape = MaterialTheme.shapes.small,
+        shape = shape,
         color = if (selected) scheme.secondaryContainer else MaterialTheme.toolMap.panel,
         contentColor = if (selected) scheme.onSecondaryContainer else scheme.onSurface,
-        border = if (selected) null else BorderStroke(1.dp, scheme.outline),
+        border = if (selected || modified) null else BorderStroke(1.dp, scheme.outline),
         modifier =
             Modifier
                 .minimumInteractiveComponentSize()
                 .height(32.dp)
-                .semantics { this.selected = selected }
-                .clip(MaterialTheme.shapes.small)
+                .semantics {
+                    this.selected = selected
+                    if (modified) stateDescription = modifiedState
+                }.then(if (modified) Modifier.dashedBorder(1.5.dp, accent, shape) else Modifier)
+                .clip(shape)
                 .combinedClickable(
                     onClick = onClick,
                     onLongClick = onLongClick,
@@ -371,6 +584,23 @@ private fun ChipFrame(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             content = content,
+        )
+    }
+}
+
+/** A dashed outline of [width] inside the bounds, over the content (the chip of a modified favourite). */
+private fun Modifier.dashedBorder(
+    width: Dp,
+    color: Color,
+    shape: Shape,
+) = drawWithContent {
+    drawContent()
+    val stroke = width.toPx()
+    inset(stroke / 2) {
+        drawOutline(
+            shape.createOutline(size, layoutDirection, this),
+            color,
+            style = Stroke(stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))),
         )
     }
 }

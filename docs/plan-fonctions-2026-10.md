@@ -168,6 +168,9 @@ export AQX d'une carte avec clés retirées (`SourceRepository.export`) ; appui 
 | P25.4 | ⬜ | Envoi au groupe (après P27) : trame chiffrée (au-delà de 4096 octets : compression ou découpage), « Ajouter » | `MeshNodeTest` ; deux émulateurs |
 | P25.5 | ⬜ | « Renommer » un favori (décision du 2026-10-24) : absent de l'aperçu validé, aperçu à faire avant le code | Aperçu validé ; émulateur : favori renommé |
 | P25.6 | ✅ | Favoris fournis mis aux réglages de l'utilisateur, noms compris (demande du 2026-11-02, son export `.toolmap`) : « Rando été » et « Rando Hiver », ids gardés (ADR-107) | `WorkspaceTest`, `BuiltinSourcesTest` ; émulateur : les deux puces renommées dans Cartes et calques |
+| P25.7 | ✅ | Aperçu « Enregistrer sur un favori » (demande du 2026-11-02 : changer un favori appliqué et l'écraser). **Validé le 2026-11-02 : variante B · Deux boutons**, dialogue de confirmation raccourci (« Plus court, retire "L'original fourni reste disponible" ») : `docs/previews/p25-enregistrer-favori.html` | Validation explicite, date au journal |
+| P25.8 | ✅ | `:core` et `:data` : favori d'origine dans `WorkState` (oublié quand la pile est vidée), écarts favori / pile (`FavoriteChanges`), favori appliqué et modifié (`Favorites`), mise à jour sur place, version de l'utilisateur d'un favori fourni et « Rétablir l'original » (`WorkspaceStore`) ; ADR-108 | `FavoriteChangesTest` (8), `WorkStateTest`, `WorkspaceStoreTest`, `FavoritesFileTest` (favori fourni mis à jour partagé sous son nom), `BackupModelTest` |
+| P25.9 | ✅ | Panneau Cartes et calques, variante B : puce tiretée avec point, « (modifié) » dans le bandeau, ligne d'état d'un calque changé en couleur d'accent, boutons « Mettre à jour » et « + Nouveau… », dialogue « Mettre à jour « … » ? » (une ligne par carte changée), snackbar avec « Annuler », « Rétablir l'original » à l'appui long | `MapsRootPanelTest` ; émulateur : panneau modifié, dialogue, après, captures à côté de l'aperçu |
 
 ---
 

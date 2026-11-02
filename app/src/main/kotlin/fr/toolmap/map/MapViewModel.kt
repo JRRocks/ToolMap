@@ -209,7 +209,7 @@ class MapViewModel
                     repository.find(id)?.isSupported == true && !MapCatalog.isHidden(id, hidden, repository::isImported)
                 }
             mutableState.update { current ->
-                val next = current.withStack(applied.stack)
+                val next = current.withStack(applied.stack).withFavorite(workspace.id)
                 applied.stack.baseLayer(::isBase)?.let { next.withBaseUsed(it.sourceId) } ?: next
             }
             mutableMessages.tryEmit(UiMessage(R.string.workspace_applied, listOf(workspace.name)))
@@ -218,13 +218,36 @@ class MapViewModel
             }
         }
 
-        /** Saves the current layer stack, with its zoom ranges, as a workspace called [name]. */
+        /**
+         * Saves the current layer stack, with its zoom ranges, as a new workspace called [name]: the favorite the stack
+         * now comes from.
+         */
         fun saveWorkspace(name: String) {
             if (name.isBlank()) return
-            viewModelScope.launch(Dispatchers.IO) {
-                workspaceStore.save(Workspace.of(WorkspaceStore.newId(), name.trim(), mutableState.value.stack))
-            }
-            mutableMessages.tryEmit(UiMessage(R.string.workspace_saved, listOf(name.trim())))
+            val workspace = Workspace.of(WorkspaceStore.newId(), name.trim(), mutableState.value.stack)
+            viewModelScope.launch(Dispatchers.IO) { workspaceStore.save(workspace) }
+            mutableState.update { it.withFavorite(workspace.id) }
+            mutableMessages.tryEmit(UiMessage(R.string.workspace_saved, listOf(workspace.name)))
+        }
+
+        /**
+         * « Mettre à jour »: [favorite] takes the current stack, under its id and name (P25.9, ADR-108); a built-in
+         * one becomes the user's version of it.
+         */
+        fun updateFavorite(favorite: Workspace) {
+            val updated = Workspace.of(favorite.id, favorite.name, mutableState.value.stack)
+            viewModelScope.launch(Dispatchers.IO) { workspaceStore.save(updated) }
+            mutableState.update { it.withFavorite(favorite.id) }
+        }
+
+        /** Puts back [previous], the version of a favourite before « Mettre à jour »: « Annuler » of the snackbar. */
+        fun revertFavorite(previous: Workspace) {
+            viewModelScope.launch(Dispatchers.IO) { workspaceStore.save(previous) }
+        }
+
+        /** « Rétablir l'original » of a built-in favourite the user updated (ADR-108). */
+        fun restoreOriginalWorkspace(id: String) {
+            viewModelScope.launch(Dispatchers.IO) { workspaceStore.restoreOriginal(id) }
         }
 
         fun deleteWorkspace(id: String) {

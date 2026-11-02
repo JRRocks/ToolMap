@@ -29,6 +29,8 @@ class BackupModelTest {
         assertEquals(BackupArea.WORKSPACES, BackupPaths.areaOf("workspaces/ws-1.json"))
         // The deleted built-in favorites: without it, a restore brought them back (ADR-052).
         assertEquals(BackupArea.WORKSPACES, BackupPaths.areaOf("workspaces/hidden-builtins.txt"))
+        // The user's version of a built-in favorite (ADR-108) travels with the others.
+        assertEquals(BackupArea.WORKSPACES, BackupPaths.areaOf("workspaces/builtin-rando-multizoom.json"))
         assertEquals(BackupArea.PRINT, BackupPaths.areaOf("print/saved.json"))
         assertEquals(BackupArea.TILES, BackupPaths.areaOf("tiles/osm.mbtiles"))
     }

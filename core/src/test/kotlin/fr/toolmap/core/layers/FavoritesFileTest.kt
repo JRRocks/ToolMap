@@ -228,4 +228,21 @@ class FavoritesFileTest {
             ).items.single()
         assertEquals(listOf("ign-pentes"), item.unhidden)
     }
+
+    @Test
+    fun `an updated built-in favorite is shared under its own name and comes in as an ordinary favorite`() {
+        // ADR-108: the user's version of « Rando été », without the slopes.
+        val mine = Workspaces.randoEte.copy(layers = Workspaces.randoEte.layers.dropLast(1))
+        val file = FavoritesFileCodec.decode(FavoritesFileCodec.encode(share(listOf(mine), keepKeys = false)))
+        assertEquals(listOf("Rando été"), file.favorites.map { it.name })
+        assertEquals(mine.layers, file.favorites.single().layers)
+        assertNull(file.aqx)
+        val item =
+            FavoritesImport.plan(file, emptyList(), builtins, taken = listOf("Rando été"), hidden = emptySet())
+                .items
+                .single()
+        assertEquals("Rando été (2)", item.favorite.name)
+        assertEquals(mine.layers, item.favorite.layers)
+        assertTrue(item.added.isEmpty())
+    }
 }

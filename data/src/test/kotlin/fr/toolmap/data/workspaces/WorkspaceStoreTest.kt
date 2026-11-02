@@ -2,6 +2,7 @@ package fr.toolmap.data.workspaces
 
 import fr.toolmap.core.layers.LayerStack
 import fr.toolmap.core.layers.Workspace
+import fr.toolmap.core.layers.WorkspaceCodec
 import fr.toolmap.core.layers.Workspaces
 import org.junit.After
 import org.junit.Before
@@ -70,10 +71,37 @@ class WorkspaceStoreTest {
     }
 
     @Test
-    fun `a built-in preset cannot be saved over`() {
+    fun `a built-in preset is updated in place, survives a restart and its original comes back`() {
         val store = WorkspaceStore(dir)
-        assertFailsWith<IllegalArgumentException> { store.save(Workspaces.randoHiver) }
+        val mine = Workspaces.randoEte.copy(layers = Workspaces.randoEte.layers.dropLast(1))
+        store.save(mine)
+        assertEquals(listOf(mine, Workspaces.randoHiver), store.favorites.value)
         assertTrue(store.workspaces.value.isEmpty())
+        val reopened = WorkspaceStore(dir)
+        assertEquals(listOf(mine, Workspaces.randoHiver), reopened.favorites.value)
+        // Deleted, then shown again: still the user's version.
+        reopened.delete(mine.id)
+        assertEquals(listOf(Workspaces.randoHiver), reopened.favorites.value)
+        reopened.unhide(mine.id)
+        assertEquals(mine, reopened.favorites.value.first())
+        reopened.restoreOriginal(mine.id)
+        assertEquals(Workspaces.builtin, reopened.favorites.value)
+        assertEquals(Workspaces.builtin, WorkspaceStore(dir).favorites.value)
+        assertTrue(dir.listFiles().orEmpty().none { it.name.endsWith(".json") })
+    }
+
+    @Test
+    fun `saving a built-in preset as shipped puts back its original, an unknown one is refused`() {
+        val store = WorkspaceStore(dir)
+        store.save(Workspaces.randoHiver.copy(name = "Rando Hiver", layers = Workspaces.randoHiver.layers.take(2)))
+        store.save(Workspaces.randoHiver)
+        assertEquals(Workspaces.builtin, WorkspaceStore(dir).favorites.value)
+        val unknown = Workspace("${Workspace.BUILTIN_PREFIX}gone", "Ancien", listOf())
+        assertFailsWith<IllegalArgumentException> { store.save(unknown) }
+        // A file of a preset no longer shipped is ignored.
+        File(dir, "builtin-gone.json").writeText(WorkspaceCodec.encode(unknown))
+        assertEquals(Workspaces.builtin, WorkspaceStore(dir).favorites.value)
+        assertTrue(WorkspaceStore(dir).workspaces.value.isEmpty())
     }
 
     @Test

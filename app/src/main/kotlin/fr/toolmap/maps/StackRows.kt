@@ -55,8 +55,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
+import fr.toolmap.core.layers.FavoriteChange
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.layers.LayerElevation
+import fr.toolmap.core.layers.LayerField
 import fr.toolmap.core.maps.MapCatalog
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.download.formatBytes
@@ -77,7 +79,10 @@ import kotlin.math.roundToInt
  * the lines fade away with the panel and leave that slider alone ([PanelFade], P26.6).
  */
 
-/** The layers, top first; [expanded] is the one unfolded (one at a time), [onExpand] changes it. */
+/**
+ * The layers, top first; [expanded] is the one unfolded (one at a time), [onExpand] changes it. [changes] are the
+ * layers that differ from the favourite the stack came from, by layer id (P25.9).
+ */
 @Composable
 internal fun StackRows(
     layers: List<LayerConfig>,
@@ -88,6 +93,7 @@ internal fun StackRows(
     expanded: String?,
     onExpand: (String?) -> Unit,
     fade: PanelFade,
+    changes: Map<String, FavoriteChange> = emptyMap(),
 ) {
     val forced by maps.forced.collectAsStateWithLifecycle()
     var details by remember { mutableStateOf<String?>(null) }
@@ -147,6 +153,7 @@ internal fun StackRows(
                 Box(Modifier.alpha(fade.shown)) {
                     LayerLine(
                         layer = layer,
+                        change = changes[layer.id],
                         source = byId[layer.sourceId],
                         maps = maps,
                         currentZoom = currentZoom,
@@ -190,10 +197,14 @@ internal fun StackRows(
     }
 }
 
-/** The line of a layer: handle, thumbnail, name and state, the arrow that unfolds it, the eye. */
+/**
+ * The line of a layer: handle, thumbnail, name and state, the arrow that unfolds it, the eye. A layer that differs
+ * from the favourite the stack came from ([change]) says how, in the accent colour.
+ */
 @Composable
 private fun LayerLine(
     layer: LayerConfig,
+    change: FavoriteChange?,
     source: TileSource?,
     maps: MapsViewModel,
     currentZoom: Double,
@@ -266,9 +277,17 @@ private fun LayerLine(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                layerStateLine(layer, currentZoom),
+                change?.let { changedStateLine(layer, it, currentZoom) } ?: layerStateLine(layer, currentZoom),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color =
+                    if (change !=
+                        null
+                    ) {
+                        MaterialTheme.toolMap.accent
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                fontWeight = if (change != null) FontWeight.Medium else null,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -478,6 +497,45 @@ internal fun layerStateLine(
                 },
                 look.takeIf { percent < FULL_PERCENT || layer.inverted },
             ).joinToString(" · ")
+        }
+    }
+}
+
+/**
+ * The line of a layer that differs from the favourite the stack came from (P25.9): « Opacité 50 % (31 % dans le
+ * favori) », the zoom range with the favourite's, « masquée »; a layer the favourite does not have is « absente du
+ * favori »; other changes keep the usual line.
+ */
+@Composable
+internal fun changedStateLine(
+    layer: LayerConfig,
+    change: FavoriteChange,
+    currentZoom: Double,
+): String {
+    val usual = layerStateLine(layer, currentZoom)
+    return when (change) {
+        is FavoriteChange.Added -> {
+            stringResource(R.string.maps_layer_line_new, usual)
+        }
+
+        is FavoriteChange.Changed -> {
+            val was = change.was
+            listOfNotNull(
+                stringResource(R.string.maps_layer_hidden).takeIf {
+                    LayerField.VISIBILITY in change.fields && !layer.visible
+                },
+                stringResource(
+                    R.string.maps_layer_line_zoom_was,
+                    zoomRangeText(layer.displayMinZoom, layer.displayMaxZoom),
+                    zoomLineText(was.displayMinZoom, was.displayMaxZoom),
+                ).takeIf { LayerField.ZOOM in change.fields },
+                stringResource(R.string.maps_layer_line_opacity_was, percentOf(layer.opacity), percentOf(was.opacity))
+                    .takeIf { LayerField.OPACITY in change.fields },
+            ).joinToString(" · ").ifEmpty { usual }
+        }
+
+        else -> {
+            usual
         }
     }
 }

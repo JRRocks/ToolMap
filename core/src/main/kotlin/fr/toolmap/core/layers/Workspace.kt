@@ -84,19 +84,7 @@ data class Workspace(
     fun matches(stack: LayerStack): Boolean {
         if (stack.layers.size != layers.size) return false
         return layers.zip(stack.layers).all { (want, have) ->
-            want.sourceId == have.sourceId &&
-                want.visible == have.visible &&
-                want.inverted == have.inverted &&
-                want.displayMinZoom == have.displayMinZoom &&
-                want.displayMaxZoom == have.displayMaxZoom &&
-                want.displayMinElevation == have.displayMinElevation &&
-                want.displayMaxElevation == have.displayMaxElevation &&
-                (!want.combinesRanges || want.rangeLogic == have.rangeLogic) &&
-                near(want.opacity, have.opacity) &&
-                near(want.contrast, have.contrast) &&
-                near(want.brightness, have.brightness) &&
-                near(want.saturation, have.saturation) &&
-                near(want.hue, have.hue)
+            want.sourceId == have.sourceId && changedFields(want, have).isEmpty()
         }
     }
 
@@ -109,6 +97,33 @@ data class Workspace(
             a: Float,
             b: Float,
         ) = kotlin.math.abs(a - b) <= TOLERANCE
+
+        /** What differs between [want], a layer of a workspace, and [have], a layer of the stack on screen. */
+        internal fun changedFields(
+            want: WorkspaceLayer,
+            have: LayerConfig,
+        ): Set<LayerField> =
+            buildSet {
+                if (want.visible != have.visible) add(LayerField.VISIBILITY)
+                if (!near(want.opacity, have.opacity)) add(LayerField.OPACITY)
+                if (want.displayMinZoom != have.displayMinZoom || want.displayMaxZoom != have.displayMaxZoom) {
+                    add(LayerField.ZOOM)
+                }
+                if (want.displayMinElevation != have.displayMinElevation ||
+                    want.displayMaxElevation != have.displayMaxElevation ||
+                    (want.combinesRanges && want.rangeLogic != have.rangeLogic)
+                ) {
+                    add(LayerField.ELEVATION)
+                }
+                if (want.inverted != have.inverted ||
+                    !near(want.contrast, have.contrast) ||
+                    !near(want.brightness, have.brightness) ||
+                    !near(want.saturation, have.saturation) ||
+                    !near(want.hue, have.hue)
+                ) {
+                    add(LayerField.COLOURS)
+                }
+            }
 
         fun of(
             id: String,

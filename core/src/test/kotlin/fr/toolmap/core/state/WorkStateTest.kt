@@ -29,6 +29,18 @@ class WorkStateTest {
     }
 
     @Test
+    fun `the favorite of origin follows the stack and is forgotten when the stack is emptied`() {
+        val state = WorkState().withFavorite("ws-1")
+        assertEquals("ws-1", state.favorite)
+        assertEquals("ws-1", state.withStack(state.stack.add("ign-pentes")).favorite)
+        assertNull(state.withStack(LayerStack()).favorite)
+        assertNull(WorkState(stack = LayerStack()).withFavorite("ws-1").favorite)
+        assertEquals(state, WorkStateCodec.decodeOrDefault(WorkStateCodec.encode(state)))
+        // A file written before P25.8 has none.
+        assertNull(WorkStateCodec.decodeOrDefault("""{"offline": true}""").favorite)
+    }
+
+    @Test
     fun `damaged or missing content gives the default state`() {
         assertEquals(WorkState(), WorkStateCodec.decodeOrDefault(null))
         assertEquals(WorkState(), WorkStateCodec.decodeOrDefault(""))

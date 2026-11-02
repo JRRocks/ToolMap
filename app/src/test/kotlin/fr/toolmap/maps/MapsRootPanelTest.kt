@@ -14,12 +14,14 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import fr.toolmap.core.layers.Workspace
+import fr.toolmap.core.layers.Workspaces
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -43,6 +45,7 @@ class MapsRootPanelTest {
     private val fixture = MapsPanelFixture()
     private val opened = mutableListOf<String>()
     private val deleted = mutableListOf<Workspace>()
+    private val updated = mutableListOf<Workspace>()
 
     @After
     fun tearDown() = fixture.close()
@@ -61,6 +64,7 @@ class MapsRootPanelTest {
                         onOpenDownloads = { opened += "downloads" },
                         onOpenStorage = { opened += "storage" },
                         onFavoriteDeleted = { deleted += it },
+                        onFavoriteUpdated = { updated += it },
                     ),
                 currentZoom = zoom,
                 maxHeight = 1900.dp,
@@ -157,6 +161,60 @@ class MapsRootPanelTest {
         rule.waitForIdle()
         assertTrue(fixture.vm.state.value.stack.topToBottom().first().visible.not())
         rule.onAllNodesWithText("Opacité : 100 %").assertCountEquals(0)
+    }
+
+    @Test
+    fun `a favourite changed since it was saved is updated in place after a short confirmation (variant B)`() {
+        fixture.vm.saveWorkspace("Mes pentes")
+        rule.waitUntil { fixture.vm.favorites.value.any { it.name == "Mes pentes" } }
+        val slopes =
+            fixture.vm.state.value.stack
+                .topToBottom()
+                .first()
+        fixture.vm.setOpacity(slopes.id, 0.5f)
+        setContent()
+        rule.onNodeWithText("Mes pentes (modifié) · 3 cartes\n2 dessinées au zoom 12").assertExists()
+        rule.onNodeWithText("Opacité 50 % (100 % dans le favori)").assertExists()
+        rule.onNodeWithText("Enregistrer comme favori…").assertDoesNotExist()
+        rule.onNodeWithText("Nouveau…").assertExists()
+        rule.onNodeWithText("Mettre à jour").performScrollTo().performClick()
+        rule.onNodeWithText("Mettre à jour « Mes pentes » ?").assertExists()
+        rule.onNodeWithText("IGN Pentes montagne : 100 % → 50 %").assertExists()
+        rule.onAllNodesWithText("Mettre à jour").onLast().performClick()
+        rule.waitUntil {
+            fixture.vm.favorites.value.any {
+                it.name == "Mes pentes" &&
+                    it.matches(fixture.vm.state.value.stack)
+            }
+        }
+        assertEquals(listOf("Mes pentes"), updated.map { it.name })
+        assertEquals(1, fixture.vm.favorites.value.count { it.name == "Mes pentes" })
+        rule.onNodeWithText("Mes pentes · 3 cartes\n2 dessinées au zoom 12").assertExists()
+        rule.onNodeWithText("Nouveau…").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a provided favourite updated by the user offers Rétablir l'original, and only that one`() {
+        val rando = Workspaces.randoEte
+        // Only its two OpenStreetMap layers are known here: the stack is not the favourite any more.
+        fixture.vm.applyWorkspace(rando)
+        setContent()
+        rule.onNodeWithText("Rando été (modifié) · 2 cartes", substring = true).assertExists()
+        rule.onNodeWithText("Mettre à jour").performScrollTo().performClick()
+        rule.onNodeWithText("ign-pentes : retirée", substring = true).assertExists()
+        rule.onAllNodesWithText("Mettre à jour").onLast().performClick()
+        rule.waitUntil { fixture.vm.favorites.value.first() != rando }
+        assertEquals(rando.id, fixture.vm.favorites.value.first().id)
+        rule.onNodeWithText("Rando été · 2 cartes", substring = true).assertExists()
+
+        rule.onNodeWithText("Rando été").performTouchInput { longClick() }
+        rule.onNodeWithText("Rétablir l'original").performClick()
+        rule.waitUntil { fixture.vm.favorites.value.first() == rando }
+        rule.onNodeWithText("Rando été (modifié) · 2 cartes", substring = true).assertExists()
+
+        rule.onNodeWithText("Rando Hiver").performTouchInput { longClick() }
+        rule.onNodeWithText("Appliquer").assertExists()
+        rule.onNodeWithText("Rétablir l'original").assertDoesNotExist()
     }
 
     @Test
