@@ -31,7 +31,10 @@ class BackupException(
     cause: Throwable? = null,
 ) : Exception(message, cause)
 
-/** What a backup covers. A restore replaces the whole of each area the backup lists, and leaves the others alone. */
+/**
+ * What a backup covers. A restore replaces the whole of each area it is asked for, and leaves the others alone; the
+ * offline maps are merged instead (ADR-106).
+ */
 enum class BackupArea(
     val id: String,
     /** Left out of a backup unless asked for (big). */
@@ -167,8 +170,30 @@ data class BackupManifest(
 
     fun fileCount(area: BackupArea): Int = entries.count { BackupPaths.areaOf(it.path) == area }
 
+    /** What the files of [area] weigh. */
+    fun bytes(area: BackupArea): Long = entries.filter { BackupPaths.areaOf(it.path) == area }.sumOf { it.size }
+
+    /** This manifest cut down to [chosen]: what a restore of those areas alone writes (P33, ADR-106). */
+    fun only(chosen: Set<BackupArea>): BackupManifest {
+        val ids = chosen.map { it.id }.toSet()
+        return copy(
+            areas =
+                areas.filter {
+                    it in ids
+                },
+            entries = entries.filter { BackupPaths.areaOf(it.path) in chosen },
+        )
+    }
+
     companion object {
-        const val FORMAT = 1
+        /**
+         * 2 since the offline maps are chosen one by one and merged on restore (ADR-106): written only when a backup
+         * holds offline maps, which an older version would put in place of all of its own. 1 otherwise.
+         */
+        const val FORMAT = 2
+
+        /** The format of a backup without offline maps, which any version reads. */
+        const val FORMAT_WITHOUT_TILES = 1
         const val APP = "ToolMap"
     }
 }

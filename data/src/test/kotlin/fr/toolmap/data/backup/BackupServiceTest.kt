@@ -268,14 +268,93 @@ class BackupServiceTest {
         assertEquals("SECRET-old", target.read("p2p/share.json"))
     }
 
+    /** Merges by appending, to see which maps are merged without SQLite (`MbTilesMergeTest` checks the real merge). */
+    private val appending =
+        object : RestoreFileOps {
+            override fun move(
+                from: File,
+                to: File,
+            ) = RealRestoreFileOps.move(from, to)
+
+            override fun mergeTiles(
+                from: File,
+                into: File,
+            ) = into.appendText("+" + from.readText())
+        }
+
     @Test
-    fun `offline maps are replaced when the backup carries them`() {
-        val saved = fullDevice("saved")
+    fun `offline maps are merged into the phone's, a map it lacks is put in place, the others stay (ADR-106)`() {
+        val saved = fullDevice("saved").also { it.write("tiles/topo.mbtiles", "TOPO-saved") }
         val zip = backup(saved, includeTiles = true)
-        val target = fullDevice("old")
+        val target = fullDevice("old").also { it.write("tiles/mine.mbtiles", "MINE") }
         runBlocking { target.service().stage(ByteArrayInputStream(zip)) }
-        PendingRestore.apply(target.locations)
-        assertEquals("TILES-saved", target.read("tiles/osm.mbtiles"))
+        assertTrue(assertNotNull(PendingRestore.apply(target.locations, appending)).ok)
+        assertEquals("TILES-old+TILES-saved", target.read("tiles/osm.mbtiles"))
+        assertEquals("TOPO-saved", target.read("tiles/topo.mbtiles"))
+        assertEquals("MINE", target.read("tiles/mine.mbtiles"))
+    }
+
+    @Test
+    fun `only the ticked areas and the chosen maps are saved, and the format says when maps are in (P33)`() {
+        val source = fullDevice("a").also { it.write("tiles/topo.mbtiles", "TOPO") }
+        assertEquals(listOf("osm.mbtiles" to 7L, "topo.mbtiles" to 4L), source.service().tileFiles())
+        val out = ByteArrayOutputStream()
+        val manifest =
+            runBlocking {
+                source.service().create(out, setOf(BackupArea.DATABASE, BackupArea.WORKSPACES), setOf("topo.mbtiles"))
+            }
+        assertEquals(listOf("database", "workspaces", "tiles"), manifest.areas)
+        assertEquals(
+            setOf("tracks.db", "workspaces/ws-1.json", "workspaces/hidden-builtins.txt", "tiles/topo.mbtiles"),
+            names(out.toByteArray()).drop(1).toSet(),
+        )
+        assertEquals(BackupManifest.FORMAT, manifest.format)
+        assertEquals(1, source.tilesCheckpointed)
+        // Without offline maps, a backup any version reads.
+        val plain =
+            runBlocking { source.service().create(ByteArrayOutputStream(), setOf(BackupArea.SETTINGS), emptySet()) }
+        assertEquals(listOf("settings"), plain.areas)
+        assertEquals(BackupManifest.FORMAT_WITHOUT_TILES, plain.format)
+    }
+
+    @Test
+    fun `a restore of the ticked areas leaves the others as they are on the phone (P33)`() {
+        val zip = backup(fullDevice("saved"), includeTiles = true)
+        val target = fullDevice("old")
+        val manifest =
+            runBlocking {
+                target.service().stage(ByteArrayInputStream(zip), setOf(BackupArea.WORKSPACES, BackupArea.SETTINGS))
+            }
+        assertEquals(listOf("settings", "workspaces"), manifest.areas)
+        assertEquals(manifest, target.service().pending())
+        // What will not be restored is read past, not unpacked.
+        assertFalse(File(target.locations.stagingDir, "payload/tracks.db").exists())
+        assertFalse(File(target.locations.stagingDir, "payload/tiles/osm.mbtiles").exists())
+
+        val report = assertNotNull(PendingRestore.apply(target.locations))
+        assertTrue(report.ok)
+        assertEquals(3, report.files)
+        assertEquals("{\"units\":\"saved\"}", target.read("settings.json"))
+        assertEquals("{\"ws\":\"saved\"}", target.read("workspaces/ws-1.json"))
+        assertEquals("DB-old", target.read("tracks.db"))
+        assertEquals("<aqx one old/>", target.read("sources/one.aqx"))
+        assertEquals("{\"alerts\":\"old\"}", target.read("alerts.json"))
+        assertEquals("TILES-old", target.read("tiles/osm.mbtiles"))
+    }
+
+    @Test
+    fun `a backup of the format before the choice still restores, its offline maps merged (P33)`() {
+        val files = arrayOf("settings.json" to "{\"units\":\"saved\"}", "tiles/osm.mbtiles" to "TILES-saved")
+        // As the versions before P33 wrote it: format 1, every area, all of the maps.
+        val manifest = manifestOf(*files).copy(format = 1, areas = BackupArea.entries.map { it.id })
+        val target = fullDevice("old")
+        runBlocking { target.service().stage(ByteArrayInputStream(craft(manifest, *files))) }
+
+        assertTrue(assertNotNull(PendingRestore.apply(target.locations, appending)).ok)
+        assertEquals("{\"units\":\"saved\"}", target.read("settings.json"))
+        assertEquals("TILES-old+TILES-saved", target.read("tiles/osm.mbtiles"))
+        // A data area it covers without a file is emptied, as before.
+        assertNull(target.read("tracks.db"))
     }
 
     @Test
@@ -451,7 +530,7 @@ class BackupServiceTest {
     @Test
     fun `a backup from a newer format is refused with its own reason`() {
         val target = device("old")
-        val manifest = manifestOf().copy(format = 2)
+        val manifest = manifestOf().copy(format = BackupManifest.FORMAT + 1)
         assertEquals(
             BackupFailure.UNSUPPORTED_VERSION,
             failure {

@@ -58,34 +58,56 @@ class BackupService(
     /** The size of the offline maps, to tell the user what including them costs. */
     fun tilesBytes(): Long = locations.liveFiles(BackupArea.TILES).sumOf { it.second.length() }
 
+    /** Each offline map of the phone: its file name in the tiles folder (`ign-scan25.mbtiles`) and its size (P33). */
+    fun tileFiles(): List<Pair<String, Long>> =
+        locations.liveFiles(BackupArea.TILES).map { (_, file) -> file.name to file.length() }
+
+    /** The backup of everything but the offline maps, or with all of them ([includeTiles]). */
     suspend fun create(
         out: OutputStream,
         includeTiles: Boolean,
         progress: BackupProgress = BackupProgress { _, _ -> },
+    ): BackupManifest {
+        if (includeTiles) checkTilesReady()
+        return create(
+            out,
+            BackupArea.entries.filterNot { it.optional }.toSet(),
+            if (includeTiles) tileFiles().mapTo(HashSet()) { it.first } else emptySet(),
+            progress,
+        )
+    }
+
+    /**
+     * The backup of the [areas] ticked (P33, ADR-106) and of the offline maps whose file names are in [tiles]
+     * ([tileFiles]): [BackupArea.TILES] is covered when at least one is, and the manifest is then of format 2.
+     */
+    suspend fun create(
+        out: OutputStream,
+        areas: Set<BackupArea>,
+        tiles: Set<String>,
+        progress: BackupProgress = BackupProgress { _, _ -> },
     ): BackupManifest =
         withContext(Dispatchers.IO) {
-            // Without its card the folder is empty: an archive would then silently leave the offline maps out.
-            if (includeTiles && !locations.tilesReady()) {
-                throw BackupException(
-                    BackupFailure.TILES_UNAVAILABLE,
-                    "The offline maps are on a card that is not mounted",
-                )
-            }
+            val withTiles = tiles.isNotEmpty()
+            if (withTiles) checkTilesReady()
             workDir.mkdirs()
             val snapshot = File(workDir, "tracks.db.snapshot")
             try {
-                val areas = BackupArea.entries.filter { !it.optional || includeTiles }
-                if (BackupArea.TILES in areas) hooks.checkpointTiles()
+                val covered = BackupArea.entries.filter { if (it == BackupArea.TILES) withTiles else it in areas }
+                if (withTiles) hooks.checkpointTiles()
                 val planned = ArrayList<Planned>()
-                for (area in areas) {
+                for (area in covered) {
                     currentCoroutineContext().ensureActive()
-                    for ((path, file) in sourcesOf(area, snapshot)) planned += plan(path, file)
+                    val files = sourcesOf(area, snapshot)
+                    val chosen = if (area == BackupArea.TILES) files.filter { it.second.name in tiles } else files
+                    for ((path, file) in chosen) planned += plan(path, file)
                 }
                 val manifest =
                     BackupManifest(
+                        format = if (withTiles) BackupManifest.FORMAT else BackupManifest.FORMAT_WITHOUT_TILES,
                         appVersion = appVersion,
                         createdAtMillis = clock(),
-                        areas = areas.map { it.id },
+                        areas = covered.map { it.id },
                         entries = planned.map { BackupEntry(it.path, it.size, it.sha256) },
                     )
                 write(out, manifest, planned, progress)
@@ -109,10 +131,13 @@ class BackupService(
 
     /**
      * Unpacks and checks the archive in [input] into the staging folder; it is applied at the next start. Nothing live
-     * is touched, and a bad archive leaves no staging behind.
+     * is touched, and a bad archive leaves no staging behind. Only the [areas] ticked are unpacked and will be restored
+     * (P33, ADR-106; all of them by default): the others are read past, and stay on the phone as they are. Returns
+     * what will be restored.
      */
     suspend fun stage(
         input: InputStream,
+        areas: Set<BackupArea> = BackupArea.entries.toSet(),
         progress: BackupProgress = BackupProgress { _, _ -> },
     ): BackupManifest =
         withContext(Dispatchers.IO) {
@@ -120,11 +145,12 @@ class BackupService(
             var staged = false
             try {
                 val zip = ZipInputStream(input)
-                val manifest = readManifest(zip)
+                val full = readManifest(zip)
+                val manifest = full.only(areas)
                 if (locations.filesDir.usableSpace < manifest.totalBytes + SPACE_MARGIN) {
                     throw BackupException(BackupFailure.NO_SPACE, "Not enough free space")
                 }
-                unpack(zip, manifest, progress)
+                unpack(zip, full, manifest, progress)
                 atomicWrite(File(locations.stagingDir, BackupLocations.MARKER), BackupManifestCodec.encode(manifest))
                 staged = true
                 manifest
@@ -152,6 +178,13 @@ class BackupService(
 
     fun clearReport() {
         locations.reportFile.delete()
+    }
+
+    /** Without its card the folder is empty: an archive would then silently leave the offline maps out. */
+    private fun checkTilesReady() {
+        if (!locations.tilesReady()) {
+            throw BackupException(BackupFailure.TILES_UNAVAILABLE, "The offline maps are on a card that is not mounted")
+        }
     }
 
     // ---- writing
@@ -260,11 +293,14 @@ class BackupService(
         return out.toByteArray()
     }
 
+    /** Unpacks the entries of [manifest] (the areas asked for); the other entries of [full] are read past. */
     private suspend fun unpack(
         zip: ZipInputStream,
+        full: BackupManifest,
         manifest: BackupManifest,
         progress: BackupProgress,
     ) {
+        val listed = full.entries.mapTo(HashSet()) { it.path }
         val expected = manifest.entries.associateBy { it.path }
         val payload = File(locations.stagingDir, BackupLocations.PAYLOAD).also { it.mkdirs() }
         val payloadRoot = payload.canonicalFile
@@ -275,9 +311,10 @@ class BackupService(
             currentCoroutineContext().ensureActive()
             val entry = zip.nextEntry ?: break
             if (entry.isDirectory) continue
-            val declared =
-                expected[entry.name] ?: throw BackupException(BackupFailure.CORRUPT, "Unlisted ${entry.name}")
+            if (entry.name !in listed) throw BackupException(BackupFailure.CORRUPT, "Unlisted ${entry.name}")
             if (!seen.add(entry.name)) throw BackupException(BackupFailure.CORRUPT, "${entry.name} twice")
+            // An area not asked for: the next entry skips its bytes.
+            val declared = expected[entry.name] ?: continue
             val target = File(payload, entry.name)
             val canonical = target.canonicalFile
             if (!canonical.path.startsWith(payloadRoot.path + File.separator)) {

@@ -348,6 +348,57 @@ class MbTilesFile private constructor(
         }
     }
 
+    /**
+     * Adds the tiles of the MBTiles file [other] that this one lacks, and replaces those [other] stored more recently
+     * (`tm_tile_info`; a tile without a date counts as the oldest, and on a tie this file's stays), in one transaction:
+     * the offline maps of a backup merged on restore (P33, ADR-106). Nothing is removed. Returns how many tiles were
+     * written. Attaching [other] turns the write-ahead log of this connection off; the next [open] turns it back on.
+     */
+    fun mergeFrom(other: File): Int {
+        db.execSQL("ATTACH DATABASE ? AS incoming", arrayOf(other.path))
+        try {
+            val dated =
+                (
+                    scalar("SELECT COUNT(*) FROM incoming.sqlite_master WHERE type = 'table' AND name = 'tm_tile_info'")
+                        ?: 0
+                ) >
+                    0
+            val incomingDate = if (dated) "COALESCE(i.stored_at, -1)" else "-1"
+            val incomingInfo =
+                if (dated) "LEFT JOIN incoming.tm_tile_info i ON ${sameTileAsS("i")}" else ""
+            db.beginTransaction()
+            try {
+                db.execSQL("DROP TABLE IF EXISTS temp.merge_pick")
+                // The tiles to write: missing here, or newer there.
+                db.execSQL(
+                    "CREATE TEMP TABLE merge_pick AS " +
+                        "SELECT s.zoom_level AS z, s.tile_column AS x, s.tile_row AS y, $incomingDate AS d " +
+                        "FROM incoming.tiles s $incomingInfo " +
+                        "LEFT JOIN main.tiles t ON ${sameTileAsS("t")} " +
+                        "LEFT JOIN main.tm_tile_info m ON ${sameTileAsS("m")} " +
+                        "WHERE t.zoom_level IS NULL OR $incomingDate > COALESCE(m.stored_at, -1)",
+                )
+                db.execSQL(
+                    "INSERT OR REPLACE INTO main.tiles (zoom_level, tile_column, tile_row, tile_data) " +
+                        "SELECT s.zoom_level, s.tile_column, s.tile_row, s.tile_data FROM incoming.tiles s " +
+                        "JOIN temp.merge_pick p ON p.z = s.zoom_level AND p.x = s.tile_column AND p.y = s.tile_row",
+                )
+                db.execSQL(
+                    "INSERT OR REPLACE INTO main.tm_tile_info (zoom_level, tile_column, tile_row, stored_at) " +
+                        "SELECT z, x, y, d FROM temp.merge_pick",
+                )
+                val written = scalar("SELECT COUNT(*) FROM temp.merge_pick")?.toInt() ?: 0
+                db.execSQL("DROP TABLE temp.merge_pick")
+                db.setTransactionSuccessful()
+                return written
+            } finally {
+                db.endTransaction()
+            }
+        } finally {
+            db.execSQL("DETACH DATABASE incoming")
+        }
+    }
+
     /** Folds the write-ahead log into the main file so it can be copied alone (export, backup). */
     fun checkpoint() {
         db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { it.moveToFirst() }
@@ -380,6 +431,10 @@ class MbTilesFile private constructor(
         }
 
     private fun sibling(suffix: String) = File(file.path + suffix)
+
+    /** The join of a tile table aliased [alias] on the tile `s` of the incoming file ([mergeFrom]). */
+    private fun sameTileAsS(alias: String) =
+        "$alias.zoom_level = s.zoom_level AND $alias.tile_column = s.tile_column AND $alias.tile_row = s.tile_row"
 
     private fun coordinates(
         z: Int,

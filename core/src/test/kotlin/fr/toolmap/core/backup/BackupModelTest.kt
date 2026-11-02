@@ -96,10 +96,35 @@ class BackupModelTest {
     }
 
     @Test
+    fun `a manifest cut down to the chosen areas keeps only theirs, and weighs each area (P33)`() {
+        val original =
+            manifest(
+                listOf("database", "sources", "tiles"),
+                BackupEntry("tracks.db", 100, sha),
+                BackupEntry("sources/a.aqx", 10, sha),
+                BackupEntry("tiles/osm.mbtiles", 5000, sha),
+                BackupEntry("tiles/ign.mbtiles", 3000, sha),
+            )
+        assertEquals(8000, original.bytes(BackupArea.TILES))
+        assertEquals(0, original.bytes(BackupArea.ALERTS))
+        val cut = original.only(setOf(BackupArea.DATABASE, BackupArea.TILES, BackupArea.ALERTS))
+        assertEquals(listOf("database", "tiles"), cut.areas)
+        assertEquals(listOf("tracks.db", "tiles/osm.mbtiles", "tiles/ign.mbtiles"), cut.entries.map { it.path })
+        assertEquals(8100, cut.totalBytes)
+        // Still a manifest the restore accepts.
+        assertEquals(cut, BackupManifestCodec.decode(BackupManifestCodec.encode(cut)))
+        // A backup of the format before the choice reads as before.
+        val old = manifest(format = 1)
+        assertEquals(1, BackupManifestCodec.decode(BackupManifestCodec.encode(old)).format)
+    }
+
+    @Test
     fun `a manifest from a newer format or another application is not applied`() {
         assertEquals(
             BackupFailure.UNSUPPORTED_VERSION,
-            failure { BackupManifestCodec.decode(BackupManifestCodec.encode(manifest(format = 2))) },
+            failure {
+                BackupManifestCodec.decode(BackupManifestCodec.encode(manifest(format = BackupManifest.FORMAT + 1)))
+            },
         )
         assertEquals(
             BackupFailure.NOT_A_BACKUP,

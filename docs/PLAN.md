@@ -403,7 +403,7 @@ Tuiles **Terrarium** (AWS open data `elevation-tiles-prod`) traitées comme une 
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
 | P33.0 | ✅ | Aperçu validé le 2026-11-02 (variante C) : jauge du poids du fichier (données contre cartes hors ligne), rubriques à cocher sous des noms courts (Traces et waypoints, Favoris, Cartes ajoutées, Réglages, Alertes, Mises en page, Position et calques), les 3 plus légères en une ligne, cartes hors ligne carte par carte avec leur barre de poids (décochées), barre du bas « Sans les cartes hors ligne : X Mo » ; restauration : rubriques regroupées en 4 lignes à cocher avec leur poids et le total | Validation explicite, date au journal |
-| P33.1 | ⬜ | Format et restauration : rubriques choisies à l'écriture et à la restauration, stockages de tuiles choisis (format 2), fusion des tuiles au démarrage (la plus récente gardée), anciennes sauvegardes toujours restaurées | Tests JVM (`BackupServiceTest`, `BackupModelTest`) : rubrique décochée intacte, fusion, format 1 avec et sans tuiles |
+| P33.1 | ✅ | Format et restauration : rubriques choisies à l'écriture et à la restauration, stockages de tuiles choisis (format 2), fusion des tuiles au démarrage (la plus récente gardée), anciennes sauvegardes toujours restaurées | Tests JVM (`BackupServiceTest`, `BackupModelTest`) : rubrique décochée intacte, fusion, format 1 avec et sans tuiles |
 | P33.2 | ⬜ | Écrans « Sauvegarder » et « Restaurer » de la variante C | Émulateur : sauvegarde de 2 cartes choisies, restauration partielle ; captures à côté de l'aperçu |
 
 ## 4. Stratégie de test
