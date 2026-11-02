@@ -79,14 +79,33 @@ class StorageManager(
     private val repository: SourceRepository,
 ) {
     fun usage(): List<SourceUsage> {
-        val catalogue = repository.sources.value
+        val catalogue = repository.sources.value.filterNot { it.isMultiZoom }
         return store.storedSourceIds().map { id ->
             val file = store.fileFor(id)
-            // The maps that really read these tiles; multi-zoom maps are named through the maps they show.
-            val users = store.usersOf(id, catalogue.filterNot { it.isMultiZoom })
-            val name = users.joinToString(", ") { it.name }.ifEmpty { repository.find(id)?.name ?: id }
+            val (users, name) = usersAndName(id, catalogue)
             SourceUsage(id, name, file.tileCount(), file.diskBytes(), file.tileCountByZoom(), users.map { it.id })
         }
+    }
+
+    /**
+     * The offline maps by the name of their file in the tiles folder: their name and the map whose picture stands for
+     * them, without reading their tiles (the backup screen, P33).
+     */
+    fun labelsByFile(): Map<String, Pair<String, String>> {
+        val catalogue = repository.sources.value.filterNot { it.isMultiZoom }
+        return store.storedSourceIds().associate { id ->
+            val (users, name) = usersAndName(id, catalogue)
+            MbTilesStore.fileNameFor(id) to (name to (users.firstOrNull()?.id ?: id))
+        }
+    }
+
+    // The maps that really read these tiles; multi-zoom maps are named through the maps they show.
+    private fun usersAndName(
+        id: String,
+        catalogue: List<TileSource>,
+    ): Pair<List<TileSource>, String> {
+        val users = store.usersOf(id, catalogue)
+        return users to users.joinToString(", ") { it.name }.ifEmpty { repository.find(id)?.name ?: id }
     }
 
     /** Bytes and tiles stored for each map of the catalogue (a storage shared by several maps counts for each). */

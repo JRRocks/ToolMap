@@ -6,24 +6,36 @@ import android.provider.DocumentsContract
 import android.text.format.DateUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.triStateToggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +46,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,44 +56,84 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.backup.BackupArea
 import fr.toolmap.core.backup.BackupManifest
 import fr.toolmap.core.backup.RestoreReport
 import fr.toolmap.download.formatBytes
+import fr.toolmap.map.MenuIcons
+import fr.toolmap.maps.MapThumbnail
+import fr.toolmap.maps.MapThumbnails
+import fr.toolmap.maps.MapsIcons
 import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.GroupBlock
+import fr.toolmap.ui.GroupCaption
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.screenInsets
 import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.Button
 import fr.toolmap.ui.theme.FilledTonalButton
 import fr.toolmap.ui.theme.OutlinedButton
-import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
+import fr.toolmap.ui.theme.toolMap
 import java.time.LocalDate
 
 private const val MIME_ZIP = "application/zip"
+
+/** The areas of data on « Sauvegarder », in the order of the list (P33, variant C). */
+private val SAVE_ORDER =
+    listOf(
+        BackupArea.DATABASE,
+        BackupArea.WORKSPACES,
+        BackupArea.SOURCES,
+        BackupArea.SETTINGS,
+        BackupArea.ALERTS,
+        BackupArea.PRINT,
+        BackupArea.STATE,
+    )
+
+/** How many of the lightest areas share one line. */
+private const val MERGED = 3
+
+/** The lines of the restore dialog (P33, variant C): the areas of a backup in four groups. */
+private enum class RestoreGroup(
+    val areas: Set<BackupArea>,
+) {
+    TRACKS(setOf(BackupArea.DATABASE)),
+    FAVORITES(setOf(BackupArea.WORKSPACES, BackupArea.SOURCES)),
+    SETTINGS(setOf(BackupArea.SETTINGS, BackupArea.ALERTS, BackupArea.PRINT, BackupArea.STATE)),
+    TILES(setOf(BackupArea.TILES)),
+}
 
 /** The two halves of the screen (P29.9): one decision at a time. */
 private enum class BackupSegment { SAVE, RESTORE }
 
 /**
- * Saves the app's data to a zip and restores it from one (P29.9, « Loupe »): a segmented button parts « Sauvegarder »
- * and « Restaurer », each with one main action. A restore waiting for the restart opens the screen on « Restaurer »,
- * its card first; the report of the last restore and the progress of a task are above the segmented button, which is
- * greyed while a task runs.
+ * Saves the app's data to a zip and restores it from one (P29.9, « Loupe »; P33, « Poids »): a segmented button parts
+ * « Sauvegarder » and « Restaurer », each with one main action. A restore waiting for the restart opens the screen on
+ * « Restaurer », its card first; the report of the last restore and the progress of a task are above the segmented
+ * button, which is greyed while a task runs.
  */
 @Composable
 fun BackupScreen(
     vm: BackupViewModel,
+    thumbnails: MapThumbnails,
     onBack: () -> Unit,
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
@@ -106,9 +159,11 @@ fun BackupScreen(
         }
     BackupPage(
         ui = ui,
+        thumbnails = thumbnails,
         snackbar = snackbar,
         onBack = onBack,
-        onIncludeTiles = vm::setIncludeTiles,
+        onToggleAreas = vm::toggleAreas,
+        onToggleTiles = vm::toggleTiles,
         onCreate = { createLauncher.launch("toolmap-${LocalDate.now()}.zip") },
         onChoose = { openLauncher.launch(arrayOf(MIME_ZIP, "application/x-zip-compressed", "*/*")) },
         onRestart = { restartApp(context) },
@@ -117,16 +172,12 @@ fun BackupScreen(
     )
 
     ui.preview?.let { manifest ->
-        AlertDialog(
-            onDismissRequest = vm::cancelPreview,
-            title = { Text(stringResource(R.string.backup_preview_title)) },
-            text = { PreviewText(manifest, context) },
-            confirmButton = {
-                TextButton(onClick = vm::confirm) { Text(stringResource(R.string.backup_preview_confirm)) }
-            },
-            dismissButton = {
-                TextButton(onClick = vm::cancelPreview) { Text(stringResource(R.string.action_cancel)) }
-            },
+        RestoreDialog(
+            manifest = manifest,
+            chosen = ui.restoreAreas,
+            onToggle = vm::toggleRestore,
+            onConfirm = vm::confirm,
+            onDismiss = vm::cancelPreview,
         )
     }
 }
@@ -136,9 +187,11 @@ fun BackupScreen(
 @Composable
 internal fun BackupPage(
     ui: BackupUi,
+    thumbnails: MapThumbnails,
     snackbar: SnackbarHostState,
     onBack: () -> Unit,
-    onIncludeTiles: (Boolean) -> Unit,
+    onToggleAreas: (Set<BackupArea>) -> Unit,
+    onToggleTiles: (String) -> Unit,
     onCreate: () -> Unit,
     onChoose: () -> Unit,
     onRestart: () -> Unit,
@@ -156,6 +209,7 @@ internal fun BackupPage(
         topBar = {
             ToolMapTopBar(title = stringResource(R.string.backup_title), onBack = onBack)
         },
+        bottomBar = { if (segment == BackupSegment.SAVE) SaveBar(ui = ui, busy = busy, onCreate = onCreate) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(
@@ -171,7 +225,13 @@ internal fun BackupPage(
             Segments(segment, enabled = !busy) { segment = it }
             when (segment) {
                 BackupSegment.SAVE -> {
-                    SaveHalf(ui = ui, busy = busy, onIncludeTiles = onIncludeTiles, onCreate = onCreate)
+                    SaveHalf(
+                        ui = ui,
+                        busy = busy,
+                        thumbnails = thumbnails,
+                        onToggleAreas = onToggleAreas,
+                        onToggleTiles = onToggleTiles,
+                    )
                 }
 
                 BackupSegment.RESTORE -> {
@@ -283,65 +343,317 @@ private fun Segments(
 }
 
 /**
- * « Sauvegarder »: what the file is for, what it holds and the offline maps on demand, what it never holds, read before
- * « Créer une sauvegarde… » (tonal while a restore waits, whose « Redémarrer maintenant » is the main action).
+ * « Sauvegarder » (P33, variant C « Poids »): the gauge of the file, data against offline maps; the areas of data to
+ * tick with their weight, the three lightest on one line that unfolds; the offline maps one by one with their bar,
+ * unticked at first; what is never saved. « Créer une sauvegarde… » is in the bar at the foot ([SaveBar]).
  */
 @Composable
 private fun SaveHalf(
     ui: BackupUi,
     busy: Boolean,
-    onIncludeTiles: (Boolean) -> Unit,
-    onCreate: () -> Unit,
+    thumbnails: MapThumbnails,
+    onToggleAreas: (Set<BackupArea>) -> Unit,
+    onToggleTiles: (String) -> Unit,
 ) {
-    Text(
-        stringResource(R.string.backup_save_short),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 12.dp),
-    )
-    GroupBlock(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        rows =
-            listOf(
-                {
-                    BackupRow(
-                        icon = SettingsIcons.FolderZip,
-                        title = stringResource(R.string.backup_content),
-                        subtitle = stringResource(R.string.backup_content_list),
-                    )
-                },
-                {
-                    BackupRow(
-                        icon = SettingsIcons.OfflinePin,
-                        title = stringResource(R.string.backup_include_tiles),
-                        subtitle = stringResource(R.string.backup_include_tiles_hint, formatBytes(ui.tilesBytes)),
-                        modifier =
-                            Modifier.toggleable(
-                                value = ui.includeTiles,
-                                enabled = !busy,
-                                role = Role.Switch,
-                                onValueChange = onIncludeTiles,
-                            ),
-                        trailing = {
-                            Spacer(Modifier.width(8.dp))
-                            Switch(checked = ui.includeTiles, onCheckedChange = null, enabled = !busy)
+    var unfolded by rememberSaveable { mutableStateOf(false) }
+    Spacer(Modifier.height(12.dp))
+    WeightGauge(dataBytes = ui.dataBytes, tilesBytes = ui.tilesBytes)
+    GroupCaption(stringResource(R.string.backup_data_caption))
+    val bytes = { area: BackupArea -> ui.areaBytes[area] ?: 0L }
+    // The lightest share one line; on a tie, the later in the list.
+    val merged =
+        SAVE_ORDER
+            .withIndex()
+            .sortedWith(compareBy({ bytes(it.value) }, { -it.index }))
+            .take(MERGED)
+            .map { it.value }
+            .toSet()
+    val mergedInOrder = SAVE_ORDER.filter { it in merged }
+    val resources = LocalResources.current
+    val areaRow = { area: BackupArea ->
+        @Composable {
+            AreaRow(
+                icon = areaIcon(area),
+                title = stringResource(areaLabel(area)),
+                bytes = bytes(area),
+                state = ToggleableState(area in ui.areas),
+                enabled = !busy,
+                onToggle = { onToggleAreas(setOf(area)) },
+            )
+        }
+    }
+    val rows =
+        buildList<@Composable () -> Unit> {
+            SAVE_ORDER.filterNot { it in merged }.forEach { add(areaRow(it)) }
+            add {
+                val ticked = mergedInOrder.count { it in ui.areas }
+                AreaRow(
+                    icon = if (unfolded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    title = pluralStringResource(R.plurals.backup_other_areas, mergedInOrder.size, mergedInOrder.size),
+                    subtitle =
+                        mergedInOrder
+                            .mapIndexed { index, area ->
+                                val name = resources.getString(areaLabel(area))
+                                if (index == 0) name else name.replaceFirstChar { it.lowercase() }
+                            }.joinToString(", "),
+                    bytes = mergedInOrder.sumOf { bytes(it) },
+                    state =
+                        when (ticked) {
+                            0 -> ToggleableState.Off
+                            mergedInOrder.size -> ToggleableState.On
+                            else -> ToggleableState.Indeterminate
                         },
-                    )
+                    enabled = !busy,
+                    onToggle = { onToggleAreas(merged) },
+                    onOpen = { unfolded = !unfolded },
+                    openLabel =
+                        stringResource(
+                            if (unfolded) R.string.backup_other_areas_hide else R.string.backup_other_areas_show,
+                        ),
+                )
+            }
+            if (unfolded) mergedInOrder.forEach { add(areaRow(it)) }
+        }
+    GroupBlock(modifier = Modifier.padding(horizontal = 16.dp), dividerStart = 56.dp, rows = rows)
+    if (ui.offlineMaps.isNotEmpty()) {
+        GroupCaption(stringResource(R.string.backup_tiles_caption))
+        val heaviest = ui.offlineMaps.maxOf { it.bytes }.coerceAtLeast(1L)
+        GroupBlock(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            dividerStart = 60.dp,
+            rows =
+                ui.offlineMaps.map { map ->
+                    {
+                        OfflineMapRow(
+                            map = map,
+                            share = map.bytes.toFloat() / heaviest,
+                            checked = map.file in ui.tiles,
+                            enabled = !busy,
+                            thumbnails = thumbnails,
+                            onToggle = { onToggleTiles(map.file) },
+                        )
+                    }
                 },
-            ),
-    )
+        )
+    }
     Text(
         stringResource(R.string.backup_not_saved_short),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
     )
-    val wide = Modifier.padding(horizontal = 16.dp).fillMaxWidth().heightIn(min = 48.dp)
-    val label = @Composable { Text(stringResource(R.string.backup_save_button)) }
-    if (ui.pending != null) {
-        FilledTonalButton(onClick = onCreate, enabled = !busy, modifier = wide) { label() }
-    } else {
-        Button(onClick = onCreate, enabled = !busy, modifier = wide) { label() }
+}
+
+/**
+ * What the file will weigh, « 263 Mo fichier .zip », and a bar shared between the data (primary colour, never thinner
+ * than 6 dp, so that it stays seen) and the offline maps ticked (accent), with its legend.
+ */
+@Composable
+private fun WeightGauge(
+    dataBytes: Long,
+    tilesBytes: Long,
+) {
+    val tm = MaterialTheme.toolMap
+    val dataColor = MaterialTheme.colorScheme.primary
+    val total = dataBytes + tilesBytes
+    Column(
+        Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(tm.panel)
+            .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+    ) {
+        Row {
+            Text(
+                formatBytes(total),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.alignByBaseline(),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                stringResource(R.string.backup_gauge_file),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.alignByBaseline(),
+            )
+        }
+        Canvas(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp, bottom = 8.dp)
+                .height(10.dp)
+                .clip(RoundedCornerShape(5.dp)),
+        ) {
+            drawRect(tm.tile)
+            if (total > 0) {
+                val data =
+                    (size.width * dataBytes / total)
+                        .coerceAtLeast(GAUGE_MIN_PART.toPx())
+                        .coerceAtMost(size.width)
+                drawRect(dataColor, size = Size(data, size.height))
+                if (tilesBytes > 0) {
+                    drawRect(tm.accent, topLeft = Offset(data, 0f), size = Size(size.width - data, size.height))
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            GaugeLegend(dataColor, stringResource(R.string.backup_gauge_data, formatBytes(dataBytes)))
+            if (tilesBytes > 0) {
+                GaugeLegend(tm.accent, stringResource(R.string.backup_gauge_tiles, formatBytes(tilesBytes)))
+            }
+        }
+    }
+}
+
+@Composable
+private fun GaugeLegend(
+    color: Color,
+    text: String,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(color))
+        Spacer(Modifier.width(6.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * A line of the data: a grey icon, the name (and what it stands for), the weight, the box. [onOpen], on the line that
+ * stands for the lightest areas, unfolds them: then only the box ticks.
+ */
+@Composable
+private fun AreaRow(
+    icon: ImageVector,
+    title: String,
+    bytes: Long,
+    state: ToggleableState,
+    enabled: Boolean,
+    onToggle: () -> Unit,
+    subtitle: String? = null,
+    onOpen: (() -> Unit)? = null,
+    openLabel: String? = null,
+) {
+    val action =
+        if (onOpen == null) {
+            Modifier.triStateToggleable(state = state, enabled = enabled, role = Role.Checkbox, onClick = onToggle)
+        } else {
+            Modifier.clickable(onClickLabel = openLabel, onClick = onOpen)
+        }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = if (subtitle == null) 48.dp else 56.dp)
+                .then(action)
+                .padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f).padding(vertical = 4.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            subtitle?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Weight(bytes)
+        TriStateCheckbox(
+            state = state,
+            onClick = if (onOpen == null) null else onToggle,
+            enabled = enabled,
+            modifier = if (onOpen == null) Modifier.padding(12.dp) else Modifier,
+        )
+    }
+}
+
+/** An offline map: its picture, its name over a bar of its weight against the heaviest (accent when ticked). */
+@Composable
+private fun OfflineMapRow(
+    map: OfflineMapFile,
+    share: Float,
+    checked: Boolean,
+    enabled: Boolean,
+    thumbnails: MapThumbnails,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = { onToggle() })
+                .padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MapThumbnail(map.pictureId, map.name, thumbnails, size = 32.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(map.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val bar = if (checked) MaterialTheme.toolMap.accent else MaterialTheme.colorScheme.outline
+            Box(
+                Modifier
+                    .padding(top = 4.dp)
+                    .width(MAP_BAR)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Box(Modifier.fillMaxWidth(share.coerceIn(MAP_BAR_MIN, 1f)).fillMaxHeight().background(bar))
+            }
+        }
+        Weight(map.bytes)
+        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled, modifier = Modifier.padding(12.dp))
+    }
+}
+
+@Composable
+private fun Weight(bytes: Long) {
+    Text(
+        formatBytes(bytes),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        modifier = Modifier.padding(start = 8.dp),
+    )
+}
+
+/** The foot of « Sauvegarder »: the weight without the offline maps, and « Créer une sauvegarde… ». */
+@Composable
+private fun SaveBar(
+    ui: BackupUi,
+    busy: Boolean,
+    onCreate: () -> Unit,
+) {
+    Column(Modifier.background(MaterialTheme.toolMap.panel).navigationBarsPadding()) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                stringResource(R.string.backup_without_tiles, formatBytes(ui.dataBytes)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            val enabled = !busy && ui.canCreate
+            val label = @Composable { Text(stringResource(R.string.backup_save_button)) }
+            // Tonal while a restore waits, whose « Redémarrer maintenant » is the main action.
+            if (ui.pending != null) {
+                FilledTonalButton(onClick = onCreate, enabled = enabled) { label() }
+            } else {
+                Button(onClick = onCreate, enabled = enabled) { label() }
+            }
+        }
     }
 }
 
@@ -409,73 +721,117 @@ private fun RestoreHalf(
     }
 }
 
-/** A row of the group of « Sauvegarder »: a grey icon on the line of the name, the name, its second line. */
+/**
+ * « Restaurer cette sauvegarde ? » (P33, variant C): the date and version of the file, then its areas in four lines to
+ * tick, with their weight, and what the ticked ones weigh. An unticked line stays as it is on the phone; the offline
+ * maps are added to the phone's (ADR-106).
+ */
 @Composable
-private fun BackupRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    modifier: Modifier = Modifier,
-    trailing: (@Composable RowScope.() -> Unit)? = null,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp)
-                .then(modifier)
-                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.Top).size(24.dp),
-        )
-        Spacer(Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        trailing?.invoke(this)
-    }
-}
-
-@Composable
-private fun PreviewText(
+internal fun RestoreDialog(
     manifest: BackupManifest,
-    context: Context,
+    chosen: Set<BackupArea>,
+    onToggle: (Set<BackupArea>) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            stringResource(
-                R.string.backup_preview_when,
-                dateText(context, manifest.createdAtMillis),
-                manifest.appVersion,
-            ),
-        )
-        val resources = LocalResources.current
-        val lines =
-            BackupArea.entries.filter { manifest.covers(it) }.map { area ->
-                val count = manifest.fileCount(area)
-                val files = resources.getQuantityString(R.plurals.backup_area_files, count, count)
-                "${resources.getString(areaLabel(area))} ($files)"
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        // As wide as the screen but 16 dp on each side, as in the preview: a line keeps its name and weight.
+        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        title = { Text(stringResource(R.string.backup_preview_title)) },
+        text = {
+            Column {
+                val date =
+                    DateUtils.formatDateTime(
+                        context,
+                        manifest.createdAtMillis,
+                        DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR,
+                    )
+                val intro =
+                    if (manifest.covers(BackupArea.TILES)) {
+                        R.string.backup_restore_intro
+                    } else {
+                        R.string.backup_restore_intro_no_tiles
+                    }
+                Text(
+                    stringResource(intro, date, manifest.appVersion),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 10.dp),
+                )
+                for (group in RestoreGroup.entries) {
+                    val held = group.areas.filterTo(HashSet()) { manifest.covers(it) }
+                    if (held.isEmpty()) continue
+                    val checked = chosen.containsAll(held)
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 44.dp)
+                                .toggleable(value = checked, role = Role.Checkbox, onValueChange = { onToggle(held) }),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            groupIcon(group),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Text(
+                            groupLabel(group, manifest),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Weight(held.sumOf { manifest.bytes(it) })
+                        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.padding(start = 12.dp))
+                    }
+                }
+                val total = chosen.filter { manifest.covers(it) }.sumOf { manifest.bytes(it) }
+                Text(
+                    stringResource(R.string.backup_restore_total, formatBytes(total)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
             }
-        lines.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
-        Text(stringResource(R.string.backup_preview_size, formatBytes(manifest.totalBytes)))
-        Text(
-            stringResource(R.string.backup_preview_warning),
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = chosen.isNotEmpty()) {
+                Text(stringResource(R.string.backup_preview_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
 }
 
+@Composable
+private fun groupLabel(
+    group: RestoreGroup,
+    manifest: BackupManifest,
+): String =
+    when (group) {
+        RestoreGroup.TRACKS -> stringResource(R.string.backup_area_database)
+        RestoreGroup.FAVORITES -> stringResource(R.string.backup_group_favorites)
+        RestoreGroup.SETTINGS -> stringResource(R.string.backup_group_settings)
+        RestoreGroup.TILES -> stringResource(R.string.backup_group_tiles, manifest.fileCount(BackupArea.TILES))
+    }
+
+private fun groupIcon(group: RestoreGroup): ImageVector =
+    when (group) {
+        RestoreGroup.TRACKS -> SettingsIcons.Route
+        RestoreGroup.FAVORITES -> MapsIcons.Workspaces
+        RestoreGroup.SETTINGS -> Icons.Filled.Settings
+        RestoreGroup.TILES -> SettingsIcons.OfflinePin
+    }
+
+/** The short names of the areas (P33): they fit with their weight and their box. */
 private fun areaLabel(area: BackupArea): Int =
     when (area) {
         BackupArea.DATABASE -> R.string.backup_area_database
@@ -487,6 +843,24 @@ private fun areaLabel(area: BackupArea): Int =
         BackupArea.PRINT -> R.string.backup_area_print
         BackupArea.TILES -> R.string.backup_area_tiles
     }
+
+private fun areaIcon(area: BackupArea): ImageVector =
+    when (area) {
+        BackupArea.DATABASE -> SettingsIcons.Route
+        BackupArea.WORKSPACES -> MapsIcons.Workspaces
+        BackupArea.SOURCES -> MapsIcons.Map
+        BackupArea.SETTINGS -> Icons.Filled.Settings
+        BackupArea.ALERTS -> SettingsIcons.NotificationsActive
+        BackupArea.PRINT -> MenuIcons.Print
+        BackupArea.STATE -> SettingsIcons.Layers
+        BackupArea.TILES -> SettingsIcons.OfflinePin
+    }
+
+private val GAUGE_MIN_PART = 6.dp
+private val MAP_BAR = 120.dp
+
+/** The shortest bar of an offline map, as a share of the longest: a tiny map stays seen. */
+private const val MAP_BAR_MIN = 0.03f
 
 private fun dateText(
     context: Context,

@@ -495,7 +495,11 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         Screen.BACKUP -> {
-                                            BackupScreen(vm = backupViewModel, onBack = ::back)
+                                            BackupScreen(
+                                                vm = backupViewModel,
+                                                thumbnails = mapsViewModel.thumbnails,
+                                                onBack = ::back,
+                                            )
                                         }
 
                                         Screen.SHARE_FAVORITES -> {

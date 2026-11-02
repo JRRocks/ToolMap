@@ -62,6 +62,17 @@ class BackupService(
     fun tileFiles(): List<Pair<String, Long>> =
         locations.liveFiles(BackupArea.TILES).map { (_, file) -> file.name to file.length() }
 
+    /**
+     * What each area of data weighs on the phone now, the offline maps apart ([tileFiles]) (P33). The database counts
+     * its log too: it is folded into the file before the copy.
+     */
+    fun areaBytes(): Map<BackupArea, Long> =
+        BackupArea.entries.filterNot { it.optional }.associateWith { area ->
+            val files = locations.liveFiles(area).filterNot { it.second.name.endsWith(TEMP_SUFFIX) }
+            val log = if (area == BackupArea.DATABASE) File(locations.databaseFile.path + "-wal").length() else 0L
+            files.sumOf { it.second.length() } + log
+        }
+
     /** The backup of everything but the offline maps, or with all of them ([includeTiles]). */
     suspend fun create(
         out: OutputStream,

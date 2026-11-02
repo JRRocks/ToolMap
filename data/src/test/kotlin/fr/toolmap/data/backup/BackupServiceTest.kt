@@ -295,6 +295,17 @@ class BackupServiceTest {
     }
 
     @Test
+    fun `each area of data weighs its files, the database with its log, the offline maps apart (P33)`() {
+        val service = fullDevice("A").service()
+        val bytes = service.areaBytes()
+        assertEquals(("DB-A".length + "wal-A".length).toLong(), bytes[BackupArea.DATABASE])
+        assertEquals(("<aqx one A/>".length + "<aqx two A/>".length).toLong(), bytes[BackupArea.SOURCES])
+        assertEquals("{\"units\":\"A\"}".length.toLong(), bytes[BackupArea.SETTINGS])
+        assertFalse(BackupArea.TILES in bytes)
+        assertEquals(listOf("osm.mbtiles" to "TILES-A".length.toLong()), service.tileFiles())
+    }
+
+    @Test
     fun `only the ticked areas and the chosen maps are saved, and the format says when maps are in (P33)`() {
         val source = fullDevice("a").also { it.write("tiles/topo.mbtiles", "TOPO") }
         assertEquals(listOf("osm.mbtiles" to 7L, "topo.mbtiles" to 4L), source.service().tileFiles())

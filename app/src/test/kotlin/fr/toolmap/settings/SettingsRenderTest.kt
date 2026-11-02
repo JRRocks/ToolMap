@@ -16,16 +16,21 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTextInput
 import fr.toolmap.backup.BackupPage
 import fr.toolmap.backup.BackupUi
+import fr.toolmap.backup.OfflineMapFile
+import fr.toolmap.core.backup.BackupArea
 import fr.toolmap.core.backup.BackupEntry
 import fr.toolmap.core.backup.BackupManifest
 import fr.toolmap.core.geo.CoordinateSystem
 import fr.toolmap.core.print.GridKind
 import fr.toolmap.core.settings.AppSettings
 import fr.toolmap.data.settings.SettingsStore
+import fr.toolmap.data.sources.SourceRepository
+import fr.toolmap.maps.MapThumbnails
 import fr.toolmap.ui.Formats
 import fr.toolmap.ui.LocalAppSettings
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.ToolMapTheme
+import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -132,14 +137,21 @@ class SettingsRenderTest {
                 createdAtMillis = created.toEpochMilli(),
                 entries = List(FILES) { BackupEntry("files/f$it", SIZE / FILES, "0".repeat(64)) },
             )
-        val ui = BackupUi(tilesBytes = TILES_BYTES, pending = if (pending) manifest else null)
+        val ui =
+            BackupUi(
+                areaBytes = mapOf(BackupArea.DATABASE to SIZE, BackupArea.SETTINGS to SETTINGS_BYTES),
+                offlineMaps = listOf(OfflineMapFile("osm.mbtiles", "OpenStreetMap", "osm", TILES_BYTES)),
+                pending = if (pending) manifest else null,
+            )
         rule.setContent {
             ToolMapTheme(darkTheme = night) {
                 BackupPage(
                     ui = ui,
+                    thumbnails = MapThumbnails(OkHttpClient(), SourceRepository(File(out, "sources"), emptyList())),
                     snackbar = remember { SnackbarHostState() },
                     onBack = {},
-                    onIncludeTiles = {},
+                    onToggleAreas = {},
+                    onToggleTiles = {},
                     onCreate = {},
                     onChoose = {},
                     onRestart = {},
@@ -162,6 +174,7 @@ class SettingsRenderTest {
 
     private companion object {
         const val TILES_BYTES = 18_900_000L
+        const val SETTINGS_BYTES = 12_000L
         const val FILES = 214
         const val SIZE = 4_200_000L
     }

@@ -1288,12 +1288,19 @@
   <string name="about_licenses_text">ToolMap est construit sur ces logiciels libres :</string>
   <string name="backup_title">Sauvegarde et restauration</string>
   <string name="backup_save_title">Sauvegarder</string>
-  <string name="backup_include_tiles">Inclure les cartes hors ligne</string>
-  <string name="backup_include_tiles_hint">Occupent %1$s ; la sauvegarde sera longue et volumineuse</string>
   <string name="backup_save_button">Créer une sauvegarde…</string>
-  <string name="backup_save_short">Un fichier .zip à garder hors du téléphone (ordinateur, cloud) : il sert si vous changez de téléphone ou réinstallez l\'application.</string>
-  <string name="backup_content">Contenu</string>
-  <string name="backup_content_list">Traces, itinéraires, waypoints, réglages, alertes, cartes importées, espaces de travail, mises en page</string>
+  <string name="backup_gauge_file">fichier .zip</string>
+  <string name="backup_gauge_data">Données %1$s</string>
+  <string name="backup_gauge_tiles">Cartes hors ligne %1$s</string>
+  <string name="backup_data_caption">Données et réglages</string>
+  <string name="backup_tiles_caption">Cartes hors ligne · de la plus lourde à la plus légère</string>
+  <plurals name="backup_other_areas">
+    <item quantity="one">%1$d autre rubrique</item>
+    <item quantity="other">%1$d autres rubriques</item>
+  </plurals>
+  <string name="backup_other_areas_show">Afficher ces rubriques</string>
+  <string name="backup_other_areas_hide">Replier ces rubriques</string>
+  <string name="backup_without_tiles">Sans les cartes hors ligne : %1$s</string>
   <string name="backup_not_saved_short">Pas sauvegardés : le partage de position (à refaire sur le nouveau téléphone), l\'enregistrement en cours, les téléchargements en attente.</string>
   <string name="backup_restore_title">Restaurer</string>
   <string name="backup_restore_text">Choisissez un fichier créé par ToolMap. Il est vérifié en entier avant tout changement ; il remplace ensuite vos données actuelles au prochain démarrage de l\'application.</string>
@@ -1312,9 +1319,12 @@
   <string name="backup_err_tiles_card">Les cartes hors ligne sont sur une carte SD absente : insérez-la, ou sauvegardez sans les cartes.</string>
   <string name="backup_err_io">Lecture ou écriture impossible : %1$s</string>
   <string name="backup_preview_title">Restaurer cette sauvegarde ?</string>
-  <string name="backup_preview_when">Faite le %1$s avec ToolMap %2$s.</string>
-  <string name="backup_preview_size">Taille : %1$s.</string>
-  <string name="backup_preview_warning">Ces données remplaceront celles du téléphone, pour chacune des rubriques ci-dessus. ToolMap devra redémarrer ; un enregistrement en cours sera arrêté.</string>
+  <string name="backup_restore_intro">%1$s · ToolMap %2$s. Les rubriques cochées remplacent les vôtres ; les cartes hors ligne s\'ajoutent.</string>
+  <string name="backup_restore_intro_no_tiles">%1$s · ToolMap %2$s. Les rubriques cochées remplacent les vôtres.</string>
+  <string name="backup_group_favorites">Favoris et cartes ajoutées</string>
+  <string name="backup_group_settings">Réglages et alertes</string>
+  <string name="backup_group_tiles">Cartes hors ligne · %1$d</string>
+  <string name="backup_restore_total">À restaurer : %1$s</string>
   <string name="backup_preview_confirm">Préparer la restauration</string>
   <string name="backup_pending_title">Restauration prête</string>
   <string name="backup_pending_text">Sauvegarde du %1$s (nombre de fichiers : %2$d). Elle remplacera vos données au prochain démarrage de ToolMap.</string>
@@ -1323,18 +1333,14 @@
   <string name="backup_report_ok">Restauration réussie : sauvegarde du %1$s.</string>
   <string name="backup_report_failed">La restauration a échoué : vos données n\'ont pas été modifiées.</string>
   <string name="backup_report_dismiss">Masquer</string>
-  <string name="backup_area_database">Traces, itinéraires et waypoints</string>
+  <string name="backup_area_database">Traces et waypoints</string>
   <string name="backup_area_settings">Réglages</string>
-  <string name="backup_area_alerts">Alertes et suivi de trace</string>
-  <string name="backup_area_state">Dernière position de la carte et calques</string>
-  <string name="backup_area_sources">Cartes importées ou créées</string>
-  <string name="backup_area_workspaces">Espaces de travail</string>
-  <string name="backup_area_print">Mises en page d\'impression</string>
+  <string name="backup_area_alerts">Alertes</string>
+  <string name="backup_area_state">Position et calques</string>
+  <string name="backup_area_sources">Cartes ajoutées</string>
+  <string name="backup_area_workspaces">Favoris</string>
+  <string name="backup_area_print">Mises en page</string>
   <string name="backup_area_tiles">Cartes hors ligne</string>
-  <plurals name="backup_area_files">
-    <item quantity="one">%1$d fichier</item>
-    <item quantity="other">%1$d fichiers</item>
-  </plurals>
 
   <!-- Mesure (P9.2) -->
   <string name="menu_measure">Mesurer distance et surface</string>

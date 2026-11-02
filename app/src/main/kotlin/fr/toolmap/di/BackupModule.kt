@@ -6,10 +6,12 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import fr.toolmap.backup.OfflineMapLabels
 import fr.toolmap.backup.RoomDatabaseFreezer
 import fr.toolmap.data.backup.BackupHooks
 import fr.toolmap.data.backup.BackupLocations
 import fr.toolmap.data.backup.BackupService
+import fr.toolmap.data.storage.StorageManager
 import fr.toolmap.data.tiles.MbTilesFile
 import fr.toolmap.data.tracks.TrackDatabase
 import fr.toolmap.storage.TileStorages
@@ -47,6 +49,9 @@ object BackupModule {
                 ),
             workDir = context.cacheDir,
         )
+
+    @Provides
+    fun offlineMapLabels(storage: StorageManager): OfflineMapLabels = OfflineMapLabels(storage::labelsByFile)
 
     @Suppress("DEPRECATION")
     private fun appVersion(context: Context): String =

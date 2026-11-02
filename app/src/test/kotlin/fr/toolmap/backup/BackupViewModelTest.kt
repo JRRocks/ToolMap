@@ -83,7 +83,7 @@ class BackupViewModelTest {
                 workDir = File(root, "cache"),
                 clock = { 1_700_000_000_000L },
             )
-        vm = BackupViewModel(service)
+        vm = BackupViewModel(service) { mapOf("osm.mbtiles" to ("OpenStreetMap" to "osm")) }
         scope.launch { vm.messages.collect { messages += it } }
     }
 
@@ -132,9 +132,23 @@ class BackupViewModelTest {
     }
 
     @Test
-    fun `offline maps are in the archive only when asked`() {
-        vm.setIncludeTiles(true)
-        assertTrue(vm.ui.value.includeTiles)
+    fun `the screen knows each weight and each offline map, named, unticked at first (P33)`() {
+        waitFor("read") { vm.ui.value.offlineMaps.isNotEmpty() }
+        val ui = vm.ui.value
+        assertEquals(listOf(OfflineMapFile("osm.mbtiles", "OpenStreetMap", "osm", 10L)), ui.offlineMaps)
+        assertEquals(DATA_AREAS, ui.areas)
+        assertEquals(emptySet(), ui.tiles)
+        assertEquals(6L, ui.areaBytes[BackupArea.SOURCES])
+        assertEquals(26L, ui.dataBytes, "settings (20) and one source (6)")
+        assertEquals(0L, ui.tilesBytes)
+    }
+
+    @Test
+    fun `only the ticked areas and offline maps go in the archive (P33)`() {
+        waitFor("read") { vm.ui.value.offlineMaps.isNotEmpty() }
+        vm.toggleAreas(setOf(BackupArea.SETTINGS))
+        vm.toggleTiles("osm.mbtiles")
+        assertEquals(10L, vm.ui.value.tilesBytes)
         val out = ByteArrayOutputStream()
         vm.create(open = { out }, discard = {})
         waitFor("backup created") { messages.isNotEmpty() }
@@ -142,7 +156,36 @@ class BackupViewModelTest {
         ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { z ->
             while (true) names += (z.nextEntry ?: break).name
         }
-        assertTrue("tiles/osm.mbtiles" in names)
+        assertEquals(listOf("manifest.json", "sources/a.aqx", "tiles/osm.mbtiles"), names)
+    }
+
+    @Test
+    fun `a line that stands for several areas ticks them all, or unticks them all when all are`() {
+        val three = setOf(BackupArea.ALERTS, BackupArea.PRINT, BackupArea.STATE)
+        vm.toggleAreas(three)
+        assertEquals(DATA_AREAS - three, vm.ui.value.areas)
+        vm.toggleAreas(setOf(BackupArea.PRINT))
+        vm.toggleAreas(three)
+        assertEquals(DATA_AREAS, vm.ui.value.areas)
+        // Nothing ticked: nothing to save.
+        vm.toggleAreas(DATA_AREAS)
+        assertFalse(vm.ui.value.canCreate)
+        vm.create(open = { error("not to be opened") }, discard = {})
+        assertNull(vm.ui.value.busy)
+    }
+
+    @Test
+    fun `a restore of the ticked areas only leaves the others aside (P33)`() {
+        val bytes = archive()
+        vm.choose { ByteArrayInputStream(bytes) }
+        waitFor("preview") { vm.ui.value.preview != null }
+        assertEquals(DATA_AREAS, vm.ui.value.restoreAreas, "all it holds, ticked")
+        vm.toggleRestore(setOf(BackupArea.SOURCES))
+        vm.confirm()
+        waitFor("pending") { vm.ui.value.pending != null }
+        val pending = assertNotNull(vm.ui.value.pending)
+        assertTrue(pending.covers(BackupArea.SETTINGS))
+        assertFalse(pending.covers(BackupArea.SOURCES))
     }
 
     @Test
@@ -269,11 +312,6 @@ class BackupViewModelTest {
         vm.dismissReport()
         waitFor("dismissed") { vm.ui.value.report == null }
         assertNull(service.report())
-    }
-
-    @Test
-    fun `the weight of the offline maps is known`() {
-        waitFor("tiles weighed") { vm.ui.value.tilesBytes == 10L }
     }
 
     private companion object {

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.toolmap.R
+import fr.toolmap.core.backup.BackupArea
 import fr.toolmap.core.backup.BackupException
 import fr.toolmap.core.backup.BackupFailure
 import fr.toolmap.core.backup.BackupManifest
@@ -28,31 +29,70 @@ import javax.inject.Inject
 
 enum class BackupBusy { CREATING, CHECKING, UNPACKING }
 
+/** The areas of data a backup holds by default: all of them, the offline maps apart (P33). */
+val DATA_AREAS: Set<BackupArea> = BackupArea.entries.filterNot { it.optional }.toSet()
+
+/** One offline map of the phone, as the backup lists it (P33). */
+data class OfflineMapFile(
+    /** Its file name in the tiles folder: what the backup is given. */
+    val file: String,
+    val name: String,
+    /** The map whose picture stands for it. */
+    val pictureId: String,
+    val bytes: Long,
+)
+
+/** The offline maps' names, apart so that the view model is tested without the tile store. */
+fun interface OfflineMapLabels {
+    /** By file name in the tiles folder: the map's name and the map whose picture stands for it. */
+    fun byFile(): Map<String, Pair<String, String>>
+}
+
 /** What the backup screen shows. */
 data class BackupUi(
     val busy: BackupBusy? = null,
     /** 0..1 while [busy] is known to take a while, `null` when the amount is not known. */
     val progress: Float? = null,
-    val includeTiles: Boolean = false,
-    /** What the offline maps weigh: the cost of ticking [includeTiles]. */
-    val tilesBytes: Long = 0L,
+    /** What each area of data weighs on the phone now. */
+    val areaBytes: Map<BackupArea, Long> = emptyMap(),
+    /** The areas of data ticked for the next backup: all of them at first. */
+    val areas: Set<BackupArea> = DATA_AREAS,
+    /** The offline maps of the phone, the heaviest first. */
+    val offlineMaps: List<OfflineMapFile> = emptyList(),
+    /** The files of the offline maps ticked: none at first (ADR-106). */
+    val tiles: Set<String> = emptySet(),
     /** A backup the user picked, waiting for the go-ahead. */
     val preview: BackupManifest? = null,
+    /** The areas of [preview] ticked for the restore: all it holds at first. */
+    val restoreAreas: Set<BackupArea> = emptySet(),
     /** A restore already unpacked and checked: it is applied at the next start. */
     val pending: BackupManifest? = null,
     /** How the last restore went, until the user has seen it. */
     val report: RestoreReport? = null,
-)
+) {
+    /** What the ticked areas of data weigh: the backup without its offline maps. */
+    val dataBytes: Long get() = areas.sumOf { areaBytes[it] ?: 0L }
+
+    /** What the ticked offline maps weigh. */
+    val tilesBytes: Long get() = offlineMaps.filter { it.file in tiles }.sumOf { it.bytes }
+
+    val canCreate: Boolean get() = areas.isNotEmpty() || tiles.isNotEmpty()
+}
+
+/** Ticks all of [these] when one of them is not, unticks them all otherwise: a line that stands for several. */
+internal fun <T> Set<T>.flip(these: Set<T>): Set<T> = if (containsAll(these)) this - these else this + these
 
 /**
- * Backup and restore (feature P9.6). Saving writes a zip where the user chose; restoring checks the zip, unpacks it
- * aside and waits for the next start to put it in place (see [fr.toolmap.data.backup.PendingRestore]).
+ * Backup and restore (feature P9.6). Saving writes a zip of the areas and offline maps ticked (P33) where the user
+ * chose; restoring checks the zip, unpacks the areas ticked aside and waits for the next start to put them in place
+ * (see [fr.toolmap.data.backup.PendingRestore]).
  */
 @HiltViewModel
 class BackupViewModel
     @Inject
     constructor(
         private val service: BackupService,
+        private val labels: OfflineMapLabels,
     ) : ViewModel() {
         private val mutableUi = MutableStateFlow(BackupUi())
         val ui: StateFlow<BackupUi> = mutableUi.asStateFlow()
@@ -67,18 +107,50 @@ class BackupViewModel
             refresh()
         }
 
-        /** Reads what is on disk: the offline maps' weight, a restore waiting, the report of the last one. */
+        private class OnDisk(
+            val areaBytes: Map<BackupArea, Long>,
+            val maps: List<OfflineMapFile>,
+            val pending: BackupManifest?,
+            val report: RestoreReport?,
+        )
+
+        /** Reads what is on disk: the weights, the offline maps, a restore waiting, the report of the last one. */
         fun refresh() {
             viewModelScope.launch {
-                val state =
+                val disk =
                     withContext(Dispatchers.IO) {
-                        Triple(service.tilesBytes(), service.pending(), service.report())
+                        val names = runCatching { labels.byFile() }.getOrDefault(emptyMap())
+                        val maps =
+                            service
+                                .tileFiles()
+                                .map { (file, bytes) ->
+                                    val bare = file.removeSuffix(TILES_EXTENSION)
+                                    val (name, picture) = names[file] ?: (bare to bare)
+                                    OfflineMapFile(file, name, picture, bytes)
+                                }.sortedByDescending { it.bytes }
+                        OnDisk(service.areaBytes(), maps, service.pending(), service.report())
                     }
-                mutableUi.update { it.copy(tilesBytes = state.first, pending = state.second, report = state.third) }
+                mutableUi.update { ui ->
+                    ui.copy(
+                        areaBytes = disk.areaBytes,
+                        offlineMaps = disk.maps,
+                        tiles = ui.tiles.filterTo(HashSet()) { file -> disk.maps.any { it.file == file } },
+                        pending = disk.pending,
+                        report = disk.report,
+                    )
+                }
             }
         }
 
-        fun setIncludeTiles(on: Boolean) = mutableUi.update { it.copy(includeTiles = on) }
+        /** Ticks or unticks [areas] of data for the next backup, together when one line stands for several. */
+        fun toggleAreas(areas: Set<BackupArea>) = mutableUi.update { it.copy(areas = it.areas.flip(areas)) }
+
+        /** Ticks or unticks the offline map stored in [file] for the next backup. */
+        fun toggleTiles(file: String) = mutableUi.update { it.copy(tiles = it.tiles.flip(setOf(file))) }
+
+        /** Ticks or unticks [areas] of the backup chosen for the restore. */
+        fun toggleRestore(areas: Set<BackupArea>) =
+            mutableUi.update { it.copy(restoreAreas = it.restoreAreas.flip(areas)) }
 
         /**
          * Writes a backup to the stream [open] gives. [discard] removes the document when it fails, so that a broken
@@ -88,8 +160,8 @@ class BackupViewModel
             open: () -> OutputStream?,
             discard: () -> Unit,
         ) {
-            if (mutableUi.value.busy != null) return
-            val includeTiles = mutableUi.value.includeTiles
+            val wanted = mutableUi.value
+            if (wanted.busy != null || !wanted.canCreate) return
             mutableUi.update { it.copy(busy = BackupBusy.CREATING, progress = 0f) }
             viewModelScope.launch {
                 try {
@@ -100,7 +172,7 @@ class BackupViewModel
                     }
                     val manifest =
                         try {
-                            service.create(out, includeTiles) { done, total -> progress(done, total) }
+                            service.create(out, wanted.areas, wanted.tiles) { done, total -> progress(done, total) }
                         } catch (e: Throwable) {
                             withContext(Dispatchers.IO) { runCatching { discard() } }
                             throw e
@@ -129,7 +201,8 @@ class BackupViewModel
                         return@launch
                     }
                     chosen = open
-                    mutableUi.update { it.copy(preview = manifest) }
+                    val held = BackupArea.entries.filterTo(HashSet()) { manifest.covers(it) }
+                    mutableUi.update { it.copy(preview = manifest, restoreAreas = held) }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: BackupException) {
@@ -148,7 +221,8 @@ class BackupViewModel
         /** The user accepted the preview: unpack and check, then wait for the restart. */
         fun confirm() {
             val open = chosen ?: return
-            if (mutableUi.value.busy != null) return
+            val areas = mutableUi.value.restoreAreas
+            if (mutableUi.value.busy != null || areas.isEmpty()) return
             mutableUi.update { it.copy(preview = null, busy = BackupBusy.UNPACKING, progress = 0f) }
             viewModelScope.launch {
                 try {
@@ -157,7 +231,7 @@ class BackupViewModel
                         say(R.string.backup_cannot_open)
                         return@launch
                     }
-                    val manifest = stream.use { service.stage(it) { done, total -> progress(done, total) } }
+                    val manifest = stream.use { service.stage(it, areas) { done, total -> progress(done, total) } }
                     mutableUi.update { it.copy(pending = manifest) }
                     say(R.string.backup_staged)
                 } catch (e: CancellationException) {
@@ -198,6 +272,10 @@ class BackupViewModel
             vararg args: Any,
         ) {
             mutableMessages.tryEmit(UiMessage(resId, args.toList()))
+        }
+
+        private companion object {
+            const val TILES_EXTENSION = ".mbtiles"
         }
 
         private fun sayFailure(e: BackupException) {
