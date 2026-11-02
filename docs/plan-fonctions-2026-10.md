@@ -149,11 +149,24 @@ export AQX d'une carte avec clés retirées (`SourceRepository.export`) ; appui 
 
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
-| P25.0 | ⬜ | Aperçu : commandes d'un favori (Partager, Renommer), choix des clés, import, message du groupe | Validation explicite, date au journal |
-| P25.1 | ⬜ | `:core` : format `.toolmap` (versions, AQX inclus, clés) | Tests JVM d'aller-retour, clés retirées et gardées |
-| P25.2 | ⬜ | Export (partage Android) et Renommer | Émulateur : fichier produit, favori renommé |
-| P25.3 | ⬜ | Import (« Ouvrir avec », cartes, clés, cartes masquées) | Tests ; émulateur : import d'un favori avec une carte ajoutée absente |
+**Décisions du 2026-11-02** (questions de la session « ToolMap », aperçu `docs/previews/p25-partage-sauvegarde.html`,
+**variante « C · Poids » validée le 2026-11-02** : « Partage des favoris et sauvegarde : je choisis la variante C · Poids. »)
+- Un fichier `.toolmap` contient **plusieurs** favoris et l'AQX de leurs cartes ajoutées, jamais les tuiles ; il part
+  par le partage d'Android. Entrée : icône « Partager » dans le bandeau du panneau Cartes et calques ; écran plein
+  « Partager des favoris » (✕, « 3 cochés sur 5 »), carte « fichier » en tête (nom, contenu, poids), favoris à cocher,
+  choix de la clé, « Partager… » dans la barre du bas.
+- Ouverture : feuille « Ajouter N favoris ? », une case par favori et son état (nom déjà pris, carte ajoutée, clé à
+  saisir) ; rien n'est appliqué.
+- Les tuiles passent par la sauvegarde (P33), jamais en direct entre téléphones. Format : ADR-105.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P25.0 | ✅ | Aperçu : commandes d'un favori (Partager, Renommer), choix des clés, import, message du groupe. **Validé le 2026-11-02 : variante « C · Poids »** de `docs/previews/p25-partage-sauvegarde.html` (partage, ouverture ; « Renommer » et le message du groupe n'y sont pas) | Validation explicite, date au journal |
+| P25.1 | ✅ | `:core` : format `.toolmap` (versions, AQX inclus, clés), plan d'import (cartes réutilisées ou ajoutées, nom « (2) », clé à saisir, carte masquée remise) ; ADR-105. Fait en session 87 | Tests JVM d'aller-retour, clés retirées et gardées : `FavoritesFileTest` (11) ✅ |
+| P25.2 | ⬜ | Export : icône « Partager » du bandeau, écran « Partager des favoris » (variante C), partage d'Android | Émulateur : fichier produit ; capture à côté de l'aperçu |
+| P25.3 | ⬜ | Import (« Ouvrir avec », feuille « Ajouter N favoris ? », cartes, clés, cartes masquées) | Tests ; émulateur : import d'un favori avec une carte ajoutée absente |
 | P25.4 | ⬜ | Envoi au groupe (après P27) : trame chiffrée (au-delà de 4096 octets : compression ou découpage), « Ajouter » | `MeshNodeTest` ; deux émulateurs |
+| P25.5 | ⬜ | « Renommer » un favori (décision du 2026-10-24) : absent de l'aperçu validé, aperçu à faire avant le code | Aperçu validé ; émulateur : favori renommé |
 
 ---
 

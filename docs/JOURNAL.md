@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-11-02 — Session 87 — [P25][P33] Partage de plusieurs favoris en fichier `.toolmap`, sauvegarde à la carte
+- **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 647b922 (0.4.147) ; poussée sur `JRRocks/ToolMap` (pas de PR). Session lancée par la session « ToolMap » du même poste.
+- **Objectif** : coder la variante « C · Poids » de `docs/previews/p25-partage-sauvegarde.html`, validée par l'utilisateur le 2026-11-02 : partager plusieurs favoris dans un fichier `.toolmap` (P25.1 à P25.3), sauvegarde et restauration à la carte avec les cartes hors ligne choisies une par une et fusionnées à la restauration (P33).
+- **Réalisé** :
+  - Versions au début : local **0.4.147**, propre (seul l'aperçu non suivi), égal à `origin/claude/vibrant-galileo-q3s99n` (référence) ; `claude/blissful-hopper-8kr9d6` (iOS) en 0.4.145, `main` en 0.4.134, `claude/pensive-edison-cgzr8t` en 0.4.102 ; Drive non monté sur ce poste (version non lue).
+  - **Aperçu validé** : `docs/previews/p25-partage-sauvegarde.html` (créé par la session « ToolMap », commité ici), **variante « C · Poids », le 2026-11-02** ; mots de l'utilisateur relayés par la session « ToolMap » : « Partage des favoris et sauvegarde : je choisis la variante C · Poids. » Décisions du même jour : plusieurs favoris et l'AQX de leurs cartes ajoutées par fichier, jamais les tuiles ; feuille « Ajouter N favoris ? » à l'ouverture ; rubriques de la sauvegarde à cocher, cartes hors ligne carte par carte dans le même zip ; restauration par rubrique, tuiles fusionnées (la plus récente gardée) ; anciennes sauvegardes toujours restaurées ; pas de transfert direct de tuiles.
+  - Plan : P25 🔄, P25.0 ✅ ; « Renommer » (prévu par P25.2) sorti en P25.5, absent de l'aperçu validé ; nouvelle phase **P33** (sauvegarde à la carte ; P32 est pris par la branche iOS). ADR-105 (fichier `.toolmap`) et ADR-106 (sauvegarde à la carte, remplace le point 3 d'ADR-026 pour les tuiles).
+  - **P25.1** (`:core`, `FavoritesFile.kt`) : `FavoritesFile` (JSON versionné : favoris + un document `.aqx` des cartes ajoutées qu'ils montrent, y compris celles d'une carte multi-zoom ajoutée), `FavoritesFileCodec` (format plus récent refusé, clés inconnues ignorées, 1 Mo au plus), `FavoritesExport` (cartes ajoutées, cartes à clé, clés retirées ou gardées, nom de fichier sans caractère interdit), `FavoritesImport.plan` (carte déjà là réutilisée, même sous un autre identifiant si ses tuiles sont les mêmes ; carte absente ajoutée, sous `id-2` / « Nom (2) » si l'identifiant est pris ; « clé à saisir » ; nom de favori « (2) » ; carte masquée remise).
+- **Décisions (ADR)** : ADR-105, ADR-106.
+- **Tests / vérifications** :
+  - `./gradlew :core:test --tests 'fr.toolmap.core.layers.FavoritesFileTest'` : 11 tests, 0 échec (aller-retour de trois favoris, clés retirées et gardées, favoris de cartes fournies sans AQX, multi-zoom ajouté et sa carte, nom de fichier, fichiers refusés et format plus récent, noms « (2) » et « (3) », cartes ajoutées et clé à saisir, carte réutilisée sous son identifiant ou un autre, identifiant pris, carte masquée).
+  - P25.1 : `./gradlew spotlessApply`, `./gradlew assembleDebug` (0.4.147 → **0.4.148**), puis `./gradlew check assembleDebug` : **BUILD SUCCESSFUL** en 3 min 12 s ; tests core 966, app 475 (74 ignorés), 0 échec.
+- **Problèmes / dette technique** : —
+- **Prochaine étape recommandée** : P25.2 (écran « Partager des favoris »), puis P25.3, P33.1, P33.2.
+
+---
+
 ## 2026-11-02 — Session 86 (suite) — [P17.10] Impression : une feuille sans place pour la carte le dit, et « Annuler » remet la carte où elle était
 - **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de cfe52e1 (0.4.146) ; poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : coder l'aperçu `docs/previews/p17-format-sans-place.html` validé par l'utilisateur le 2026-11-02 (« 1 : C , 2 : P1 », relayé par la session « ToolMap ») : une feuille « Autre » qui ne laisse pas de place à la carte montre le champ trop court et son minimum ; « Annuler » remet la carte où elle était avant « Imprimer ».
