@@ -151,8 +151,8 @@ class BuiltinSourcesTest {
     }
 
     @Test
-    fun `the Sortie Ski favorite shows the snow map above 1550 m and the ski overlays from zoom 12`() {
-        val ski = Workspaces.sortieSki
+    fun `the Rando Hiver favorite shows the snow map above 1550 m and the ski overlays from zoom 13`() {
+        val ski = Workspaces.randoHiver
         val byId = sources.associateBy { it.id }
         assertEquals(
             listOf("ign-scan25", "OSMSNOWM", "OSMSKIM", "TRACESHIVERNALES", "ign-pentes"),
@@ -167,17 +167,20 @@ class BuiltinSourcesTest {
             listOf(snow.displayMaxElevation, snow.displayMinZoom, snow.displayMaxZoom),
         )
         for (layer in listOf(pistes, tracks, slopes)) {
-            assertEquals(12, layer.displayMinZoom, layer.sourceId)
+            assertEquals(13, layer.displayMinZoom, layer.sourceId)
             assertNull(layer.displayMaxZoom, layer.sourceId)
             assertNull(layer.displayMinElevation, layer.sourceId)
         }
         assertEquals(listOf(1f, 1f, 0.3f), listOf(pistes, tracks, slopes).map { it.opacity })
+        // The Yeti tracks turned round the colour wheel and a little darker, as in the author's export.
+        assertEquals(-122f, tracks.hue)
+        assertTrue(tracks.brightness < 0f)
         val stack = ski.toStack { true }.stack
         assertEquals(
             listOf("ign-scan25", "OSMSNOWM"),
-            stack.layers.filter { LayerZoom.isActiveAt(it, 11.5) }.map { it.sourceId },
+            stack.layers.filter { LayerZoom.isActiveAt(it, 12.5) }.map { it.sourceId },
         )
-        assertEquals(5, stack.layers.count { LayerZoom.isActiveAt(it, 12.5) })
+        assertEquals(5, stack.layers.count { LayerZoom.isActiveAt(it, 13.5) })
     }
 
     @Test
@@ -217,13 +220,15 @@ class BuiltinSourcesTest {
     }
 
     @Test
-    fun `the Rando Multi-Zoom favorite shows exactly one built-in map at each zoom from 1 to 19`() {
-        val stack = Workspaces.randoMultiZoom.toStack { true }.stack
+    fun `the Rando été favorite shows one built-in map at each zoom from 1 up, under the IGN slopes`() {
+        val stack = Workspaces.randoEte.toStack { true }.stack
         val byId = sources.associateBy { it.id }
         assertTrue(stack.layers.all { byId[it.sourceId]?.isMultiZoom == false })
+        val maps = stack.layers.dropLast(1)
+        val slopes = stack.layers.last()
         val shown =
-            (1..19).map { z ->
-                stack.layers.filter { LayerZoom.isActiveAt(it, z + 0.5) }.map { it.sourceId }
+            (1..20).map { z ->
+                maps.filter { LayerZoom.isActiveAt(it, z + 0.5) }.map { it.sourceId }
             }
         assertTrue(shown.all { it.size == 1 }, "maps per zoom: $shown")
         assertEquals("osm", shown[8 - 1].single())
@@ -231,5 +236,10 @@ class BuiltinSourcesTest {
         assertEquals("ign-scan25", shown[17 - 1].single())
         assertEquals("osm", shown[18 - 1].single())
         assertEquals("ign-ortho", shown[19 - 1].single())
+        assertEquals("ign-ortho", shown[20 - 1].single())
+        // The slopes cover every zoom at 31 %, as in the author's export.
+        assertEquals("ign-pentes", slopes.sourceId)
+        assertTrue((1..20).all { LayerZoom.isActiveAt(slopes, it + 0.5) })
+        assertEquals(0.31f, slopes.opacity, 0.001f)
     }
 }

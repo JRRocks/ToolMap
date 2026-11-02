@@ -72,7 +72,7 @@ class WorkspaceStoreTest {
     @Test
     fun `a built-in preset cannot be saved over`() {
         val store = WorkspaceStore(dir)
-        assertFailsWith<IllegalArgumentException> { store.save(Workspaces.sortieSki) }
+        assertFailsWith<IllegalArgumentException> { store.save(Workspaces.randoHiver) }
         assertTrue(store.workspaces.value.isEmpty())
     }
 
@@ -91,11 +91,11 @@ class WorkspaceStoreTest {
         val saved = workspace("Perso")
         store.save(saved)
         assertEquals(Workspaces.builtin + saved, store.favorites.value)
-        store.delete(Workspaces.randoMultiZoom.id)
-        assertEquals(setOf(Workspaces.randoMultiZoom.id), store.hiddenBuiltins.value)
-        assertEquals(Workspaces.builtin - Workspaces.randoMultiZoom + saved, store.favorites.value)
+        store.delete(Workspaces.randoEte.id)
+        assertEquals(setOf(Workspaces.randoEte.id), store.hiddenBuiltins.value)
+        assertEquals(Workspaces.builtin - Workspaces.randoEte + saved, store.favorites.value)
         val reopened = WorkspaceStore(dir)
-        assertEquals(Workspaces.builtin - Workspaces.randoMultiZoom + saved, reopened.favorites.value)
+        assertEquals(Workspaces.builtin - Workspaces.randoEte + saved, reopened.favorites.value)
         assertEquals(listOf(saved), reopened.workspaces.value)
         reopened.restoreBuiltins()
         assertEquals(Workspaces.builtin + saved, reopened.favorites.value)
@@ -104,7 +104,7 @@ class WorkspaceStoreTest {
 
     @Test
     fun `the user's multi-zoom map replaces IGN topo as first favorite`() {
-        assertEquals(Workspaces.randoMultiZoom, Workspaces.builtin.first())
+        assertEquals(Workspaces.randoEte, Workspaces.builtin.first())
         assertTrue(Workspaces.builtin.none { ws -> ws.layers.any { it.sourceId == "ign-maps" } })
     }
 }

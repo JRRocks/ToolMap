@@ -20,6 +20,26 @@
 
 ---
 
+## 2026-11-02 — Session 87 (suite) — [P25.6] Favoris fournis « Rando été » et « Rando Hiver » : les réglages de l'utilisateur
+- **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 845100d (0.4.154) ; poussée sur `JRRocks/ToolMap` (pas de PR). Demande relayée par la session « ToolMap ».
+- **Objectif** : demande de l'utilisateur : « Met a jour les 2 cartes par défaut par mes nouveau settings (nom inclus). » Les deux favoris fournis prennent les noms et les réglages de son export `.toolmap` du 2026-11-02 : « Rando été » (pentes IGN à 31 % par-dessus, photos aériennes sans zoom maximum) et « Rando Hiver » (calques de ski à partir du zoom 13, traces Yeti en teinte -122°).
+- **Réalisé** :
+  - Versions : local 0.4.154 propre, égal à `origin/claude/vibrant-galileo-q3s99n` (référence) ; `claude/blissful-hopper-8kr9d6` (iOS) 0.4.145, `main` 0.4.134, `claude/pensive-edison-cgzr8t` 0.4.102 ; Drive non monté sur ce poste.
+  - Pas d'aperçu : l'utilisateur a donné les valeurs exactes (son fichier « Rando été et 1 autre.toolmap », format 1, deux favoris, sans carte ajoutée).
+  - `:core` `Workspace.kt` : `Workspaces.randoMultiZoom` → `randoEte` « **Rando été** » : OpenStreetMap 1–8, OpenTopoMap 9–11, IGN SCAN 25 12–17, OpenStreetMap 18, IGN Photographies aériennes **à partir de 19 sans maximum** (avant : 19–19), **IGN Pentes à 31 % au-dessus**, à tous les zooms (contraste, luminosité, saturation du fichier, à quelques millièmes de 0). `sortieSki` → `randoHiver` « **Rando Hiver** » : IGN SCAN 25 ; SnowBase Map au-dessus de 1550 m ; Pistes Layer, traces Yeti et IGN Pentes (30 %) **à partir du zoom 13** (avant : 12) ; traces Yeti en **teinte -122°**, luminosité -0,04. Valeurs reprises sans arrondi ; les cartes sont toutes intégrées (`OSMSNOWM`, `OSMSKIM`, `TRACESHIVERNALES` : ADR-069).
+  - Ids gardés (`builtin-rando-multizoom`, `builtin-sortie-ski`) : un favori fourni supprimé le reste ; la puce pleine se reconnaît à la pile.
+  - **Sur le téléphone de l'utilisateur** : ses copies personnelles « Rando été » et « Rando Hiver » (mêmes cartes) apparaîtront à côté des favoris fournis du même nom, chaque nom deux fois, et les deux puces seront pleines quand l'une est appliquée ; il peut supprimer ses copies (appui long ▸ Supprimer).
+  - Tests et commentaires qui nommaient les favoris mis à jour (`WorkspaceTest`, `BuiltinSourcesTest`, `FavoritesFileTest`, `MapsRootPanelTest`, `PrintPlanTest`, `AndroidBandRendererTest`, `WorkspaceStoreTest`, `builtin-sources.aqx`) ; ADR-107 ; `docs/specs/ui-index.md` (C4), `docs/specs/ui-reorganization.md` (F2) ; plan : P25.6.
+- **Décisions (ADR)** : ADR-107 (favoris fournis « Rando été » et « Rando Hiver », ids gardés ; remplace la liste des cartes d'ADR-063 et le point 3 d'ADR-069).
+- **Tests / vérifications** :
+  - `./gradlew :core:test :data:testDebugUnitTest --tests '*WorkspaceStoreTest' --tests '*AndroidBandRendererTest' :app:testDebugUnitTest --tests '*MapsRootPanelTest'` : **BUILD SUCCESSFUL**, 0 échec (une carte de fond par zoom de 1 à 20 sous les pentes à 31 % ; calques de ski absents au zoom 12,5, présents au zoom 13,5 ; teinte -122° ; noms et ids des deux favoris fournis ; état de l'ancienne carte `RANDO_ZOOM_GROUP` remplacé par les six calques).
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.154 → **0.4.155**) : **BUILD SUCCESSFUL** en 2 min 42 s ; tests core 967, data 320, app 484 (74 ignorés), 0 échec.
+  - Émulateur (APK local 0.4.155 installé par-dessus la 0.4.154, données gardées ; un premier `adb install` n'avait rien installé, relancé) : panneau Cartes et calques, puces « **Rando été** », « **Rando Hiver** », puis le favori personnel « Rando Multi-Zoom (2) » d'un essai de P25.3. « Rando Hiver » appliqué : « Rando Hiver · 5 cartes », IGN Pentes « Visible à partir du zoom 13 · inactif à ce zoom · 30 % d'opacité », traces Yeti et Pistes Layer « à partir du zoom 13 », SnowBase Map « Au-dessus de 1550 m ». « Rando été » appliqué : « Rando été · 6 cartes », IGN Pentes « 31 % d'opacité » en haut, IGN Photographies aériennes « Visible à partir du zoom 19 », OpenStreetMap 18, SCAN 25 12 à 17, OpenTopoMap 9 à 11, OpenStreetMap 1 à 8. Captures envoyées à l'utilisateur (non commitées).
+- **Problèmes / dette technique** : aucun.
+- **Prochaine étape recommandée** : « Enregistrer sur un favori » (mettre à jour le favori d'où l'on vient, fournis compris, ou en créer un) : aperçu à 5 variantes `docs/previews/p25-enregistrer-favori.html` en attente du choix de l'utilisateur ; P25.5 (« Renommer ») : aperçu à faire ; P25.4 attend P27.
+
+---
+
 ## 2026-11-02 — Session 87 — [P25][P33] Partage de plusieurs favoris en fichier `.toolmap`, sauvegarde à la carte
 - **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 647b922 (0.4.147) ; poussée sur `JRRocks/ToolMap` (pas de PR). Session lancée par la session « ToolMap » du même poste.
 - **Objectif** : coder la variante « C · Poids » de `docs/previews/p25-partage-sauvegarde.html`, validée par l'utilisateur le 2026-11-02 : partager plusieurs favoris dans un fichier `.toolmap` (P25.1 à P25.3), sauvegarde et restauration à la carte avec les cartes hors ligne choisies une par une et fusionnées à la restauration (P33).

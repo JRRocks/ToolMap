@@ -24,14 +24,14 @@ class WorkspaceTest {
         val saved = LayerStack().add(Workspaces.RETIRED_RANDO_SOURCE).add("ign-pentes", opacity = 0.5f)
         val back = Workspaces.replaceRetired(saved) { it != Workspaces.RETIRED_RANDO_SOURCE }
         assertEquals(
-            listOf("osm", "opentopomap", "ign-scan25", "osm", "ign-ortho", "ign-pentes"),
+            listOf("osm", "opentopomap", "ign-scan25", "osm", "ign-ortho", "ign-pentes", "ign-pentes"),
             back.layers.map { it.sourceId },
         )
-        assertEquals((1..6).map { "${LayerStack.ID_PREFIX}$it" }, back.layers.map { it.id })
+        assertEquals((1..7).map { "${LayerStack.ID_PREFIX}$it" }, back.layers.map { it.id })
         assertEquals(12, back.layers[2].displayMinZoom)
         assertEquals(17, back.layers[2].displayMaxZoom)
         assertEquals(0.5f, back.layers.last().opacity)
-        assertTrue(Workspaces.randoMultiZoom.matches(LayerStack(back.layers.dropLast(1))))
+        assertTrue(Workspaces.randoEte.matches(LayerStack(back.layers.dropLast(1))))
     }
 
     @Test
@@ -73,7 +73,7 @@ class WorkspaceTest {
 
     @Test
     fun `only shipped presets are flagged as built in`() {
-        assertTrue(Workspaces.sortieSki.isBuiltin)
+        assertTrue(Workspaces.randoHiver.isBuiltin)
         assertFalse(Workspace.of("mine", "x", LayerStack()).isBuiltin)
     }
 
@@ -151,11 +151,12 @@ class WorkspaceTest {
     }
 
     @Test
-    fun `the shipped favorites are Rando Multi-Zoom and Sortie Ski, built in with layers and distinct ids`() {
+    fun `the shipped favorites are Rando été and Rando Hiver, built in with layers and distinct ids`() {
         val all = Workspaces.builtin
         assertTrue(all.all { it.isBuiltin && it.layers.isNotEmpty() })
         assertEquals(all.size, all.map { it.id }.toSet().size)
-        // ADR-069: only the author's two setups are shipped.
-        assertEquals(listOf("Rando Multi-Zoom", "Sortie Ski"), all.map { it.name })
+        // ADR-069: only the author's two setups are shipped; ADR-107 renamed them under their first ids.
+        assertEquals(listOf("Rando été", "Rando Hiver"), all.map { it.name })
+        assertEquals(listOf("builtin-rando-multizoom", "builtin-sortie-ski"), all.map { it.id })
     }
 }

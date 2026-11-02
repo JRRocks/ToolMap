@@ -162,10 +162,10 @@ class MapsRootPanelTest {
     @Test
     fun `a favourite chip offers Appliquer and Supprimer on a long press, and a delete can be undone`() {
         setContent()
-        rule.onNodeWithText("Rando Multi-Zoom").performTouchInput { longClick() }
+        rule.onNodeWithText("Rando été").performTouchInput { longClick() }
         rule.onNodeWithText("Appliquer").assertExists()
         rule.onNodeWithText("Supprimer").performClick()
-        assertEquals(listOf("Rando Multi-Zoom"), deleted.map { it.name })
+        assertEquals(listOf("Rando été"), deleted.map { it.name })
     }
 
     @Test

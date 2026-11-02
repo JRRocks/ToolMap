@@ -96,10 +96,10 @@
     </zoom-levels>
   </source>
 
-  <!-- Ski maps of the "Sortie Ski" favorite (ADR-069), from the author's COM.109.AQX (OpenSnowMap) and
-       USR.IGN+PENTES+YETI_TRANSITOIRE 2024_SANS GEOKEY.AQX (Yeti winter tracks). They keep the ids of those files, so
-       an imported copy is replaced by the built-in map and a saved stack still finds it. Served over https (the
-       files say http); the OpenSnowMap base map answers "access denied" without its referer. -->
+  <!-- Ski maps of the "Rando Hiver" favorite (ADR-069, first named "Sortie Ski"), from the author's COM.109.AQX
+       (OpenSnowMap) and USR.IGN+PENTES+YETI_TRANSITOIRE 2024_SANS GEOKEY.AQX (Yeti winter tracks). They keep the ids
+       of those files, so an imported copy is replaced by the built-in map and a saved stack still finds it. Served
+       over https (the files say http); the OpenSnowMap base map answers "access denied" without its referer. -->
   <source id="OSMSNOWM" type="topo">
     <name>SnowBase Map</name>
     <copyright>OpenStreetMap contributors (CC-BY-SA)</copyright>

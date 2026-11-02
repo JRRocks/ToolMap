@@ -200,7 +200,7 @@ Depuis P29.3 (2026-10-27, variante C · Strates, ADR-076), la pile est le conten
 | ID | Élément | Statut |
 |---|---|---|
 | C2 | Bandeau : « Cartes et calques », puis le favori appliqué (ou la seule carte) et le nombre de cartes, et « N dessinée(s) au zoom Z » ; icône « Partager des favoris » (écran SHARE_FAVORITES, §7, P25.2) ; icône « Enregistrer l'affichage » (dialogue « Nouveau favori ») ; « ? » | ✅ (P29.3, P25.2) |
-| C4 | Favoris en puces (vignette ronde de la carte de fond du dessus, nom ; le favori appliqué est plein) ; appui = appliquer, le panneau reste ouvert | ✅ (P29.3) |
+| C4 | Favoris en puces (vignette ronde de la carte de fond du dessus, nom ; le favori appliqué est plein) ; appui = appliquer, le panneau reste ouvert. Favoris fournis : « Rando été » et « Rando Hiver » (réglages de l'utilisateur, ADR-107 ; ex-« Rando Multi-Zoom » et « Sortie Ski ») | ✅ (P29.3, P25.6) |
 | C5 | Appui long sur une puce : Appliquer · Supprimer ; suppression immédiate, snackbar « Favori supprimé : … » avec « Annuler » ; puce « Rétablir (n) » quand des favoris fournis ont été supprimés | ✅ (P29.3) |
 | C2b | « Cartes affichées · du dessus vers le dessous », puis une ligne par calque (§5.2) ; pile vide : « Aucune carte affichée… » ; bouton « Enregistrer comme favori… » quand la pile ne correspond à aucun favori | ✅ (P29.3) |
 | C7 | « Hors ligne » (interrupteur, lu « Mode hors ligne, tuiles stockées seulement ») | ✅ (P29.3) |

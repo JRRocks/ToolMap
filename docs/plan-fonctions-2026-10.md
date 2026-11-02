@@ -167,6 +167,7 @@ export AQX d'une carte avec clés retirées (`SourceRepository.export`) ; appui 
 | P25.3 | ✅ | Import (« Ouvrir avec », feuille « Ajouter N favoris ? », cartes, clés, cartes masquées) | Tests ; émulateur : import d'un favori avec une carte ajoutée absente |
 | P25.4 | ⬜ | Envoi au groupe (après P27) : trame chiffrée (au-delà de 4096 octets : compression ou découpage), « Ajouter » | `MeshNodeTest` ; deux émulateurs |
 | P25.5 | ⬜ | « Renommer » un favori (décision du 2026-10-24) : absent de l'aperçu validé, aperçu à faire avant le code | Aperçu validé ; émulateur : favori renommé |
+| P25.6 | ✅ | Favoris fournis mis aux réglages de l'utilisateur, noms compris (demande du 2026-11-02, son export `.toolmap`) : « Rando été » et « Rando Hiver », ids gardés (ADR-107) | `WorkspaceTest`, `BuiltinSourcesTest` ; émulateur : les deux puces renommées dans Cartes et calques |
 
 ---
 

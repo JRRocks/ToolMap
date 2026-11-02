@@ -107,8 +107,8 @@ class PrintPlanTest {
 
     @Test
     fun `a layer in an elevation band is printed in that band, read from the elevation map, as on the screen`() {
-        // Sortie Ski: IGN SCAN 25 under the snow map above 1550 m; the IGN layer stays whole.
-        val ski = Workspaces.sortieSki.toStack { true }.stack.layers
+        // Rando Hiver: IGN SCAN 25 under the snow map above 1550 m; the IGN layer stays whole.
+        val ski = Workspaces.randoHiver.toStack { true }.stack.layers
         val p = plan(ski)
         val scan = p.layers.single { it.source.id == "ign-scan25" }
         val snow = p.layers.single { it.source.id == "OSMSNOWM" }

@@ -58,10 +58,10 @@ class FavoritesFileTest {
 
     @Test
     fun `a file holds several favorites and the added maps they show, without the built-in ones`() {
-        val file = share(listOf(Workspaces.randoMultiZoom, ski, winter), keepKeys = true)
+        val file = share(listOf(Workspaces.randoEte, ski, winter), keepKeys = true)
         val back = FavoritesFileCodec.decode(FavoritesFileCodec.encode(file))
         assertEquals(file, back)
-        assertEquals(listOf("Rando Multi-Zoom", "Sortie Ski", "Chartreuse hiver"), back.favorites.map { it.name })
+        assertEquals(listOf("Rando été", "Sortie Ski", "Chartreuse hiver"), back.favorites.map { it.name })
         assertEquals(ski.layers, back.favorites[1].layers)
         val maps = AqxParser.parse(back.aqx!!).file.sources
         assertEquals(listOf("SNOW_KEYED", "PENTES_YETI"), maps.map { it.id })
@@ -79,7 +79,7 @@ class FavoritesFileTest {
 
     @Test
     fun `favorites of built-in maps only carry no map`() {
-        assertNull(share(listOf(Workspaces.randoMultiZoom), keepKeys = true).aqx)
+        assertNull(share(listOf(Workspaces.randoEte), keepKeys = true).aqx)
         assertEquals(
             listOf(snow),
             FavoritesExport.keyed(
@@ -149,7 +149,7 @@ class FavoritesFileTest {
                 file,
                 emptyList(),
                 phone,
-                taken = listOf("Rando Multi-Zoom"),
+                taken = listOf("Rando été"),
                 hidden = emptySet(),
             )
         assertEquals(listOf("Sortie Ski", "Sortie Ski (2)"), plan.items.map { it.favorite.name })
@@ -158,18 +158,18 @@ class FavoritesFileTest {
 
     @Test
     fun `on a phone without the added maps they are added, and a map without its key asks for one`() {
-        val file = share(listOf(Workspaces.randoMultiZoom, ski, winter), keepKeys = false)
+        val file = share(listOf(Workspaces.randoEte, ski, winter), keepKeys = false)
         val sources = AqxParser.parse(file.aqx!!).file.sources
         val plan =
             FavoritesImport.plan(
                 file,
                 sources,
                 builtins,
-                taken = listOf("Rando Multi-Zoom", "Sortie Ski"),
+                taken = listOf("Rando été", "Sortie Ski"),
                 hidden = emptySet(),
             )
         val (rando, skiItem, winterItem) = plan.items
-        assertEquals("Rando Multi-Zoom (2)", rando.favorite.name)
+        assertEquals("Rando été (2)", rando.favorite.name)
         assertTrue(rando.added.isEmpty())
         assertEquals(listOf("SNOW_KEYED"), skiItem.added.map { it.id })
         assertEquals(listOf("SNOW_KEYED"), skiItem.needKey.map { it.id })
@@ -217,7 +217,7 @@ class FavoritesFileTest {
 
     @Test
     fun `a map the user hid comes back with the favorite`() {
-        val file = FavoritesFile(favorites = listOf(Workspaces.sortieSki))
+        val file = FavoritesFile(favorites = listOf(Workspaces.randoHiver))
         val item =
             FavoritesImport.plan(
                 file,

@@ -113,7 +113,7 @@ class AndroidBandRendererTest {
 
     @Test
     fun `a layer in an elevation band covers the one under it only inside the band, as on the screen`() {
-        // Sortie Ski: red IGN SCAN 25 under the blue snow map above 1550 m. Ground at 1000 m under even elevation
+        // Rando Hiver: red IGN SCAN 25 under the blue snow map above 1550 m. Ground at 1000 m under even elevation
         // tiles, 2000 m under odd ones; the elevation tiles of a few columns cannot be read.
         val ski =
             PrintPlanner.plan(

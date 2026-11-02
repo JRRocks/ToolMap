@@ -142,46 +142,62 @@ data class Workspace(
 /** Workspaces shipped with the app. */
 object Workspaces {
     /**
-     * The author's own setup (from USR.PERSONNAL_MULTIZOOM.AQX), the first favorite: one map per zoom range,
-     * stacked as ordinary layers so each range shows in "Displayed maps" and can be changed (ADR-063).
+     * The author's summer setup, the first favorite (ADR-107, values from the author's own export): one map per zoom
+     * range, stacked as ordinary layers so each range shows in "Displayed maps" and can be changed (ADR-063), with
+     * the aerial photos from zoom 19 up and the IGN slopes at 31 % on top. The id dates from its first name,
+     * « Rando Multi-Zoom »: it is kept so a hidden built-in stays hidden.
      */
-    val randoMultiZoom =
+    val randoEte =
         Workspace(
             id = "${Workspace.BUILTIN_PREFIX}rando-multizoom",
-            name = "Rando Multi-Zoom",
+            name = "Rando été",
             layers =
                 listOf(
                     WorkspaceLayer("osm", displayMinZoom = 1, displayMaxZoom = 8),
                     WorkspaceLayer("opentopomap", displayMinZoom = 9, displayMaxZoom = 11),
                     WorkspaceLayer("ign-scan25", displayMinZoom = 12, displayMaxZoom = 17),
                     WorkspaceLayer("osm", displayMinZoom = 18, displayMaxZoom = 18),
-                    WorkspaceLayer("ign-ortho", displayMinZoom = 19, displayMaxZoom = 19),
+                    WorkspaceLayer("ign-ortho", displayMinZoom = 19),
+                    WorkspaceLayer(
+                        "ign-pentes",
+                        opacity = 0.31017873f,
+                        contrast = -0.0037047565f,
+                        brightness = 0.0067015886f,
+                        saturation = 0.0042265654f,
+                    ),
                 ),
         )
 
     /**
-     * The author's ski setup (ADR-069): IGN SCAN 25 everywhere, OpenSnowMap's snow base map above 1,550 m, and from
-     * zoom 12 the ski pistes, the Yeti winter tracks and the IGN slopes at 30 %.
+     * The author's winter setup (ADR-069, values updated by ADR-107): IGN SCAN 25 everywhere, OpenSnowMap's snow
+     * base map above 1,550 m, and from zoom 13 the ski pistes, the Yeti winter tracks (hue turned by -122°) and the
+     * IGN slopes at 30 %. The id dates from its first name, « Sortie Ski ».
      */
-    val sortieSki =
+    val randoHiver =
         Workspace(
             id = "${Workspace.BUILTIN_PREFIX}sortie-ski",
-            name = "Sortie Ski",
+            name = "Rando Hiver",
             layers =
                 listOf(
                     WorkspaceLayer("ign-scan25"),
                     WorkspaceLayer("OSMSNOWM", displayMinElevation = 1550),
-                    WorkspaceLayer("OSMSKIM", displayMinZoom = 12),
-                    WorkspaceLayer("TRACESHIVERNALES", displayMinZoom = 12),
-                    WorkspaceLayer("ign-pentes", opacity = 0.3f, displayMinZoom = 12),
+                    WorkspaceLayer("OSMSKIM", displayMinZoom = 13),
+                    WorkspaceLayer(
+                        "TRACESHIVERNALES",
+                        brightness = -0.039669633f,
+                        saturation = -0.005179912f,
+                        displayMinZoom = 13,
+                        hue = -122f,
+                    ),
+                    WorkspaceLayer("ign-pentes", opacity = 0.3f, displayMinZoom = 13),
                 ),
         )
 
-    /** Id of the built-in multi-zoom map that [randoMultiZoom] showed until it became a stack of maps (ADR-063). */
+    /** Id of the built-in multi-zoom map that [randoEte] showed until it became a stack of maps (ADR-063). */
     const val RETIRED_RANDO_SOURCE = "RANDO_ZOOM_GROUP"
 
     /**
-     * Puts the maps of [randoMultiZoom] in place of a layer of the retired built-in map [RETIRED_RANDO_SOURCE],
+     * Puts the maps of [randoEte] in place of a layer of the retired built-in map [RETIRED_RANDO_SOURCE],
      * so a stack saved before ADR-063 does not open on an empty map. Left unchanged when the device knows a map
      * with that id (a copy of the author's file imported by hand).
      */
@@ -192,7 +208,7 @@ object Workspaces {
         if (stack.layers.none { it.sourceId == RETIRED_RANDO_SOURCE } || isKnownSource(RETIRED_RANDO_SOURCE)) {
             return stack
         }
-        val replacement = randoMultiZoom.toStack { true }.stack.layers
+        val replacement = randoEte.toStack { true }.stack.layers
         val layers =
             stack.layers
                 .flatMap { if (it.sourceId == RETIRED_RANDO_SOURCE) replacement else listOf(it) }
@@ -201,7 +217,7 @@ object Workspaces {
     }
 
     /** Favorites shown first in the "Maps and layers" panel (ADR-069: only these two). */
-    val builtin: List<Workspace> = listOf(randoMultiZoom, sortieSki)
+    val builtin: List<Workspace> = listOf(randoEte, randoHiver)
 }
 
 object WorkspaceCodec {
