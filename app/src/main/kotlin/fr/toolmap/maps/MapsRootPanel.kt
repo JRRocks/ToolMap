@@ -22,6 +22,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -81,6 +83,8 @@ class MapsRootActions(
     val onHelp: () -> Unit = {},
     /** A favourite was just deleted: the screen offers « Annuler » for a while (P29.3). */
     val onFavoriteDeleted: (Workspace) -> Unit = {},
+    /** The « Partager » icon of the band: « Partager des favoris », the favourite applied ticked (P25.2). */
+    val onShareFavorites: (applied: String?) -> Unit = {},
 )
 
 /*
@@ -127,6 +131,7 @@ fun MapsRootPanel(
                     count = layers.size,
                     drawn = drawn,
                     zoom = floor(currentZoom).toInt(),
+                    onShare = { actions.onShareFavorites(applied?.id) },
                     onSave = { showSave = true },
                     onHelp = actions.onHelp,
                 )
@@ -198,7 +203,8 @@ fun MapsRootPanel(
 
 /**
  * The band of the panel: its title, then what is shown (the favourite applied, else the only map, with the number of
- * maps) and how many of them the map draws at its zoom; « Enregistrer l'affichage » and the « ? » at the end.
+ * maps) and how many of them the map draws at its zoom; « Partager » (favourites, P25.2), « Enregistrer l'affichage »
+ * and the « ? » at the end.
  */
 @Composable
 private fun MapsBand(
@@ -207,6 +213,7 @@ private fun MapsBand(
     count: Int,
     drawn: Int,
     zoom: Int,
+    onShare: () -> Unit,
     onSave: () -> Unit,
     onHelp: () -> Unit,
 ) {
@@ -225,6 +232,9 @@ private fun MapsBand(
             "$what\n$now"
         }
     PanelBand(title = stringResource(R.string.maps_title), subtitle = subtitle, subtitleLines = 2) {
+        IconButton(onClick = onShare) {
+            Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.fav_share_title))
+        }
         IconButton(onClick = onSave) {
             Icon(MapsIcons.BookmarkAdd, contentDescription = stringResource(R.string.maps_favorite_add_tile))
         }
@@ -257,10 +267,7 @@ private fun FavoriteChips(
         modifier = Modifier.padding(top = 2.dp),
     ) {
         items(favorites, key = { it.id }) { favorite ->
-            // The top map that is not an overlay: what the favourite shows first.
-            val cover =
-                favorite.layers.asReversed().firstOrNull { byId[it.sourceId]?.isLayer == false }?.sourceId
-                    ?: favorite.layers.lastOrNull()?.sourceId
+            val cover = coverOf(favorite, byId)
             FavoriteChip(
                 favorite = favorite,
                 selected = favorite.id == applied?.id,
@@ -288,6 +295,14 @@ private fun FavoriteChips(
         }
     }
 }
+
+/** The top map of [favorite] that is not an overlay: what it shows first, and its picture. */
+internal fun coverOf(
+    favorite: Workspace,
+    byId: Map<String, TileSource>,
+): String? =
+    favorite.layers.asReversed().firstOrNull { byId[it.sourceId]?.isLayer == false }?.sourceId
+        ?: favorite.layers.lastOrNull()?.sourceId
 
 @Composable
 private fun FavoriteChip(

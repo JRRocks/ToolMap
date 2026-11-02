@@ -37,11 +37,15 @@ fun groupedShape(
         bottomEnd = if (last) radius else 0.dp,
     )
 
-/** One white block of rows, each [rows] entry a row, with a thin line between two of them. */
+/**
+ * One white block of rows, each [rows] entry a row, with a thin line between two of them; [dividerStart] starts the
+ * line after the picture of the rows (the text column), as in the previews.
+ */
 @Composable
 fun GroupBlock(
     modifier: Modifier = Modifier,
     rows: List<@Composable () -> Unit>,
+    dividerStart: Dp = 0.dp,
 ) {
     Column(
         modifier
@@ -50,7 +54,12 @@ fun GroupBlock(
             .background(MaterialTheme.toolMap.panel),
     ) {
         rows.forEachIndexed { index, row ->
-            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (index > 0) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = dividerStart),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            }
             row()
         }
     }

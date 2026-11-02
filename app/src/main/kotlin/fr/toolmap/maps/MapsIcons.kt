@@ -185,6 +185,25 @@ object MapsIcons {
         )
     }
 
+    /** Material « description »: the `.toolmap` file of « Partager des favoris » (P25.2). */
+    val Description: ImageVector by lazy {
+        icon(
+            "Description",
+            "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z" +
+                "m2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z",
+        )
+    }
+
+    /** Material « workspaces »: the favorites, in the backup (P33.2). */
+    val Workspaces: ImageVector by lazy {
+        icon(
+            "Workspaces",
+            "M6 13c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4z" +
+                "m6-10C9.8 3 8 4.8 8 7s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4z" +
+                "m6 10c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4z",
+        )
+    }
+
     private fun icon(
         name: String,
         pathData: String,

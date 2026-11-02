@@ -5,7 +5,7 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 import java.io.File
 
-/** Hands a GPX file written in the cache to another app (mail, messaging, a file manager). */
+/** Hands a file written in the cache (a GPX, a `.toolmap`) to another app (mail, messaging, a file manager). */
 object TrackSharing {
     const val GPX_MIME = "application/gpx+xml"
     private const val DIRECTORY = "exports"
@@ -24,11 +24,12 @@ object TrackSharing {
         context: Context,
         file: File,
         title: String,
+        mime: String = GPX_MIME,
     ) {
         val uri = FileProvider.getUriForFile(context, authority(context), file)
         val send =
             Intent(Intent.ACTION_SEND)
-                .setType(GPX_MIME)
+                .setType(mime)
                 .putExtra(Intent.EXTRA_STREAM, uri)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(send, title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

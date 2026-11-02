@@ -2133,4 +2133,45 @@
   <string name="cond_short_alt_above">dès %1$d m</string>
   <string name="cond_short_alt_below">sous %1$d m</string>
   <string name="cond_short_alt_between">%1$d à %2$d m</string>
+
+  <!-- P25.2 : partage de plusieurs favoris (variante C « Poids » de docs/previews/p25-partage-sauvegarde.html, validée le 2026-11-02) -->
+  <string name="fav_share_title">Partager des favoris</string>
+  <plurals name="fav_share_checked">
+    <item quantity="one">%1$d coché sur %2$d</item>
+    <item quantity="other">%1$d cochés sur %2$d</item>
+  </plurals>
+  <plurals name="fav_share_file_name">
+    <item quantity="one">%1$s et %2$d autre</item>
+    <item quantity="other">%1$s et %2$d autres</item>
+  </plurals>
+  <string name="fav_share_none">Cochez les favoris à partager</string>
+  <plurals name="fav_share_favorites">
+    <item quantity="one">%1$d favori</item>
+    <item quantity="other">%1$d favoris</item>
+  </plurals>
+  <plurals name="fav_share_added_maps">
+    <item quantity="one">%1$d carte ajoutée</item>
+    <item quantity="other">%1$d cartes ajoutées</item>
+  </plurals>
+  <string name="fav_share_caption">Favoris</string>
+  <plurals name="fav_share_maps">
+    <item quantity="one">%1$d carte</item>
+    <item quantity="other">%1$d cartes</item>
+  </plurals>
+  <plurals name="fav_share_added_short">
+    <item quantity="one">%1$d ajoutée</item>
+    <item quantity="other">%1$d ajoutées</item>
+  </plurals>
+  <string name="fav_share_key_short">clé</string>
+  <plurals name="fav_share_key_caption">
+    <item quantity="one">Clé d\'accès · %1$d carte en utilise une (%2$s)</item>
+    <item quantity="other">Clé d\'accès · %1$d cartes en utilisent une (%2$s)</item>
+  </plurals>
+  <string name="fav_share_key_remove">Retirer la clé</string>
+  <string name="fav_share_key_keep">Garder la clé</string>
+  <string name="fav_share_key_removed">Le destinataire saisira sa propre clé à l\'ouverture.</string>
+  <string name="fav_share_key_kept">Toute personne qui reçoit le fichier pourra utiliser votre clé.</string>
+  <string name="fav_share_footer">Envoyé par le partage d\'Android</string>
+  <string name="fav_share_button">Partager…</string>
+  <string name="fav_share_failed">Fichier non écrit : %1$s</string>
 </resources>

@@ -223,6 +223,8 @@ fun MapScreen(
     onDownloadZone: (ZoneShape) -> Unit = {},
     maps: MapsViewModel,
     onOpenAvailable: () -> Unit,
+    /** « Partager des favoris » (P25.2), with the favorite on the map ticked. */
+    onShareFavorites: (applied: String?) -> Unit = {},
     tracks: TracksViewModel,
     onOpenTracks: () -> Unit,
     onOpenTrackDetail: (Long) -> Unit,
@@ -1333,6 +1335,7 @@ fun MapScreen(
                 onOpenDownloads = onOpenDownloads,
                 onOpenStorage = onOpenStorage,
                 onHelp = { onOpenAbout(HelpSection.MAPS) },
+                onShareFavorites = onShareFavorites,
                 onFavoriteDeleted = { favorite ->
                     scope.launch {
                         val answer =

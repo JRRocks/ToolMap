@@ -70,7 +70,9 @@ import fr.toolmap.map.MapScreen
 import fr.toolmap.map.MapViewModel
 import fr.toolmap.maps.AvailableMapsActions
 import fr.toolmap.maps.AvailableMapsScreen
+import fr.toolmap.maps.FavoritesShareViewModel
 import fr.toolmap.maps.MapsViewModel
+import fr.toolmap.maps.ShareFavoritesScreen
 import fr.toolmap.measure.MeasureViewModel
 import fr.toolmap.multizoom.MultiZoomScreen
 import fr.toolmap.multizoom.MultiZoomViewModel
@@ -125,6 +127,7 @@ private enum class Screen {
     BACKUP,
     ABOUT,
     MULTI_ZOOM,
+    SHARE_FAVORITES,
 }
 
 @AndroidEntryPoint
@@ -167,6 +170,7 @@ class MainActivity : ComponentActivity() {
     private val searchViewModel: SearchViewModel by viewModels()
     private val backupViewModel: BackupViewModel by viewModels()
     private val multiZoomViewModel: MultiZoomViewModel by viewModels()
+    private val favoritesViewModel: FavoritesShareViewModel by viewModels()
 
     /** The map can be used over the lock screen: a call from API 27, the window flag before it (minSdk 26). */
     @Suppress("DEPRECATION")
@@ -367,6 +371,10 @@ class MainActivity : ComponentActivity() {
                                     },
                                     maps = mapsViewModel,
                                     onOpenAvailable = { open(Screen.AVAILABLE) },
+                                    onShareFavorites = { applied ->
+                                        favoritesViewModel.open(applied)
+                                        open(Screen.SHARE_FAVORITES)
+                                    },
                                     tracks = tracksViewModel,
                                     onOpenTracks = { open(Screen.TRACKS) },
                                     onImportTracks = { trackPicker.launch(arrayOf("*/*")) },
@@ -474,6 +482,15 @@ class MainActivity : ComponentActivity() {
 
                                         Screen.BACKUP -> {
                                             BackupScreen(vm = backupViewModel, onBack = ::back)
+                                        }
+
+                                        Screen.SHARE_FAVORITES -> {
+                                            ShareFavoritesScreen(
+                                                vm = favoritesViewModel,
+                                                thumbnails = mapsViewModel.thumbnails,
+                                                sources = sources,
+                                                onClose = ::back,
+                                            )
                                         }
 
                                         Screen.ABOUT -> {
