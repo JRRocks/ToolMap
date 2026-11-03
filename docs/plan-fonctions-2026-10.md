@@ -290,8 +290,8 @@ trace ou un itinéraire ordinaire ; la carte ne bouge pas pendant le tracé ; au
 
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
-| P28.0 | 🔄 | Aperçu : bouton d'accès, espace « Dessin », barre d'outils, formes, sélection et poignées, fiche. Premier lot : `docs/previews/p28-croquis.html` (tuile « Croquis », espace et stylo, variantes A Trousse · B Rail · C Pastille · D Carnet · E Équerre), montré le 2026-11-03 | Validation explicite, date au journal |
-| P28.1 | ⬜ | `:core` : lissage, modèle (traits, formes, style, épaisseur en mètres), chemin SVG, échantillonnage, mesures | Tests JVM (lissage, aller-retour SVG, surfaces) |
+| P28.0 | ✅ | Aperçu : bouton d'accès, espace « Dessin », barre d'outils, formes, sélection et poignées, fiche. Premier lot : `docs/previews/p28-croquis.html` (tuile « Croquis », espace et stylo, variantes A Trousse · B Rail · C Pastille · D Carnet · E Équerre), montré le 2026-11-03 ; **validé le 2026-11-03 : « Espace : A · Stylo : D »** (espace = panneau du drapeau avec liste et interrupteurs, A ; outil = bandeau du haut et barre du bas sur deux étages, D) | Validation explicite, date au journal |
+| P28.1 | ✅ | `:core` : lissage, modèle (traits, formes, style, épaisseur en mètres), chemin SVG, échantillonnage, mesures. Fait le 2026-11-03 pour le premier lot (traits, style, lissage, SVG, gomme, visibilité ; ADR-110, `core/sketch`) ; formes et mesures avec P28.4 et P28.5 | Tests JVM (lissage, aller-retour SVG, surfaces) |
 | P28.2 | ⬜ | Stockage (Room, migration), sauvegarde, export GeoJSON et SVG | Test de migration ; aller-retour de sauvegarde |
 | P28.3 | ⬜ | Mode stylo : gestes, traits lissés, épaisseur en mètres sur MapLibre (au moins 1 px) | Émulateur : trait lissé, carte déplacée à deux doigts |
 | P28.4 | ⬜ | Formes et « Remplir » | Tests du modèle ; captures |

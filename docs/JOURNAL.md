@@ -20,6 +20,21 @@
 
 ---
 
+## 2026-11-03 — Session 88 (suite) — [P28.1] Croquis : modèle, lissage, chemin SVG et gomme dans `:core`
+- **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de a7a43ae (0.4.164, CI verte : run 41622097092) ; poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : réponse de l'utilisateur à l'aperçu P28.0 : « Espace : A · Stylo : D » ; puis première tâche de code du croquis, sans interface : le modèle et les calculs dans `:core`.
+- **Réalisé** :
+  - Choix consigné : P28.0 ✅, validé le 2026-11-03 (espace = panneau du drapeau de la variante A, outil = bandeau et barre à deux étages de la variante D, `docs/previews/p28-croquis.html`).
+  - `:core/sketch` : `XY` (mètres EPSG:3857, y vers le sud), `SketchPath` (départ et cubiques, `toSvg` au décimètre en relatif, `parse`, `sample`), `SketchSmoother` (coins par Douglas-Peucker, courbes de Schneider), `SketchEraser` (gomme partielle sur les points bruts), `SketchStyle` / `RawStroke` / `SketchStroke` / `Sketch` (`minVisibleZoom`), `SketchSmoothing` (1 · 2,5 · 5 px), `SketchPalette` (8 couleurs), `SketchScale` (pixels ↔ mètres de carte).
+  - `PathSimplifier.keptIndices` sorti de `simplify` pour servir aussi au croquis (comportement des traces inchangé).
+- **Décisions (ADR)** : ADR-110 (coordonnées et épaisseur en mètres de carte, lissage par coins et courbes de Schneider, SVG au décimètre, gomme sur les points bruts, visibilité).
+- **Tests / vérifications** :
+  - Nouveau `SketchTest` (12) : arc ajusté en 1 à 6 courbes à moins de la tolérance ; lissage fort → moins de courbes qu'un lissage faible sur un trait tremblé ; coin à 90° gardé ; appui = point, deux points = morceau droit ; SVG relu au décimètre et réécrit à l'identique ; lecture `M L C l` et refus de `Q` ; aller-retour des coordonnées ; gomme : coupe en deux, segment seulement traversé, traits épargnés ou couverts ; épaisseur et tolérance en mètres, croquis masqué sous le zoom 12,4 pour 6 px au zoom 15 ; croquis rouvert et réenregistré à moins de la tolérance.
+  - `./gradlew :core:test --tests '*SketchTest' --tests '*EditingTest'` : 27 tests, 0 échec (premier passage : 1 échec dans le test lui-même, bruit nul refusé par `Random.nextDouble`, corrigé).
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.164 → **0.4.165**) : **BUILD SUCCESSFUL** en 2 min 31 s ; tests core 992, data 321, app 486 (74 ignorés), 0 échec.
+- **Problèmes / dette technique** : aucun.
+- **Prochaine étape recommandée** : P28.2 (stockage Room avec migration, sauvegarde), puis P28.3 (mode stylo sur la carte).
+
 ## 2026-11-03 — Session 88 — [P28.0] Croquis : décisions du premier lot et aperçu à 5 variantes
 - **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de d93aac9 (0.4.163) ; poussée sur `JRRocks/ToolMap` (pas de PR). Aucun changement de code.
 - **Objectif** : demande de l'utilisateur, avec une capture du panneau Traces et waypoints : retirer « Dessiner une trace » et le remplacer par un dessin libre sur la carte (épaisseur liée au zoom, dessin converti en SVG, lissage des courbes, taille des traits), puis « /grill-me sur le projet » ; ensuite : « A- utilise impeccable.style pour les aperçu. […] met les aperçu sous Artefact pour consultation ».

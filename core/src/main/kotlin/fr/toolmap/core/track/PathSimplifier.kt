@@ -19,15 +19,26 @@ object PathSimplifier {
         val cosLat = cos(Math.toRadians(points[points.size / 2].lat))
         val xs = DoubleArray(points.size) { points[it].lon * METERS_PER_DEGREE * cosLat }
         val ys = DoubleArray(points.size) { points[it].lat * METERS_PER_DEGREE }
-        val keep = BooleanArray(points.size)
+        val keep = keptIndices(xs, ys, toleranceMeters)
+        return points.filterIndexed { i, _ -> keep[i] }
+    }
+
+    /** Douglas-Peucker on flat coordinates: true for the points to keep (always the first and the last). */
+    fun keptIndices(
+        xs: DoubleArray,
+        ys: DoubleArray,
+        tolerance: Double,
+    ): BooleanArray {
+        val keep = BooleanArray(xs.size)
+        if (xs.isEmpty()) return keep
         keep[0] = true
-        keep[points.size - 1] = true
+        keep[xs.size - 1] = true
         val stack = ArrayDeque<IntArray>()
-        stack.addLast(intArrayOf(0, points.size - 1))
+        stack.addLast(intArrayOf(0, xs.size - 1))
         while (stack.isNotEmpty()) {
             val (first, last) = stack.removeLast()
             var farthest = -1
-            var farthestDistance = toleranceMeters
+            var farthestDistance = tolerance
             for (i in first + 1 until last) {
                 val d = distanceToSegment(xs[i], ys[i], xs[first], ys[first], xs[last], ys[last])
                 if (d > farthestDistance) {
@@ -41,7 +52,7 @@ object PathSimplifier {
                 stack.addLast(intArrayOf(farthest, last))
             }
         }
-        return points.filterIndexed { i, _ -> keep[i] }
+        return keep
     }
 
     private fun distanceToSegment(
