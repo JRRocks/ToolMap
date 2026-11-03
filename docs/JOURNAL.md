@@ -20,6 +20,21 @@
 
 ---
 
+## 2026-11-03 — Session 89 (suite 2) — [P28.7] Main levée des traces lissée comme un croquis
+- **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 44e71f1 (0.4.171, P27). Copies : GitHub = local (0.4.171, référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : lisser la main levée de l'édition des traces avec le lisseur du Croquis (décision du 2026-10-24 : « le même lissage s'applique à la main levée des traces »), sans rien changer à l'interface.
+- **Réalisé** :
+  - `Freehand.smooth` (`:core`, `PolylineEditor.kt`) : le trait du doigt est ajusté par `SketchSmoother.fit` (coins gardés, courbes de Bézier de Schneider à la tolérance du tracé, 4 dp, convertie en mètres de carte), puis rééchantillonné en points au quart de la tolérance ; premier et dernier points gardés tels quels ; un trait trop court pour une courbe reste seulement aminci (`thin`).
+  - `PolylineEditor.addStroke` (main levée de l'édition d'une trace) utilise `smooth` au lieu de `thin`.
+  - **Non changé** : la main levée de « Dessiner un itinéraire » (`RoutePlanEditor.addStroke`) garde `thin` : chaque point y devient une étape à poignée, et un trait lissé en ferait des dizaines ; question posée à l'utilisateur.
+- **Décisions (ADR)** : aucune (application d'ADR-110 à la main levée des traces).
+- **Tests / vérifications** :
+  - `EditingTest` (+1) : arc de 100 m tremblé de ± 1,5 m → écart moyen au vrai cercle 1,0 m au lieu de 1,5 m pour l'amincissement seul, jamais plus que la tolérance, moins de la moitié des points, extrémités gardées, coin d'un L gardé, `PolylineEditor.addStroke` donne le même résultat. Sonde préalable (retirée) : 12 à 16 points au lieu de 158 à 4 m de tolérance, écart moyen 0,74 à 0,99 m selon le tremblement.
+  - `./gradlew :core:test --tests "*EditingTest*"` : 16 tests, 0 échec.
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.171 → **0.4.172**) : **BUILD SUCCESSFUL** en 2 min 35 s ; tests core 1 016, data 327, p2p 31 (2 ignorés), app 497 (74 ignorés), 0 échec.
+- **Problèmes / dette technique** : le niveau de lissage (faible, moyen, fort) n'est pas choisi pour les traces : tolérance fixe du tracé (4 dp) ; un sélecteur demanderait un aperçu.
+- **Prochaine étape recommandée** : choix de l'utilisateur sur `p26-fusion.html` (P26.4, P26.5) ; aperçu P27.0 ; P28.8 (impression vectorielle des croquis).
+
 ## 2026-11-03 — Session 89 (suite) — [P27.1][P27.2] Points du groupe : protocole, rejeu, emplacement sur le serveur, contrôleur et stockage
 - **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 61abecd (0.4.170, P26, CI verte). Copies : GitHub `claude/vibrant-galileo-q3s99n` 0.4.170 (= local, référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : suite des tâches faisables sans l'utilisateur : protocole et stockage des points du groupe (P27.1, P27.2), sans interface (l'aperçu P27.0 vient avant P27.3).

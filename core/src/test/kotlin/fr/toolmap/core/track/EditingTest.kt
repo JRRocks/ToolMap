@@ -181,6 +181,44 @@ class EditingTest {
     }
 
     @Test
+    fun `freehand smoothing follows a shaky arc closer than thinning and keeps the ends and the corners`() {
+        // A quarter circle of 100 m drawn with a shaky finger: ±1.5 m across the line, one position every metre.
+        val center = TrackPoint(45.0, 6.0)
+        val radius = 100.0
+        val mPerDegLat = 111_320.0
+        val mPerDegLon = mPerDegLat * Math.cos(Math.toRadians(45.0))
+        val shaky =
+            List(158) { i ->
+                val a = i / 157.0 * Math.PI / 2
+                val r = radius + if (i % 2 == 0) 1.5 else -1.5
+                TrackPoint(center.lat + r * Math.sin(a) / mPerDegLat, center.lon + r * Math.cos(a) / mPerDegLon)
+            }
+        val smooth = Freehand.smooth(shaky, 4.0)
+        assertEquals(shaky.first(), smooth.first())
+        assertEquals(shaky.last(), smooth.last())
+
+        // Closer to the true circle on average than the thinned line (whose points are where the finger strayed by
+        // 1.5 m: measured 1.0 m against 1.5 m), and never farther than the tolerance.
+        fun off(p: TrackPoint) = Math.abs(Geodesy.distance(center, p) - radius)
+        val thin = Freehand.thin(shaky, 4.0)
+        assertTrue(smooth.map(::off).average() < 0.8 * thin.map(::off).average(), "closer than thinning")
+        assertTrue(smooth.maxOf(::off) < 4.0, "within the tolerance")
+        assertTrue(smooth.size < shaky.size / 2, "kept ${smooth.size} points")
+
+        // An L keeps its corner.
+        val l =
+            List(50) { TrackPoint(45.0 + it * 0.00002, 6.0) } +
+                List(50) { TrackPoint(45.00098, 6.0 + (it + 1) * 0.00002) }
+        val corner = TrackPoint(45.00098, 6.0)
+        assertTrue(Freehand.smooth(l, 2.0).any { Geodesy.distance(it, corner) < 2.0 }, "corner kept")
+        // A tap or two positions: thinned only.
+        assertEquals(l.take(2), Freehand.smooth(l.take(2), 2.0))
+        val e = PolylineEditor()
+        assertTrue(e.addStroke(shaky, 4.0))
+        assertEquals(smooth, e.points)
+    }
+
+    @Test
     fun `reverse, simplify, trim and split through the editor`() {
         val e = PolylineEditor(line(6))
         e.select(1)

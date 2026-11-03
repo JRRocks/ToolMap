@@ -1,5 +1,10 @@
 package fr.toolmap.core.track
 
+import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.sketch.SketchSmoother
+import fr.toolmap.core.sketch.XY
+import kotlin.math.cos
+
 /** What the editor shows: the line and the vertex the user picked, if any. */
 data class EditorState(
     val points: List<TrackPoint> = emptyList(),
@@ -83,12 +88,12 @@ class PolylineEditor(
         return best
     }
 
-    /** Appends a hand-drawn stroke, thinned to [toleranceMeters] (see [Freehand]). */
+    /** Appends a hand-drawn stroke, smoothed to [toleranceMeters] (see [Freehand.smooth], P28.7). */
     fun addStroke(
         stroke: List<TrackPoint>,
         toleranceMeters: Double,
     ): Boolean {
-        val thinned = Freehand.thin(stroke, toleranceMeters)
+        val thinned = Freehand.smooth(stroke, toleranceMeters)
         if (thinned.isEmpty()) return false
         return change(EditorState(points + thinned, points.size + thinned.lastIndex))
     }
@@ -193,4 +198,26 @@ object Freehand {
         kept += stroke.last()
         return PathSimplifier.simplify(kept, toleranceMeters)
     }
+
+    /**
+     * A finger stroke smoothed like a sketch stroke (P28.7, ADR-110): sharp corners kept, the rest fitted by cubic
+     * Béziers no farther than [toleranceMeters] from the finger, then sampled back into points within a quarter of
+     * it. The first and last positions are kept as they are; a stroke too short to curve is only [thin]ned.
+     */
+    fun smooth(
+        stroke: List<TrackPoint>,
+        toleranceMeters: Double,
+    ): List<TrackPoint> {
+        if (stroke.size < 3) return thin(stroke, toleranceMeters)
+        // Map meters (EPSG:3857) stretch with the latitude: so does the tolerance.
+        val tolerance = toleranceMeters / cos(Math.toRadians(stroke.first().lat))
+        val path = SketchSmoother.fit(stroke.map { XY.of(LonLat(it.lon, it.lat)) }, tolerance)
+        if (path.curves.isEmpty()) return thin(stroke, toleranceMeters)
+        val inner = path.sample(tolerance / SAMPLE_DIVISOR).drop(1).dropLast(1)
+        return listOf(stroke.first()) + inner.map { it.toLonLat().let { p -> TrackPoint(p.lat, p.lon) } } +
+            stroke.last()
+    }
+
+    /** The sampled curve stays within the tolerance divided by this of the smoothed one. */
+    private const val SAMPLE_DIVISOR = 4
 }
