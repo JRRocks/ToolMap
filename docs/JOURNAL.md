@@ -20,6 +20,19 @@
 
 ---
 
+## 2026-11-03 — Session 89 (suite 8) — [P17][P27.0] Le cadre d'impression ne glisse plus vers le sud, et les partages du groupe choisis
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après a389c30 (0.4.181). Copies : GitHub = local (0.4.181, référence) ; Drive non monté.
+- **Objectif** : corriger le décalage de 12 km du cadre d'impression si la correction est légère ; préparer le partage de waypoints, tracés et croquis dans le groupe (demande de l'utilisateur).
+- **Réalisé** :
+  - Cause du décalage : les étapes « zone » et « confirmation » placent la carte 0,111° au sud du cadre (le cadre s'affiche au-dessus du panneau) ; « Fermer » la laisse là, et « Imprimer » prenait le centre de l'écran. `MapScreen` retient la caméra laissée par une impression d'une page : si la vue n'a pas bougé, le cadre revient sur le même terrain. Rien de visible ne change : pas d'aperçu.
+  - Partages du groupe : aperçu `docs/previews/p27-groupe-partages.html` (état actuel, 5 variantes A à E, éléments communs), **validé le 2026-11-03 : « Solution A »** (bloc « Dans le groupe » sous « Messages » et bouton « Partager dans le groupe » avec sa feuille). Décisions ajoutées à P27 dans `docs/plan-fonctions-2026-10.md` (tracés et croquis, message automatique ; P28.9 en fait partie).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - Émulateur 0.4.182 : trois fois Imprimer → Choisir la zone → Suivant → Fermer ; centre de la carte après chaque tour : 44,86553 · 44,86553 · 44,86553 (avant : −0,111° à chaque tour, 45,198 → 45,088 → 44,977).
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.182 → **0.4.183** : le titre de cette entrée entre dans l'APK) : **BUILD SUCCESSFUL** en 2 min 37 s.
+- **Problèmes / dette technique** : le premier « Imprimer » après le redémarrage de l'application part encore du centre de l'écran (la caméra laissée n'est pas gardée d'une session à l'autre) ; sans gêne.
+- **Prochaine étape recommandée** : P27.1 étendu aux tracés et croquis (protocole), puis l'interface de la variante A.
+
 ## 2026-11-03 — Session 89 (suite 7) — [P28.11] Croquis à l'impression : leur propre interrupteur
 - **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 8b0e556 (0.4.179). Copies : GitHub 0.4.179 (même branche ; `main` 0.4.134, autres branches plus anciennes), local 0.4.179 puis changements non poussés (référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : demande de l'utilisateur, « Rajoute l'impression et le choix de croquis dans l'impression de carte. Actuellement invisible à l'impression », à vérifier sur l'émulateur.

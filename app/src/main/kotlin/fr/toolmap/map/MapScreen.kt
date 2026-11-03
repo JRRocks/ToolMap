@@ -124,6 +124,7 @@ import fr.toolmap.core.settings.NorthReferenceMath
 import fr.toolmap.core.settings.barometerOn
 import fr.toolmap.core.settings.withBarometer
 import fr.toolmap.core.source.Credits
+import fr.toolmap.core.state.CameraState
 import fr.toolmap.core.track.NameDates
 import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.core.track.Waypoint
@@ -220,6 +221,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.ln
 import kotlin.math.roundToInt
@@ -809,6 +811,19 @@ fun MapScreen(
         val shiftLat = ScaleBar.metersPerDp(fit.lat, fit.zoom) * shiftDp / METERS_PER_DEGREE_OF_LATITUDE
         controller.flyTo(fit.lat - shiftLat, fit.lon, fit.zoom)
     }
+    // The camera a single-page print leaves behind, with its frame shown above the panel: « Imprimer » again from that very
+    // view puts the frame back on the same ground, not on the centre of the screen, which lies south of it (the frame
+    // moved 12 km south at each print).
+    var printLeftCamera by remember { mutableStateOf<CameraState?>(null) }
+    var printSinglePage by remember { mutableStateOf(false) }
+    LaunchedEffect(printUi.active) {
+        if (printUi.active) {
+            printSinglePage = !printUi.alongTrack
+        } else if (printSinglePage) {
+            printLeftCamera = controller.liveCamera
+            printSinglePage = false
+        }
+    }
     // « Annuler » of the sheet choice and of the frame puts the map back where it was before « Imprimer » (P17.10, P1).
     val cancelPrint: () -> Unit =
         remember(print) { { print.cancel()?.let { controller.flyTo(it.lat, it.lon, it.zoom, it.bearing) } } }
@@ -1172,7 +1187,14 @@ fun MapScreen(
                 // Read before the map turns north: « Annuler » comes back to this camera, bearing included.
                 val c = controller.liveCamera
                 controller.resetNorth(northOffset)
-                print.open(c.lat, c.lon, state.stack.layers, formats.coordinates, before = c)
+                val left = printLeftCamera
+                val sameView =
+                    left != null && abs(left.lat - c.lat) < SAME_VIEW_DEGREES &&
+                        abs(left.lon - c.lon) < SAME_VIEW_DEGREES &&
+                        abs(left.zoom - c.zoom) < SAME_VIEW_ZOOM
+                val lat = if (sameView) printUi.centerLat else c.lat
+                val lon = if (sameView) printUi.centerLon else c.lon
+                print.open(lat, lon, state.stack.layers, formats.coordinates, before = c)
             }
 
             MenuAction.SETTINGS -> {
@@ -2548,6 +2570,10 @@ private const val STROKE_TOLERANCE_DP = 4f
 
 /** The frame takes this share of the room it is fitted in (P17, Q4). */
 private const val PRINT_FIT_RATIO = 0.7
+
+/** Two cameras this close show the same view: the one a print left is still there (about a centimeter on the ground). */
+private const val SAME_VIEW_DEGREES = 1e-7
+private const val SAME_VIEW_ZOOM = 1e-3
 
 /** The narrowest a printed sketch is drawn while its print is framed, in map pixels (P28.11). */
 private const val PRINT_SKETCH_MIN_PX = 1.5

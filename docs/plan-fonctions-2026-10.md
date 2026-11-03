@@ -231,10 +231,17 @@ nœud.
   (« encore 42 min »).
 - Mode direct aussi : les points passent par le maillage et chaque membre les redonne aux arrivants. Serveur : nouvel
   emplacement persistant ; **l'utilisateur republie les règles Firebase** dans sa console.
+- **2026-11-03, demande de l'utilisateur** : le partage au groupe couvre aussi les **tracés** et les **croquis** (P28.9 en
+  fait partie). Un partage ne vit que dans le groupe. On crée depuis l'écran du groupe, **sous « Messages »**, pour
+  distinguer le perso du partagé ; chaque partage ajoute un **message automatique** (« Marie a partagé un croquis
+  « Accès parking » »), qui montre l'élément sur la carte. Aperçu `docs/previews/p27-groupe-partages.html`,
+  **variante A validée le 2026-11-03** : bloc « Dans le groupe » (type, nom, auteur, temps restant) et bouton
+  « Partager dans le groupe » ouvrant une feuille (Nouveau waypoint · Nouveau tracé · Nouveau croquis · Partager un
+  des miens…) ; outils habituels avec « Pour le groupe » à la couleur de l'auteur dans leur bandeau.
 
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
-| P27.0 | ⬜ | Aperçu : création (nom, symbole, durée, Silencieux / Alerte), repère, fiche, liste « Points du groupe », entrées | Validation explicite, date au journal |
+| P27.0 | 🔄 | Aperçu : création (nom, symbole, durée, Silencieux / Alerte), repère, fiche, liste « Points du groupe », entrées. 2026-11-03 : entrées et liste validées, variante A de `docs/previews/p27-groupe-partages.html` (waypoints, tracés, croquis) ; reste la feuille de création d'un waypoint (nom, symbole, durée, Silencieux / Alerte) | Validation explicite, date au journal |
 | P27.1 | 🔄 | Protocole : création, mise à jour, retrait, expiration ; rejeu aux arrivants ; emplacement serveur et règles | `WireTest`, `MeshNodeTest` ; émulateur Firebase (`scripts/firebase-emulator-test.sh`) | 2026-11-03 (session 89) : message `POINT`, révisions et pierres tombales, rejeu, emplacement `b/w`, règles ; `WireTest`, `MeshNodeTest`, `RoomStateTest`, `FirebaseRelayFixesTest` verts ; **reste** l'émulateur Firebase (Node absent du poste Windows), à faire sur un poste qui l'a ou en P27.5 |
 | P27.2 | ✅ | Contrôleur et stockage local (durées, « tant que le groupe existe ») | `ShareControllerTest` | 2026-11-03 (session 89) : `PointDuration`, `ShareController` (créer, déplacer, renommer, prolonger, retirer, alertes), `share.points.json` ; 4 tests verts |
 | P27.3 | ⬜ | Interface : carte, fiche, liste, création, notifications | Captures à côté de l'aperçu |
@@ -299,6 +306,6 @@ trace ou un itinéraire ordinaire ; la carte ne bouge pas pendant le tracé ; au
 | P28.6 | ✅ | Espace « Dessin » : liste, afficher et masquer, renommer, supprimer. Fait le 2026-11-03 : espace « Croquis » de la variante A (`SketchPanel.kt`) | Test de rendu |
 | P28.7 | ✅ | Lissage de la main levée des traces. Fait le 2026-11-03 (session 89, 0.4.172) : `Freehand.smooth` (lisseur du Croquis) dans `PolylineEditor.addStroke` ; la main levée des itinéraires garde l'amincissement (une étape par point) | `PolylineEditor` : test du lissage |
 | P28.8 | ✅ | Impression vectorielle. Fait le 2026-11-03 (session 89, 0.4.173) : croquis visibles imprimés en courbes avec les traces (`PageComposer.drawSketches`), PDF d'exemple `core/build/print-samples/sketch-25000.pdf` relu | PDF relu |
-| P28.9 | ⬜ | Envoi au groupe (après P27) | `MeshNodeTest` ; deux émulateurs |
+| P28.9 | ⬜ | Envoi au groupe : fait avec P27 (partages du groupe, 2026-11-03) | `MeshNodeTest` ; deux émulateurs |
 | P28.10 | 🔄 | Captures à côté de l'aperçu. 2026-11-03 : captures de l'émulateur (0.4.166) à côté de l'aperçu validé, dans `docs/previews/p28-gomme.html` | Validées par l'utilisateur |
 | P28.11 | ✅ | Croquis dans l'impression : interrupteur « Croquis » à part de « Traces », nombre de croquis dans le cadre, croquis gardés visibles sur la carte pendant le cadrage. Demande du 2026-11-03 (« invisible à l'impression ») ; aperçu `docs/previews/print-croquis-variantes.html` (5 variantes), **validé le 2026-11-03 : « A oui »** (variante A, et croquis gardés sur l'aperçu du cadre) ; fait et vérifié sur l'émulateur le 2026-11-03 (0.4.180), captures dans l'aperçu | Tests du PDF et du panneau ; PDF de l'émulateur relu ; capture à côté de l'aperçu |

@@ -1,0 +1,205 @@
+<title>Partages du groupe</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one column; current group screen, five variants of the block under « Messages », then what all share */
+:root{--bg:#f3f5f8;--fg:#14202e;--mu:#56657a;--line:#d5dce5;--accent:#0f7f78;
+--scr:#edf1f4;--card:#ffffff;--bar:#173a4c;--barfg:#ffffff;--tx:#18232e;--txm:#5d6b78;--teal:#16897f;--tealbg:#d7efec;--sep:#e3e8ec;
+--m1:#e07a1f;--m2:#7b3fb5;--m3:#2e9a4f;--new:#16897f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b111b;--fg:#e3e9f1;--mu:#9aa9bc;--line:#243246;--accent:#5fd4c4;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b111b;--fg:#e3e9f1;--mu:#9aa9bc;--line:#243246;--accent:#5fd4c4;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:system-ui,"Segoe UI",Roboto,sans-serif;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+main{max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
+h1{font-size:21px;margin:0;text-wrap:balance}
+.intro{color:var(--mu);font-size:14px;line-height:1.55;margin:8px 0 0}
+section{display:flex;flex-direction:column;gap:10px}
+h2{font-size:16px;margin:0;text-wrap:balance}
+h2 b{display:inline-block;min-width:24px;color:var(--accent)}
+.note{font-size:13.5px;color:var(--mu);margin:0;line-height:1.5}
+.note strong{color:var(--fg);font-weight:600}
+/* phone */
+.ph{background:var(--scr);border-radius:16px;overflow:hidden;color:var(--tx);font-size:14px;border:1px solid var(--line)}
+.tb{background:var(--bar);color:var(--barfg);padding:12px 14px;display:flex;align-items:center;gap:12px}
+.tb .t{flex:1;min-width:0}.tb .t div:first-child{font-size:17px}.tb .t div:last-child{font-size:12px;opacity:.8}
+.body{padding:10px;display:flex;flex-direction:column;gap:10px}
+.cut{font-size:12px;color:var(--txm);text-align:center;letter-spacing:.04em}
+.blk{background:var(--card);border-radius:14px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:10px 14px;min-height:44px}
+.row+.row{border-top:1px solid var(--sep)}
+.row .tx{flex:1;min-width:0}.row .tx div:first-child{font-size:14.5px}.row .tx div+div{font-size:12px;color:var(--txm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ic{width:24px;height:24px;flex:none;display:inline-flex;align-items:center;justify-content:center;color:var(--txm)}
+.ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.dot{width:28px;height:28px;border-radius:14px;flex:none;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600}
+.badge{min-width:20px;height:20px;border-radius:10px;background:var(--bar);color:#fff;font-size:12px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+.chev{color:var(--txm)}
+.lbl{font-size:13px;font-weight:600;padding:2px 4px 0;display:flex;justify-content:space-between;align-items:baseline}
+.lbl span{font-weight:400;color:var(--txm);font-size:12px}
+.new{outline:2px dashed var(--new);outline-offset:3px;border-radius:14px}
+.btn{border:1px solid var(--teal);color:var(--teal);border-radius:20px;padding:7px 14px;font-size:13.5px;display:inline-flex;align-items:center;gap:6px;background:var(--card)}
+.btn.fill{background:var(--bar);color:#fff;border-color:var(--bar)}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{background:var(--card);border-radius:14px;padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;text-align:center}
+.tile .ic{color:var(--teal)}
+.seg{display:flex;background:var(--sep);border-radius:20px;padding:3px;gap:3px;margin:10px 14px 4px}
+.seg span{flex:1;text-align:center;font-size:13px;padding:6px 0;border-radius:16px;color:var(--txm)}
+.seg span.on{background:var(--card);color:var(--tx);font-weight:600}
+.sheet{background:var(--card);border-radius:18px 18px 0 0;padding:14px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line)}
+.sheet h3{font-size:15px;margin:0 0 4px}
+.grab{width:36px;height:4px;border-radius:2px;background:var(--sep);margin:0 auto 6px}
+.fab{align-self:flex-end;background:var(--bar);color:#fff;border-radius:16px;padding:12px 16px;font-size:14px;display:inline-flex;gap:8px;align-items:center}
+.msg{display:flex;flex-direction:column;gap:6px;padding:10px 12px}
+.bub{background:var(--card);border-radius:14px;padding:8px 12px;max-width:85%;font-size:13.5px}
+.bub small{display:block;color:var(--txm);font-size:11.5px}
+.sys{align-self:center;background:var(--tealbg);color:#0b4f4a;border-radius:14px;padding:8px 12px;font-size:13px;display:flex;gap:8px;align-items:center;max-width:95%}
+.sys b{font-weight:600}
+.map{height:210px;position:relative;background:
+ linear-gradient(135deg,#e9e3cf 0 30%,#dfe9cf 30% 55%,#efe6d5 55% 100%);}
+.band{position:absolute;left:0;right:0;top:0;background:var(--bar);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:14px}
+.tag{background:var(--m1);color:#fff;border-radius:12px;padding:2px 9px;font-size:12px}
+.pin{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:#18232e;font-weight:600}
+.pin .disc{width:30px;height:30px;border-radius:15px;background:#d93a2f;border:3px solid var(--m2);display:flex;align-items:center;justify-content:center;color:#fff}
+.pin .disc svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.4}
+.cap{font-size:12.5px;color:var(--mu);margin:0}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:420px){.pair{grid-template-columns:1fr}}
+.qa{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13.5px;line-height:1.5;color:var(--fg)}
+.qa ul{margin:6px 0 0;padding-left:18px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .qa{background:#121b28}}
+:root[data-theme="dark"] .qa{background:#121b28}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></symbol>
+<symbol id="i-trace" viewBox="0 0 24 24"><path d="M4 19c3-1 3-6 7-6s4 4 9-8"/><circle cx="4" cy="19" r="1.6"/><circle cx="20" cy="5" r="1.6"/></symbol>
+<symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4z"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12h12M12 6l6 6-6 6"/></symbol>
+<symbol id="i-group" viewBox="0 0 24 24"><circle cx="9" cy="9" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="8" r="2.4"/><path d="M16 13c3 0 5 2 5 5"/></symbol>
+</svg>
+<main>
+<header>
+<h1>Partages du groupe</h1>
+<p class="intro">Créer ou partager un waypoint, un tracé ou un croquis dans le groupe de partage de position. Ce qui est partagé ne vit que dans le groupe. On le crée depuis l'écran du groupe, sous « Messages », pour le distinguer de ce qui est à soi. Chaque partage envoie un message automatique, par exemple « Marie a partagé un croquis ». Le cadre pointillé turquoise marque ce qui est nouveau.</p>
+</header>
+
+<section>
+<h2>Actuel (0.4.181)</h2>
+<p class="note">L'écran du groupe se termine par « Messages ». Rien ne permet d'envoyer un point, un tracé ou un croquis.</p>
+<div class="ph">
+<div class="tb"><span>←</span><div class="t"><div>Partage de position</div><div>Partage actif · 2 connecté(s)</div></div><span>⋮</span></div>
+<div class="body">
+<div class="cut">… votre ligne, l'alerte …</div>
+<div class="lbl">Membres <span>Serveur joignable</span></div>
+<div class="blk">
+<div class="row"><span class="dot" style="background:var(--m1)">M</span><div class="tx"><div>Marie</div><div>En ligne · il y a 20 s</div></div></div>
+<div class="row"><span class="dot" style="background:var(--m2)">P</span><div class="tx"><div>Paul</div><div>En ligne · il y a 1 min</div></div></div>
+</div>
+<div class="blk"><div class="row"><span class="ic"><svg><use href="#i-chat"/></svg></span><div class="tx"><div>Messages</div><div>Marie : On attend au Pont du Fau</div></div><span class="badge">1</span><span class="chev">›</span></div></div>
+<div class="fab"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-group"/></svg>Inviter</div>
+</div></div>
+</section>
+
+<section>
+<h2><b>A</b>Bloc « Dans le groupe » et un bouton « Partager »</h2>
+<p class="note">Sous « Messages », la liste de ce que le groupe partage, avec l'auteur et le temps restant. Le bouton ouvre une feuille : créer un waypoint, un tracé ou un croquis, ou partager un des miens.</p>
+<div class="pair">
+<div class="ph"><div class="body">
+<div class="blk"><div class="row"><span class="ic"><svg><use href="#i-chat"/></svg></span><div class="tx"><div>Messages</div><div>Marie a partagé un croquis</div></div><span class="chev">›</span></div></div>
+<div class="new" style="display:flex;flex-direction:column;gap:8px">
+<div class="lbl">Dans le groupe <span>3</span></div>
+<div class="blk">
+<div class="row"><span class="ic" style="color:var(--m1)"><svg><use href="#i-pen"/></svg></span><div class="tx"><div>Accès parking</div><div>Croquis · Marie · encore 1 h 40</div></div><span class="chev">›</span></div>
+<div class="row"><span class="ic" style="color:var(--m2)"><svg><use href="#i-pin"/></svg></span><div class="tx"><div>Pont du Fau</div><div>Waypoint · Paul · tant que le groupe existe</div></div><span class="chev">›</span></div>
+<div class="row"><span class="ic" style="color:var(--m1)"><svg><use href="#i-trace"/></svg></span><div class="tx"><div>Retour par la crête</div><div>Tracé · vous · 4,2 km · encore 3 h</div></div><span class="chev">›</span></div>
+</div>
+<div class="btn" style="align-self:flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><use href="#i-plus"/></svg>Partager dans le groupe</div>
+</div></div></div>
+<div class="ph"><div class="sheet"><div class="grab"></div><h3>Partager dans le groupe</h3>
+<div class="row" style="padding-inline:0"><span class="ic" style="color:var(--teal)"><svg><use href="#i-pin"/></svg></span><div class="tx"><div>Nouveau waypoint</div><div>Au centre de la carte</div></div></div>
+<div class="row" style="padding-inline:0"><span class="ic" style="color:var(--teal)"><svg><use href="#i-trace"/></svg></span><div class="tx"><div>Nouveau tracé</div><div>Dessiné sur la carte</div></div></div>
+<div class="row" style="padding-inline:0"><span class="ic" style="color:var(--teal)"><svg><use href="#i-pen"/></svg></span><div class="tx"><div>Nouveau croquis</div><div>Au stylo</div></div></div>
+<div class="row" style="padding-inline:0"><span class="ic"><svg><use href="#i-send"/></svg></span><div class="tx"><div>Partager un des miens…</div><div>Waypoint, trace ou croquis</div></div></div>
+</div></div>
+</div>
+</section>
+
+<section>
+<h2><b>B</b>Trois tuiles sous « Messages »</h2>
+<p class="note">Trois tuiles comme celles du panneau « Traces et waypoints », puis la liste. « Partager un des miens » se fait depuis la fiche de l'élément, qui gagne « Envoyer au groupe ».</p>
+<div class="ph"><div class="body">
+<div class="blk"><div class="row"><span class="ic"><svg><use href="#i-chat"/></svg></span><div class="tx"><div>Messages</div><div>Marie a partagé un croquis</div></div><span class="chev">›</span></div></div>
+<div class="new" style="display:flex;flex-direction:column;gap:8px">
+<div class="lbl">Créer pour le groupe</div>
+<div class="tiles"><div class="tile"><span class="ic"><svg><use href="#i-pin"/></svg></span>Waypoint ici</div><div class="tile"><span class="ic"><svg><use href="#i-trace"/></svg></span>Tracé</div><div class="tile"><span class="ic"><svg><use href="#i-pen"/></svg></span>Croquis</div></div>
+<div class="lbl">Dans le groupe <span>3</span></div>
+<div class="blk">
+<div class="row"><span class="ic" style="color:var(--m1)"><svg><use href="#i-pen"/></svg></span><div class="tx"><div>Accès parking</div><div>Croquis · Marie · encore 1 h 40</div></div></div>
+<div class="row"><span class="ic" style="color:var(--m2)"><svg><use href="#i-pin"/></svg></span><div class="tx"><div>Pont du Fau</div><div>Waypoint · Paul</div></div></div>
+</div></div>
+</div></div>
+</section>
+
+<section>
+<h2><b>C</b>Une ligne « Partagés dans le groupe › » et sa page</h2>
+<p class="note">Une seule ligne de plus sous « Messages », comme « Messages » lui-même. Sa page liste les partages par type, avec un bouton « Créer » en bas.</p>
+<div class="pair">
+<div class="ph"><div class="body">
+<div class="blk"><div class="row"><span class="ic"><svg><use href="#i-chat"/></svg></span><div class="tx"><div>Messages</div><div>Marie a partagé un croquis</div></div><span class="chev">›</span></div></div>
+<div class="blk new"><div class="row"><span class="ic"><svg><use href="#i-group"/></svg></span><div class="tx"><div>Partagés dans le groupe</div><div>1 waypoint · 1 tracé · 1 croquis</div></div><span class="chev">›</span></div></div>
+</div></div>
+<div class="ph">
+<div class="tb"><span>←</span><div class="t"><div>Partagés dans le groupe</div><div>Visibles par tout le groupe</div></div></div>
+<div class="body">
+<div class="lbl">Croquis</div>
+<div class="blk"><div class="row"><span class="ic" style="color:var(--m1)"><svg><use href="#i-pen"/></svg></span><div class="tx"><div>Accès parking</div><div>Marie · encore 1 h 40</div></div></div></div>
+<div class="lbl">Waypoints</div>
+<div class="blk"><div class="row"><span class="ic" style="color:var(--m2)"><svg><use href="#i-pin"/></svg></span><div class="tx"><div>Pont du Fau</div><div>Paul</div></div></div></div>
+<div class="fab"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><use href="#i-plus"/></svg>Créer</div>
+</div></div>
+</div>
+</section>
+
+<section>
+<h2><b>D</b>Bloc avec trois onglets</h2>
+<p class="note">Sous « Messages », un bloc à onglets Waypoints, Tracés et Croquis. Chaque onglet a sa liste et sa ligne « Nouveau… ».</p>
+<div class="ph"><div class="body">
+<div class="blk"><div class="row"><span class="ic"><svg><use href="#i-chat"/></svg></span><div class="tx"><div>Messages</div><div>Marie a partagé un croquis</div></div><span class="chev">›</span></div></div>
+<div class="blk new">
+<div class="seg"><span>Waypoints · 1</span><span>Tracés · 1</span><span class="on">Croquis · 1</span></div>
+<div class="row"><span class="ic" style="color:var(--m1)"><svg><use href="#i-pen"/></svg></span><div class="tx"><div>Accès parking</div><div>Marie · encore 1 h 40</div></div><span class="chev">›</span></div>
+<div class="row" style="color:var(--teal)"><span class="ic" style="color:var(--teal)"><svg><use href="#i-plus"/></svg></span><div class="tx"><div>Nouveau croquis pour le groupe</div></div></div>
+<div class="row"><span class="ic"><svg><use href="#i-send"/></svg></span><div class="tx"><div>Partager un de mes croquis…</div></div></div>
+</div></div></div>
+</section>
+
+<section>
+<h2><b>E</b>Dans la conversation</h2>
+<p class="note">Les partages passent par les messages. Sous « Messages », la ligne propose aussi « + ». Dans la page des messages, le « + » à côté du champ crée ou partage, et chaque partage apparaît comme une carte dans le fil.</p>
+<div class="pair">
+<div class="ph"><div class="body">
+<div class="blk"><div class="row"><span class="ic"><svg><use href="#i-chat"/></svg></span><div class="tx"><div>Messages</div><div>Marie a partagé un croquis</div></div><span class="chev">›</span></div>
+<div class="row new" style="border-radius:0"><span class="ic" style="color:var(--teal)"><svg><use href="#i-plus"/></svg></span><div class="tx"><div>Partager un waypoint, un tracé, un croquis</div><div>3 dans le groupe</div></div></div></div>
+</div></div>
+<div class="ph">
+<div class="tb"><span>←</span><div class="t"><div>Messages</div></div></div>
+<div class="msg">
+<div class="bub">On attend au Pont du Fau<small>Marie · 14:02</small></div>
+<div class="bub new" style="display:flex;gap:10px;align-items:center"><span class="ic" style="color:var(--m1)"><svg><use href="#i-pen"/></svg></span><span>Croquis « Accès parking »<small>Marie · 14:05 · Voir sur la carte</small></span></div>
+<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><span class="btn new" style="padding:7px 9px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><use href="#i-plus"/></svg></span><span style="flex:1;border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--txm);font-size:13px;background:var(--card)">Message</span><span class="btn fill">Envoyer</span></div>
+</div></div>
+</div>
+</section>
+
+<section>
+<h2>Commun à toutes les variantes</h2>
+<p class="note"><strong>Création.</strong> On crée avec les outils habituels de la carte (waypoint, tracé à la main, stylo du croquis). Leur bandeau porte « Pour le groupe » à la couleur de l'auteur, pour ne pas confondre avec ce qui est à soi. « Enregistrer » envoie au groupe.</p>
+<div class="ph"><div class="map"><div class="band"><span>✕</span><span style="flex:1">Croquis du 3 nov.</span><span class="tag">Pour le groupe</span><span style="color:#7fe0d6">Envoyer</span></div>
+<div class="pin" style="left:46%;top:58%"><span class="disc"><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg></span>Pont du Fau</div></div></div>
+<p class="cap">Bandeau de création « Pour le groupe ». Sur la carte, un waypoint du groupe porte un anneau à la couleur de son auteur (ici Paul).</p>
+<p class="note"><strong>Message automatique.</strong> Chaque partage ajoute une ligne dans « Messages ». Un appui dessus montre l'élément sur la carte.</p>
+<div class="ph"><div class="msg">
+<div class="sys"><span class="ic" style="color:#0b4f4a;width:20px;height:20px"><svg style="width:18px;height:18px"><use href="#i-pen"/></svg></span><span><b>Marie</b> a partagé un croquis « Accès parking »</span></div>
+<div class="sys"><span class="ic" style="color:#0b4f4a;width:20px;height:20px"><svg style="width:18px;height:18px"><use href="#i-pin"/></svg></span><span><b>Paul</b> a partagé un waypoint « Pont du Fau »</span></div>
+</div></div>
+<div class="qa"><b>Repris des décisions de P27</b> (waypoints du groupe), étendues aux tracés et croquis : durée choisie à la création (30 min à 24 h, ou « Tant que le groupe existe ») ; tout membre peut retirer un partage, et le retrait dit qui l'a fait ; seul l'auteur le modifie ; « Garder dans mes waypoints / traces / croquis » en fait une copie personnelle. Un membre qui arrive plus tard reçoit les partages en cours.</div>
+</section>
+</main>
