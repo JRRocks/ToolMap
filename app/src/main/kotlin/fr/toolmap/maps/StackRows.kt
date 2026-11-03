@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
+import fr.toolmap.core.layers.BlendMode
 import fr.toolmap.core.layers.FavoriteChange
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.layers.LayerElevation
@@ -168,6 +170,9 @@ internal fun StackRows(
                 if (open) {
                     LayerSettings(
                         layer = layer,
+                        name = byId[layer.sourceId]?.name ?: layer.sourceId,
+                        below = layers.drop(index + 1).filter { LayerElevation.isDrawnAt(it, currentZoom) },
+                        thumbnails = maps.thumbnails,
                         forced = layer.sourceId in forced,
                         canUp = index > 0,
                         canDown = index < layers.lastIndex,
@@ -315,6 +320,9 @@ private fun LayerLine(
 @Composable
 private fun LayerSettings(
     layer: LayerConfig,
+    name: String,
+    below: List<LayerConfig>,
+    thumbnails: MapThumbnails,
     forced: Boolean,
     canUp: Boolean,
     canDown: Boolean,
@@ -325,6 +333,7 @@ private fun LayerSettings(
     vm: MapViewModel,
 ) {
     var colors by remember(layer.id) { mutableStateOf(false) }
+    var blendSheet by remember(layer.id) { mutableStateOf(false) }
     AdjustSlider(
         key = "opacity",
         label = stringResource(R.string.layers_opacity, percentOf(layer.opacity)),
@@ -348,6 +357,11 @@ private fun LayerSettings(
     }
     if (colors) {
         val hue = layer.hue.roundToInt()
+        EntryRow(
+            label = stringResource(R.string.maps_blend),
+            value = stringResource(layer.blend.label()),
+            fade = fade,
+        ) { blendSheet = true }
         AdjustSlider(
             key = "contrast",
             label = stringResource(R.string.layers_contrast, percentOf(layer.contrast)),
@@ -396,6 +410,49 @@ private fun LayerSettings(
                 Text(stringResource(R.string.layers_reset_adjustments))
             }
         }
+    }
+    if (blendSheet) {
+        BlendSheet(
+            layer = layer,
+            name = name,
+            below = below,
+            thumbnails = thumbnails,
+            onPick = {
+                blendSheet = false
+                vm.setBlend(layer.id, it)
+            },
+            onDismiss = { blendSheet = false },
+        )
+    }
+}
+
+/** An entry of the colours that opens a sheet (« Fusion › »): its name, then its value in the accent colour. */
+@Composable
+private fun EntryRow(
+    label: String,
+    value: String,
+    fade: PanelFade,
+    onClick: () -> Unit,
+) {
+    Column(Modifier.padding(start = 56.dp, end = 16.dp).alpha(fade.shown)) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Text(
+                value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.toolMap.accent,
+                fontWeight = FontWeight.Medium,
+            )
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.toolMap.accent,
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -475,10 +532,17 @@ internal fun layerStateLine(
     currentZoom: Double,
 ): String {
     val percent = percentOf(layer.opacity)
-    val look =
+    val plain =
         when {
             layer.inverted -> stringResource(R.string.maps_layer_line_inverted, percent)
             else -> stringResource(R.string.maps_layer_line, percent)
+        }
+    // « 100 % d'opacité · Produit » (P26.4).
+    val look =
+        if (layer.blend == BlendMode.NORMAL) {
+            plain
+        } else {
+            stringResource(R.string.maps_layer_line_more, plain, stringResource(layer.blend.label()))
         }
     return when {
         !layer.visible -> {
@@ -495,7 +559,7 @@ internal fun layerStateLine(
                 stringResource(R.string.layers_inactive_here).takeUnless {
                     LayerElevation.isDrawnAt(layer, currentZoom)
                 },
-                look.takeIf { percent < FULL_PERCENT || layer.inverted },
+                look.takeIf { percent < FULL_PERCENT || layer.inverted || layer.blend != BlendMode.NORMAL },
             ).joinToString(" · ")
         }
     }

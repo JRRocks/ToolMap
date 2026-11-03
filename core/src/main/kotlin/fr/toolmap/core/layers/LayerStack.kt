@@ -135,9 +135,23 @@ data class LayerStack(
         strength: Float,
     ): LayerStack = update(id) { it.copy(tint = tint?.and(RGB), tintStrength = strength.coerceIn(0f, 1f)) }
 
-    /** « Réinitialiser les couleurs »: contrast, brightness, saturation and hue back to neutral, colours not inverted. */
+    /**
+     * « Réinitialiser les couleurs »: contrast, brightness, saturation and hue back to neutral, colours not inverted,
+     * the Normal mode and no tint (P26.4).
+     */
     fun resetColors(id: String): LayerStack =
-        update(id) { it.copy(contrast = 0f, brightness = 0f, saturation = 0f, hue = 0f, inverted = false) }
+        update(id) {
+            it.copy(
+                contrast = 0f,
+                brightness = 0f,
+                saturation = 0f,
+                hue = 0f,
+                inverted = false,
+                blend = BlendMode.NORMAL,
+                tint = null,
+                tintStrength = LayerConfig.DEFAULT_TINT_STRENGTH,
+            )
+        }
 
     /**
      * Swaps the source of the lowest base-map layer (a layer for which [isBase] holds) for [sourceId], keeping

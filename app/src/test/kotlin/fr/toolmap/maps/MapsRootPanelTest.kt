@@ -20,6 +20,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
+import fr.toolmap.core.layers.BlendMode
 import fr.toolmap.core.layers.Workspace
 import fr.toolmap.core.layers.Workspaces
 import org.junit.After
@@ -115,23 +116,42 @@ class MapsRootPanelTest {
     }
 
     @Test
+    fun `Fusion opens the sheet of the modes, explained, and a touch chooses one and closes it`() {
+        setContent()
+        rule.onNodeWithText("IGN Cartes").performClick()
+        rule.onNodeWithText("Couleurs").performClick()
+        rule.onNodeWithText("Fusion").assertExists()
+        rule.onNodeWithText("Normal").performClick()
+        rule.onNodeWithText("Fusion d'IGN Cartes").assertExists()
+        rule.onNodeWithText("Assombrir").assertExists()
+        rule.onNodeWithText("garde les traits sombres des deux cartes").assertExists()
+        rule.onNodeWithText("Produit Multiply").performClick()
+        rule.waitForIdle()
+        val layer = fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" }
+        assertEquals(BlendMode.MULTIPLY, layer.blend)
+        rule.onAllNodesWithText("Fusion d'IGN Cartes").assertCountEquals(0)
+        rule.onNodeWithText("100 % d'opacité · Produit").assertExists()
+        rule.onNodeWithText("Produit").assertExists()
+    }
+
+    @Test
     fun `the colours have a hue in degrees, which Réinitialiser les couleurs puts back with the others`() {
         setContent()
         rule.onNodeWithText("IGN Cartes").performClick()
         rule.onNodeWithText("Couleurs").performClick()
-        rule.onNodeWithText("Teinte : 0°").assertExists()
+        rule.onNodeWithText("Rotation des couleurs : 0°").assertExists()
         val id = fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" }.id
         rule.runOnIdle {
             fixture.vm.setHue(id, 120f)
             fixture.vm.setAdjustments(id, 0.2f, 0f, 0f)
         }
-        rule.onNodeWithText("Teinte : 120°").assertExists()
+        rule.onNodeWithText("Rotation des couleurs : 120°").assertExists()
         rule.onNodeWithText("Réinitialiser les couleurs").performClick()
         rule.waitForIdle()
         val layer = fixture.vm.state.value.stack.layers.first { it.id == id }
         assertEquals(0f, layer.hue)
         assertEquals(0f, layer.contrast)
-        rule.onNodeWithText("Teinte : 0°").assertExists()
+        rule.onNodeWithText("Rotation des couleurs : 0°").assertExists()
     }
 
     @Test

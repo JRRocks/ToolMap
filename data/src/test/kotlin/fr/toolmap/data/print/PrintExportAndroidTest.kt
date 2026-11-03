@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.layers.BlendMode
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.print.AtlasMode
 import fr.toolmap.core.print.Dressing
@@ -88,9 +89,10 @@ class PrintExportAndroidTest {
     private fun export(
         template: PrintTemplate,
         area: PrintArea,
+        layers: List<LayerConfig> = stack,
         unavailable: (TileId) -> Boolean = { false },
     ): Triple<fr.toolmap.core.print.PrintResult, ByteArray, fr.toolmap.core.print.PrintPlan> {
-        val plan = PrintPlanner.plan(template, area, stack, sources::get)
+        val plan = PrintPlanner.plan(template, area, layers, sources::get)
         assertTrue(plan.canExport, plan.issues.toString())
         val fetcher =
             PrintTileFetcher { source, id ->
@@ -127,6 +129,17 @@ class PrintExportAndroidTest {
         assertTrue(String(bytes, 0, 8, Charsets.ISO_8859_1).startsWith("%PDF-1.4"))
         assertTrue(result.missingTiles > 0)
         assertTrue(plan.pages.single().layers.layers.size == 2)
+    }
+
+    @Test
+    fun `a layer in Produit is printed multiplied with the map under it`() {
+        // P26.5: the orange slopes in Produit darken the checker under them instead of veiling it.
+        val layers = listOf(stack[0], stack[1].copy(opacity = 1f, blend = BlendMode.MULTIPLY))
+        val template = PrintTemplate(scale = 50_000.0, dpi = 150, title = "Produit")
+        val (result, bytes, _) = export(template, PrintArea(45.0, 6.0), layers = layers)
+        save("android-produit.pdf", bytes)
+        assertEquals(1, result.pages)
+        assertEquals(0, result.missingTiles)
     }
 
     @Test

@@ -139,11 +139,13 @@ class NavigationBackTest {
     fun `back while drawing asks before losing the points`() {
         rule.onNodeWithContentDescription("Traces et waypoints").performClick()
         rule.onNodeWithText("Dessiner un itinéraire").performClick()
+        // Without BRouter the route is drawn by hand: its hint is the drawing's, not « Placez le réticule… » of the
+        // computed routes, which was never there to wait for (failure of CI run 41666808050).
+        val hint = "Touchez la carte pour ajouter un point"
+        rule.onAllNodesWithText(hint, substring = true).assertCountEquals(1)
         rule.onNodeWithText("Ajouter ici").performClick()
         // The first stop of a route is placed off the main thread (a waypoint under the crosshair is looked for).
-        rule.waitUntil(5_000) {
-            rule.onAllNodesWithText("Placez le réticule", substring = true).fetchSemanticsNodes().isEmpty()
-        }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText(hint, substring = true).fetchSemanticsNodes().isEmpty() }
         pressBack()
         assertFalse(rule.activity.isFinishing, "Back left the app while drawing")
         rule.onAllNodesWithText("Abandonner les modifications ?").assertCountEquals(1)

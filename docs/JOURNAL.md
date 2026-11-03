@@ -20,6 +20,27 @@
 
 ---
 
+## 2026-11-03 — Session 89 (suite 4) — [P26.1][P26.4][P26.5] Fusion d'un calque : la feuille des modes expliqués, et le PDF
+- **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 983196a (0.4.173, P28.8). Copies : GitHub = local (0.4.173, référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : coder le panneau de fusion choisi par l'utilisateur (« Couleurs et fusion d'un calque - Je prend E », 2026-11-03) et imprimer les modes.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/p26-fusion.html`, variante **E · Feuille expliquée**, le 2026-11-03.
+  - Ligne dépliée d'un calque, « Couleurs » : entrée « Fusion › » (le mode en cours en turquoise) au-dessus des curseurs ; « Teinte » devient « Rotation des couleurs ». La feuille « Fusion de … » (`BlendSheet.kt`) : 16 modes en six familles, nom français, nom anglais en gris, une phrase, vignette de la vraie carte (tuile à l'endroit et au zoom de l'écran, `MapThumbnails.tileHere`, fusionnée avec les calques visibles du dessous par les formules de `Blend`) ; un appui choisit et ferme. Ligne du calque « 100 % d'opacité · Produit ». « Réinitialiser les couleurs » remet aussi Normal et retire la teinte (`LayerStack.resetColors`).
+  - « Teinter › » n'est pas dessiné dans la variante E : aperçu complémentaire `docs/previews/p26-teinter.html` (T1 feuille, T2 dans la ligne ; roue = cercle chromatique de la couleur d'un membre), publié et signalé par notification ; non codé.
+  - P26.5 : `AndroidBandRenderer` dessine un calque fusionné ou teinté à part puis le mêle à la bande avec `Blend.tint` et `Blend.composite`, comme les tuiles de la carte.
+  - Vu sur l'émulateur et corrigé : les vignettes prenaient aussi les calques du dessous inactifs à ce zoom (photos aériennes) ; la feuille couvrait tout l'écran (80 % de la hauteur, comme l'aperçu). Comparaison `docs/previews/p26-fusion-emulateur.html` (aperçu E et captures 0.4.175).
+  - CI rouge du push P28.8 (run 41666808050) : `NavigationBackTest` « back while drawing » attendait la disparition de « Placez le réticule… », l'indice des itinéraires calculés, jamais affiché sans BRouter ; le retour partait avant que l'étape, posée hors du fil principal, soit ajoutée. Le test attend maintenant l'indice du dessin à la main (« Touchez la carte pour ajouter un point… »), présent puis disparu.
+  - `docs/specs/blend-modes.md` § 6, `docs/specs/ui-index.md`, plans.
+- **Décisions (ADR)** : aucune (ADR-111 couvre le calcul).
+- **Tests / vérifications** :
+  - `MapsRootPanelTest` (+1 : « Fusion » ouvre la feuille « Fusion d'IGN Cartes », familles et phrases présentes, « Produit » choisi ferme la feuille, ligne « 100 % d'opacité · Produit » ; libellé « Rotation des couleurs » dans les tests existants), `LayerStackTest` (réinitialisation : mode et teinte compris), `AndroidBandRendererTest` (+1 : gris en Produit sur orange donne l'orange assombri, Normal le gris) : 0 échec.
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.173 → **0.4.174**) : **BUILD SUCCESSFUL** en 3 min 20 s. Après les deux corrections vues sur l'émulateur : `./gradlew check assembleDebug` (0.4.175) : **BUILD SUCCESSFUL** en 2 min 13 s.
+  - `NavigationBackTest` lancé trois fois (`--rerun`) : 11 tests, 0 échec à chaque fois.
+  - `PrintExportAndroidTest` (+1) : `data/build/print-samples/android-produit.pdf` relu : les pentes orange en Produit assombrissent le damier (olive et brun clair) au lieu de le voiler.
+  - Émulateur 0.4.175 : favori « Rando été », IGN Pentes, « Couleurs » → « Fusion › Normal » ; feuille « Fusion d'IGN Pentes (montagne) » avec les vignettes du SCAN 25 de l'écran ; « Produit » → ligne « 31 % d'opacité · Produit ». Stockage de l'émulateur presque plein (7 %) : réinstallation avec `cmd package uninstall -k` (données gardées) et seuil de stockage abaissé le temps d'installer, remis aussitôt.
+- **Problèmes / dette technique** : la légende du PDF ne cite pas le mode (texte nouveau : aperçu si l'utilisateur le veut).
+- **Prochaine étape recommandée** : choix T1 / T2 sur `p26-teinter.html`, puis « Teinter › » et la roue (fin de P26.4) ; captures P29.2 à P29.10 à côté des aperçus.
+
 ## 2026-11-03 — Session 89 (suite 3) — [P28.8] Croquis imprimés en vectoriel dans le PDF
 - **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de ec32cb3 (0.4.172, P28.7). Copies : GitHub = local (0.4.172, référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : imprimer les croquis visibles dans le PDF, en vectoriel (décision du 2026-10-24).

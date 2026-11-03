@@ -11,6 +11,8 @@ import android.graphics.Rect
 import fr.toolmap.core.elevation.DemWindow
 import fr.toolmap.core.elevation.ElevationMask
 import fr.toolmap.core.elevation.MaskRaster
+import fr.toolmap.core.layers.Blend
+import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.layers.RasterAdjust
 import fr.toolmap.core.pdf.PdfImage
 import fr.toolmap.core.print.Band
@@ -66,7 +68,11 @@ class AndroidBandRenderer(
         page.layers.layers.forEachIndexed { index, layer ->
             val placements = page.raster.placements(layer.tileZoom, band)
             val fetched = fetchAll(layer, placements)
-            val paint = paintOf(layer)
+            // A blended layer (P26.5) is drawn apart, then mixed with what is under it as the map tiles are.
+            val blended = layer.layer.isBlended
+            val own = if (blended) Bitmap.createBitmap(width, band.heightPx, Bitmap.Config.ARGB_8888) else bitmap
+            val target = if (blended) Canvas(own) else canvas
+            val paint = paintOf(layer, opaque = blended)
             for (placement in placements) {
                 val result = fetched[placement.tile]
                 val dst = Rect(placement.left, placement.top, placement.right, placement.bottom)
@@ -77,7 +83,7 @@ class AndroidBandRenderer(
                             missing++
                             if (index == 0) hatch(canvas, dst, page.dpi)
                         } else {
-                            canvas.drawBitmap(tile, null, dst, paint)
+                            target.drawBitmap(tile, null, dst, paint)
                             tile.recycle()
                         }
                     }
@@ -90,6 +96,10 @@ class AndroidBandRenderer(
                         if (index == 0) hatch(canvas, dst, page.dpi)
                     }
                 }
+            }
+            if (blended) {
+                mix(bitmap, own, layer.layer)
+                own.recycle()
             }
         }
         val out = ByteArrayOutputStream(maxOf(MIN_BUFFER, width * band.heightPx / COMPRESSION_GUESS))
@@ -159,11 +169,35 @@ class AndroidBandRenderer(
         }
     }
 
-    private fun paintOf(layer: PrintLayer): Paint =
+    /** The paint of [layer]: its colours, and its opacity unless it is [opaque] (a blended layer gets it in [mix]). */
+    private fun paintOf(
+        layer: PrintLayer,
+        opaque: Boolean = false,
+    ): Paint =
         Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG).apply {
-            alpha = Math.round(layer.layer.opacity.coerceIn(0f, 1f) * MAX_ALPHA)
+            alpha = Math.round((if (opaque) 1f else layer.layer.opacity.coerceIn(0f, 1f)) * MAX_ALPHA)
             RasterAdjust.colorMatrix(layer.layer)?.let { colorFilter = ColorMatrixColorFilter(ColorMatrix(it)) }
         }
+
+    /**
+     * Draws [own], a blended layer drawn alone, over [below] with the tint, blend mode and opacity of [layer]: the same
+     * formulas as the tiles of the map (`BitmapTileBlender`, ADR-111).
+     */
+    private fun mix(
+        below: Bitmap,
+        own: Bitmap,
+        layer: LayerConfig,
+    ) {
+        val width = below.width
+        val height = below.height
+        val under = IntArray(width * height)
+        val above = IntArray(width * height)
+        below.getPixels(under, 0, width, 0, 0, width, height)
+        own.getPixels(above, 0, width, 0, 0, width, height)
+        layer.tint?.let { Blend.tint(above, it, layer.tintStrength) }
+        Blend.composite(under, above, layer.blend, layer.opacity)
+        below.setPixels(under, 0, width, 0, 0, width, height)
+    }
 
     /** A light grey patch with diagonal lines about every 1.6 mm, so a missing tile is plain on the paper. */
     private fun hatch(

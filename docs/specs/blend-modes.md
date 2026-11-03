@@ -60,6 +60,10 @@ Conclusion : le calcul ajoute environ 0,5 s à un écran entier depuis le stocka
 
 Rendu vérifié : IGN Plan en Produit sur SCAN 25, relief et courbes du SCAN visibles sous le plan (`docs/previews/p26/emu-produit-plan-scan25.jpg`, Normal à gauche).
 
-## 6. Reste à faire
+## 6. Panneau (P26.4) et impression (P26.5)
 
-Panneau « Couleurs et fusion » (P26.1 aperçu, P26.4), impression (P26.5) : le PDF ne montre pas encore les modes.
+Aperçu `docs/previews/p26-fusion.html`, **variante E « Feuille expliquée » choisie le 2026-11-03**. Dans la ligne dépliée d'un calque, « Couleurs » montre d'abord l'entrée **« Fusion › »** (le mode en cours, en turquoise), puis les curseurs ; le curseur de rotation s'appelle désormais « Rotation des couleurs », puisque le mode « Teinte (Hue) » existe. « Fusion › » ouvre une feuille « Fusion de … » (« d' » devant une voyelle) : les 16 modes en six familles (Normal · Assombrir · Éclaircir · Contraste · Comparer · Couleur), nom français, nom anglais en gris, une phrase, et une vignette de la vraie carte à l'endroit et au zoom de l'écran, ce calque fusionné avec ce mode sur les calques visibles du dessous (mêmes formules que les tuiles, `BlendSheet.kt`, `MapThumbnails.tileHere`). Un appui choisit le mode et ferme la feuille ; la carte se redessine depuis le stockage. La ligne du calque l'indique (« 100 % d'opacité · Produit »). « Réinitialiser les couleurs » remet aussi le mode Normal et retire la teinte.
+
+« Teinter › » (couleur et intensité) n'est pas dessiné dans la variante E : aperçu complémentaire `docs/previews/p26-teinter.html` (T1 feuille, T2 dans la ligne), choix attendu ; rien de « Teinter » n'est encore dans l'interface (la teinte d'un favori reçu est appliquée).
+
+Impression : `AndroidBandRenderer` dessine un calque fusionné ou teinté à part, sur une image transparente de la bande, puis le mêle à ce qui est dessous avec `Blend.tint` et `Blend.composite`, comme `BitmapTileBlender` ; les autres calques sont dessinés comme avant.

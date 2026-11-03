@@ -1,5 +1,6 @@
 package fr.toolmap.maps
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -61,7 +62,27 @@ class MapThumbnails
                     source.minZoom,
                     source.maxZoom,
                 ).coerceAtMost(MAX_THUMB_ZOOM)
-            val tile = TileMath.tileAt(place?.lon ?: DEFAULT_LON, place?.lat ?: DEFAULT_LAT, zoom)
+            return tile(source, place?.lon ?: DEFAULT_LON, place?.lat ?: DEFAULT_LAT, zoom)?.asImageBitmap()
+        }
+
+        /**
+         * The tile of [sourceId] where the map is ([around]), at the zoom of the map within the range of [sourceId]: the
+         * same place for every map, for the vignettes of the blend modes (P26.4). Not kept.
+         */
+        suspend fun tileHere(sourceId: String): Bitmap? {
+            val place = around ?: return null
+            val source = repository.find(sourceId)?.takeIf { it.isSupported } ?: return null
+            val zoom = place.zoom.coerceIn(source.minZoom, source.maxZoom)
+            return withContext(Dispatchers.IO) { runCatching { tile(source, place.lon, place.lat, zoom) }.getOrNull() }
+        }
+
+        private fun tile(
+            source: TileSource,
+            lon: Double,
+            lat: Double,
+            zoom: Int,
+        ): Bitmap? {
+            val tile = TileMath.tileAt(lon, lat, zoom)
             val url =
                 HttpUrl
                     .Builder()
@@ -75,7 +96,7 @@ class MapThumbnails
             client.newCall(Request.Builder().url(url).build()).execute().use { response ->
                 if (!response.isSuccessful) return null
                 val bytes = response.body?.bytes() ?: return null
-                return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             }
         }
 

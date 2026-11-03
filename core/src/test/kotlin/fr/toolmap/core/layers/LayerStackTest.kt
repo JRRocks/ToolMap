@@ -69,6 +69,8 @@ class LayerStackTest {
                 .setAdjustments("l1", 0.2f, -0.3f, 0.4f)
                 .setInverted("l1", true)
                 .setOpacity("l1", 0.6f)
+                .setBlend("l1", BlendMode.MULTIPLY)
+                .setTint("l1", 0x1E88E5, 0.8f)
         assertEquals(-180f, s["l1"]!!.hue)
         val reset = s.resetColors("l1")["l1"]!!
         assertEquals(LayerConfig("l1", "osm", opacity = 0.6f), reset)

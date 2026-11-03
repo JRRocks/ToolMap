@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import fr.toolmap.core.elevation.DemWindow
+import fr.toolmap.core.layers.BlendMode
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.print.PrintArea
 import fr.toolmap.core.print.PrintPlanner
@@ -179,5 +180,42 @@ class AndroidBandRendererTest {
             val rendered = renderer.render(page, band)
             assertEquals(page.raster.placements(page.layers.layers.single().tileZoom, band).size, rendered.missingTiles)
         }
+    }
+
+    @Test
+    fun `a layer in Produit is multiplied with the one under it, as the tiles of the map are`() {
+        // P26.5: orange SCAN 25 under a grey IGN Plan in Produit gives a darker orange; in Normal, the plain grey.
+        fun middle(blend: BlendMode): Int {
+            val stack = listOf(LayerConfig("l1", "ign-scan25"), LayerConfig("l2", "ign-maps", blend = blend))
+            val page =
+                PrintPlanner.plan(
+                    PrintTemplate(scale = 50_000.0, dpi = 150),
+                    PrintArea(45.0, 6.0),
+                    stack,
+                    sources::get,
+                ).pages.single()
+            val fetcher =
+                PrintTileFetcher { source: TileSource, _: TileId ->
+                    TileFetch.Found(
+                        solidTile(
+                            if (source.id ==
+                                "ign-maps"
+                            ) {
+                                Color.rgb(128, 128, 128)
+                            } else {
+                                Color.rgb(200, 100, 50)
+                            },
+                        ),
+                    )
+                }
+            return AndroidBandRenderer(fetcher).use { renderer ->
+                val image = decode(renderer.render(page, page.raster.band(0)).image.data)
+                image.getPixel(image.width / 2, image.height / 2)
+            }
+        }
+        val multiplied = middle(BlendMode.MULTIPLY)
+        assertTrue(near(multiplied, Color.rgb(100, 50, 25), tolerance = 12), "#${Integer.toHexString(multiplied)}")
+        val normal = middle(BlendMode.NORMAL)
+        assertTrue(near(normal, Color.rgb(128, 128, 128), tolerance = 12), "#${Integer.toHexString(normal)}")
     }
 }
