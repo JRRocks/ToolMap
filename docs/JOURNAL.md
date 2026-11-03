@@ -20,6 +20,25 @@
 
 ---
 
+## 2026-11-03 — Session 89 (suite 6) — [P29.2][P29.10] Captures de l'émulateur à côté des aperçus, et la position gardée quand l'activité est recréée
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 5798ae1.
+- **Objectif** : mettre la capture de l'émulateur à côté de l'aperçu validé et du rendu Robolectric pour chaque étape de la refonte (P29.2 à P29.10) ; garder la position en temps réel quand Android recrée l'écran.
+- **Réalisé** :
+  - Pages `docs/previews/design-02-menu-rendu.html` à `design-10-outils-rendu.html` : une 3e figure « Émulateur (0.4.17x) » dans chaque paire, JPEG 540 px intégré. 59 captures, jour et nuit : menu, « Plus », « Quitter ToolMap ? » pendant un enregistrement (P29.2) ; panneau Cartes, calque déplié, Conditions (P29.3) ; panneau du drapeau, écran Traces, détail d'une trace, fiche d'un waypoint, snackbar, dialogue (P29.4, avec la trace d'exemple `fixtures/gpx/Mojstrovka.gpx`) ; Positionnement au repos, en marche, départ (P29.5) ; Cartes disponibles, catalogue après un ajout, assistant, éditeur multi-zoom (P29.6) ; sélection de zone, ligne « Cartes » dépliée, téléchargement en cours, stockage (P29.7) ; Partage hors groupe (P29.8) ; Réglages « cap », Affichage, Sauvegarde (P29.9) ; Recherche « Barraux », Aide, cadre d'impression, itinéraire, mesure (P29.10).
+  - Captures fidèles aux variantes choisies le 2026-10-27 (B Portée, C Strates, A Topo et B Repère, A Sentier, B Bascule, B Poids, B Cordée, C Loupe, A Équerre). Seul écart vu : l'itinéraire de P29.10 a un tronçon « à la main » parce que BRouter n'a pas trouvé de chemin entre les deux étapes posées ; légende de la capture le dit.
+  - **Position gardée quand l'écran est recréé** : `MainActivity` est recréée à chaque changement de configuration (thème sombre du système, téléphone tourné ; vu sur l'émulateur : nouvelle fenêtre après `cmd uimode night yes`). `MapController` est gardé par `remember` : il revenait avec la position coupée, en silence. Sur un téléphone au thème sombre programmé au coucher du soleil, la position s'arrêtait donc en pleine sortie. `MapScreen` garde maintenant le mode de suivi (`rememberSaveable`) et le remet quand la carte est prête, si la localisation est toujours autorisée. Aucun changement visible : pas d'aperçu (CLAUDE.md).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - Émulateur 0.4.177 : « Suivi » allumé, `cmd uimode night yes`, le panneau Positionnement dit « Désactivée » (défaut reproduit deux fois).
+  - Émulateur 0.4.178 : « Suivi » allumé, nuit puis jour : « ± 5 m · alt. … · GPS + baromètre », « Suivi » coché, et la carte suit un nouveau point (`adb emu geo fix`).
+  - Pages de rendu ouvertes dans le navigateur : 3 images par paire, toutes chargées.
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.178 → **0.4.179**) : **BUILD SUCCESSFUL** en 2 min 36 s.
+- **Problèmes / dette technique** :
+  - P29.8 et P29.9 restent 🔄. Il manque « En groupe », l'invitation et la fiche d'un membre (il faut un groupe et un second téléphone, et l'invitation afficherait un vrai lien dans le dépôt public), et « Restauration en attente ».
+  - Le mode Explorer (perspective) revient en boussole sans perspective après une recréation de l'écran.
+  - Dates d'exemple : la trace `Mojstrovka.gpx` montre « 13 déc. 1901 » ; ce n'est pas un défaut, la date est dans le fichier.
+- **Prochaine étape recommandée** : aperçu P27.0 (points du groupe dans l'interface), puis P27.3 et P27.4 ; aperçus P19.9 à P19.11.
+
 ## 2026-11-03 — Session 89 (suite 5) — [P26.4] Teinter un calque : la feuille et la roue
 - **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 4295047 (0.4.175, Fusion). Copies : GitHub = local (0.4.175, référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : coder « Teinter › » selon la piste choisie par l'utilisateur (« T1 - Teinter un calque », 2026-11-03), et finir P26.

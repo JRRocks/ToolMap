@@ -450,6 +450,19 @@ fun MapScreen(
     LaunchedEffect(controller.isReady, appSettings.positioning, appSettings.heading) {
         if (controller.isReady) controller.applyPositioning(appSettings.positioning, appSettings.heading)
     }
+    // The real-time position and the way the map follows it outlive a recreated activity: the dark theme of the
+    // system switching at sunset, or a turned phone, brought a new controller with the position off (P29.5).
+    var keptLocation by rememberSaveable { mutableStateOf<LocationMode?>(null) }
+    LaunchedEffect(controller.isReady) {
+        if (!controller.isReady) return@LaunchedEffect
+        val kept = keptLocation
+        val granted =
+            listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION).any {
+                ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+            }
+        if (kept != null && !controller.locationOn && granted) controller.applyLocationMode(kept)
+        snapshotFlow { controller.locationMode.takeIf { controller.locationOn } }.collect { keptLocation = it }
+    }
     val positionTrail = remember { PositionTrail() }
     LaunchedEffect(navPosition, appSettings.positioning.showTrail) {
         val now = System.currentTimeMillis()
