@@ -15,9 +15,11 @@ object StackToStyle {
         isKnownSource: (String) -> Boolean,
     ): List<AppliedLayer> {
         val keep = 1f - darkening.coerceIn(0f, 1f)
-        return stack.layers
-            .filter { isKnownSource(it.sourceId) }
+        val known = LayerStack(stack.layers.filter { isKnownSource(it.sourceId) })
+        return known.layers
             .map { layer ->
+                val recipe = BlendRecipe.of(known, layer)
+                if (recipe != null) return@map blended(layer, recipe, keep, mapping)
                 val brightness = RasterAdjust.brightnessRange(layer.brightness, layer.inverted)
                 val range =
                     if (LayerElevation.limitsZoom(layer)) {
@@ -43,5 +45,34 @@ object StackToStyle {
                         ),
                 )
             }
+    }
+
+    /**
+     * A blended layer (P26): its tiles are drawn with the layers under it, its colours, opacity and band already in
+     * them ([BlendRecipe]), so the map only shows them, darkened for the night like any map.
+     */
+    private fun blended(
+        layer: LayerConfig,
+        recipe: BlendRecipe,
+        keep: Float,
+        mapping: ZoomMapping,
+    ): AppliedLayer {
+        val range =
+            if (LayerElevation.limitsZoom(layer)) {
+                LayerZoom.cameraRange(layer.displayMinZoom, layer.displayMaxZoom, mapping)
+            } else {
+                LayerZoom.CameraRange(null, null)
+            }
+        return AppliedLayer(
+            id = layer.id,
+            sourceId = StyleSources.id(layer.sourceId, recipe),
+            props =
+                LayerProps(
+                    visible = layer.visible,
+                    brightnessMax = keep,
+                    minZoom = range.minZoom,
+                    maxZoom = range.maxZoom,
+                ),
+        )
     }
 }

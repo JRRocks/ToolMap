@@ -4,6 +4,7 @@ import android.content.Intent
 import android.util.Log
 import fr.toolmap.core.download.ZoneRequest
 import fr.toolmap.core.download.ZoneShape
+import fr.toolmap.core.layers.BlendMode
 import fr.toolmap.core.layers.RangeLogic
 import fr.toolmap.core.state.CameraState
 import fr.toolmap.download.ZoneQueue
@@ -16,7 +17,8 @@ import fr.toolmap.map.MapViewModel
  * - `perf.source`: the only map shown (its source id, e.g. `ign-maps`);
  * - `perf.lat`, `perf.lon`, `perf.zoom`: the camera the map opens at;
  * - `perf.zone` = `west,south,east,north`, with `perf.zmin` and `perf.zmax`: starts a zone download of `perf.source`;
- * - `perf.overlay`: a map added on top of the others (its source id);
+ * - `perf.overlay`: maps added on top of the others (source ids, `a,b`: the last on top);
+ * - `perf.blend`: the blend mode of the top `perf.overlay` (`multiply`, `soft-light`…, P26);
  * - `perf.altmin`, `perf.altmax` (metres, an empty value = no limit), `perf.logic` (`and` / `or`): the elevation band
  *   of `perf.overlay`, or else of `perf.source` (P20).
  */
@@ -33,6 +35,7 @@ object PerfIntent {
     private const val ALT_MIN = "perf.altmin"
     private const val ALT_MAX = "perf.altmax"
     private const val LOGIC = "perf.logic"
+    private const val BLEND = "perf.blend"
 
     fun handle(
         intent: Intent?,
@@ -48,12 +51,24 @@ object PerfIntent {
                 .lastOrNull { it.sourceId == source }
                 ?.let { map.removeOtherLayers(it.id) }
         }
-        val overlay = extras.getString(OVERLAY)
-        if (overlay != null &&
+        // Several maps (`a,b`) are added in that order, the last on top.
+        val overlays = extras.getString(OVERLAY)?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+        for (id in overlays) {
+            if (map.state.value.stack.layers
+                    .none { it.sourceId == id }
+            ) {
+                map.addLayer(id)
+            }
+        }
+        val overlay = overlays.lastOrNull()
+        extras.getString(BLEND)?.let { key ->
+            val mode = BlendMode.fromKey(key) ?: return@let
             map.state.value.stack.layers
-                .none { it.sourceId == overlay }
-        ) {
-            map.addLayer(overlay)
+                .lastOrNull { overlay == null || it.sourceId == overlay }
+                ?.let { layer ->
+                    Log.i(MapPerfLog.TAG, "blend layer=${layer.sourceId} mode=${mode.key}")
+                    map.setBlend(layer.id, mode)
+                }
         }
         if (extras.containsKey(ALT_MIN) || extras.containsKey(ALT_MAX)) {
             val target = overlay ?: source

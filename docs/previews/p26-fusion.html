@@ -1,0 +1,248 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Couleurs et fusion</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<style>
+/* Page de choix P26.1 : état actuel (émulateur), puis une variante à la fois, choix en bas.
+   Les téléphones montrent ToolMap de jour, comme l'émulateur ; la carte est la vraie (SCAN 25 sous IGN Plan v2), fusionnée par le
+   navigateur avec les mêmes formules W3C que l'application (background-blend-mode). */
+:root{
+  --bg:#f4f7f8;--fg:#122027;--fg2:#4d5e66;--line:#d5dee2;--btn-line:#b7c6cc;--accent:#0f7d78;--on-accent:#fff;
+  --a-shell:#163A4A;--a-panel:#ffffff;--a-box:#E2ECEF;--a-on:#122027;--a-on2:#4f6169;--a-acc:#14918C;--a-ind:#7FD6D1;--a-onind:#06302E;
+  --a-track:#1F3A47;--a-rest:#CFEAEC;--a-line:#C9D6DB;--a-pop:#ffffff;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1b21;--fg:#dde7ea;--fg2:#a9bac1;--line:#2c4049;--btn-line:#4a616a;--accent:#5cc9c2;--on-accent:#003734;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1b21;--fg:#dde7ea;--fg2:#a9bac1;--line:#2c4049;--btn-line:#4a616a;--accent:#5cc9c2;--on-accent:#003734;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Roboto,system-ui,"Segoe UI",sans-serif;padding-block:12px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+::selection{background:var(--accent);color:var(--on-accent)}
+.wrap{max-width:1040px;margin:0 auto}
+h1{font-size:22px;font-weight:700;margin:8px 0 6px;text-wrap:balance}
+h2{font-size:17px;font-weight:600;margin:32px 0 6px;text-wrap:balance}
+p,li{font-size:14.5px;line-height:1.55;color:var(--fg2);max-width:70ch}
+p b,li b{color:var(--fg);font-weight:600}
+ul{padding-left:20px;margin:6px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,324px);gap:20px 16px;justify-content:start;margin-top:12px}
+@media (max-width:720px){.grid{grid-template-columns:minmax(0,324px);justify-content:center}}
+figure{margin:0;min-width:0}
+figcaption{font-size:13px;line-height:1.45;color:var(--fg2);margin-top:8px;max-width:324px}
+figcaption b{color:var(--fg)}
+.ph{width:324px;max-width:100%;height:720px;overflow:hidden;border-radius:24px;border:1px solid var(--btn-line);background:#000;position:relative}
+.shot{width:324px;max-width:100%;border-radius:24px;border:1px solid var(--btn-line);display:block}
+.sw{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:8px 0;z-index:5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.sw button{font:inherit;font-size:14px;min-height:40px;padding:6px 14px;border:1px solid var(--btn-line);border-radius:12px;background:transparent;color:var(--fg);cursor:pointer}
+.sw button[aria-pressed="true"]{border:2px solid var(--accent);color:var(--accent);font-weight:600}
+.sw button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.choice{margin-top:28px;padding:14px 16px;border:1px solid var(--line);border-radius:14px}
+.choice p{margin:4px 0}
+code{font-size:13px}
+
+/* ===== Téléphone (360 × 800 dp, réduit à 90 %) ===== */
+.in{width:360px;height:800px;transform:scale(.9);transform-origin:0 0;position:relative;overflow:hidden;font-family:Roboto,system-ui,sans-serif;color:var(--a-on);-webkit-font-smoothing:antialiased;background:#e9ecef}
+.in *{box-sizing:border-box}
+.map{position:absolute;inset:0 0 74px;background-image:url(p26/map-ign-plan.jpg),url(p26/map-ign-scan25.jpg);background-size:cover,cover;background-position:center,center}
+.sb{position:absolute;inset:0 0 auto;height:26px;padding:4px 16px 0;font-size:13px;font-weight:500;color:#122027;display:flex;justify-content:space-between}
+.info{position:absolute;left:10px;display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;border-radius:14px;background:#fff;font-size:14.5px;box-shadow:0 1px 4px rgba(0,0,0,.2);font-variant-numeric:tabular-nums}
+.nav{position:absolute;inset:auto 0 0;height:74px;background:var(--a-shell);display:grid;grid-template-columns:repeat(4,1fr);padding-top:8px}
+.nav div{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12.5px;color:#fff}
+.nav i{display:flex;justify-content:center;align-items:center;width:56px;height:30px;border-radius:15px}
+.nav .on i{background:var(--a-ind);color:var(--a-onind)}
+.pnl{position:absolute;left:12px;right:12px;background:var(--a-panel);border-radius:18px;overflow:hidden;box-shadow:0 3px 12px rgba(0,0,0,.28)}
+.band{background:var(--a-shell);color:#fff;display:flex;align-items:center;gap:6px;min-height:58px;padding:6px 6px 6px 16px}
+.band .t{flex:1;min-width:0}.band .t b{display:block;font-size:18px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.band .t span{display:block;font-size:12.5px;color:#C9D6DC}
+.ib{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:12px;flex:none}
+.box{margin:0 8px;background:var(--a-box);border-radius:14px;padding:4px 0 8px}
+.ll{display:flex;align-items:center;gap:10px;min-height:56px;padding:4px 6px 4px 8px}
+.ll .tn{width:38px;height:38px;border:2px solid var(--a-acc);border-radius:6px;background:url(p26/map-ign-plan.jpg) center/300%;flex:none}
+.ll .nm{flex:1;min-width:0}.ll .nm b{display:block;font-size:15px;font-weight:500}.ll .nm span{display:block;font-size:12.5px;color:var(--a-acc);line-height:1.35}
+.sec{padding:0 14px}
+.lbl{font-size:13px;color:var(--a-on2);display:flex;justify-content:space-between;align-items:baseline;margin:10px 0 4px}
+.lbl b{color:var(--a-on);font-weight:500;font-variant-numeric:tabular-nums}
+.sl{position:relative;height:26px}
+.sl::before{content:"";position:absolute;left:0;right:0;top:9px;height:8px;border-radius:4px;background:var(--a-rest)}
+.sl i{position:absolute;left:0;top:9px;height:8px;border-radius:4px;background:var(--a-track)}
+.sl u{position:absolute;top:0;width:4px;height:26px;border-radius:2px;background:var(--a-track);margin-left:-2px}
+.sl.rain::before{background:linear-gradient(90deg,#29b6f6,#7c4dff,#e040fb,#ff1744,#ff9100,#ffea00,#76ff03,#1de9b6)}
+.sl.rain i{display:none}
+.tw{display:flex;align-items:center;justify-content:space-between;min-height:44px;font-size:14.5px}
+.switch{width:46px;height:26px;border-radius:13px;border:2px solid #7c8d94;position:relative;flex:none}
+.switch::after{content:"";position:absolute;left:4px;top:4px;width:14px;height:14px;border-radius:50%;background:#7c8d94}
+.dd{display:flex;align-items:center;justify-content:space-between;height:44px;border-radius:12px;border:1px solid #8fa2a9;padding:0 8px 0 14px;font-size:15px}
+.dd small{color:var(--a-on2);font-size:12.5px;margin-left:6px}
+.dots{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.dot{width:28px;height:28px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+.dot.sel{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--a-acc)}
+.dot.none{background:#fff;position:relative}.dot.none::after{content:"";position:absolute;left:3px;right:3px;top:13px;height:2px;background:#c0392b;transform:rotate(-45deg)}
+.dot.wheel{background:conic-gradient(#ff1744,#ff9100,#ffea00,#76ff03,#1de9b6,#29b6f6,#7c4dff,#e040fb,#ff1744)}
+.pop{position:absolute;background:var(--a-pop);border-radius:14px;box-shadow:0 6px 22px rgba(0,0,0,.32);padding:6px 0;overflow:hidden}
+.pop .it{display:flex;align-items:center;gap:8px;height:36px;padding:0 14px;font-size:14.5px;white-space:nowrap}
+.pop .it small{color:var(--a-on2);font-size:12.5px}
+.pop .it.on{background:#d9f1f0;font-weight:500}
+.pop .gh{font-size:11.5px;font-weight:500;letter-spacing:.02em;color:var(--a-acc);padding:8px 14px 2px}
+.cmds{display:grid;grid-template-columns:repeat(5,1fr);margin:6px 4px 0}
+.cmds div{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;padding:6px 0;border-radius:12px}
+.cmds .on{background:#cfe6ea}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);background:#d3e1e5;border-radius:12px;padding:3px;gap:3px;margin:8px 14px 0}
+.tabs div{display:flex;align-items:center;justify-content:center;height:36px;border-radius:10px;font-size:14px}
+.tabs .on{background:var(--a-shell);color:#fff;font-weight:500}
+.mg{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px}
+.mg div{height:40px;border-radius:10px;border:1px solid #9bb0b7;display:flex;flex-direction:column;justify-content:center;padding:0 10px;font-size:13.5px;line-height:1.1}
+.mg div small{font-size:11px;color:var(--a-on2)}
+.mg .on{border:2px solid var(--a-acc);background:#e3f4f3;font-weight:500}
+.strip{display:flex;gap:8px;overflow:hidden;margin-top:6px}
+.vg{flex:none;width:76px;text-align:center;font-size:12px;line-height:1.2}
+.vg div{width:76px;height:76px;border-radius:12px;background-image:url(p26/map-ign-plan.jpg),url(p26/map-ign-scan25.jpg);background-size:340%,340%;background-position:48% 40%,48% 40%;margin-bottom:4px}
+.vg.on div{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--a-acc)}
+.vg.on{font-weight:500;color:var(--a-acc)}
+.hint{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--a-on2);margin:8px 0 0}
+.link{color:var(--a-acc);font-weight:500;font-size:14.5px;padding:10px 0}
+.sheet{position:absolute;inset:auto 0 0;top:150px;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -6px 20px rgba(0,0,0,.3);padding:8px 0 0}
+.grab{width:36px;height:4px;border-radius:2px;background:#9bb0b7;margin:4px auto 8px}
+.srow{display:flex;align-items:center;gap:12px;min-height:50px;padding:4px 16px}
+.srow .sq{width:40px;height:40px;border-radius:10px;flex:none;background-image:url(p26/map-ign-plan.jpg),url(p26/map-ign-scan25.jpg);background-size:400%,400%;background-position:50% 38%,50% 38%}
+.srow .tx{flex:1;min-width:0}.srow .tx b{display:block;font-size:15px;font-weight:500}.srow .tx span{display:block;font-size:12.5px;color:var(--a-on2)}
+.srow.on{background:#e3f4f3}
+.sg{font-size:12px;font-weight:500;color:var(--a-acc);padding:10px 16px 2px}
+.redraw{position:absolute;left:50%;transform:translateX(-50%);background:#163A4A;color:#fff;font-size:13px;border-radius:16px;padding:7px 14px;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.3)}
+</style></head><body>
+<div class="wrap">
+  <h1>Couleurs et fusion d'un calque</h1>
+  <p>Aperçu P26.1 du 2026-11-03. La fusion est déjà codée côté carte (P26.0 à P26.3, ADR-111) : mesurée sur l'émulateur, elle ajoute environ 0,5 s au dessin d'un écran depuis le stockage, et rien de visible en ligne. Reste à choisir <b>où l'on règle le mode et la teinte</b>.</p>
+  <p><b>Les cartes des téléphones sont réelles</b> : SCAN 25 sous IGN Plan v2, à l'endroit des mesures. Le navigateur les fusionne avec les mêmes formules que l'application.</p>
+
+  <h2>État actuel (codé)</h2>
+  <p>Version 0.4.169 sur l'émulateur. « Couleurs » ouvre, dans la ligne du calque, contraste, luminosité, saturation, teinte (rotation des couleurs, P26.6) et couleurs inversées. À droite, le mode Produit forcé par l'APK de mesure : le relief et les courbes du SCAN apparaissent sous le plan.</p>
+  <div class="grid">
+    <figure><img class="shot" src="p26/emu-couleurs-actuel.jpg" alt="Émulateur : ligne IGN Plan v2 dépliée, réglages de couleur"><figcaption><b>Actuel.</b> Ligne « IGN Plan v2 » dépliée, « Couleurs » ouvert.</figcaption></figure>
+    <figure><img class="shot" src="p26/emu-produit-plan-scan25.jpg" alt="Émulateur : à gauche IGN Plan en Normal, à droite en Produit sur SCAN 25"><figcaption><b>Déjà codé.</b> IGN Plan v2 en Normal (à gauche) puis en Produit sur SCAN 25 (à droite).</figcaption></figure>
+  </div>
+
+  <h2>Commun à toutes les variantes</h2>
+  <ul>
+    <li><b>Trois noms distincts.</b> Le curseur actuel « Teinte » devient <b>« Rotation des couleurs »</b>, puisque le mode s'appelle « Teinte (Hue) ». La couleur choisie s'appelle <b>« Teinter »</b>, avec son <b>intensité</b>.</li>
+    <li><b>16 modes</b>, nom français puis anglais en gris, rangés en six familles : Normal · Assombrir · Éclaircir · Contraste · Comparer · Couleur.</li>
+    <li>Le mode et la teinte s'appliquent <b>au relâcher</b> : la carte se redessine depuis le stockage en environ une demi-seconde, l'ancien dessin restant visible jusque-là, comme pour les conditions d'affichage. Les autres curseurs restent en direct, et le panneau s'efface pendant qu'on les tient (P26.6).</li>
+    <li>La ligne du calque l'indique : « 100 % d'opacité · Produit », ou « · teinté ».</li>
+    <li>« Réinitialiser les couleurs » remet aussi le mode Normal et retire la teinte. Le mode et la teinte sont enregistrés dans les favoris et repris dans le PDF (P26.5).</li>
+  </ul>
+
+  <h2>Variantes</h2>
+  <div class="sw" role="group" aria-label="Variante affichée" id="sw"></div>
+  <p id="vdesc"></p>
+  <div class="grid" id="variant"></div>
+
+  <div class="choice">
+    <p><b>Pour choisir</b>, réponds avec une lettre, par exemple <code>A</code>. Tu peux aussi combiner, par exemple « B, avec la liste de E ».</p>
+    <p>Rien du panneau n'est codé avant ton choix.</p>
+  </div>
+</div>
+
+<script>
+const P={
+  map:"M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z",
+  terrain:"M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.75 7 10 7 10l-6 8h22L14 6z",
+  flag:"M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z",
+  loc:"M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z",
+  pin:"M12 2C8.14 2 5 5.14 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.86-3.14-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z",
+  close:"M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
+  down:"M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z",
+  up:"M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z",
+  chev:"M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
+  eye:"M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z",
+  drag:"M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
+  palette:"M12 3a9 9 0 000 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z",
+  tune:"M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z",
+  more:"M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
+  arrowup:"M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z",
+  arrowdown:"M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z",
+  check:"M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+  layers:"M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z",
+  sync:"M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"
+};
+const ic=(n,s=24,c="currentColor")=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${c}" aria-hidden="true"><path d="${P[n]}"/></svg>`;
+
+/* The 16 modes, CSS name, French name, English name, family, one-line meaning. */
+const MODES=[
+ ["normal","Normal","Normal","Normal","la carte recouvre ce qui est dessous"],
+ ["multiply","Produit","Multiply","Assombrir","garde les traits sombres des deux cartes"],
+ ["darken","Obscurcir","Darken","Assombrir","le plus sombre des deux, pixel par pixel"],
+ ["color-burn","Densité couleur +","Color burn","Assombrir","assombrit fort, sature le dessous"],
+ ["screen","Superposition","Screen","Éclaircir","garde les zones claires des deux cartes"],
+ ["lighten","Éclaircir","Lighten","Éclaircir","le plus clair des deux, pixel par pixel"],
+ ["color-dodge","Densité couleur −","Color dodge","Éclaircir","éclaircit fort, brûle les clairs"],
+ ["overlay","Incrustation","Overlay","Contraste","contraste du dessous renforcé par la carte"],
+ ["soft-light","Lumière tamisée","Soft light","Contraste","incrustation douce"],
+ ["hard-light","Lumière crue","Hard light","Contraste","incrustation dure, guidée par la carte"],
+ ["difference","Différence","Difference","Comparer","fait ressortir ce qui diffère"],
+ ["exclusion","Exclusion","Exclusion","Comparer","différence adoucie"],
+ ["hue","Teinte","Hue","Couleur","couleur de la carte, lumière du dessous"],
+ ["saturation","Saturation","Saturation","Couleur","saturation de la carte sur le dessous"],
+ ["color","Couleur","Color","Couleur","teinte et saturation de la carte"],
+ ["luminosity","Luminosité","Luminosity","Couleur","lumière de la carte, couleurs du dessous"]
+];
+const FAM=["Normal","Assombrir","Éclaircir","Contraste","Comparer","Couleur"];
+const TINTS=["#E53935","#FB8C00","#FDD835","#43A047","#1E88E5","#8E24AA"];
+
+const nav=`<div class="nav"><div><i>${ic("terrain")}</i>Menu</div><div class="on"><i>${ic("map")}</i>Cartes</div><div><i>${ic("flag")}</i>Traces</div><div><i>${ic("loc")}</i>Position</div></div>`;
+const head=`<div class="sb"><span>11:05</span><span>5G · 77 %</span></div><div class="info" style="top:30px">${ic("pin",18,"#14918C")}45.43000, 6.45000</div>`;
+const phone=(inner,mode="multiply",cap="")=>`<figure><div class="ph"><div class="in"><div class="map" style="background-blend-mode:${mode},normal"></div>${head}${inner}${nav}</div></div><figcaption>${cap}</figcaption></figure>`;
+const slider=(pct,label,val,rain=false)=>`<div class="lbl"><span>${label}</span><b>${val}</b></div><div class="sl${rain?" rain":""}"><i style="width:${pct}%"></i><u style="left:${pct}%"></u></div>`;
+const tw=(t)=>`<div class="tw"><span>${t}</span><div class="switch"></div></div>`;
+const dd=(name,en,w="")=>`<div class="dd" ${w}><span>${name}<small>${en}</small></span>${ic("down")}</div>`;
+const tintRow=(sel=-1,k=50)=>`<div class="lbl"><span>Teinter</span><b>${sel<0?"aucune":"bleu · "+k+" %"}</b></div><div class="dots"><div class="dot none${sel<0?" sel":""}" title="aucune"></div>${TINTS.map((c,i)=>`<div class="dot${i===sel?" sel":""}" style="background:${c}"></div>`).join("")}<div class="dot wheel" title="autre couleur"></div></div>${sel<0?"":slider(k,"Intensité",k+" %")}`;
+const adjust=()=>slider(50,"Contraste","0 %")+slider(50,"Luminosité","0 %")+slider(50,"Saturation","0 %")+slider(50,"Rotation des couleurs","0°",true)+tw("Couleurs inversées");
+const rowHead=(line)=>`<div class="ll"><span style="color:#4f6169">${ic("drag",20)}</span><div class="tn"></div><div class="nm"><b>IGN Plan v2</b><span>${line}</span></div><div class="ib">${ic("up")}</div><div class="ib">${ic("eye")}</div></div>`;
+const cmds=(on)=>`<div class="cmds">${[["arrowup","Monter"],["arrowdown","Descendre"],["tune","Conditions"],["palette","Couleurs"],["more","Plus"]].map(([i,l])=>`<div class="${l===on?"on":""}">${ic(i,22)}${l}</div>`).join("")}</div>`;
+const panelBand=`<div class="band"><div class="t"><b>Cartes et calques</b><span>Rando été (modifié) · 2 cartes</span></div><div class="ib">${ic("layers")}</div></div>`;
+const modeMenu=(sel="multiply",style="")=>`<div class="pop" style="${style}">${FAM.map(f=>`<div class="gh">${f}</div>`+MODES.filter(m=>m[3]===f).map(m=>`<div class="it${m[0]===sel?" on":""}">${m[0]===sel?ic("check",18,"#14918C"):'<span style="width:18px"></span>'}${m[1]} <small>${m[2]}</small></div>`).join("")).join("")}</div>`;
+
+/* A · Volet en bas de la carte, comme « Conditions d'affichage ». */
+const voletBand=`<div class="band"><div class="t"><b>Couleurs et fusion</b><span>IGN Plan v2 · sur SCAN 25 Touristique</span></div><div class="ib">${ic("close")}</div></div>`;
+const A1=`<div class="pnl" style="bottom:86px">${voletBand}<div class="sec" style="padding-bottom:10px"><div class="lbl"><span>Fusion avec les cartes du dessous</span></div>${dd("Produit","Multiply")}${tintRow(4,50)}<div class="hr" style="height:1px;background:var(--a-line);margin:12px 0 2px"></div>${slider(50,"Contraste","0 %")}${slider(50,"Rotation des couleurs","0°",true)}<div class="lbl" style="margin-top:12px"><span>Luminosité, saturation, couleurs inversées</span>${ic("down",20)}</div><div class="link">Réinitialiser les couleurs</div></div></div>`;
+const A2=`<div class="pnl" style="bottom:86px">${voletBand}<div class="sec"><div class="lbl"><span>Fusion avec les cartes du dessous</span></div>${dd("Produit","Multiply")}</div><div style="height:420px"></div></div>${modeMenu("multiply","left:26px;right:26px;top:118px;max-height:560px")}`;
+
+/* B · Dans la ligne du calque, au-dessus des curseurs actuels. */
+const B1=`<div class="pnl" style="top:76px;bottom:86px">${panelBand}<div class="box" style="margin-top:8px">${rowHead("100 % d'opacité · Produit · teinté")}<div class="sec">${slider(100,"Opacité","100 %")}</div>${cmds("Couleurs")}<div class="sec"><div class="lbl"><span>Fusion</span></div>${dd("Produit","Multiply")}${tintRow(4,50)}${slider(50,"Contraste","0 %")}${slider(50,"Luminosité","0 %")}</div></div></div>`;
+const B2=`<div class="pnl" style="top:76px;bottom:86px">${panelBand}<div class="box" style="margin-top:8px">${rowHead("100 % d'opacité · Produit")}<div class="sec">${slider(100,"Opacité","100 %")}</div>${cmds("Couleurs")}<div class="sec"><div class="lbl"><span>Fusion</span></div>${dd("Produit","Multiply")}</div><div style="height:300px"></div></div></div>${modeMenu("multiply","left:30px;right:30px;top:250px;max-height:520px")}`;
+
+/* C · Volet avec une bande de vignettes : chaque mode montré sur la vraie carte. */
+const vg=(k,sel="multiply")=>{const m=MODES.find(x=>x[0]===k);return `<div class="vg${k===sel?" on":""}"><div style="background-blend-mode:${k},normal"></div>${m[1]}</div>`};
+const C1=`<div class="pnl" style="bottom:86px">${voletBand}<div class="sec" style="padding-bottom:10px"><div class="lbl"><span>Fusion · Produit (Multiply)</span><b>2 / 16</b></div><div class="strip">${["normal","multiply","darken","screen"].map(vg).join("")}</div><div class="hint">Faites glisser la bande : six familles, du plus sombre au plus coloré.</div>${tintRow(4,50)}${slider(50,"Contraste","0 %")}${slider(50,"Rotation des couleurs","0°",true)}<div class="link">Réinitialiser les couleurs</div></div></div>`;
+const C2=`<div class="pnl" style="bottom:86px">${voletBand}<div class="sec" style="padding-bottom:10px"><div class="lbl"><span>Fusion · Luminosité (Luminosity)</span><b>16 / 16</b></div><div class="strip">${["hue","saturation","color","luminosity"].map(k=>vg(k,"luminosity")).join("")}</div>${tintRow(-1)}${slider(50,"Contraste","0 %")}</div></div><div class="redraw" style="top:250px">Redessin de la carte…</div>`;
+
+/* D · Onglets dans la ligne : Réglages · Fusion · Teinter. */
+const tabs=(on)=>`<div class="tabs">${["Réglages","Fusion","Teinter"].map(t=>`<div class="${t===on?"on":""}">${t}</div>`).join("")}</div>`;
+const D1=`<div class="pnl" style="top:76px;bottom:86px">${panelBand}<div class="box" style="margin-top:8px">${rowHead("100 % d'opacité · Produit")}${cmds("Couleurs")}${tabs("Fusion")}<div class="sec"><div class="mg">${MODES.map(m=>`<div class="${m[0]==="multiply"?"on":""}">${m[1]}<small>${m[2]}</small></div>`).join("")}</div></div></div></div>`;
+const D2=`<div class="pnl" style="top:76px;bottom:86px">${panelBand}<div class="box" style="margin-top:8px">${rowHead("100 % d'opacité · Produit · teinté")}${cmds("Couleurs")}${tabs("Teinter")}<div class="sec">${tintRow(4,50)}<div class="hint">Chaque pixel prend la teinte choisie et garde sa lumière ; l'intensité dose le mélange.</div></div></div></div>`;
+
+/* E · Une ligne « Fusion › » dans la ligne du calque, qui ouvre une feuille avec les familles expliquées. */
+const E1=`<div class="pnl" style="top:76px;bottom:86px">${panelBand}<div class="box" style="margin-top:8px">${rowHead("100 % d'opacité · Produit")}${cmds("Couleurs")}<div class="sec"><div class="tw" style="border-bottom:1px solid var(--a-line)"><span>Fusion</span><span style="display:flex;align-items:center;gap:2px;color:#14918C;font-weight:500">Produit ${ic("chev",22)}</span></div><div class="tw" style="border-bottom:1px solid var(--a-line)"><span>Teinter</span><span style="display:flex;align-items:center;gap:6px;color:#4f6169"><span class="dot" style="width:18px;height:18px;background:#1E88E5"></span>bleu · 50 % ${ic("chev",22)}</span></div>${slider(50,"Contraste","0 %")}${slider(50,"Luminosité","0 %")}${slider(50,"Saturation","0 %")}${slider(50,"Rotation des couleurs","0°",true)}</div></div></div>`;
+const E2=`<div class="sheet"><div class="grab"></div><div style="display:flex;align-items:center;padding:0 8px 0 16px"><b style="flex:1;font-size:18px;font-weight:500">Fusion d'IGN Plan v2</b><div class="ib">${ic("close")}</div></div>${FAM.slice(0,3).map(f=>`<div class="sg">${f}</div>`+MODES.filter(m=>m[3]===f).map(m=>`<div class="srow${m[0]==="multiply"?" on":""}"><div class="sq" style="background-blend-mode:${m[0]},normal"></div><div class="tx"><b>${m[1]} <span style="display:inline;color:#4f6169;font-weight:400;font-size:12.5px">${m[2]}</span></b><span>${m[4]}</span></div>${m[0]==="multiply"?ic("check",22,"#14918C"):""}</div>`).join("")).join("")}<div class="sg">Contraste · Comparer · Couleur</div></div>`;
+
+const V={
+A:{name:"Volet",desc:"« Couleurs » ouvre un volet en bas de la carte, comme « Conditions d'affichage ». En haut : la fusion (liste déroulante) et « Teinter » (pastilles, roue pour une autre couleur, intensité). Dessous : les curseurs, dont les moins utilisés restent repliés. La carte reste visible au-dessus du volet.",
+ shots:[[A1,"multiply","<b>A · volet ouvert.</b> Produit, teinte bleue à 50 %. Luminosité, saturation et inversion sont repliées."],[A2,"multiply","<b>A · liste des modes.</b> Les 16 modes en six familles, avec le nom anglais en gris."]]},
+B:{name:"Dans la ligne",desc:"Rien ne change de place : la ligne dépliée du calque gagne « Fusion » et « Teinter » au-dessus des curseurs actuels. C'est le moins de changements, mais la ligne devient longue et il faut faire défiler le panneau.",
+ shots:[[B1,"multiply","<b>B · ligne dépliée.</b> Fusion et Teinter en tête, puis les curseurs de P26.6."],[B2,"multiply","<b>B · liste des modes</b>, ouverte depuis la ligne."]]},
+C:{name:"Vignettes",desc:"Un volet en bas de la carte, comme A. Les modes y sont montrés en vignettes de la vraie carte, déjà fusionnées : on voit le résultat avant de toucher. Une bande à faire glisser, par familles.",
+ shots:[[C1,"multiply","<b>C · bande des vignettes</b> au début : Normal, Produit (choisi), Obscurcir, Superposition…"],[C2,"luminosity","<b>C · fin de la bande</b> : Luminosité choisie. La carte se redessine au relâcher."]]},
+D:{name:"Onglets",desc:"Dans la ligne du calque, « Couleurs » se partage en trois onglets : Réglages (les curseurs actuels), Fusion (les 16 modes en grille) et Teinter. La ligne garde une hauteur raisonnable.",
+ shots:[[D1,"multiply","<b>D · onglet Fusion.</b> Les 16 modes en deux colonnes, Produit choisi."],[D2,"multiply","<b>D · onglet Teinter.</b> Pastilles, roue des couleurs et intensité."]]},
+E:{name:"Feuille expliquée",desc:"Dans la ligne du calque, deux entrées : « Fusion › » et « Teinter › », au-dessus des curseurs. « Fusion » ouvre une feuille qui explique chaque mode en une phrase, avec une vignette de la vraie carte.",
+ shots:[[E1,"multiply","<b>E · ligne dépliée.</b> Deux entrées courtes, puis les curseurs."],[E2,"multiply","<b>E · feuille des modes.</b> Une phrase par mode ; la feuille défile jusqu'à Couleur."]]}
+};
+
+const sw=document.getElementById("sw");
+let cur="A";
+try{const s=localStorage.getItem("p26-fusion");if(s&&V[s])cur=s}catch(e){}
+function show(k){
+  cur=k;
+  document.getElementById("variant").innerHTML=V[k].shots.map(s=>phone(s[0],s[1],s[2])).join("");
+  document.getElementById("vdesc").innerHTML=`<b>${k} · ${V[k].name}.</b> ${V[k].desc}`;
+  sw.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===k));
+  try{localStorage.setItem("p26-fusion",k)}catch(e){}
+}
+sw.innerHTML=Object.keys(V).map(k=>`<button type="button" data-k="${k}">${k} · ${V[k].name}</button>`).join("");
+sw.addEventListener("click",e=>{const b=e.target.closest("button");if(b)show(b.dataset.k)});
+show(cur);
+</script>
+</body></html>

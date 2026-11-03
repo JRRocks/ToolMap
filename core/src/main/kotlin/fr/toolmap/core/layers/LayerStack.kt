@@ -122,6 +122,19 @@ data class LayerStack(
         hue: Float,
     ): LayerStack = update(id) { it.copy(hue = hue.coerceIn(-RasterAdjust.MAX_HUE, RasterAdjust.MAX_HUE)) }
 
+    /** The blend mode of [id] (P26). */
+    fun setBlend(
+        id: String,
+        blend: BlendMode,
+    ): LayerStack = update(id) { it.copy(blend = blend) }
+
+    /** The tint of [id] (P26): a colour `0xRRGGBB` (`null` = none) at [strength] (0..1). */
+    fun setTint(
+        id: String,
+        tint: Int?,
+        strength: Float,
+    ): LayerStack = update(id) { it.copy(tint = tint?.and(RGB), tintStrength = strength.coerceIn(0f, 1f)) }
+
     /** « Réinitialiser les couleurs »: contrast, brightness, saturation and hue back to neutral, colours not inverted. */
     fun resetColors(id: String): LayerStack =
         update(id) { it.copy(contrast = 0f, brightness = 0f, saturation = 0f, hue = 0f, inverted = false) }
@@ -152,5 +165,6 @@ data class LayerStack(
 
     companion object {
         const val ID_PREFIX = "l"
+        private const val RGB = 0xFFFFFF
     }
 }

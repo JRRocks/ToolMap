@@ -98,6 +98,7 @@ Google Drive est le **miroir des fichiers locaux** du poste Windows (2e sauvegar
 | `docs/specs/ui-reorganization.md` | Réorganisation légère des menus et fonctions utiles proposées, fidèles à AlpineQuest (P14) |
 | `docs/specs/routing.md` | Itinéraires calculés avec BRouter (AIDL) : étapes, tronçons, opérations d'édition, comportements sans données, GPX (P19, ADR-064) |
 | `docs/specs/elevation-maps.md` | Cartes selon l'altitude : bande d'altitude par calque, masque dans l'intercepteur, ET / OU avec la plage de zoom, panneau « Conditions d'affichage », altitudes hors ligne, coût mesuré (P20, ADR-068) |
+| `docs/specs/blend-modes.md` | Couleurs et modes de fusion des calques : 16 modes W3C et teinte dans `:core`, recette dans l'adresse des tuiles, tuile composée dans l'intercepteur, coût mesuré (P26, ADR-111) |
 | `docs/specs/event-log.md` | Journal d'événements (tous les builds), module `:debugkit` (sorti du build le 2026-10-24, ADR-072) : collecteur, mode test, envoi du journal par le groupe chiffré, commandes `adb` (P21, ADR-070) |
 | `docs/specs/live-test.md` | Test en direct du partage de position : préparation, rôles, scénarios T0 à T19, analyse (`tools/livetest/`) |
 | `docs/plan-fonctions-2026-10.md` | **Plan détaillé de P22 à P28** (alerte et écoute du groupe, saisie des valeurs, grilles MGRS / UTM, partage des favoris, couleurs et fusion, waypoints du groupe, dessin) : décisions de l'utilisateur, tâches, critères |

@@ -3,6 +3,7 @@ package fr.toolmap.data.tiles
 import fr.toolmap.core.elevation.DemWindow
 import fr.toolmap.core.elevation.ElevationMask
 import fr.toolmap.core.elevation.MaskRaster
+import fr.toolmap.core.layers.BlendRecipe
 import fr.toolmap.core.layers.LayerElevation
 import fr.toolmap.core.source.LevelDef
 import fr.toolmap.core.source.TileSource
@@ -54,6 +55,7 @@ class TileInterceptor(
     private val scaling: () -> ScalingPolicy = { ScalingPolicy() },
     private val composer: TileComposer = BitmapTileComposer(),
     private val masker: ElevationMasker = BitmapElevationMasker(),
+    private val blender: TileBlender = BitmapTileBlender(),
     private val demSourceId: String = DEM_SOURCE_ID,
     private val log: ((String) -> Unit)? = null,
 ) : Interceptor {
@@ -77,9 +79,65 @@ class TileInterceptor(
                 stats.record(TileOutcome.REJECTED, key.z, error = "unknown source ${key.sourceId}")
                 return reply(request, 404, "unknown source")
             }
-        val mask = ElevationMask.parse(request.url.query)
-        if (mask != null && !mask.isWholeAt(key.z)) return masked(chain, request, key, source, mask)
-        return plain(chain, request, key, source)
+        BlendRecipe.parse(request.url.encodedQuery)?.let { return blended(chain, request, key, it) }
+        return layerTile(chain, request, key, source, ElevationMask.parse(request.url.query))
+    }
+
+    /** The tile of [source] in its elevation band [mask] (`null`: none), as a plain layer shows it. */
+    private fun layerTile(
+        chain: Interceptor.Chain,
+        request: Request,
+        key: TileKey,
+        source: TileSource,
+        mask: ElevationMask?,
+    ): Response =
+        if (mask != null && !mask.isWholeAt(key.z)) {
+            masked(chain, request, key, source, mask)
+        } else {
+            plain(chain, request, key, source)
+        }
+
+    /**
+     * A tile of a blended layer (P26): the tile of each layer of the [recipe] drawn at this zoom, read as that layer
+     * shows it (store, offline mode, server, band), then drawn together by the [blender]. Without the layer's own tile
+     * there is nothing to blend: no tile (the layers under it show through). Never stored.
+     */
+    private fun blended(
+        chain: Interceptor.Chain,
+        request: Request,
+        key: TileKey,
+        recipe: BlendRecipe,
+    ): Response {
+        val start = System.nanoTime()
+        var failure: Response? = null
+        val layers =
+            recipe.partsAt(key.z).mapNotNull { part ->
+                val source = sources.find(part.sourceId) ?: return@mapNotNull null
+                val bytes =
+                    layerTile(chain, request, key.copy(sourceId = part.sourceId), source, LayerElevation.maskOf(part))
+                        .use { response ->
+                            if (response.isSuccessful) {
+                                response.body?.bytes()?.takeIf { it.isNotEmpty() }
+                            } else {
+                                if (response.code != HTTP_NOT_FOUND && failure == null) {
+                                    failure = reply(request, response.code, response.message)
+                                }
+                                null
+                            }
+                        }
+                part to bytes
+            }
+        val fetched = System.nanoTime()
+        if (layers.lastOrNull()?.first?.sourceId != key.sourceId || layers.last().second == null) {
+            return failure ?: reply(request, HTTP_NOT_FOUND, "nothing to blend")
+        }
+        val image = blender.blend(layers) ?: return reply(request, HTTP_NOT_FOUND, "undecodable tile")
+        log?.invoke(
+            "blend z=${key.z} parts=${layers.size} fetch_ms=${millis(fetched - start)} " +
+                "total_ms=${millis(System.nanoTime() - start)}",
+        )
+        stats.record(TileOutcome.COMPOSED, key.z)
+        return ok(request, image, COMPOSED_CONTENT_TYPE)
     }
 
     /** The tile of [source] as its map draws it, before any elevation band. */

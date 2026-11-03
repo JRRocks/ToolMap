@@ -73,6 +73,12 @@ object StyleSources {
         mask: ElevationMask?,
     ): String = if (mask == null) sourceId else "$sourceId$QUERY${mask.query()}"
 
+    /** A blended layer's own source (P26): its tiles carry the whole [recipe], band included. */
+    fun id(
+        sourceId: String,
+        recipe: BlendRecipe,
+    ): String = "$sourceId$QUERY${recipe.query()}"
+
     /** The map a style source shows. */
     fun sourceOf(styleId: String): String = styleId.substringBefore(QUERY)
 

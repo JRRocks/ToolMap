@@ -6,6 +6,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["tools/previews/serve.mjs"],
       "port": 8765
+    },
+    {
+      "name": "previews-ps",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools/previews/serve.ps1"],
+      "port": 8765
     }
   ]
 }

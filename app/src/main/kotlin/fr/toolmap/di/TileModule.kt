@@ -13,6 +13,7 @@ import fr.toolmap.data.sources.SourceRepository
 import fr.toolmap.data.state.WorkStateStore
 import fr.toolmap.data.text.GlyphInterceptor
 import fr.toolmap.data.tiles.BitmapElevationMasker
+import fr.toolmap.data.tiles.BitmapTileBlender
 import fr.toolmap.data.tiles.CoverageInterceptor
 import fr.toolmap.data.tiles.ForcedRefresh
 import fr.toolmap.data.tiles.MbTilesStore
@@ -105,6 +106,7 @@ object TileModule {
                     scaling = { settings.settings.value.maps.scaling },
                     // Timing of the tiles drawn in an elevation band (P20): measure builds only (tools/perf).
                     masker = BitmapElevationMasker(log = perfLog()),
+                    blender = BitmapTileBlender(log = perfLog()),
                     log = perfLog(),
                 ),
             )

@@ -110,6 +110,34 @@ class WorkspaceTest {
     }
 
     @Test
+    fun `the blend mode and tint survive saving, writing and applying a workspace, and count as colours`() {
+        val stack =
+            LayerStack()
+                .add("osm")
+                .add("ign-plan")
+                .setBlend("l2", BlendMode.MULTIPLY)
+                .setTint("l2", 0xFF3366CC.toInt(), 0.7f)
+        val workspace = Workspace.of("mine", "x", stack)
+        val back =
+            assertNotNull(WorkspaceCodec.decodeOrNull(WorkspaceCodec.encode(workspace)))
+                .toStack { true }
+                .stack.layers
+                .last()
+        assertEquals(BlendMode.MULTIPLY, back.blend)
+        assertEquals(0x3366CC, back.tint)
+        assertEquals(0.7f, back.tintStrength)
+        assertTrue(workspace.matches(stack))
+        assertFalse(workspace.matches(stack.setBlend("l2", BlendMode.SCREEN)))
+        assertFalse(workspace.matches(stack.setTint("l2", null, 0.7f)))
+        assertEquals(
+            setOf(LayerField.COLOURS),
+            Workspace.changedFields(workspace.layers.last(), stack.setBlend("l2", BlendMode.HUE).layers.last()),
+        )
+        val older = """{"id":"old","name":"Ancien","layers":[{"sourceId":"osm"}]}"""
+        assertEquals(BlendMode.NORMAL, assertNotNull(WorkspaceCodec.decodeOrNull(older)).layers.single().blend)
+    }
+
+    @Test
     fun `the inverted flag survives saving and applying a workspace`() {
         val stack = LayerStack().add("osm").setInverted("l1", true)
         val back = Workspace.of("mine", "x", stack).toStack { true }.stack

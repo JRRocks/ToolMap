@@ -31,8 +31,9 @@ import fr.toolmap.ui.theme.ToolMapTheme
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -79,8 +80,9 @@ class SketchToolTest {
 
     @After
     fun tearDown() {
-        // The list of the sketches is read until the view model ends: it must end before the database closes.
-        vms.forEach { it.viewModelScope.cancel() }
+        // The list of the sketches is read until the view model ends: it must end before the database closes. Cancelling
+        // is not enough: a query already running on Room's thread goes on, so wait for it.
+        runBlocking { vms.forEach { it.viewModelScope.coroutineContext.job.cancelAndJoin() } }
         Dispatchers.resetMain()
         db.close()
     }

@@ -16,6 +16,7 @@ bash tools/perf/run-all.sh app/build/outputs/apk/benchmark/ToolMap-benchmark-0.4
 | `T-tiles.sh online` | T2. Parcours fixe (ouverture, 5 glissements, 2 zooms) après `pm clear` | par étape : médiane de `ms` et de `idle_ms`, tuiles par origine ; 3 passages |
 | `T-tiles.sh stored` | T1. Même parcours, tuiles déjà en MBTiles (un passage de préparation non compté) | idem |
 | `Z-zone.sh` | Z. « IGN Cartes », carré de 5 km × 5 km autour de Chambéry, zooms 12 à 16, après `pm clear` | médiane de la durée et des tuiles par seconde ; 3 passages |
+| `B-blend.sh` | B. Trois calques (OpenTopoMap, IGN Pentes, IGN Plan en Produit), ouvertures à froid en ligne, depuis le stockage et en mode avion, sans `pm clear` (P26.0) | médiane de l'ouverture, Normal et fusionné ; par tuile composée : lecture, décodage, fusion, PNG (médiane et 90e centile) |
 
 Variables : `RUNS` (nombre de passages), `DURATION` (secondes du scénario A), `OUT_DIR` (dossier des relevés,
 `tools/perf/out` par défaut, non versionné).
@@ -33,7 +34,7 @@ Variables : `RUNS` (nombre de passages), `DURATION` (secondes du scénario A), `
 - Point de départ fixe par les extras de l'intent de lancement (`fr.toolmap.perf.PerfIntent`) : `perf.source`,
   `perf.lat`, `perf.lon`, `perf.zoom`, et `perf.zone` (`ouest,sud,est,nord`) avec `perf.zmin`, `perf.zmax` ; pour les
   cartes selon l'altitude (P20) : `perf.overlay` (carte ajoutée au-dessus), `perf.altmin`, `perf.altmax` (mètres, vide =
-  sans limite) et `perf.logic` (`and` / `or`). La caméra n'est appliquée qu'à un démarrage à froid (`am force-stop` avant).
+  sans limite) et `perf.logic` (`and` / `or`). Pour les modes de fusion (P26) : `perf.overlay` accepte plusieurs cartes (`a,b`, la dernière au-dessus) et `perf.blend` donne le mode de la dernière (`multiply`, `soft-light`…). La caméra n'est appliquée qu'à un démarrage à froid (`am force-stop` avant).
 
 ## Précautions
 

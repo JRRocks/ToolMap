@@ -34,6 +34,11 @@ data class LayerConfig(
     val rangeLogic: RangeLogic = RangeLogic.AND,
     /** Hue rotation in degrees, -180 .. 180, 0 = unchanged (MapLibre's `raster-hue-rotate`). */
     val hue: Float = 0f,
+    /** How the layer mixes with everything under it (P26); anything but [BlendMode.NORMAL] is drawn by the tiles. */
+    val blend: BlendMode = BlendMode.NORMAL,
+    /** A colour (`0xRRGGBB`) the layer is tinted with, `null` = none (P26), at [tintStrength] (0..1). */
+    val tint: Int? = null,
+    val tintStrength: Float = DEFAULT_TINT_STRENGTH,
 ) {
     /** True when a color adjustment differs from the neutral value. */
     val hasAdjustments: Boolean
@@ -42,6 +47,13 @@ data class LayerConfig(
     val hasZoomRange: Boolean get() = displayMinZoom != null || displayMaxZoom != null
 
     val hasElevationRange: Boolean get() = displayMinElevation != null || displayMaxElevation != null
+
+    /** True when the layer's tiles are drawn with the ones under it: a blend mode or a tint (P26). */
+    val isBlended: Boolean get() = blend != BlendMode.NORMAL || (tint != null && tintStrength > 0f)
+
+    companion object {
+        const val DEFAULT_TINT_STRENGTH = 0.5f
+    }
 }
 
 /**

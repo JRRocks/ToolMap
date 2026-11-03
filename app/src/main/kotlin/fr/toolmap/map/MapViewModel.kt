@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.toolmap.R
 import fr.toolmap.core.download.ZoneShape
 import fr.toolmap.core.download.ZoomLimit
+import fr.toolmap.core.layers.BlendMode
 import fr.toolmap.core.layers.LayerStack
 import fr.toolmap.core.layers.RangeLogic
 import fr.toolmap.core.layers.Workspace
@@ -170,6 +171,11 @@ class MapViewModel
         ) = mutableState.update { it.withStack(it.stack.setHue(id, hue)) }
 
         fun resetColors(id: String) = mutableState.update { it.withStack(it.stack.resetColors(id)) }
+
+        fun setBlend(
+            id: String,
+            blend: BlendMode,
+        ) = mutableState.update { it.withStack(it.stack.setBlend(id, blend)) }
 
         fun moveLayerUp(id: String) = mutableState.update { it.withStack(it.stack.moveUp(id)) }
 

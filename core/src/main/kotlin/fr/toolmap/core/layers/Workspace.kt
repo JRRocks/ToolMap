@@ -20,6 +20,10 @@ data class WorkspaceLayer(
     val rangeLogic: RangeLogic = RangeLogic.AND,
     /** Hue rotation in degrees (P26.6), see [LayerConfig.hue]. */
     val hue: Float = 0f,
+    /** Blend mode and tint (P26), see [LayerConfig.blend] and [LayerConfig.tint]. */
+    val blend: BlendMode = BlendMode.NORMAL,
+    val tint: Int? = null,
+    val tintStrength: Float = LayerConfig.DEFAULT_TINT_STRENGTH,
 ) {
     /** True when both a zoom range and an elevation band are set: only then does [rangeLogic] change the drawing. */
     val combinesRanges: Boolean
@@ -67,6 +71,9 @@ data class Workspace(
                     displayMaxElevation = layer.displayMaxElevation,
                     rangeLogic = layer.rangeLogic,
                     hue = layer.hue,
+                    blend = layer.blend,
+                    tint = layer.tint,
+                    tintStrength = layer.tintStrength,
                 )
             }
         return AppliedWorkspace(
@@ -119,7 +126,10 @@ data class Workspace(
                     !near(want.contrast, have.contrast) ||
                     !near(want.brightness, have.brightness) ||
                     !near(want.saturation, have.saturation) ||
-                    !near(want.hue, have.hue)
+                    !near(want.hue, have.hue) ||
+                    want.blend != have.blend ||
+                    want.tint != have.tint ||
+                    (want.tint != null && !near(want.tintStrength, have.tintStrength))
                 ) {
                     add(LayerField.COLOURS)
                 }
@@ -148,6 +158,9 @@ data class Workspace(
                         it.displayMaxElevation,
                         it.rangeLogic,
                         it.hue,
+                        it.blend,
+                        it.tint,
+                        it.tintStrength,
                     )
                 },
             )
