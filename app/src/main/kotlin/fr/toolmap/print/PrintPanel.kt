@@ -541,6 +541,16 @@ private fun MainSettings(
     SwitchRow(R.string.print_dress_tracks, d.tracks) { v ->
         actions.onUpdate { it.withDressing { copy(tracks = v) } }
     }
+    SwitchRow(
+        R.string.print_dress_sketches,
+        d.sketches,
+        summary =
+            ui.sketchesInFrame?.let {
+                sketchesSummary(it)
+            },
+    ) { v ->
+        actions.onUpdate { it.withDressing { copy(sketches = v) } }
+    }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     GroupLabel(R.string.print_group_sheet)
     OutlinedTextField(
@@ -1066,6 +1076,15 @@ private fun megapixels(pixels: Long): String {
     return String.format(Locale.getDefault(), if (millions < WHOLE_MEGAPIXELS) "%.1f" else "%.0f", millions)
 }
 
+/** « 3 dans le cadre » under « Croquis » (P28.11). */
+@Composable
+private fun sketchesSummary(count: Int): String =
+    if (count == 0) {
+        stringResource(R.string.print_sketches_none)
+    } else {
+        pluralStringResource(R.plurals.print_sketches_in_frame, count, count)
+    }
+
 /** « Tous », « 5 sur 6 · sans coordonnées des coins », « 4 sur 6 ». */
 @Composable
 private fun elementsSummary(d: Dressing): String {
@@ -1172,6 +1191,7 @@ private fun SwitchRow(
     label: Int,
     checked: Boolean,
     hint: Int? = null,
+    summary: String? = null,
     onChange: (Boolean) -> Unit,
 ) {
     Row(
@@ -1180,9 +1200,10 @@ private fun SwitchRow(
     ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
-            if (hint != null) {
+            val under = summary ?: hint?.let { stringResource(it) }
+            if (under != null) {
                 Text(
-                    stringResource(hint),
+                    under,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

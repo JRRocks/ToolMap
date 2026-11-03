@@ -1442,13 +1442,24 @@ fun MapScreen(
             savedSketches.filter { s -> s.sketch.minVisibleZoom()?.let { zoom >= it } == true }.map { it.id }
         }
     }
-    LaunchedEffect(controller.isReady, savedSketches, sketchesThick, sketchUi.editingId, sketchUi.active) {
+    // While a print is framed, the sketches it prints stay drawn even when thinner than a pixel: the paper shows them
+    // (P28.11).
+    val printsSketches = printUi.active && printUi.template.dressing.sketches
+    LaunchedEffect(
+        controller.isReady,
+        savedSketches,
+        sketchesThick,
+        sketchUi.editingId,
+        sketchUi.active,
+        printsSketches,
+    ) {
         if (controller.isReady) {
             controller.showSketches(
                 SketchLayers.geoJson(
                     savedSketches,
                     controller.liveCamera.zoom,
                     sketchUi.editingId.takeIf { sketchUi.active },
+                    minPixels = if (printsSketches) PRINT_SKETCH_MIN_PX else 0.0,
                 ),
             )
         }
@@ -2537,6 +2548,9 @@ private const val STROKE_TOLERANCE_DP = 4f
 
 /** The frame takes this share of the room it is fitted in (P17, Q4). */
 private const val PRINT_FIT_RATIO = 0.7
+
+/** The narrowest a printed sketch is drawn while its print is framed, in map pixels (P28.11). */
+private const val PRINT_SKETCH_MIN_PX = 1.5
 
 /** Room taken by the band of chips above and the buttons below the frame when fitting the zoom, in dp. */
 private const val PRINT_FIT_RESERVE_DP = 220.0

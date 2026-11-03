@@ -24,6 +24,7 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -328,9 +329,37 @@ class PrintExportTest {
         assertEquals(frame.frameWidthMm / 2, x.toDouble(), 0.01)
         assertEquals(frame.frameHeightMm / 2, y.toDouble(), 0.01)
         assertTrue(c1x.toDouble() > x.toDouble() && c1y.toDouble() > y.toDouble(), "east and down: $c1x $c1y")
-        // Without the « Traces » dressing, no sketch either.
-        val bare = template.copy(dressing = Dressing(tracks = false))
+        // « Croquis » off leaves them out; « Traces » off no longer does (P28.11).
+        val bare = template.copy(dressing = Dressing(sketches = false))
         assertEquals(curves(page(bare, PrintContent())), curves(page(bare, sketches)))
+        val noTracks = template.copy(dressing = Dressing(tracks = false))
+        assertEquals(curves(drawn), curves(page(noTracks, sketches)))
+    }
+
+    @Test
+    fun `the sketches counted in the frame are those with a stroke in it`() {
+        val origin = XY.of(LonLat(6.0, 45.0))
+        val style = SketchStyle(0xFF1E88E5.toInt(), widthMeters = 25.0, smoothingMeters = 5.0)
+
+        fun line(from: XY) =
+            SketchStroke(
+                style,
+                RawStroke(
+                    style,
+                    List(20) { i ->
+                        from + XY(i * 10.0, 0.0)
+                    },
+                ).smoothed().path,
+            )
+        val frame = plan(PrintTemplate(scale = 25_000.0, dpi = 100)).pages.single().frame
+        // The frame is about 4 km by 6 km at 1:25 000: 1 km south of the centre is in, 10 km north is out.
+        val inside = Sketch("Dedans", listOf(line(origin + XY(0.0, 1_000.0))))
+        val outside = Sketch("Dehors", listOf(line(origin + XY(0.0, -20_000.0))))
+        val both = Sketch("À cheval", listOf(line(origin + XY(30_000.0, 0.0)), line(origin)))
+        assertTrue(PrintSketches.touches(inside, frame))
+        assertFalse(PrintSketches.touches(outside, frame))
+        assertEquals(2, PrintSketches.countIn(listOf(inside, outside, both), listOf(frame)))
+        assertEquals(0, PrintSketches.countIn(listOf(inside), emptyList()))
     }
 
     @Test

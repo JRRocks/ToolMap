@@ -116,6 +116,19 @@ class PrintPanelsTest {
     }
 
     @Test
+    fun `the sketches have their own line, with how many the frame holds`() {
+        val holder = confirming(PrintTemplate())
+        holder.ui = holder.ui.copy(sketchesInFrame = 3)
+        rule.setContent {
+            ToolMapTheme { PrintConfirmSheet(ui = holder.ui, actions = holder.actions, maxHeight = 900.dp) }
+        }
+        rule.onNodeWithText("Croquis").assertExists()
+        rule.onNodeWithText("3 dans le cadre").assertExists()
+        holder.ui = holder.ui.copy(sketchesInFrame = 0)
+        rule.onNodeWithText("Aucun dans le cadre").assertExists()
+    }
+
+    @Test
     fun `above 300 dpi the box of a heavy PDF leads to the resolution, with no highest`() {
         val template = PrintTemplate(dpi = 600)
         val holder = confirming(template)

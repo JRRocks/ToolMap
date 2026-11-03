@@ -84,7 +84,7 @@ data class PrintTexts(
 class PrintContent(
     val tracks: List<PrintTrack> = emptyList(),
     val waypoints: List<PrintWaypoint> = emptyList(),
-    /** The sketches shown on the map (P28.8), printed in vector form with the tracks. */
+    /** The sketches shown on the map (P28.8), printed in vector form under the tracks. */
     val sketches: List<Sketch> = emptyList(),
     /** `© …` credits of the sources printed, required by their licences. */
     val attributions: List<String> = emptyList(),

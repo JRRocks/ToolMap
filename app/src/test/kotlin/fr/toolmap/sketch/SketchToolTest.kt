@@ -195,6 +195,13 @@ class SketchToolTest {
         assertEquals("Point", features.getJSONObject(1).getJSONObject("geometry").getString("type"))
         // Three levels out, 6 px become 0.75 px: hidden.
         assertEquals(0, JSONObject(SketchLayers.geoJson(sketches, zoom - 3, null)).getJSONArray("features").length())
+        // While a print is framed they stay, at least 1.5 px wide.
+        val framed =
+            JSONObject(
+                SketchLayers.geoJson(sketches, zoom - 3, null, minPixels = 1.5),
+            ).getJSONArray("features")
+        assertEquals(3, framed.length())
+        assertEquals(1.5, framed.getJSONObject(0).getJSONObject("properties").getDouble("min"), 1e-9)
     }
 
     @Test

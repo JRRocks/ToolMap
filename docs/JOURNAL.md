@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-11-03 — Session 89 (suite 7) — [P28.11] Croquis à l'impression : leur propre interrupteur
+- **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 8b0e556 (0.4.179). Copies : GitHub 0.4.179 (même branche ; `main` 0.4.134, autres branches plus anciennes), local 0.4.179 puis changements non poussés (référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : demande de l'utilisateur, « Rajoute l'impression et le choix de croquis dans l'impression de carte. Actuellement invisible à l'impression », à vérifier sur l'émulateur.
+- **Réalisé** :
+  - Constat sur l'émulateur (0.4.179) : les croquis s'imprimaient déjà, mais seulement avec « Traces » et sans rien qui le dise ; pendant le cadrage, la carte dézoomée masquait ceux plus fins qu'un pixel. On les croyait donc absents.
+  - Aperçu `docs/previews/print-croquis-variantes.html` (état actuel et 5 variantes : A interrupteur et nombre, B liste cochée, C page « Croquis › », D pastilles, E trois pastilles), publié aussi en page pour le téléphone ; **validé le 2026-11-03 : « A oui »** (variante A, et croquis gardés sur l'aperçu du cadre).
+  - `Dressing.sketches` (vrai par défaut) : « Croquis » a son interrupteur dans « Sur la carte », sous « Traces », avec « N dans le cadre » ou « Aucun dans le cadre » (`PrintSketches.countIn` : croquis visibles dont un trait touche un cadre de page). `PageComposer` et `PrintViewModel.buildContent` suivent `sketches`, plus `tracks`.
+  - Pendant l'impression, `SketchLayers.geoJson(minPixels = 1.5)` dessine tous les croquis visibles, au moins à 1,5 px (expression de largeur à un palier par zoom, `max(w0 × 2^z, min)`) ; hors impression, rien ne change (ADR-110).
+  - Captures de l'émulateur ajoutées dans la page de l'aperçu ; `docs/specs/print-pdf.md`, `docs/specs/ui-index.md`, plans.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `PrintExportTest` : « Croquis » coupé ne dessine rien, « Traces » coupé garde les croquis ; nouveau test du comptage (dedans, dehors, à cheval). `PrintPanelsTest` (+1 : « 3 dans le cadre », « Aucun dans le cadre »), `SketchToolTest` (croquis trop fins gardés avec `minPixels`). `./gradlew :core:test :app:testDebugUnitTest --tests …` : vert.
+  - Émulateur 0.4.180 : « Croquis · Aucun dans le cadre » loin des croquis ; zigzag rouge dessiné, cadre A4 paysage 1:25 000 dessus : « 1 dans le cadre » ; « Traces » coupé, « Créer le PDF » : le flux de la page contient le trait (`0.898 0.224 0.208 RG`, `7.4245 w`, 7 courbes), et le rendu pdf.js montre le zigzag. Impression ouverte au 1:780 000 : le X bleu « masqué à ce zoom » reste dessiné ; impression fermée, même zoom : masqué.
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.180 → **0.4.181**) : **BUILD SUCCESSFUL** en 3 min 2 s.
+- **Problèmes / dette technique** : chaque « Imprimer » rouvert après un PDF recentre la carte 0,111° plus au sud (45,198 → 45,088 → 44,977) : le cadre se place au centre de la zone visible au-dessus du panneau, puis la carte reste là. Vu en passant, non corrigé.
+- **Prochaine étape recommandée** : aperçu P27.0 (points du groupe dans l'interface), puis P27.3 et P27.4 ; aperçus P19.9 à P19.11.
+
 ## 2026-11-03 — Session 89 (suite 6) — [P29.2][P29.10] Captures de l'émulateur à côté des aperçus, et la position gardée quand l'activité est recréée
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 5798ae1.
 - **Objectif** : mettre la capture de l'émulateur à côté de l'aperçu validé et du rendu Robolectric pour chaque étape de la refonte (P29.2 à P29.10) ; garder la position en temps réel quand Android recrée l'écran.

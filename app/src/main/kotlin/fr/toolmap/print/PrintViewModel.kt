@@ -25,6 +25,7 @@ import fr.toolmap.core.print.PrintIssue
 import fr.toolmap.core.print.PrintPlan
 import fr.toolmap.core.print.PrintPlanner
 import fr.toolmap.core.print.PrintProgress
+import fr.toolmap.core.print.PrintSketches
 import fr.toolmap.core.print.PrintTemplate
 import fr.toolmap.core.print.PrintTexts
 import fr.toolmap.core.print.PrintWaypoint
@@ -54,9 +55,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -118,6 +123,8 @@ data class PrintUi(
     val fitRequest: Int = 0,
     val job: PrintJob? = null,
     val outcome: PrintOutcome? = null,
+    /** The visible sketches with a stroke in the frame, shown under « Croquis » (P28.11); `null` until counted. */
+    val sketchesInFrame: Int? = null,
 ) {
     val active: Boolean get() = stage != null
 
@@ -176,6 +183,12 @@ class PrintViewModel
         init {
             viewModelScope.launch {
                 inputs.filterNotNull().debounce(PLAN_DEBOUNCE_MS).collectLatest { compute(it) }
+            }
+            viewModelScope.launch {
+                val frames = mutableUi.map { ui -> ui.plan?.mapPages?.map { it.frame } }.distinctUntilChanged()
+                combine(frames, sketchRepository.sketches) { f, sketches ->
+                    f?.let { PrintSketches.countIn(sketches.filter { s -> s.visible }.map { s -> s.sketch }, it) }
+                }.collect { n -> mutableUi.update { it.copy(sketchesInFrame = n) } }
             }
         }
 
@@ -503,7 +516,7 @@ class PrintViewModel
             return PrintContent(
                 tracks = if (dressing.tracks) loaded?.tracks.orEmpty() else emptyList(),
                 sketches =
-                    if (dressing.tracks) {
+                    if (dressing.sketches) {
                         sketchRepository.sketches.first().filter {
                             it.visible
                         }.map { it.sketch }

@@ -21,32 +21,15 @@ object SketchLayers {
     private const val LINE_LAYER = "tm-sketch-line"
     private const val DOT_LAYER = "tm-sketch-dot"
     private const val EMPTY = """{"type":"FeatureCollection","features":[]}"""
-    private const val MAX_ZOOM = 24.0
+    private const val MAX_ZOOM = 24
 
     fun install(style: Style) {
         if (style.getSource(SOURCE) != null) return
         style.addSource(GeoJsonSource(SOURCE, EMPTY))
-        // Width on screen = w0 × 2^zoom, w0 being the width in pixels at zoom 0.
-        val width =
-            Expression.interpolate(
-                Expression.exponential(2),
-                Expression.zoom(),
-                Expression.stop(0, Expression.get("w0")),
-                Expression.stop(
-                    MAX_ZOOM,
-                    Expression.product(Expression.get("w0"), Expression.literal(Math.pow(2.0, MAX_ZOOM))),
-                ),
-            )
-        val radius =
-            Expression.interpolate(
-                Expression.exponential(2),
-                Expression.zoom(),
-                Expression.stop(0, Expression.product(Expression.get("w0"), Expression.literal(0.5))),
-                Expression.stop(
-                    MAX_ZOOM,
-                    Expression.product(Expression.get("w0"), Expression.literal(Math.pow(2.0, MAX_ZOOM) / 2)),
-                ),
-            )
+        // Width on screen = w0 × 2^zoom, w0 being the width in pixels at zoom 0, and never under « min » pixels: one stop
+        // per zoom level, as the zoom may only drive the interpolation at the top of the expression.
+        val width = widthStops(1.0)
+        val radius = widthStops(0.5)
         style.addLayer(
             LineLayer(LINE_LAYER, SOURCE)
                 .withFilter(Expression.eq(Expression.geometryType(), Expression.literal("LineString")))
@@ -67,6 +50,24 @@ object SketchLayers {
         )
     }
 
+    private fun widthStops(factor: Double): Expression =
+        Expression.interpolate(
+            Expression.exponential(2),
+            Expression.zoom(),
+            *(0..MAX_ZOOM).map { z ->
+                Expression.stop(
+                    z,
+                    Expression.max(
+                        Expression.product(
+                            Expression.get("w0"),
+                            Expression.literal(factor * Math.pow(2.0, z.toDouble())),
+                        ),
+                        Expression.product(Expression.get("min"), Expression.literal(factor)),
+                    ),
+                )
+            }.toTypedArray(),
+        )
+
     fun show(
         style: Style,
         geoJson: String,
@@ -76,12 +77,14 @@ object SketchLayers {
 
     /**
      * The visible sketches drawn at [cameraZoom], the one being edited ([skipId]) apart: it is drawn by the tool
-     * itself. The curves are cut into lines finer than a tenth of their width.
+     * itself. The curves are cut into lines finer than a tenth of their width. With [minPixels] (the frame of a print,
+     * P28.11), every sketch is drawn at least that wide, even those thinner than a pixel, since the paper shows them.
      */
     fun geoJson(
         sketches: List<SavedSketch>,
         cameraZoom: Double,
         skipId: Long?,
+        minPixels: Double = 0.0,
     ): String {
         val sb = StringBuilder("""{"type":"FeatureCollection","features":[""")
         var first = true
@@ -89,7 +92,7 @@ object SketchLayers {
         for (saved in sketches) {
             if (!saved.visible || saved.id == skipId) continue
             val minZoom = saved.sketch.minVisibleZoom() ?: continue
-            if (cameraZoom < minZoom) continue
+            if (minPixels <= 0.0 && cameraZoom < minZoom) continue
             for (stroke in saved.sketch.strokes) {
                 val w0 = stroke.style.widthMeters / atZoom0
                 val color = String.format(Locale.ROOT, "#%06X", stroke.style.color and 0xFFFFFF)
@@ -97,7 +100,7 @@ object SketchLayers {
                 if (!first) sb.append(',')
                 first = false
                 sb.append("""{"type":"Feature","properties":{"color":"""").append(color)
-                sb.append("""","w0":""").append(w0).append("""},"geometry":""")
+                sb.append("""","w0":""").append(w0).append(""","min":""").append(minPixels).append("""},"geometry":""")
                 if (points.size < 2) {
                     val p = points[0].toLonLat()
                     sb.append(

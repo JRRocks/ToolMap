@@ -71,7 +71,7 @@ class PageComposer(
         drawZoneEdges(page, grid)
         drawSquareTags(page, grid)
         if (overview) drawFootprints(page, pp.frame, pp.footprints)
-        if (dressing.tracks) drawSketches(page, pp.frame)
+        if (dressing.sketches) drawSketches(page, pp.frame)
         val tracks = if (dressing.tracks) drawTracks(page, pp.frame, overview) else emptyList()
         val waypoints =
             if (dressing.waypoints) drawWaypoints(page, pp.frame, !overview && dressing.waypointNames) else 0

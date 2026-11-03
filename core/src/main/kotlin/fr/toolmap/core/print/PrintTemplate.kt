@@ -19,6 +19,8 @@ data class Dressing(
     val waypoints: Boolean = true,
     /** The name next to each waypoint; off leaves the icons alone (P17, Q16). */
     val waypointNames: Boolean = true,
+    /** The sketches shown on the map (P28.8), on their own switch since P28.11: they no longer follow the tracks. */
+    val sketches: Boolean = true,
 )
 
 /**

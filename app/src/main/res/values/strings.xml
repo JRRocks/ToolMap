@@ -859,6 +859,13 @@
   <string name="print_dress_cartouche">Date et source</string>
   <string name="print_dress_corners">Coordonnées des coins</string>
   <string name="print_dress_tracks">Traces</string>
+  <string name="print_dress_sketches">Croquis</string>
+  <string name="print_sketches_none">Aucun dans le cadre</string>
+  <plurals name="print_sketches_in_frame">
+    <item quantity="one">%d dans le cadre</item>
+    <item quantity="many">%d dans le cadre</item>
+    <item quantity="other">%d dans le cadre</item>
+  </plurals>
   <string name="print_field_title">Titre</string>
   <string name="print_field_subtitle">Sous-titre</string>
   <string name="print_planning">Calcul en cours…</string>
