@@ -17,6 +17,7 @@ import fr.toolmap.data.print.TileFetch
 import fr.toolmap.data.sources.SourceRepository
 import fr.toolmap.data.tiles.MbTilesStore
 import fr.toolmap.data.tiles.OfflineMode
+import fr.toolmap.data.tracks.SketchRepository
 import fr.toolmap.data.tracks.TrackDatabase
 import fr.toolmap.data.tracks.TrackDisplay
 import fr.toolmap.data.tracks.TrackRepository
@@ -100,6 +101,7 @@ class PrintViewModelTest {
                 TrackDisplay(TrackRepository(db)),
                 sources,
                 fetcher,
+                SketchRepository(db),
             )
     }
 

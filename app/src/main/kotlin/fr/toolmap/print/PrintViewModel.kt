@@ -37,6 +37,7 @@ import fr.toolmap.data.print.AndroidBandRenderer
 import fr.toolmap.data.print.PrintTemplateStore
 import fr.toolmap.data.print.PrintTileFetcher
 import fr.toolmap.data.sources.SourceRepository
+import fr.toolmap.data.tracks.SketchRepository
 import fr.toolmap.data.tracks.TrackDisplay
 import fr.toolmap.map.UiMessage
 import fr.toolmap.waypoints.WaypointIconRes
@@ -55,6 +56,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -156,6 +158,7 @@ class PrintViewModel
         private val trackDisplay: TrackDisplay,
         private val sourceRepository: SourceRepository,
         private val fetcher: PrintTileFetcher,
+        private val sketchRepository: SketchRepository,
     ) : ViewModel() {
         private val mutableUi = MutableStateFlow(PrintUi())
         val ui: StateFlow<PrintUi> = mutableUi.asStateFlow()
@@ -499,6 +502,14 @@ class PrintViewModel
             val locale = Locale.getDefault()
             return PrintContent(
                 tracks = if (dressing.tracks) loaded?.tracks.orEmpty() else emptyList(),
+                sketches =
+                    if (dressing.tracks) {
+                        sketchRepository.sketches.first().filter {
+                            it.visible
+                        }.map { it.sketch }
+                    } else {
+                        emptyList()
+                    },
                 waypoints = waypoints,
                 attributions = layers.mapNotNull { it.source.copyright?.takeIf(String::isNotBlank) }.distinct(),
                 layerNames = layers.map { it.source.name },

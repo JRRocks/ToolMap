@@ -71,6 +71,7 @@ class PageComposer(
         drawZoneEdges(page, grid)
         drawSquareTags(page, grid)
         if (overview) drawFootprints(page, pp.frame, pp.footprints)
+        if (dressing.tracks) drawSketches(page, pp.frame)
         val tracks = if (dressing.tracks) drawTracks(page, pp.frame, overview) else emptyList()
         val waypoints =
             if (dressing.waypoints) drawWaypoints(page, pp.frame, !overview && dressing.waypointNames) else 0
@@ -229,6 +230,48 @@ class PageComposer(
             }
         }
         return drawn
+    }
+
+    /**
+     * The sketches in vector form (P28.8): the frame is an affine map of the map meters ([FrameProjection.toFrame]),
+     * so each cubic of a stroke goes to the page as it is, its width in map meters turned into millimeters.
+     */
+    private fun drawSketches(
+        page: PdfPage,
+        frame: FrameProjection,
+    ) {
+        for (sketch in content.sketches) {
+            for (stroke in sketch.strokes) {
+                val path = stroke.path
+                val points = listOf(path.start) + path.curves.flatMap { listOf(it.c1, it.c2, it.end) }
+                val xs = points.map { frameW / 2 + (it.x - frame.centerX) / frame.mercatorPerMm }
+                val ys = points.map { frameH / 2 + (it.y + frame.centerY) / frame.mercatorPerMm }
+                val width = max(stroke.style.widthMeters / frame.mercatorPerMm, SKETCH_MIN_MM)
+                val margin = width / 2
+                if (xs.max() < -margin || xs.min() > frameW + margin) continue
+                if (ys.max() < -margin || ys.min() > frameH + margin) continue
+                page.save()
+                val color = PdfColor.fromArgb(stroke.style.color)
+                val alpha = (stroke.style.color ushr ALPHA_SHIFT) / OPAQUE
+                if (alpha < 1.0) page.alpha(alpha)
+                if (path.curves.isEmpty()) {
+                    // A tap: a dot as wide as the stroke.
+                    page.fillColor(color)
+                    page.circle(xs[0], ys[0], margin)
+                    page.fill()
+                } else {
+                    page.strokeColor(color)
+                    page.lineWidth(width)
+                    page.lineStyle(LineCap.ROUND, LineJoin.ROUND)
+                    page.moveTo(xs[0], ys[0])
+                    for (i in 1 until points.size step 3) {
+                        page.curveTo(xs[i], ys[i], xs[i + 1], ys[i + 1], xs[i + 2], ys[i + 2])
+                    }
+                    page.stroke()
+                }
+                page.restore()
+            }
+        }
     }
 
     /** A disc of the waypoint's colour with its white icon, and its name outlined in white (P17, Q16). */
@@ -1420,6 +1463,11 @@ class PageComposer(
         const val TRACK_MM = 0.6
         const val OVERVIEW_TRACK_MM = 0.5
         const val TRACK_ALPHA = 0.9
+
+        /** The thinnest a sketch stroke is printed, in millimeters (P28.8). */
+        const val SKETCH_MIN_MM = 0.1
+        private const val ALPHA_SHIFT = 24
+        private const val OPAQUE = 255.0
         const val TRACK_MIN_STEP_MM = 0.05
         const val WAYPOINT_RADIUS_MM = 2.0
         const val WAYPOINT_OUTLINE_MM = 0.3

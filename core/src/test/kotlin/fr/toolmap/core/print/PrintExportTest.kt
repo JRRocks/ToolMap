@@ -6,6 +6,12 @@ import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.pdf.PdfImage
 import fr.toolmap.core.pdf.PdfPage
 import fr.toolmap.core.pdf.PdfProbe
+import fr.toolmap.core.sketch.RawStroke
+import fr.toolmap.core.sketch.Sketch
+import fr.toolmap.core.sketch.SketchPath
+import fr.toolmap.core.sketch.SketchStroke
+import fr.toolmap.core.sketch.SketchStyle
+import fr.toolmap.core.sketch.XY
 import fr.toolmap.core.source.BuiltinSources
 import java.awt.Color
 import java.awt.image.BufferedImage
@@ -292,6 +298,42 @@ class PrintExportTest {
     }
 
     @Test
+    fun `a sketch is printed as its curves, at its width on the ground, and one outside the frame is left out`() {
+        val origin = XY.of(LonLat(6.0, 45.0))
+        val style = SketchStyle(0xFF1E88E5.toInt(), widthMeters = 25.0, smoothingMeters = 5.0)
+        val raw = List(200) { i -> origin + XY(i * 5.0, 200 * Math.sin(i / 30.0)) }
+        val stroke = RawStroke(style, raw).smoothed()
+        assertTrue(stroke.path.curves.size >= 2)
+        val far = RawStroke(style, raw.map { it + XY(1e6, 0.0) }).smoothed()
+        val dot = SketchStroke(style.copy(color = 0x80FF0000.toInt()), SketchPath(origin))
+        val sketches = PrintContent(sketches = listOf(Sketch("Croquis du 3 nov.", listOf(stroke, far, dot))))
+
+        fun page(
+            template: PrintTemplate,
+            content: PrintContent,
+        ) = PdfProbe(export(plan(template), content = content).second).contentOfPage(0)
+
+        fun curves(page: String) = Regex(" c\n").findAll(page).count()
+        val template = PrintTemplate(scale = 25_000.0, dpi = 100)
+        val drawn = page(template, sketches)
+        // The curves of the stroke in view and the four arcs of the dot; the far stroke draws nothing.
+        assertEquals(stroke.path.curves.size + 4, curves(drawn) - curves(page(template, PrintContent())))
+        // 25 m of map at 45° N is 17.7 m on the ground: 0.707 mm at 1:25 000.
+        assertTrue(Regex("0\\.707\\d* w").containsMatchIn(drawn), "width of the stroke")
+        // It starts at the centre of the frame (the centre of the plan), its first bend going east and south (a positive y
+        // of the map meters): down the page.
+        val start = assertNotNull(Regex("0\\.707\\d* w\n(?:.*\n)*?(\\S+) (\\S+) m\n(\\S+) (\\S+) .* c\n").find(drawn))
+        val (x, y, c1x, c1y) = start.destructured
+        val frame = plan(template).pages.single().frame
+        assertEquals(frame.frameWidthMm / 2, x.toDouble(), 0.01)
+        assertEquals(frame.frameHeightMm / 2, y.toDouble(), 0.01)
+        assertTrue(c1x.toDouble() > x.toDouble() && c1y.toDouble() > y.toDouble(), "east and down: $c1x $c1y")
+        // Without the « Traces » dressing, no sketch either.
+        val bare = template.copy(dressing = Dressing(tracks = false))
+        assertEquals(curves(page(bare, PrintContent())), curves(page(bare, sketches)))
+    }
+
+    @Test
     fun `an atlas gives an overview page first then one page per sheet`() {
         val area = Bounds(5.95, 44.95, 6.2, 45.1)
         val template = PrintTemplate(scale = 50_000.0, dpi = 100, atlas = AtlasMode.GRID)
@@ -413,6 +455,23 @@ class PrintExportTest {
                 PrintArea(45.0, 6.0, bounds = Bounds(5.95, 44.95, 6.2, 45.1)),
             )
         File(dir, "atlas.pdf").outputStream().use { PrintExporter(SyntheticRenderer()).export(atlas, sheet, it) }
+        // A sketch printed in vector form (P28.8): a loop around the waypoint and a thinner arrow to it.
+        val refuge = XY.of(LonLat(6.0, 45.0))
+        val loop = List(120) { i -> refuge + XY(300 * Math.cos(i / 18.0), 220 * Math.sin(i / 18.0)) }
+        val arrow = List(60) { i -> refuge + XY(-900.0 + i * 12.0, 600.0 - i * 9.0 + 40 * Math.sin(i / 8.0)) }
+        val sketch =
+            Sketch(
+                "Croquis",
+                listOf(
+                    RawStroke(SketchStyle(0xFFE53935.toInt(), 30.0, 8.0), loop).smoothed(),
+                    RawStroke(SketchStyle(0xFF1E88E5.toInt(), 15.0, 8.0), arrow).smoothed(),
+                ),
+            )
+        File(dir, "sketch-25000.pdf").outputStream().use {
+            val withSketch =
+                PrintContent(waypoints = sheet.waypoints, sketches = listOf(sketch), dateText = sheet.dateText)
+            PrintExporter(SyntheticRenderer()).export(p, withSketch, it)
+        }
         assertTrue(File(dir, "top25-utm-25000.pdf").length() > 1_000)
     }
 }

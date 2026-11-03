@@ -20,6 +20,21 @@
 
 ---
 
+## 2026-11-03 — Session 89 (suite 3) — [P28.8] Croquis imprimés en vectoriel dans le PDF
+- **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de ec32cb3 (0.4.172, P28.7). Copies : GitHub = local (0.4.172, référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : imprimer les croquis visibles dans le PDF, en vectoriel (décision du 2026-10-24).
+- **Réalisé** :
+  - `PrintContent.sketches` et `PageComposer.drawSketches` (`:core`) : chaque trait passe dans le PDF en courbes de Bézier telles qu'enregistrées (le cadre de la page est une transformation affine des mètres de carte, donc sans approximation), à son épaisseur sur le terrain (0,1 mm au moins), opacité de sa couleur gardée ; un point isolé devient un disque ; trait hors du cadre ignoré. Dessinés sous les traces, avec le même interrupteur « Traces » de l'habillage ; pas de ligne dans la légende (aucun texte ajouté à l'interface).
+  - `PrintViewModel` : passe les croquis visibles (`SketchRepository`).
+  - `docs/specs/print-pdf.md` § 3.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `PrintExportTest` (+1 : nombre de courbes du trait vu et des 4 arcs du point, trait lointain absent, épaisseur 0,707 mm pour 25 m de carte à 45° N au 1:25 000, départ au centre du cadre et premier arc vers l'est et le sud, rien sans « Traces ») ; PDF d'exemple `core/build/print-samples/sketch-25000.pdf` (boucle rouge autour du refuge, trait bleu vers lui) relu : traits nets, à la bonne place et à la bonne taille.
+  - `./gradlew :core:test --tests "*PrintExportTest*"` (12, 0 échec), `:app:testDebugUnitTest --tests "*PrintViewModelTest*"` (10, 0 échec).
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.172 → **0.4.173**) : **BUILD SUCCESSFUL** en 2 min 26 s ; tests core 1 017, data 327, p2p 31 (2 ignorés), app 497 (74 ignorés), 0 échec.
+- **Problèmes / dette technique** : les croquis ne sont pas cités dans la légende du PDF (texte nouveau : aperçu à faire si l'utilisateur le veut).
+- **Prochaine étape recommandée** : choix de l'utilisateur sur `p26-fusion.html` (P26.4, P26.5) ; aperçu P27.0 ; captures P29 à côté des aperçus (P29.2 à P29.10).
+
 ## 2026-11-03 — Session 89 (suite 2) — [P28.7] Main levée des traces lissée comme un croquis
 - **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 44e71f1 (0.4.171, P27). Copies : GitHub = local (0.4.171, référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : lisser la main levée de l'édition des traces avec le lisseur du Croquis (décision du 2026-10-24 : « le même lissage s'applique à la main levée des traces »), sans rien changer à l'interface.

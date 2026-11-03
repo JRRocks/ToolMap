@@ -2,6 +2,7 @@ package fr.toolmap.core.print
 
 import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.pdf.PdfImage
+import fr.toolmap.core.sketch.Sketch
 import java.util.Locale
 
 /** A track as it is drawn on the page: its segments, colour and width. */
@@ -83,6 +84,8 @@ data class PrintTexts(
 class PrintContent(
     val tracks: List<PrintTrack> = emptyList(),
     val waypoints: List<PrintWaypoint> = emptyList(),
+    /** The sketches shown on the map (P28.8), printed in vector form with the tracks. */
+    val sketches: List<Sketch> = emptyList(),
     /** `© …` credits of the sources printed, required by their licences. */
     val attributions: List<String> = emptyList(),
     /** The layers actually drawn, bottom to top, for the legend. */
