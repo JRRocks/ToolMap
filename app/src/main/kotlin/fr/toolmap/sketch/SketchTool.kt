@@ -70,13 +70,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.p2p.GroupItemKind
+import fr.toolmap.core.p2p.PointDuration
 import fr.toolmap.core.sketch.SketchPalette
 import fr.toolmap.core.sketch.SketchPath
 import fr.toolmap.core.sketch.SketchScale
 import fr.toolmap.core.sketch.SketchSmoothing
+import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.core.sketch.XY
 import fr.toolmap.draw.RouteIcons
 import fr.toolmap.map.MapController
+import fr.toolmap.share.GroupTag
+import fr.toolmap.share.SendToGroupDialog
 import fr.toolmap.tracks.ConfirmDialog
 import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.TextButton
@@ -96,8 +101,13 @@ fun SketchTool(
     controller: MapController,
     /** After « Enregistrer », with the id of the saved sketch (`null`: it was left empty). */
     onSaved: (Long?) -> Unit,
+    /** The colour of « Pour le groupe » and what sends a sketch drawn for the group (P27). */
+    groupColor: Int? = null,
+    onSendToGroup: (name: String, strokes: List<SketchStroke>, duration: PointDuration, alert: Boolean) -> Boolean =
+        { _, _, _, _ -> false },
 ) {
     var quitAsked by remember { mutableStateOf(false) }
+    var askGroup by remember { mutableStateOf(false) }
     val close = { if (ui.dirty) quitAsked = true else vm.close() }
     BackHandler(onBack = close)
     Box(Modifier.fillMaxSize()) {
@@ -106,10 +116,25 @@ fun SketchTool(
             name = ui.name,
             strokes = ui.strokes.size,
             onClose = close,
-            onSave = { vm.save(onSaved) },
+            // A sketch for the group is sent once named and given a duration (P27); empty, there is nothing to send.
+            onSave = { if (ui.forGroup) askGroup = ui.strokes.isNotEmpty() else vm.save(onSaved) },
             modifier = Modifier.align(Alignment.TopCenter),
+            groupColor = groupColor?.takeIf { ui.forGroup },
         )
         SketchPanel(ui, vm, Modifier.align(Alignment.BottomCenter))
+    }
+    if (askGroup) {
+        SendToGroupDialog(
+            kind = GroupItemKind.SKETCH,
+            initialName = ui.name,
+            onSend = { name, duration, alert ->
+                if (onSendToGroup(name, vm.groupStrokes(), duration, alert)) {
+                    askGroup = false
+                    vm.close()
+                }
+            },
+            onDismiss = { askGroup = false },
+        )
     }
     if (quitAsked) {
         ConfirmDialog(
@@ -133,6 +158,7 @@ private fun SketchBand(
     onClose: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
+    groupColor: Int? = null,
 ) {
     val tm = MaterialTheme.toolMap
     Surface(color = tm.shell, contentColor = tm.onShell, modifier = modifier.fillMaxWidth()) {
@@ -158,9 +184,10 @@ private fun SketchBand(
                     color = tm.onShellVariant,
                 )
             }
+            if (groupColor != null) GroupTag(groupColor, Modifier.padding(horizontal = 4.dp))
             TextButton(onClick = onSave) {
                 Text(
-                    stringResource(R.string.sketch_save),
+                    stringResource(if (groupColor != null) R.string.group_send else R.string.sketch_save),
                     color = tm.navIndicator,
                     style = MaterialTheme.typography.titleMedium,
                 )

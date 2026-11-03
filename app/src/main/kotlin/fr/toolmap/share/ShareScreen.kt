@@ -92,6 +92,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
+import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.p2p.GroupPoint
 import fr.toolmap.core.p2p.MemberPalette
 import fr.toolmap.core.p2p.MemberStatus
 import fr.toolmap.core.p2p.MemberView
@@ -102,7 +104,9 @@ import fr.toolmap.draw.RouteIcons
 import fr.toolmap.map.MenuIcons
 import fr.toolmap.maps.MapsIcons
 import fr.toolmap.settings.SettingsIcons
+import fr.toolmap.sketch.SketchIcons
 import fr.toolmap.ui.GroupBlock
+import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.rememberNotificationAsk
 import fr.toolmap.ui.screenInsets
@@ -131,7 +135,7 @@ private fun problemText(problem: ShareProblem): Int =
     }
 
 /** The pages of the sharing screen (P29.8): the main one, and those its lines and its ⋮ open. */
-private enum class SharePage { MAIN, PROFILE, SETTINGS, MESSAGES }
+private enum class SharePage { MAIN, PROFILE, SETTINGS, MESSAGES, PICK }
 
 /**
  * The sharing screen in « Cordée » (P29.8): your line first, your token as the others see it beside the switch that
@@ -147,6 +151,10 @@ fun ShareScreen(
     onBack: () -> Unit,
     onShowOnMap: (lat: Double, lon: Double) -> Unit,
     onGoTo: (lat: Double, lon: Double, name: String) -> Unit,
+    mapCenter: () -> LonLat = { LonLat(0.0, 0.0) },
+    onShowArea: (GroupPoint) -> Unit = { onShowOnMap(it.lat, it.lon) },
+    onNewGroupTrack: () -> Unit = {},
+    onNewGroupSketch: () -> Unit = {},
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -159,10 +167,15 @@ fun ShareScreen(
     var confirmLeave by remember { mutableStateOf(false) }
     var sosDialog by remember { mutableStateOf(false) }
     var openMember by remember { mutableStateOf<Long?>(null) }
+    var openShare by remember { mutableStateOf<Long?>(null) }
+    var shareChoice by remember { mutableStateOf(false) }
+    var newWaypoint by remember { mutableStateOf(false) }
     var showIntro by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = page != SharePage.MAIN) { page = SharePage.MAIN }
     // Leaving the group closes its pages.
-    LaunchedEffect(ui.inGroup) { if (!ui.inGroup && page == SharePage.MESSAGES) page = SharePage.MAIN }
+    LaunchedEffect(ui.inGroup) {
+        if (!ui.inGroup && (page == SharePage.MESSAGES || page == SharePage.PICK)) page = SharePage.MAIN
+    }
 
     val permissions =
         remember {
@@ -233,6 +246,8 @@ fun ShareScreen(
                 onOpenMember = { openMember = it.id },
                 onShowOnMap = onShowOnMap,
                 onAlertBack = { vm.recheckPhone() },
+                onOpenShare = { openShare = it.id },
+                onShare = { shareChoice = true },
             )
         }
 
@@ -261,10 +276,36 @@ fun ShareScreen(
             }
         }
 
+        SharePage.PICK -> {
+            SharePickPage(vm, onBack = { page = SharePage.MAIN })
+        }
+
         SharePage.MESSAGES -> {
-            MessagesPage(ui, onBack = { page = SharePage.MAIN }, onSend = vm::sendText, onRead = vm::markMessagesRead)
+            MessagesPage(
+                ui,
+                onBack = { page = SharePage.MAIN },
+                onSend = vm::sendText,
+                onRead = vm::markMessagesRead,
+                onShowOnMap = onShowOnMap,
+            )
         }
     }
+
+    GroupShareDialogs(
+        ui = ui,
+        vm = vm,
+        openShare = openShare,
+        onCloseShare = { openShare = null },
+        shareChoice = shareChoice,
+        onCloseChoice = { shareChoice = false },
+        newWaypoint = newWaypoint,
+        onNewWaypoint = { newWaypoint = it },
+        onMine = { page = SharePage.PICK },
+        onNewTrack = onNewGroupTrack,
+        onNewSketch = onNewGroupSketch,
+        mapCenter = mapCenter,
+        onShowOnMap = onShowArea,
+    )
 
     if (showIntro) {
         AlertDialog(
@@ -439,6 +480,8 @@ internal fun MainPage(
     onOpenMember: (MemberView) -> Unit,
     onShowOnMap: (lat: Double, lon: Double) -> Unit,
     onAlertBack: () -> Unit,
+    onOpenShare: (GroupPoint) -> Unit = {},
+    onShare: () -> Unit = {},
 ) {
     var menu by remember { mutableStateOf(false) }
     Scaffold(
@@ -594,6 +637,7 @@ internal fun MainPage(
                     }
                 }
                 GroupBlock(rows = listOf({ MessagesLine(ui, onMessages) }))
+                GroupItems(ui, now, onOpen = onOpenShare, onShare = onShare)
             }
         }
     }
@@ -786,7 +830,7 @@ private fun MessagesLine(
                 if (last == null) {
                     stringResource(R.string.share_messages_none)
                 } else {
-                    stringResource(R.string.share_messages_last, messageAuthor(last), last.text)
+                    messageLine(last)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -815,7 +859,7 @@ private fun MessagesLine(
 }
 
 @Composable
-private fun messageAuthor(message: ShareMessage): String =
+internal fun messageAuthor(message: ShareMessage): String =
     if (message.mine) stringResource(R.string.share_message_mine) else message.name
 
 /** A page opened from the main one: the bar with its arrow back, the content in a scrolling column. */
@@ -838,6 +882,42 @@ private fun SubPage(
     }
 }
 
+/** The automatic message of a share, centred in the thread; a share still there is shown on the map on a tap (P27). */
+@Composable
+private fun ColumnScope.ShareNotice(
+    message: ShareMessage,
+    point: GroupPoint,
+    onShowOnMap: (lat: Double, lon: Double) -> Unit,
+) {
+    val text = shareSentence(message, point)
+    Row(
+        Modifier
+            .align(Alignment.CenterHorizontally)
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .then(
+                if (message.removal) {
+                    Modifier
+                } else {
+                    Modifier.clickable(onClickLabel = stringResource(R.string.group_item_show, message.text)) {
+                        onShowOnMap(point.lat, point.lon)
+                    }
+                },
+            ).semantics(mergeDescendants = true) {}
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            kindIcon(point.kind),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+    }
+}
+
 /** The page of the messages: the last 50 with their time, then the field and « Envoyer ». */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -846,6 +926,7 @@ private fun MessagesPage(
     onBack: () -> Unit,
     onSend: (String) -> Unit,
     onRead: () -> Unit,
+    onShowOnMap: (lat: Double, lon: Double) -> Unit,
 ) {
     // Open, the page reads what comes in.
     LaunchedEffect(ui.messages.size) { onRead() }
@@ -890,6 +971,11 @@ private fun MessagesPage(
                 )
             }
             for (message in shown) {
+                val point = message.point
+                if (point != null) {
+                    ShareNotice(message, point, onShowOnMap)
+                    continue
+                }
                 Column {
                     Text(
                         messageAuthor(message) + " · " +

@@ -54,6 +54,7 @@ import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.layers.FavoritesFileCodec
 import fr.toolmap.core.maps.OnlineCatalog
 import fr.toolmap.core.settings.ThemeMode
+import fr.toolmap.core.track.NameDates
 import fr.toolmap.core.track.TrackImporter
 import fr.toolmap.crash.CrashActivity
 import fr.toolmap.crash.CrashReporter
@@ -632,6 +633,27 @@ class MainActivity : ComponentActivity() {
                                                 },
                                                 onGoTo = { lat, lon, name ->
                                                     navigationViewModel.setTarget(NavTarget(lat, lon, name))
+                                                    toMap()
+                                                },
+                                                mapCenter = {
+                                                    viewModel.state.value.camera
+                                                        .let { LonLat(it.lon, it.lat) }
+                                                },
+                                                onShowArea = { point ->
+                                                    tracksViewModel.fitMapTo(shareViewModel.areaOf(point))
+                                                    toMap()
+                                                },
+                                                onNewGroupTrack = {
+                                                    drawViewModel.startGroupTrack()
+                                                    toMap()
+                                                },
+                                                onNewGroupSketch = {
+                                                    sketchViewModel.startForGroup(
+                                                        resources.getString(
+                                                            R.string.sketch_default_name,
+                                                            NameDates.formatDay(System.currentTimeMillis()),
+                                                        ),
+                                                    )
                                                     toMap()
                                                 },
                                             )

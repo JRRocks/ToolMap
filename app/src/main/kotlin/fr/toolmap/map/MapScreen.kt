@@ -109,6 +109,7 @@ import fr.toolmap.core.geo.ScreenGridPlan
 import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.layers.CoverageSpans
 import fr.toolmap.core.layers.StackToStyle
+import fr.toolmap.core.p2p.GroupItemKind
 import fr.toolmap.core.p2p.MemberStatus
 import fr.toolmap.core.p2p.PeerState
 import fr.toolmap.core.print.CameraFit
@@ -123,6 +124,7 @@ import fr.toolmap.core.settings.LongPressAction
 import fr.toolmap.core.settings.NorthReferenceMath
 import fr.toolmap.core.settings.barometerOn
 import fr.toolmap.core.settings.withBarometer
+import fr.toolmap.core.sketch.Sketch
 import fr.toolmap.core.source.Credits
 import fr.toolmap.core.state.CameraState
 import fr.toolmap.core.track.NameDates
@@ -133,6 +135,7 @@ import fr.toolmap.crash.CrashReporter
 import fr.toolmap.data.tiles.TileOutcome
 import fr.toolmap.data.tracks.ItemKind
 import fr.toolmap.data.tracks.ItemRef
+import fr.toolmap.data.tracks.SavedSketch
 import fr.toolmap.data.tracks.TrackSelection
 import fr.toolmap.download.ZoneEstimate
 import fr.toolmap.download.formatBytes
@@ -626,8 +629,8 @@ fun MapScreen(
     LaunchedEffect(draw, legComputing, legByHand) { draw.setLegLabels(legComputing, legByHand) }
     // The other members of the sharing group: keyed on the documents so that an unchanged second changes nothing.
     val shareData =
-        remember(shareUi.members, shareUi.sos, shareUi.settings.showTrails) { share.mapData(shareUi) }
-    LaunchedEffect(controller.isReady, shareData.membersGeoJson, shareData.trailsGeoJson) {
+        remember(shareUi.members, shareUi.sos, shareUi.settings.showTrails, shareUi.points) { share.mapData(shareUi) }
+    LaunchedEffect(controller.isReady, shareData.membersGeoJson, shareData.trailsGeoJson, shareData.itemsGeoJson) {
         if (controller.isReady) controller.showShare(shareData)
     }
     LaunchedEffect(share) {
@@ -1467,10 +1470,18 @@ fun MapScreen(
     // While a print is framed, the sketches it prints stay drawn even when thinner than a pixel: the paper shows them
     // (P28.11).
     val printsSketches = printUi.active && printUi.template.dressing.sketches
+    // The sketches shared with the group (P27) are drawn with the saved ones.
+    val groupSketches =
+        remember(shareUi.points) {
+            shareUi.points
+                .filter { it.kind == GroupItemKind.SKETCH }
+                .map { SavedSketch(it.id, visible = true, it.createdSec, it.updatedSec, Sketch(it.name, it.sketch())) }
+        }
     LaunchedEffect(
         controller.isReady,
         savedSketches,
         sketchesThick,
+        groupSketches,
         sketchUi.editingId,
         sketchUi.active,
         printsSketches,
@@ -1478,7 +1489,7 @@ fun MapScreen(
         if (controller.isReady) {
             controller.showSketches(
                 SketchLayers.geoJson(
-                    savedSketches,
+                    savedSketches + groupSketches,
                     controller.liveCamera.zoom,
                     sketchUi.editingId.takeIf { sketchUi.active },
                     minPixels = if (printsSketches) PRINT_SKETCH_MIN_PX else 0.0,
@@ -2118,6 +2129,8 @@ fun MapScreen(
                 onSaved = { id ->
                     if (id != null) scope.launch { snackbar.showSnackbar(resources.getString(R.string.sketch_saved)) }
                 },
+                groupColor = shareUi.self?.argb,
+                onSendToGroup = share::shareSketch,
             )
         }
         // The messages stand over the panels (P29.5): « Enregistrement terminé » and its « Reprendre » stay in sight when
@@ -2162,6 +2175,8 @@ fun MapScreen(
                     DrawBar(
                         ui = drawUi,
                         vm = draw,
+                        groupColor = shareUi.self?.argb,
+                        onSendToGroup = share::shareTrack,
                         center = { controller.liveCamera.let { it.lat to it.lon } },
                         maxHeight = toolMaxHeight,
                         modifier = toolModifier,

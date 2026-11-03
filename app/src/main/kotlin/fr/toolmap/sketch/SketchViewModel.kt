@@ -10,6 +10,7 @@ import fr.toolmap.core.sketch.SketchPath
 import fr.toolmap.core.sketch.SketchScale
 import fr.toolmap.core.sketch.SketchSmoother
 import fr.toolmap.core.sketch.SketchSmoothing
+import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.core.sketch.XY
 import fr.toolmap.data.tracks.SavedSketch
 import fr.toolmap.data.tracks.SketchRepository
@@ -47,6 +48,8 @@ data class SketchUi(
     val canRedo: Boolean = false,
     /** Something changed since the sketch was opened. */
     val dirty: Boolean = false,
+    /** A sketch for the sharing group (P27): « Envoyer » sends it, it is never stored here. */
+    val forGroup: Boolean = false,
 ) {
     val color: Int get() = SketchPalette.COLORS[colorIndex]
 
@@ -76,6 +79,12 @@ class SketchViewModel
         /** A new sketch named [name] (« Croquis du 3 nov. »), opened with the hand: the map is framed first. */
         fun startNew(name: String) = begin(null, name, emptyList())
 
+        /** « Nouveau croquis » of the group (P27): the same pen, sent to the group instead of saved. */
+        fun startForGroup(name: String) = begin(null, name, emptyList(), forGroup = true)
+
+        /** The strokes as they will be sent: smoothed, as « Enregistrer » keeps them. */
+        fun groupStrokes(): List<SketchStroke> = mutableUi.value.strokes.map { it.raw.smoothed() }
+
         /** Reopens a saved sketch to complete it: its curves become points again, so that the eraser works on them. */
         fun open(id: Long) {
             viewModelScope.launch {
@@ -88,6 +97,7 @@ class SketchViewModel
             id: Long?,
             name: String,
             strokes: List<EditStroke>,
+            forGroup: Boolean = false,
         ) {
             undo.clear()
             redo.clear()
@@ -101,6 +111,7 @@ class SketchViewModel
                     canUndo = false,
                     canRedo = false,
                     dirty = false,
+                    forGroup = forGroup,
                 )
         }
 
@@ -109,7 +120,13 @@ class SketchViewModel
             undo.clear()
             redo.clear()
             mutableUi.value =
-                mutableUi.value.copy(active = false, editingId = null, strokes = emptyList(), dirty = false)
+                mutableUi.value.copy(
+                    active = false,
+                    editingId = null,
+                    strokes = emptyList(),
+                    dirty = false,
+                    forGroup = false,
+                )
         }
 
         fun setMode(mode: SketchMode) {

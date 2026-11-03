@@ -6,26 +6,38 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.toolmap.R
+import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.p2p.GroupItemKind
+import fr.toolmap.core.p2p.GroupPoint
 import fr.toolmap.core.p2p.MemberLook
 import fr.toolmap.core.p2p.MemberView
+import fr.toolmap.core.p2p.PointDuration
 import fr.toolmap.core.p2p.ShareGeoJson
 import fr.toolmap.core.p2p.ShareSettings
+import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.core.track.PathStyle
 import fr.toolmap.core.track.TrackPoint
+import fr.toolmap.core.track.Waypoint
+import fr.toolmap.data.tracks.SketchRepository
 import fr.toolmap.data.tracks.TrackRepository
 import fr.toolmap.map.UiMessage
+import fr.toolmap.tracks.MapRequest
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -35,6 +47,19 @@ class ShareMapData(
     val trailsGeoJson: String,
     /** The marker images the members need (one per icon, colour and, for initials, name). */
     val markers: List<MemberMarker> = emptyList(),
+    /** The waypoints and tracks shared with the group (P27). */
+    val itemsGeoJson: String = """{"type":"FeatureCollection","features":[]}""",
+)
+
+/** One of your waypoints, traces or sketches, offered to the group (P27). */
+class MineItem(
+    val kind: GroupItemKind,
+    val id: Long,
+    val name: String,
+    val lengthMeters: Double? = null,
+    val timeMs: Long? = null,
+    /** Points of a track: past about 4 000, it is simplified to fit. */
+    val points: Int = 0,
 )
 
 /** A marker image of the map: [key] is the `img` of the members' GeoJSON ([MemberLook.imageKey]). */
@@ -51,6 +76,7 @@ class ShareViewModel
     constructor(
         private val controller: ShareController,
         private val tracks: TrackRepository,
+        private val sketches: SketchRepository,
         @ApplicationContext private val context: Context,
     ) : ViewModel() {
         val ui: StateFlow<ShareUi> = controller.state
@@ -103,6 +129,7 @@ class ShareViewModel
                         MemberMarker(MemberLook.imageKey(it.color, it.name, it.picture), it.color, it.name, it.picture)
                     }
                     .distinctBy { it.key },
+                ShareGeoJson.items(state.points, state.members),
             )
         }
 
@@ -184,8 +211,175 @@ class ShareViewModel
             }
         }
 
+        // ---- shares of the group (P27) ----------------------------------------------------------------------------
+
+        /** A waypoint for the group at [lat], [lon] (« Nouveau waypoint », at the centre of the map). */
+        fun shareWaypoint(
+            lat: Double,
+            lon: Double,
+            name: String,
+            duration: PointDuration,
+            alert: Boolean,
+        ) = controller.createPoint(lat, lon, name, duration = duration, alert = alert) != null
+
+        /** A track drawn for the group; `false` (and told) when it could not be sent. */
+        fun shareTrack(
+            name: String,
+            points: List<LonLat>,
+            duration: PointDuration,
+            alert: Boolean,
+        ): Boolean = sent(controller.createTrack(name, listOf(points), duration, alert))
+
+        /** A sketch drawn for the group; `false` (and told) when it could not be sent. */
+        fun shareSketch(
+            name: String,
+            strokes: List<SketchStroke>,
+            duration: PointDuration,
+            alert: Boolean,
+        ): Boolean = sent(controller.createSketch(name, strokes, duration, alert))
+
+        private fun sent(point: GroupPoint?): Boolean {
+            if (point == null) mutableMessages.tryEmit(UiMessage(R.string.group_send_failed, emptyList()))
+            return point != null
+        }
+
+        fun removeShare(id: Long) = controller.removePoint(id)
+
+        fun renameShare(
+            point: GroupPoint,
+            name: String,
+        ) = controller.renamePoint(point.id, name, point.symbol)
+
+        fun extendShare(
+            id: Long,
+            duration: PointDuration,
+        ) = controller.extendPoint(id, duration)
+
+        /** The area of a share on the map: its point, or the box of its track or sketch. */
+        fun areaOf(point: GroupPoint): MapRequest {
+            val points =
+                when (point.kind) {
+                    GroupItemKind.WAYPOINT -> {
+                        emptyList()
+                    }
+
+                    GroupItemKind.TRACK -> {
+                        point.track().flatten()
+                    }
+
+                    GroupItemKind.SKETCH -> {
+                        point.sketch().flatMap { s ->
+                            listOf(s.path.start) + s.path.curves.map { it.end }
+                        }.map { it.toLonLat() }
+                    }
+                }.ifEmpty { listOf(LonLat(point.lon, point.lat)) }
+            return MapRequest(
+                points.minOf {
+                    it.lat
+                },
+                points.minOf { it.lon },
+                points.maxOf { it.lat },
+                points.maxOf { it.lon },
+            )
+        }
+
+        /** Your waypoints, traces and sketches, for « Partager un des miens… » (P27). */
+        val mine: StateFlow<List<MineItem>> =
+            combine(tracks.library, sketches.sketches) { library, saved ->
+                library.waypoints.map {
+                    MineItem(GroupItemKind.WAYPOINT, it.id, it.name.orEmpty(), timeMs = it.timeMillis)
+                } +
+                    library.tracks.map {
+                        MineItem(
+                            GroupItemKind.TRACK,
+                            it.id,
+                            it.name.orEmpty(),
+                            it.distanceMeters,
+                            it.createdAt,
+                            it.pointCount,
+                        )
+                    } +
+                    saved.map { MineItem(GroupItemKind.SKETCH, it.id, it.sketch.name, timeMs = it.updatedAt) }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_MS), emptyList())
+
+        /**
+         * Sends [items] of yours to the group, under [name] when there is only one; a track too long is simplified,
+         * one that does not fit is told.
+         */
+        fun shareMine(
+            items: List<MineItem>,
+            name: String,
+            duration: PointDuration,
+            alert: Boolean,
+        ) {
+            viewModelScope.launch {
+                var failed = 0
+                for (item in items) {
+                    val label = if (items.size == 1) name else item.name
+                    val sent =
+                        runCatching {
+                            when (item.kind) {
+                                GroupItemKind.WAYPOINT -> {
+                                    val w = tracks.library.first().waypoints.first { it.id == item.id }
+                                    val alt = w.ele?.let { Math.round(it).toInt() }
+                                    controller.createPoint(w.lat, w.lon, label, w.sym.orEmpty(), alt, duration, alert)
+                                }
+
+                                GroupItemKind.TRACK -> {
+                                    val segments = tracks.loadTrack(item.id)?.segments.orEmpty()
+                                    controller.createTrack(
+                                        label,
+                                        segments.map { s -> s.map { LonLat(it.lon, it.lat) } },
+                                        duration,
+                                        alert,
+                                    )
+                                }
+
+                                GroupItemKind.SKETCH -> {
+                                    val strokes = sketches.load(item.id)?.sketch?.strokes.orEmpty()
+                                    controller.createSketch(label, strokes, duration, alert)
+                                }
+                            }
+                        }.getOrNull()
+                    if (sent == null) failed++
+                }
+                if (failed > 0) mutableMessages.tryEmit(UiMessage(R.string.group_send_failed, emptyList()))
+            }
+        }
+
+        /** « Garder dans mes waypoints / traces / croquis »: a copy of the share that stays after the group. */
+        fun keepShare(point: GroupPoint) {
+            viewModelScope.launch {
+                runCatching {
+                    when (point.kind) {
+                        GroupItemKind.WAYPOINT -> {
+                            tracks.createWaypoint(
+                                Waypoint(point.lat, point.lon, ele = point.altM?.toDouble(), name = point.name),
+                            )
+                        }
+
+                        GroupItemKind.TRACK -> {
+                            tracks.createTrack(
+                                point.name,
+                                point.track().map { s -> s.map { TrackPoint(it.lat, it.lon, null, null) } },
+                            )
+                        }
+
+                        GroupItemKind.SKETCH -> {
+                            sketches.save(null, point.name, point.sketch())
+                        }
+                    }
+                }.onSuccess {
+                    mutableMessages.tryEmit(UiMessage(R.string.group_item_kept, listOf(point.name)))
+                }.onFailure {
+                    mutableMessages.tryEmit(UiMessage(R.string.share_trail_failed, listOf(it.message.orEmpty())))
+                }
+            }
+        }
+
         private companion object {
             const val MESSAGE_BUFFER = 8
+            const val STOP_MS = 5_000L
             const val MS_PER_S = 1000L
         }
     }

@@ -116,6 +116,10 @@ class ShareMessage(
     val text: String,
     val timeMs: Long,
     val mine: Boolean,
+    /** The share this automatic message tells of (P27): « Marie a partagé un croquis ». */
+    val point: GroupPoint? = null,
+    /** The share was removed, by [memberId]. */
+    val removal: Boolean = false,
 )
 
 /** What the sharing screen, the map layer and the service notification show. */
@@ -221,6 +225,9 @@ class ShareController(
 
     /** The points last written to the store, so that it is written only when they change (P27.2). */
     private var savedPoints: List<GroupPoint> = emptyList()
+
+    /** Each share already told in the messages, and whether its removal was (P27); guarded by [messages]. */
+    private val announced = HashMap<Long, Boolean>()
 
     /** Messages of the others received since their page was last open (P29.8). */
     private var unreadCount = 0
@@ -802,10 +809,11 @@ class ShareController(
         name: String,
         segments: List<List<LonLat>>,
         duration: PointDuration = PointDuration.WhileGroup,
+        alert: Boolean = false,
     ): GroupPoint? {
         val anchor = segments.firstOrNull { it.isNotEmpty() }?.first() ?: return null
         val shape = GroupShape.packTrack(segments) ?: return null
-        return createShape(name, anchor, GroupItemKind.TRACK, shape, duration)
+        return createShape(name, anchor, GroupItemKind.TRACK, shape, duration, alert)
     }
 
     /** Shares a sketch with the group; `null` outside a group, for an empty sketch or one too large for a frame. */
@@ -813,10 +821,11 @@ class ShareController(
         name: String,
         strokes: List<SketchStroke>,
         duration: PointDuration = PointDuration.WhileGroup,
+        alert: Boolean = false,
     ): GroupPoint? {
         val anchor = strokes.firstOrNull()?.path?.start?.toLonLat() ?: return null
         val shape = GroupShape.packSketch(strokes) ?: return null
-        return createShape(name, anchor, GroupItemKind.SKETCH, shape, duration)
+        return createShape(name, anchor, GroupItemKind.SKETCH, shape, duration, alert)
     }
 
     private fun createShape(
@@ -825,6 +834,7 @@ class ShareController(
         kind: GroupItemKind,
         shape: ByteArray,
         duration: PointDuration,
+        alert: Boolean,
     ): GroupPoint? {
         val n = node ?: return null
         val p =
@@ -833,6 +843,7 @@ class ShareController(
                 anchor.lon,
                 name.trim(),
                 expiresSec = duration.expiresSec(clockMs() / MS_PER_S),
+                alert = alert,
                 kind = kind,
                 shape = Base64.getEncoder().encodeToString(shape),
             )
@@ -975,6 +986,7 @@ class ShareController(
             )
         // The points of the previous process: silent, given to each link that opens (P27.2).
         savedPoints = store.readPoints()
+        synchronized(messages) { savedPoints.forEach { announced[it.id] = it.removed } }
         node?.restorePoints(savedPoints)
         node?.setPicture(settings.pictureBytes())
         // The others see from the first link whether this device shares or only listens (P22.3).
@@ -1066,6 +1078,7 @@ class ShareController(
         }
         synchronized(messages) {
             messages.clear()
+            announced.clear()
             unreadCount = 0
         }
         save()
@@ -1083,12 +1096,15 @@ class ShareController(
         logStatusChanges(members)
         val alerts = synchronized(sosAlerts) { sosAlerts.values.toList() }
         val lifted = synchronized(sosAlerts) { liftedAlerts.values.toList() }
+        n?.keptPoints()?.let {
+            savePoints(it)
+            announce(it, members)
+        }
         val texts = synchronized(messages) { messages.toList() }
         val points = n?.points().orEmpty()
         val live = points.mapTo(HashSet()) { it.id }
         // An alert goes with its point, removed or over.
         val ringing = synchronized(pointAlerts) { pointAlerts.keys.retainAll(live).let { pointAlerts.values.toList() } }
-        n?.keptPoints()?.let(::savePoints)
         mutableState.update {
             it.copy(
                 members = members.sortedWith(compareBy({ m -> !m.isSelf }, { m -> m.name.lowercase() })),
@@ -1107,6 +1123,31 @@ class ShareController(
                 points = points,
                 pointAlerts = ringing,
             )
+        }
+    }
+
+    /**
+     * Adds an automatic message for each share new to this device, and for each removal (P27): « Marie a partagé un
+     * croquis », « Paul a retiré « Pont du Fau » ». A removed share never seen live is not told.
+     */
+    private fun announce(
+        kept: List<GroupPoint>,
+        members: List<MemberView>,
+    ) {
+        val self = group?.selfId ?: return
+        val now = clockMs()
+        synchronized(messages) {
+            for (p in kept) {
+                val told = announced[p.id]
+                if (told == true || (told == false && !p.removed)) continue
+                announced[p.id] = p.removed
+                if (told == null && p.removed) continue
+                val by = if (p.removed) p.removedBy else p.author
+                val name = if (by == self) settings.name else members.firstOrNull { it.id == by }?.name ?: "?"
+                messages += ShareMessage(by, name, p.name, now, mine = by == self, point = p, removal = p.removed)
+                if (by != self) unreadCount++
+            }
+            while (messages.size > MAX_MESSAGES) messages.removeAt(0)
         }
     }
 

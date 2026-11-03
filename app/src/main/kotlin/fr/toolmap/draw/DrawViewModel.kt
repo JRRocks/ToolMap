@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.toolmap.R
+import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.route.AvoidZone
 import fr.toolmap.core.route.HandLegElevations
 import fr.toolmap.core.route.LegKey
@@ -58,6 +59,9 @@ sealed interface DrawTarget {
     data object NewTrack : DrawTarget
 
     data object NewRoute : DrawTarget
+
+    /** A track drawn for the sharing group (P27): sent to it, never stored in the library. */
+    data object GroupTrack : DrawTarget
 
     /** One segment of a stored track; the others are kept as they are. */
     data class Track(
@@ -251,6 +255,12 @@ class DrawViewModel
         val cursor: StateFlow<TrackPoint?> = mutableCursor.asStateFlow()
 
         fun startNewTrack() = begin(DrawTarget.NewTrack, emptyList())
+
+        /** « Nouveau tracé » of the group (P27): drawn as a new track, then sent instead of saved. */
+        fun startGroupTrack() = begin(DrawTarget.GroupTrack, emptyList())
+
+        /** The points of the track drawn for the group, as they will be sent. */
+        fun groupPoints(): List<LonLat> = editor.points.map { LonLat(it.lon, it.lat) }
 
         fun startNewRoute() = beginRoute(DrawTarget.NewRoute, RoutePlan())
 

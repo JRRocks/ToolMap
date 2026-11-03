@@ -444,6 +444,8 @@ internal fun ToolPanel(
     footer: (@Composable () -> Unit)? = null,
     /** Before the title: the back arrow of a page opened from the panel (the settings of the print, P17.8). */
     leading: (@Composable () -> Unit)? = null,
+    /** Before the close button: « Pour le groupe » of a track drawn for the group (P27). */
+    tag: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     BarPanel(
@@ -452,6 +454,7 @@ internal fun ToolPanel(
         footer = footer,
         header = {
             PanelBand(title = title, subtitle = subtitle, leading = leading) {
+                tag?.invoke()
                 if (onClose != null) {
                     IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = closeDescription) }
                 }

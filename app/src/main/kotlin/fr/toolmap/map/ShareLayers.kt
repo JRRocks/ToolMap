@@ -33,11 +33,48 @@ object ShareLayers {
     // Half of the 32 dp marker of [MemberMarkerBitmap]: the names start just right of it.
     private const val MARKER_RADIUS = 16f
     private const val LABELS_LAYER = "tm-s-labels-layer"
+    private const val ITEMS_SOURCE = "tm-s-items"
+    private const val ITEM_LINES_LAYER = "tm-s-item-lines"
+    private const val ITEM_POINTS_LAYER = "tm-s-item-points"
+    private const val ITEM_LABELS_LAYER = "tm-s-item-labels"
+    private const val ITEM_LINE_WIDTH = 4f
+    private const val ITEM_RADIUS = 9f
+    private const val ITEM_RING = 3f
+    private const val ITEM_FILL = "#D93A2F"
 
     fun install(style: Style) {
         if (style.getSource(MEMBERS_SOURCE) != null) return
         style.addSource(GeoJsonSource(TRAILS_SOURCE, EMPTY))
         style.addSource(GeoJsonSource(MEMBERS_SOURCE, EMPTY))
+        style.addSource(GeoJsonSource(ITEMS_SOURCE, EMPTY))
+        // The shares of the group (P27), under the members: tracks in the colour of their author, waypoints as a red
+        // disc ringed with it, and their names.
+        val point = Expression.eq(Expression.geometryType(), Expression.literal("Point"))
+        style.addLayer(
+            LineLayer(ITEM_LINES_LAYER, ITEMS_SOURCE)
+                .withFilter(Expression.not(point))
+                .withProperties(
+                    PropertyFactory.lineColor(Expression.toColor(Expression.get("color"))),
+                    PropertyFactory.lineWidth(ITEM_LINE_WIDTH),
+                    PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                    PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                ),
+        )
+        style.addLayer(
+            CircleLayer(ITEM_POINTS_LAYER, ITEMS_SOURCE)
+                .withFilter(point)
+                .withProperties(
+                    PropertyFactory.circleRadius(ITEM_RADIUS),
+                    PropertyFactory.circleColor(ITEM_FILL),
+                    PropertyFactory.circleStrokeColor(Expression.toColor(Expression.get("color"))),
+                    PropertyFactory.circleStrokeWidth(ITEM_RING),
+                ),
+        )
+        style.addLayer(
+            SymbolLayer(ITEM_LABELS_LAYER, ITEMS_SOURCE)
+                .withFilter(point)
+                .withProperties(*MapLabels.properties(ITEM_RADIUS + ITEM_RING)),
+        )
         style.addLayer(
             LineLayer(TRAILS_LAYER, TRAILS_SOURCE).withProperties(
                 PropertyFactory.lineColor(Expression.toColor(Expression.get("color"))),
@@ -78,6 +115,9 @@ object ShareLayers {
         style.getLayerAs<SymbolLayer>(LABELS_LAYER)?.setProperties(
             PropertyFactory.visibility(if (on) Property.VISIBLE else Property.NONE),
         )
+        style.getLayerAs<SymbolLayer>(ITEM_LABELS_LAYER)?.setProperties(
+            PropertyFactory.visibility(if (on) Property.VISIBLE else Property.NONE),
+        )
     }
 
     /** Adds the marker images still missing from [style], then shows the members and their trails. */
@@ -93,5 +133,6 @@ object ShareLayers {
         }
         style.getSourceAs<GeoJsonSource>(MEMBERS_SOURCE)?.setGeoJson(data.membersGeoJson)
         style.getSourceAs<GeoJsonSource>(TRAILS_SOURCE)?.setGeoJson(data.trailsGeoJson)
+        style.getSourceAs<GeoJsonSource>(ITEMS_SOURCE)?.setGeoJson(data.itemsGeoJson)
     }
 }

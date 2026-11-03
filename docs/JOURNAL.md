@@ -20,6 +20,28 @@
 
 ---
 
+## 2026-11-03 — Session 89 (suite 10) — [P27.0][P27.3][P27.4] Partages du groupe : bloc, envoi, fiche, carte
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 8052ee3 (0.4.184). Copies : GitHub = local (0.4.184, référence) ; Drive non monté.
+- **Objectif** : créer ou partager dans le groupe un waypoint, un tracé ou un croquis depuis l'écran du groupe, avec un message automatique, et les voir sur la carte.
+- **Réalisé** :
+  - Aperçu `docs/previews/p27-creer-pour-le-groupe.html` (état actuel, 5 variantes de l'étape d'envoi, page « Partager un des miens », fiche d'un partage), **validé le 2026-11-03 : « B - oui »** (dialogue court, détails sur une ligne à toucher ; pages 2 et 3 telles quelles). P27.0 ✅.
+  - Message automatique : `ShareController` ajoute « Marie a partagé un croquis « Accès parking » » à chaque partage nouveau et « Paul a retiré « … » » à chaque retrait ; non lu pour ceux des autres ; pas répété après un redémarrage (les partages gardés sont déjà annoncés). Dans la page des messages, une bulle centrée ; un appui montre le partage sur la carte.
+  - Écran du groupe (variante A) : bloc « Dans le groupe » sous « Messages » (type à la couleur de l'auteur, nom, « Tracé · vous · 4,2 km · encore 3 h ») et bouton **Partager dans le groupe** ; sa feuille : Nouveau waypoint (centre de la carte) · Nouveau tracé · Nouveau croquis · Partager un des miens… (`share/GroupShares.kt`).
+  - Dialogue « Envoyer au groupe » (variante B) : nom, puis « Croquis · 2 h · Silencieux » qui s'ouvre sur les durées (30 min à 24 h, Tant que le groupe existe) et Silencieux / Alerte.
+  - Page « Partager un des miens » : onglets Waypoints · Traces · Croquis, recherche, cases à cocher, « sera simplifiée » au-delà de 4 000 points.
+  - Fiche d'un partage : Voir sur la carte (cadre du tracé ou du croquis), Renommer et Prolonger (+1 h, +4 h, tant que le groupe existe) pour l'auteur, Garder dans mes waypoints / traces / croquis, Retirer du groupe.
+  - Outils « Pour le groupe » : le tracé (`DrawTarget.GroupTrack`) et le stylo (`SketchUi.forGroup`) portent l'étiquette à la couleur de l'auteur ; « Envoyer » ouvre le dialogue B ; rien n'entre dans la bibliothèque.
+  - Carte : waypoints du groupe en disque rouge cerclé de la couleur de l'auteur avec leur nom, tracés à sa couleur (gris si l'auteur est parti), croquis avec les autres croquis (`ShareGeoJson.items`, `ShareLayers`).
+- **Décisions (ADR)** : aucune (ADR-112 et ADR-113 suffisent).
+- **Tests / vérifications** :
+  - `ShareControllerTest` (+1 : chaque partage et chaque retrait annoncé une fois, non lu pour l'autre seulement, rien après redémarrage), `ShareModelsTest` (+1 : un point par waypoint, une ligne par tracé, couleur de l'auteur, gris pour un auteur parti) : `./gradlew :core:test --tests "fr.toolmap.core.p2p.*"` et `./gradlew :app:testDebugUnitTest --tests "fr.toolmap.share.*"` verts.
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.184 → 0.4.185) : 6 tests Robolectric en échec au premier passage (`FileSystemAlreadyExistsException` en copiant les polices, puis `UnsatisfiedLinkError` de SQLite dans le même processus, comme en 0.4.166) ; second passage **BUILD SUCCESSFUL**.
+  - Émulateur 0.4.185, groupe à un membre : feuille « Partager dans le groupe » ; « Nouveau waypoint » → dialogue B (« Waypoint · 2 h · Silencieux », durées et Silencieux / Alerte ouverts au toucher) → « Vous avez partagé un waypoint « Pont du Fau » », bloc « Dans le groupe », fiche (Voir sur la carte, Renommer, Prolonger, Garder, Retirer), disque rouge et nom sur la carte ; « Nouveau tracé » avec « Pour le groupe » dans le bandeau, 4 points → tracé à la couleur de l'auteur ; « Nouveau croquis » (stylo bleu, « Pour le groupe », « Envoyer », « Tant que le groupe existe ») → croquis sur la carte ; page des messages : trois bulles ; « Partager un des miens » → trace de 2,70 km envoyée ; « Garder dans mes croquis » → « … est gardé dans vos éléments. » ; « Retirer du groupe » → « Vous avez retiré « Pont du Fau » ». Captures dans le dossier de travail de la session.
+  - Corrigé après ce passage (0.4.186) : « encore 2 h 01 » juste après l'envoi (minutes arrondies au plus proche), « Envoyer » au lieu d'« Enregistrer » au pied du tracé du groupe, date « 3 nov. » de la page « Partager un des miens », nom prérempli par le type quand l'élément n'en a pas (« Envoyer » restait grisé).
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.185 → **0.4.186**) : **BUILD SUCCESSFUL** en 4 min 33 s. Émulateur 0.4.186 : « encore 1 h 49 » et « encore 1 h 54 » dans le bloc, « 3 nov. » sur la page « Partager un des miens », « Envoyer » au pied du tracé du groupe. Captures de l'émulateur ajoutées à l'aperçu validé (section « Validé le 2026-11-03 : B, et l'émulateur »).
+- **Problèmes / dette technique** : quand la couleur de l'auteur est rouge, l'anneau du waypoint du groupe se confond avec le disque rouge ; la saisie libre de la durée (P23) n'est pas proposée dans le dialogue d'envoi (préréglages et « Tant que le groupe existe ») ; le symbole d'un nouveau waypoint du groupe est celui par défaut.
+- **Prochaine étape recommandée** : vérifier sur deux téléphones (P27.5), avec les règles Firebase republiées.
+
 ## 2026-11-03 — Session 89 (suite 9) — [P27.1] Partages du groupe : tracés et croquis dans le message des points
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 21cdd32 (0.4.183). Copies : GitHub = local (0.4.183, référence) ; Drive non monté.
 - **Objectif** : faire passer un tracé ou un croquis par le partage du groupe, comme un point du groupe, sans rien changer encore à l'écran.

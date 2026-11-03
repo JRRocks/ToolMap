@@ -68,6 +68,50 @@ object ShareGeoJson {
         return out.toString()
     }
 
+    /**
+     * The waypoints and tracks shared with the group (P27), in the colour of their author (grey once it left): a point
+     * per waypoint, a line per track. The sketches are drawn with the others ([GroupPoint.sketch]).
+     */
+    fun items(
+        points: List<GroupPoint>,
+        members: List<MemberView>,
+    ): String {
+        val colors = members.associate { it.id to it.color }
+        val out = StringBuilder(points.size * 200 + 64)
+        out.append("{\"type\":\"FeatureCollection\",\"features\":[")
+        var first = true
+        for (p in points) {
+            val segments = if (p.kind == GroupItemKind.TRACK) p.track().filter { it.size >= 2 } else emptyList()
+            if (p.kind == GroupItemKind.SKETCH || (p.kind == GroupItemKind.TRACK && segments.isEmpty())) continue
+            if (!first) out.append(',')
+            first = false
+            out.append("{\"type\":\"Feature\",\"properties\":{\"pid\":").append(JsonText.quote(p.id.toString()))
+            out.append(",\"name\":").append(JsonText.quote(p.name))
+            out.append(",\"color\":\"").append(colors[p.author]?.let(::hex) ?: GONE_COLOR).append('"')
+            out.append("},\"geometry\":")
+            if (p.kind == GroupItemKind.TRACK) {
+                out.append("{\"type\":\"MultiLineString\",\"coordinates\":[")
+                segments.forEachIndexed { i, s ->
+                    if (i > 0) out.append(',')
+                    out.append('[')
+                    s.forEachIndexed { j, q ->
+                        if (j > 0) out.append(',')
+                        out.append('[').append(coordinate(q.lon)).append(',').append(coordinate(q.lat)).append(']')
+                    }
+                    out.append(']')
+                }
+                out.append("]}}")
+            } else {
+                out.append("{\"type\":\"Point\",\"coordinates\":[")
+                out.append(coordinate(p.lon)).append(',').append(coordinate(p.lat)).append("]}}")
+            }
+        }
+        out.append("]}")
+        return out.toString()
+    }
+
+    private const val GONE_COLOR = "#78909C"
+
     private fun hex(argb: Int) = String.format(Locale.ROOT, "#%06X", argb and RGB_MASK)
 
     private fun coordinate(v: Double) = String.format(Locale.ROOT, "%.7f", v)

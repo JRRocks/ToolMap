@@ -52,6 +52,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import fr.toolmap.R
+import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.p2p.GroupItemKind
+import fr.toolmap.core.p2p.PointDuration
 import fr.toolmap.core.route.RouteMarkers
 import fr.toolmap.core.route.RoutePlan
 import fr.toolmap.core.track.ElevationProfile
@@ -67,6 +70,8 @@ import fr.toolmap.map.TextMenu
 import fr.toolmap.map.ToolFooter
 import fr.toolmap.map.ToolPanel
 import fr.toolmap.settings.SettingsIcons
+import fr.toolmap.share.GroupTag
+import fr.toolmap.share.SendToGroupDialog
 import fr.toolmap.tracks.ConfirmDialog
 import fr.toolmap.tracks.ElevationProfileView
 import fr.toolmap.tracks.RenameDialog
@@ -99,8 +104,17 @@ fun DrawBar(
     modifier: Modifier = Modifier,
     backEnabled: Boolean = true,
     hooks: RouteHooks? = null,
+    /** The colour of « Pour le groupe » and what sends a track drawn for the group (P27). */
+    groupColor: Int? = null,
+    onSendToGroup: (
+        name: String,
+        points: List<LonLat>,
+        duration: PointDuration,
+        alert: Boolean,
+    ) -> Boolean = { _, _, _, _ -> false },
 ) {
     val fmt = LocalFormats.current
+    var askGroup by remember { mutableStateOf(false) }
     var askQuit by remember { mutableStateOf(false) }
     var askName by remember { mutableStateOf(false) }
     var askTolerance by remember { mutableStateOf(false) }
@@ -141,7 +155,14 @@ fun DrawBar(
         }
     }
     val save = {
-        if (ui.target is DrawTarget.NewTrack || ui.target is DrawTarget.NewRoute) askName = true else vm.save(null)
+        when {
+            // A track for the group is sent, after its name and duration (P27); too short, it says so.
+            ui.target == DrawTarget.GroupTrack -> if (vm.canSave()) askGroup = true else vm.save(null)
+
+            ui.target is DrawTarget.NewTrack || ui.target is DrawTarget.NewRoute -> askName = true
+
+            else -> vm.save(null)
+        }
     }
     val unnamed = stringResource(R.string.tracks_unnamed)
     val takenLabel = route?.let { r -> ui.taken?.let { stopLabel(r.plan, it) } }
@@ -154,6 +175,7 @@ fun DrawBar(
             target is DrawTarget.Track -> target.name ?: unnamed
             target is DrawTarget.Route -> target.name ?: unnamed
             target == DrawTarget.NewRoute -> stringResource(R.string.draw_route_band)
+            target == DrawTarget.GroupTrack -> stringResource(R.string.group_share_track)
             else -> stringResource(R.string.draw_new_track)
         }
     val length = fmt.distance(ui.lengthMeters)
@@ -170,6 +192,7 @@ fun DrawBar(
         maxHeight = maxHeight,
         modifier = modifier,
         subtitle = status,
+        tag = groupColor?.takeIf { target == DrawTarget.GroupTrack }?.let { argb -> { GroupTag(argb) } },
         onClose = {
             when {
                 ui.zoneRadius != null -> vm.cancelZone()
@@ -322,7 +345,13 @@ fun DrawBar(
                     }
                 },
                 main = {
-                    Button(onClick = save, enabled = ui.pointCount >= 2) { Text(stringResource(R.string.draw_save)) }
+                    Button(onClick = save, enabled = ui.pointCount >= 2) {
+                        Text(
+                            stringResource(
+                                if (target == DrawTarget.GroupTrack) R.string.group_send else R.string.draw_save,
+                            ),
+                        )
+                    }
                 },
             )
         }
@@ -367,6 +396,19 @@ fun DrawBar(
                 vm.cancel()
             },
             onDismiss = { askQuit = false },
+        )
+    }
+    if (askGroup) {
+        SendToGroupDialog(
+            kind = GroupItemKind.TRACK,
+            initialName = stringResource(R.string.draw_default_name, NameDates.format(System.currentTimeMillis())),
+            onSend = { name, duration, alert ->
+                if (onSendToGroup(name, vm.groupPoints(), duration, alert)) {
+                    askGroup = false
+                    vm.cancel()
+                }
+            },
+            onDismiss = { askGroup = false },
         )
     }
     if (askName) {

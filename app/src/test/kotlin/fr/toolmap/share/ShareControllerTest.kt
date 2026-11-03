@@ -4,6 +4,7 @@ import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.p2p.DtlsSetup
 import fr.toolmap.core.p2p.GroupItemKind
 import fr.toolmap.core.p2p.GroupPoint
+import fr.toolmap.core.p2p.GroupShape
 import fr.toolmap.core.p2p.LinkListener
 import fr.toolmap.core.p2p.MemberStatus
 import fr.toolmap.core.p2p.MeshLink
@@ -37,6 +38,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.io.File
+import java.util.Base64
 import kotlin.io.path.createTempDirectory
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -850,6 +852,48 @@ class ShareControllerTest {
             assertEquals(stroke.path.curves.size, got.getValue(sketch.id).sketch().single().path.curves.size)
             assertEquals(setOf(track, sketch), store.readPoints().toSet())
             assertNull(c.createTrack("Vide", emptyList()))
+        }
+
+    @Test
+    fun `each share and each removal is told once in the messages, and not again after a restart`() =
+        runTest {
+            val c = controller()
+            c.load()
+            c.createGroup()
+            val remote = connectRemote(c)
+            val mine = assertNotNull(c.createPoint(45.0, 6.0, "Refuge"))
+            val strokes =
+                listOf(
+                    RawStroke(SketchStyle(0xFFE53935.toInt(), 8.0, 2.0), List(10) { XY(it * 5.0, 0.0) }).smoothed(),
+                )
+            val theirs =
+                remote.node.createPoint(
+                    45.1,
+                    6.1,
+                    "Accès parking",
+                    kind = GroupItemKind.SKETCH,
+                    shape = Base64.getEncoder().encodeToString(assertNotNull(GroupShape.packSketch(strokes))),
+                )
+            runCurrent()
+            val told = c.state.value.messages
+            assertEquals(listOf(mine.id, theirs.id), told.map { it.point?.id })
+            assertTrue(told[0].mine)
+            assertEquals("Bob", told[1].name)
+            assertEquals(GroupItemKind.SKETCH, told[1].point?.kind)
+            // Only the share of the other is unread.
+            assertEquals(1, c.state.value.unread)
+
+            remote.node.removePoint(mine.id)
+            runCurrent()
+            val removal = c.state.value.messages.last()
+            assertTrue(removal.removal)
+            assertEquals(PEER_ID, removal.memberId)
+            assertEquals("Refuge", removal.text)
+            assertEquals(3, c.state.value.messages.size)
+
+            val again = controller()
+            again.load()
+            assertTrue(again.state.value.messages.isEmpty())
         }
 
     @Test

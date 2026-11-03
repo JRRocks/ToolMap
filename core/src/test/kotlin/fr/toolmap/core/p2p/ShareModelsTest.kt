@@ -181,6 +181,40 @@ class ShareGeoJsonTest {
     }
 
     @Test
+    fun `the shares of the group are a point per waypoint and a line per track, in the colour of their author`() {
+        val track =
+            listOf(listOf(fr.toolmap.core.geo.LonLat(6.0, 45.0), fr.toolmap.core.geo.LonLat(6.01, 45.01)))
+        val shape = java.util.Base64.getEncoder().encodeToString(GroupShape.packTrack(track))
+        val points =
+            listOf(
+                GroupPoint(1, author = 7, rev = 1, lat = 45.0, lon = 6.0, name = "Refuge", createdSec = 1),
+                GroupPoint(
+                    2,
+                    author = 9,
+                    rev = 1,
+                    lat = 45.0,
+                    lon = 6.0,
+                    name = "Retour",
+                    createdSec = 1,
+                    kind = GroupItemKind.TRACK,
+                    shape = shape,
+                ),
+                GroupPoint(3, 7, 1, 45.0, 6.0, name = "Croquis", createdSec = 1, kind = GroupItemKind.SKETCH),
+            )
+        val json = ShareGeoJson.items(points, listOf(member(7, "Marie", color = 0xFF2E7D32.toInt())))
+        val features = parse(json).jsonObject["features"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(2, features.size)
+        val props = features.map { it["properties"]!!.jsonObject }
+        assertEquals(listOf("Refuge", "Retour"), props.map { it["name"]!!.jsonPrimitive.content })
+        assertEquals("#2E7D32", props[0]["color"]!!.jsonPrimitive.content)
+        // The author of the track left: grey.
+        assertEquals("#78909C", props[1]["color"]!!.jsonPrimitive.content)
+        val geometry = features[1]["geometry"]!!.jsonObject
+        assertEquals("MultiLineString", geometry["type"]!!.jsonPrimitive.content)
+        assertEquals(2, geometry["coordinates"]!!.jsonArray.single().jsonArray.size)
+    }
+
+    @Test
     fun `each member names its marker image`() {
         val look = MemberLook.pack(MemberLook.ICONS.indexOf("fox_head"), 0xFFAA0000.toInt())
         val json = ShareGeoJson.members(listOf(member(1, "Jo", color = look, fix = fix(1.0, 2.0))), emptySet(), now)
