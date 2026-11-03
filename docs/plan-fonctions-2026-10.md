@@ -235,8 +235,8 @@ nœud.
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
 | P27.0 | ⬜ | Aperçu : création (nom, symbole, durée, Silencieux / Alerte), repère, fiche, liste « Points du groupe », entrées | Validation explicite, date au journal |
-| P27.1 | ⬜ | Protocole : création, mise à jour, retrait, expiration ; rejeu aux arrivants ; emplacement serveur et règles | `WireTest`, `MeshNodeTest` ; émulateur Firebase (`scripts/firebase-emulator-test.sh`) |
-| P27.2 | ⬜ | Contrôleur et stockage local (durées, « tant que le groupe existe ») | `ShareControllerTest` |
+| P27.1 | 🔄 | Protocole : création, mise à jour, retrait, expiration ; rejeu aux arrivants ; emplacement serveur et règles | `WireTest`, `MeshNodeTest` ; émulateur Firebase (`scripts/firebase-emulator-test.sh`) | 2026-11-03 (session 89) : message `POINT`, révisions et pierres tombales, rejeu, emplacement `b/w`, règles ; `WireTest`, `MeshNodeTest`, `RoomStateTest`, `FirebaseRelayFixesTest` verts ; **reste** l'émulateur Firebase (Node absent du poste Windows), à faire sur un poste qui l'a ou en P27.5 |
+| P27.2 | ✅ | Contrôleur et stockage local (durées, « tant que le groupe existe ») | `ShareControllerTest` | 2026-11-03 (session 89) : `PointDuration`, `ShareController` (créer, déplacer, renommer, prolonger, retirer, alertes), `share.points.json` ; 4 tests verts |
 | P27.3 | ⬜ | Interface : carte, fiche, liste, création, notifications | Captures à côté de l'aperçu |
 | P27.4 | ⬜ | Garder dans mes waypoints ; envoyer un waypoint au groupe | Test du dépôt des waypoints |
 | P27.5 | ⬜ | Vérification sur téléphone (contexte station de ski), règles republiées | Point reçu par un membre qui écoute sans partager |

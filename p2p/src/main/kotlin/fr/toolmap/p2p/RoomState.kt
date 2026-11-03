@@ -1,5 +1,6 @@
 package fr.toolmap.p2p
 
+import fr.toolmap.core.p2p.RelayPaths
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -11,7 +12,8 @@ import java.util.Base64
  * The mirror of the `b` node of a room, kept up to date from the `put` and `patch` events of the stream, and the
  * changes it turns into calls on a [Sink]: a member's heartbeat, a member's frame. Layout of a member `m`:
  * `h` = `{t, n, k}` (server time, name, colour), `p` = `{f, t}` (latest position frame), `c` = `{<id>: {f, t}}`
- * (control frames). `f` is the frame in Base64.
+ * (control frames). Beside the members, [RelayPaths.KEPT] = `{<point>: {f, t}}` keeps the points of the group (P27).
+ * `f` is the frame in Base64.
  */
 internal class RoomState(
     private val sink: Sink,
@@ -33,6 +35,13 @@ internal class RoomState(
 
         /** The member removed its node: it left the room (or the room was emptied). */
         fun gone(member: String)
+
+        /** A point of the group kept under [RelayPaths.KEPT] (P27), new or changed; [serverMs] is when it was written. */
+        fun kept(
+            key: String,
+            bytes: ByteArray,
+            serverMs: Long,
+        ) {}
     }
 
     /** A node is a map of children or a leaf value. */
@@ -40,6 +49,7 @@ internal class RoomState(
     private val lastBeat = HashMap<String, Long>()
     private val lastPos = HashMap<String, String>()
     private val seenControl = HashMap<String, MutableSet<String>>()
+    private val lastKept = HashMap<String, String>()
 
     /** `put`: replaces what is at [path] ("/" is the whole room) by [data]. */
     fun put(
@@ -123,6 +133,10 @@ internal class RoomState(
     private fun emit(members: Collection<String>) {
         val frames = ArrayList<() -> Unit>()
         for (member in members) {
+            if (member == RelayPaths.KEPT) {
+                keptFrames(root[member] as? Map<String, Any>, frames)
+                continue
+            }
             val m = root[member] as? Map<String, Any>
             if (m == null) {
                 if (lastBeat.remove(member) != null) sink.gone(member)
@@ -160,6 +174,22 @@ internal class RoomState(
             }
         }
         frames.forEach { it() }
+    }
+
+    /** The points under [RelayPaths.KEPT] whose frame or time changed since the last call. */
+    @Suppress("UNCHECKED_CAST")
+    private fun keptFrames(
+        kept: Map<String, Any>?,
+        frames: MutableList<() -> Unit>,
+    ) {
+        lastKept.keys.retainAll(kept?.keys.orEmpty())
+        kept?.forEach { (key, entry) ->
+            val e = entry as? Map<String, Any> ?: return@forEach
+            val f = (e["f"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return@forEach
+            val t = (e["t"] as? JsonPrimitive)?.longOrNull ?: return@forEach
+            if (lastKept.put(key, "$t:$f") == "$t:$f") return@forEach
+            decode(f)?.let { bytes -> frames += { sink.kept(key, bytes, t) } }
+        }
     }
 
     private fun decode(f: String): ByteArray? = runCatching { Base64.getDecoder().decode(f) }.getOrNull()

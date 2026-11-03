@@ -59,6 +59,15 @@ object RelayPaths {
             null
         }
 
+    /**
+     * The node under `b` that keeps the points of the group (P27), beside the members: `b/w/<point>` = `{f, t}`, the
+     * last revision of the point and the server time it was written.
+     */
+    const val KEPT = "w"
+
+    /** The key of a point under [KEPT]. */
+    fun point(pointId: Long): String = "p" + java.lang.Long.toHexString(pointId)
+
     private const val HEX_RADIX = 16
     private const val MEMBER_KEY_MAX = 17
 }

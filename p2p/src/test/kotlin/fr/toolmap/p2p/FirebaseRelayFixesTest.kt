@@ -57,6 +57,13 @@ class FirebaseRelayFixesTest {
     @Volatile
     private var link: MeshLink? = null
 
+    /** The kept frames handed over ([LinkListener.onKeptFrame]): size and freshness. */
+    private val keptIn: MutableList<Pair<Int, Boolean>> = Collections.synchronizedList(ArrayList())
+
+    /** Points of the group (P27) in the first snapshot of the stream, as JSON children of `w`. */
+    @Volatile
+    private var keptSnapshot = ""
+
     private val listener =
         object : LinkListener {
             override fun onLinkOpen(
@@ -74,6 +81,13 @@ class FirebaseRelayFixesTest {
                 peer: Long,
                 bytes: ByteArray,
             ) = Unit
+
+            override fun onKeptFrame(
+                bytes: ByteArray,
+                fresh: Boolean,
+            ) {
+                keptIn += bytes.size to fresh
+            }
         }
 
     private class MemoryAuth : AuthStore {
@@ -110,7 +124,8 @@ class FirebaseRelayFixesTest {
                             // Another member's heartbeat (at the server time below), then a stream that stays open.
                             val event =
                                 "event: put\ndata: {\"path\":\"/\",\"data\":{\"m2b\":{\"h\":" +
-                                    "{\"t\":$SERVER_MS,\"n\":\"B\",\"k\":0}}}}\n\n"
+                                    "{\"t\":$SERVER_MS,\"n\":\"B\",\"k\":0}}" +
+                                    (if (keptSnapshot.isEmpty()) "" else ",\"w\":{$keptSnapshot}") + "}}\n\n"
                             MockResponse()
                                 .setHeader("Content-Type", "text/event-stream")
                                 .setBody(event + ": waiting\n\n".repeat(100))
@@ -354,6 +369,34 @@ class FirebaseRelayFixesTest {
                     calls.takeWhile { !it.stream }
                 }.count { it.path.endsWith("/h.json") },
             )
+        } finally {
+            r.close()
+        }
+    }
+
+    @Test
+    fun `points of the group live in their own slot of the room, read on arrival and never sent as control frames`() {
+        val b64 = java.util.Base64.getEncoder()
+        val old = b64.encodeToString(frame(MsgType.POINT, 1))
+        val recent = b64.encodeToString(frame(MsgType.POINT, 2))
+        keptSnapshot =
+            """"p5":{"f":"$old","t":${SERVER_MS - 600_000}},"p6":{"f":"$recent","t":$SERVER_MS}"""
+        val r = relay()
+        r.start()
+        try {
+            // Found on arrival: the old one is a replay, the one written a moment ago is news.
+            assertTrue(waitFor(3_000) { keptIn.size == 2 }, "both kept points handed over")
+            assertEquals(setOf(false, true), synchronized(keptIn) { keptIn.map { it.second }.toSet() })
+            val l = linked()
+            l.send(frame(MsgType.POINT, 3), false)
+            r.keep("p7", frame(MsgType.POINT, 3))
+            r.keep("p5", null)
+            r.clearKept()
+            val point = { method: String, end: String -> count { it.method == method && it.path.endsWith(end) } }
+            assertTrue(waitFor(2_000) { point("DELETE", "/b/w.json") == 1 }, "the group emptied: every point goes")
+            assertEquals(1, point("PUT", "/b/w/p7.json"))
+            assertEquals(1, point("DELETE", "/b/w/p5.json"))
+            assertEquals(0, controlWrites(), "a point is not a control frame")
         } finally {
             r.close()
         }

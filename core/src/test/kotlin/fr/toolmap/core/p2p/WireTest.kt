@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -157,6 +158,69 @@ class WireTest {
             Wire.encode(Msg.Diag(1, 2, ByteArray(Msg.Diag.MAX_BYTES + 1)), crypto)
         }
         assertTrue(!Msg.Diag(1, 1, body).onPositionChannel)
+    }
+
+    @Test
+    fun `a point of the group round trips with every value, fits the server slot and has a type of its own`() {
+        assertEquals(16, MsgType.POINT.code)
+        val point =
+            GroupPoint(
+                id = -0x1234_5678_9ABC_DEFL,
+                author = 0x7777_0000_1111L,
+                rev = 3,
+                lat = -21.1234567,
+                lon = 55.7654321,
+                altM = -12,
+                name = "Rendez-vous télésiège ⛷",
+                symbol = "ski-lift",
+                createdSec = 1_790_000_000,
+                updatedSec = 1_790_000_600,
+                expiresSec = 1_790_007_200,
+                alert = true,
+                removedBy = 0x2222L,
+            )
+        val frame = Wire.encode(Msg.Point(9, 0xFFFF_FFFFL, point, replay = true), crypto)
+        assertEquals(MsgType.POINT, Wire.typeOf(frame))
+        val back = Wire.decode(frame, crypto).msg as Msg.Point
+        assertEquals(9, back.memberId)
+        assertEquals(0xFFFF_FFFFL, back.seq)
+        assertTrue(back.replay)
+        assertEquals(point, back.point)
+        assertTrue(back.point.removed)
+        assertEquals(0x2222L, back.point.writer)
+        // A point without altitude nor end, not removed, sent live.
+        val plain = GroupPoint(1, 2, 1, 45.0, 6.0, name = "Parking", createdSec = 1_790_000_000)
+        val live = roundTrip(Msg.Point(2, 1, plain)).msg as Msg.Point
+        assertFalse(live.replay)
+        assertEquals(plain, live.point)
+        assertNull(live.point.altM)
+        assertEquals(GroupPoint.WHILE_GROUP, live.point.endSec)
+        // The longest name and symbol are cut, and the frame stays well inside the slot of the server (800 characters
+        // of Base64, `firebase/database.rules.json`).
+        val long = plain.copy(name = "é".repeat(100), symbol = "s".repeat(100))
+        val longFrame = Wire.encode(Msg.Point(2, 1, long), crypto)
+        val cut = (Wire.decode(longFrame, crypto).msg as Msg.Point).point
+        assertEquals(GroupPoint.MAX_NAME_BYTES / 2, cut.name.length)
+        assertEquals(GroupPoint.MAX_SYMBOL_BYTES, cut.symbol.length)
+        assertTrue((longFrame.size + 2) / 3 * 4 <= 800)
+        assertFailsWith<WireException> { roundTrip(Msg.Point(2, 1, plain.copy(lat = 95.0))) }
+    }
+
+    @Test
+    fun `a later revision or the removal of the same one replaces a point, another author never does`() {
+        val p = GroupPoint(1, 2, 1, 45.0, 6.0, name = "A", createdSec = 100)
+        assertTrue(p.copy(rev = 2).replaces(p))
+        assertFalse(p.replaces(p))
+        assertFalse(p.copy(rev = 2).replaces(p.copy(rev = 3)))
+        assertTrue(p.copy(removedBy = 5).replaces(p))
+        assertFalse(p.replaces(p.copy(removedBy = 5)))
+        assertFalse(p.copy(rev = 2, author = 9).replaces(p))
+        // Ends: its expiry, a day after the removal of a point without end, never for a point on without end.
+        assertTrue(p.copy(expiresSec = 200).isOver(200))
+        assertFalse(p.copy(expiresSec = 200).isOver(199))
+        assertFalse(p.isOver(Long.MAX_VALUE / 2))
+        val removed = p.copy(updatedSec = 150, removedBy = 5)
+        assertEquals(150 + GroupPoint.TOMBSTONE_KEEP_S, removed.endSec)
     }
 
     @Test

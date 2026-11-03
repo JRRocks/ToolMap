@@ -33,6 +33,14 @@ class RoomStateTest {
             override fun gone(member: String) {
                 events += "gone $member"
             }
+
+            override fun kept(
+                key: String,
+                bytes: ByteArray,
+                serverMs: Long,
+            ) {
+                events += "kept $key ${String(bytes)} $serverMs"
+            }
         }
     private val state = RoomState(sink)
 
@@ -85,6 +93,27 @@ class RoomStateTest {
         state.put("/m2/h", json("""{"t":10,"n":"Bob","k":1}"""))
         state.put("/m2/h", json("null"))
         assertEquals(listOf("beat m1 10 Ann 1", "gone m1", "beat m2 10 Bob 1", "gone m2"), events)
+    }
+
+    @Test
+    fun `the points of the group beside the members arrive once per revision and are never a member`() {
+        state.put(
+            "/",
+            json("""{"m1":{"h":{"t":100,"n":"Ann","k":7}},"w":{"p5":{"f":"${b64("P1")}","t":50}}}"""),
+        )
+        state.put("/w/p5", json("""{"f":"${b64("P1")}","t":50}"""))
+        state.put("/w/p5", json("""{"f":"${b64("P2")}","t":60}"""))
+        state.patch("/w", Json.parseToJsonElement("""{"p6":{"f":"${b64("Q")}","t":70}}""").jsonObject)
+        // Taken off then written again: news again.
+        state.put("/w/p6", json("null"))
+        state.put("/w/p6", json("""{"f":"${b64("Q")}","t":70}"""))
+        assertEquals(
+            listOf("beat m1 100 Ann 7", "kept p5 P1 50", "kept p5 P2 60", "kept p6 Q 70", "kept p6 Q 70"),
+            events,
+        )
+        // The whole node of the points goes: no member is said gone.
+        state.put("/w", json("null"))
+        assertEquals(5, events.size)
     }
 
     @Test

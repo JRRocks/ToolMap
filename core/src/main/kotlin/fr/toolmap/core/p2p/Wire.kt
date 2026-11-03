@@ -78,6 +78,9 @@ enum class MsgType(
 
     /** Whether the sender shares its position or only listens (P22.3, ADR-090); unknown to older versions too. */
     STATE(15),
+
+    /** A point of the group (P27): created, changed or removed; unknown to older versions too. */
+    POINT(16),
     ;
 
     companion object {
@@ -188,6 +191,19 @@ sealed interface Msg {
         val sharing: Boolean,
     ) : Msg {
         override val type get() = MsgType.STATE
+    }
+
+    /**
+     * A revision of a point of the group (P27), sent by [memberId]. Flooded while it is news to the receiver, given
+     * again to each new link with [replay] set: a replay never rings.
+     */
+    class Point(
+        val memberId: Long,
+        val seq: Long,
+        val point: GroupPoint,
+        val replay: Boolean = false,
+    ) : Msg {
+        override val type get() = MsgType.POINT
     }
 
     /** A new group key, sent when [excluded] (0 for nobody) leaves the group. */
@@ -351,6 +367,11 @@ object Wire {
                 w.u64(msg.memberId).u32(msg.seq).u8(if (msg.sharing) STATE_SHARING else 0)
             }
 
+            is Msg.Point -> {
+                w.u64(msg.memberId).u32(msg.seq).u8(if (msg.replay) POINT_REPLAY else 0)
+                msg.point.write(w)
+            }
+
             is Msg.Rekey -> {
                 w.u64(msg.memberId).u32(msg.seq).u64(msg.excluded).bytes(msg.key)
             }
@@ -431,6 +452,14 @@ object Wire {
                     Msg.State(r.u64(), r.u32(), r.u8() and STATE_SHARING != 0)
                 }
 
+                MsgType.POINT -> {
+                    val member = r.u64()
+                    val seq = r.u32()
+                    // Unknown bits are left for later versions.
+                    val replay = r.u8() and POINT_REPLAY != 0
+                    Msg.Point(member, seq, GroupPoint.read(r), replay)
+                }
+
                 MsgType.REKEY -> {
                     Msg.Rekey(r.u64(), r.u32(), r.u64(), r.bytes(GroupCrypto.KEY_BYTES))
                 }
@@ -465,6 +494,7 @@ object Wire {
 
     private const val FRAME_ID_BYTES = 4
     private const val STATE_SHARING = 1
+    private const val POINT_REPLAY = 1
     private const val MAX_PEERS = 32
     private const val MAX_TRAIL = 60
     private const val TEXT_BYTES = Msg.MAX_TEXT_CHARS * 4

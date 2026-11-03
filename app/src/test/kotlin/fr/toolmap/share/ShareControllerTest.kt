@@ -1,6 +1,7 @@
 package fr.toolmap.share
 
 import fr.toolmap.core.p2p.DtlsSetup
+import fr.toolmap.core.p2p.GroupPoint
 import fr.toolmap.core.p2p.LinkListener
 import fr.toolmap.core.p2p.MemberStatus
 import fr.toolmap.core.p2p.MeshLink
@@ -11,6 +12,7 @@ import fr.toolmap.core.p2p.PairingKind
 import fr.toolmap.core.p2p.PairingPayload
 import fr.toolmap.core.p2p.PairingTransport
 import fr.toolmap.core.p2p.PeerFix
+import fr.toolmap.core.p2p.PointDuration
 import fr.toolmap.core.p2p.TransportFactory
 import fr.toolmap.core.record.Fix
 import fr.toolmap.p2p.ShareStore
@@ -789,5 +791,83 @@ class ShareControllerTest {
             c.updateSettings { it.copy(intervalSec = 1, minMoveMeters = 100_000) }
             assertEquals(5, c.state.value.settings.intervalSec)
             assertEquals(1000, c.state.value.settings.minMoveMeters)
+        }
+
+    @Test
+    fun `points of the group go both ways, an alert waits until it is seen and only the author moves a point`() =
+        runTest {
+            val c = controller()
+            c.load()
+            c.createGroup()
+            val remote = connectRemote(c)
+            val mine = assertNotNull(c.createPoint(45.1, 6.1, "  Parking  ", duration = PointDuration.PRESETS[1]))
+            runCurrent()
+            assertEquals("Parking", remote.node.points().single().name)
+            assertEquals(BASE_MS / 1000 + currentTime / 1000 + 3600, mine.expiresSec)
+            assertEquals(listOf(mine.id), c.state.value.points.map { it.id })
+
+            val theirs = remote.node.createPoint(45.2, 6.2, "Télésiège", alert = true)
+            runCurrent()
+            assertEquals(2, c.state.value.points.size)
+            assertEquals(listOf(theirs.id), c.state.value.pointAlerts.map { it.id })
+            c.acknowledgePointAlert(theirs.id)
+            assertTrue(c.state.value.pointAlerts.isEmpty())
+
+            // Only the author moves or extends; anyone removes.
+            assertFalse(c.movePoint(theirs.id, 0.0, 0.0))
+            assertTrue(c.extendPoint(mine.id, PointDuration.WhileGroup))
+            runCurrent()
+            assertEquals(GroupPoint.WHILE_GROUP, remote.node.points().first { it.id == mine.id }.expiresSec)
+            assertTrue(c.removePoint(theirs.id))
+            runCurrent()
+            assertEquals(listOf(mine.id), remote.node.points().map { it.id })
+        }
+
+    @Test
+    fun `an alert point removed before it is seen stops ringing`() =
+        runTest {
+            val c = controller()
+            c.load()
+            c.createGroup()
+            val remote = connectRemote(c)
+            val p = remote.node.createPoint(45.2, 6.2, "Ici", alert = true)
+            runCurrent()
+            assertEquals(1, c.state.value.pointAlerts.size)
+            remote.node.removePoint(p.id)
+            runCurrent()
+            assertTrue(c.state.value.points.isEmpty())
+            assertTrue(c.state.value.pointAlerts.isEmpty())
+        }
+
+    @Test
+    fun `points are kept between launches, silent, and forgotten with the group`() =
+        runTest {
+            val c = controller()
+            c.load()
+            c.createGroup()
+            val p = assertNotNull(c.createPoint(45.0, 6.0, "Refuge", symbol = "hut", alert = true))
+            assertEquals(listOf(p), store.readPoints())
+
+            val again = controller()
+            again.load()
+            assertEquals(listOf(p), again.state.value.points)
+            assertTrue(again.state.value.pointAlerts.isEmpty())
+            again.leaveGroup()
+            assertTrue(store.readPoints().isEmpty())
+            assertTrue(again.state.value.points.isEmpty())
+        }
+
+    @Test
+    fun `a point that ends goes from the screen and from the store`() =
+        runTest {
+            val c = controller()
+            c.load()
+            c.createGroup()
+            c.createPoint(45.0, 6.0, "30 min", duration = PointDuration.PRESETS[0])
+            assertEquals(1, c.state.value.points.size)
+            advanceTimeBy(1_801_000)
+            runCurrent()
+            assertTrue(c.state.value.points.isEmpty())
+            assertTrue(store.readPoints().isEmpty())
         }
 }

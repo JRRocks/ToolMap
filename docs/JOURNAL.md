@@ -20,6 +20,24 @@
 
 ---
 
+## 2026-11-03 — Session 89 (suite) — [P27.1][P27.2] Points du groupe : protocole, rejeu, emplacement sur le serveur, contrôleur et stockage
+- **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 61abecd (0.4.170, P26, CI verte). Copies : GitHub `claude/vibrant-galileo-q3s99n` 0.4.170 (= local, référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : suite des tâches faisables sans l'utilisateur : protocole et stockage des points du groupe (P27.1, P27.2), sans interface (l'aperçu P27.0 vient avant P27.3).
+- **Réalisé** :
+  - `:core` : `GroupPoint` (révision, pierre tombale « retiré par », fin, Alerte, symbole), `PointDuration` (30 min à 24 h, saisie de 1 min à 7 jours, « Tant que le groupe existe »), message `POINT` (type 16, drapeau « rejeu ») dans `Wire`.
+  - `MeshNode` : `createPoint`, `updatePoint` (auteur seul), `removePoint` (tout membre), `points`, `keptPoints`, `restorePoints`, `onKeptFrame` ; propagation tant que la révision est nouvelle ; rejeu à chaque liaison ouverte ; sonnerie unique (`MeshListener.onPointAlert`) à la première réception en direct d'un point en Alerte ; fin vérifiée toutes les 10 s ; `MeshTransport.keep` / `clearKept` (dernier membre qui quitte) ; points redéposés avec la nouvelle clé après un retrait de membre.
+  - Serveur : `rooms/<pièce>/b/w/p<id>` (`RelayPaths.KEPT`, `RoomState.kept`, `FirebaseRelay.keep`) ; un `POINT` ne passe plus par `c` ; frais si écrit il y a moins de 150 s ; règles `firebase/database.rules.json` (nœud `b/w`) ; une écriture refusée par d'anciennes règles ne met pas le serveur en « refusé ».
+  - Contrôleur (P27.2) : `ShareController.createPoint`, `movePoint`, `renamePoint`, `extendPoint`, `removePoint`, `acknowledgePointAlert` ; `ShareUi.points`, `pointAlerts` ; `ShareStore.readPoints` / `writePoints` (`share.points.json`, écrit quand les points changent, effacé en quittant).
+  - Docs : `docs/specs/p2p-sharing.md` (ligne `POINT`, § 12), `docs/specs/firebase-relay.md` (arbre, règles à republier), ADR-112.
+- **Décisions (ADR)** : ADR-112 (révisions et pierres tombales, rejeu par chaque membre, emplacement persistant `b/w` sous le flux existant).
+- **Tests / vérifications** :
+  - Nouveaux : `WireTest` (+2 : aller-retour complet, coupe du nom et du symbole, taille de la case serveur ; révisions et fins), `MeshNodeTest` (+8 : diffusion et sonnerie unique, auteur seul, retrait par un autre et retrait gagnant, arrivant sans sonnerie avec pierres tombales, fin et retrait du serveur, trames gardées fraîches ou non, dernier départ, nouvelle clé, points repris), `RoomStateTest` (+1), `FirebaseRelayFixesTest` (+1 : emplacement `b/w`, lecture à l'arrivée, pas de trame `c`), `ShareControllerTest` (+4 : aller-retour, alerte vue ou retirée, redémarrage, fin).
+  - `./gradlew :core:test --tests "*MeshNodeTest*" --tests "*WireTest*"` (35 et 13, 0 échec), `:p2p:testDebugUnitTest` (RoomState 8, FirebaseRelayFixes 10), `:app:testDebugUnitTest --tests "*ShareControllerTest*"` (25) : verts.
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.170 → **0.4.171**) : **BUILD SUCCESSFUL** en 2 min 58 s ; tests core 1 015, data 327, p2p 31 (2 ignorés), app 497 (74 ignorés), 0 échec.
+  - **Pas fait** : `scripts/firebase-emulator-test.sh` (règles sur le vrai émulateur Firebase) : Node absent de ce poste.
+- **Problèmes / dette technique** : règles Firebase à republier par l'utilisateur avant d'utiliser les points sur un groupe serveur ; un point « tant que le groupe existe » reste sur le serveur si tous les membres partent sans « Quitter ».
+- **Prochaine étape recommandée** : choix de l'utilisateur sur `p26-fusion.html` (P26.4, P26.5) ; aperçu P27.0 (création, repère, fiche, liste « Points du groupe ») ; en attendant, P28.7 (lissage) et P28.8 (impression vectorielle des croquis).
+
 ## 2026-11-03 — Session 89 — [P26.0][P26.2][P26.3][P26.1] Modes de fusion : coût mesuré, 16 modes et teinte, tuile composée dans l'intercepteur, aperçu du panneau
 - **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 1ade7a4 (0.4.168). Copies relevées en début de tâche : GitHub `claude/vibrant-galileo-q3s99n` 0.4.168 (référence, = local), `main` 0.4.134, `claude/blissful-hopper-8kr9d6` 0.4.145, `claude/pensive-edison-cgzr8t` 0.4.102 ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : demande de l'utilisateur : faire ici, l'une après l'autre, les tâches faisables sans lui (P26.0, P26.2 à P26.5, P27.1 à P27.4, P28.7, P28.8, captures P29, P19.9 à P19.12) ; commencer par P26.

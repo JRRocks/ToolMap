@@ -23,6 +23,15 @@ interface LinkListener {
         peer: Long,
         bytes: ByteArray,
     )
+
+    /**
+     * A frame the server keeps for the members who come later ([MeshTransport.keep]); [fresh] when it was written a
+     * moment ago, not found there on arrival.
+     */
+    fun onKeptFrame(
+        bytes: ByteArray,
+        fresh: Boolean,
+    ) {}
 }
 
 /**

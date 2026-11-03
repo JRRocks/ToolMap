@@ -1,6 +1,9 @@
 package fr.toolmap.p2p
 
+import fr.toolmap.core.p2p.GroupPoint
 import fr.toolmap.core.p2p.ShareState
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
@@ -29,13 +32,44 @@ class ShareStore(
         }
     }
 
-    fun write(state: ShareState) {
-        file.parentFile?.mkdirs()
-        val temp = File(file.parentFile, file.name + ".tmp")
-        temp.writeText(state.toJson(), Charsets.UTF_8)
-        if (!temp.renameTo(file)) {
-            file.delete()
-            check(temp.renameTo(file)) { "Cannot write ${file.name}" }
+    private val pointsFile = File(file.parentFile, file.name.substringBeforeLast('.') + ".points.json")
+
+    /** The points of the group kept by [writePoints] (P27.2); none when the file is missing or damaged. */
+    fun readPoints(): List<GroupPoint> =
+        runCatching {
+            POINTS_JSON.decodeFromString(POINTS, pointsFile.readText(Charsets.UTF_8))
+        }.getOrDefault(emptyList())
+
+    /** Keeps the points of the group, tombstones included, so that a new process gives them to the next links. */
+    fun writePoints(points: List<GroupPoint>) {
+        runCatching {
+            if (points.isEmpty()) {
+                pointsFile.delete()
+            } else {
+                writeAtomically(pointsFile, POINTS_JSON.encodeToString(POINTS, points))
+            }
         }
+    }
+
+    fun write(state: ShareState) {
+        writeAtomically(file, state.toJson())
+    }
+
+    private fun writeAtomically(
+        target: File,
+        text: String,
+    ) {
+        target.parentFile?.mkdirs()
+        val temp = File(target.parentFile, target.name + ".tmp")
+        temp.writeText(text, Charsets.UTF_8)
+        if (!temp.renameTo(target)) {
+            target.delete()
+            check(temp.renameTo(target)) { "Cannot write ${target.name}" }
+        }
+    }
+
+    private companion object {
+        val POINTS = ListSerializer(GroupPoint.serializer())
+        val POINTS_JSON = Json { ignoreUnknownKeys = true }
     }
 }

@@ -2,6 +2,7 @@ package fr.toolmap.share
 
 import fr.toolmap.core.eventlog.EventLog
 import fr.toolmap.core.p2p.DiagChannel
+import fr.toolmap.core.p2p.GroupPoint
 import fr.toolmap.core.p2p.GroupRecord
 import fr.toolmap.core.p2p.LinkListener
 import fr.toolmap.core.p2p.MemberPalette
@@ -16,6 +17,7 @@ import fr.toolmap.core.p2p.PairingKind
 import fr.toolmap.core.p2p.PairingPayload
 import fr.toolmap.core.p2p.PairingTransport
 import fr.toolmap.core.p2p.PeerFix
+import fr.toolmap.core.p2p.PointDuration
 import fr.toolmap.core.p2p.RelayConfig
 import fr.toolmap.core.p2p.RelayTransport
 import fr.toolmap.core.p2p.RelayTransportFactory
@@ -156,6 +158,10 @@ data class ShareUi(
     val myName: String = "",
     /** Messages of the others received since the page of the messages was last open (P29.8). */
     val unread: Int = 0,
+    /** The points of the group that are on (P27), oldest first. */
+    val points: List<GroupPoint> = emptyList(),
+    /** The points made with « Alerte » that came live and were not seen yet (P27). */
+    val pointAlerts: List<GroupPoint> = emptyList(),
 ) {
     val self: MemberView? get() = members.firstOrNull { it.isSelf }
     val others: List<MemberView> get() = members.filter { !it.isSelf }
@@ -204,6 +210,12 @@ class ShareController(
     /** Guarded by [sosAlerts], like it. */
     private val liftedAlerts = LinkedHashMap<Long, SosLifted>()
     private val messages = ArrayList<ShareMessage>()
+
+    /** The points rung and not seen yet (P27), by id. */
+    private val pointAlerts = LinkedHashMap<Long, GroupPoint>()
+
+    /** The points last written to the store, so that it is written only when they change (P27.2). */
+    private var savedPoints: List<GroupPoint> = emptyList()
 
     /** Messages of the others received since their page was last open (P29.8). */
     private var unreadCount = 0
@@ -275,6 +287,13 @@ class ShareController(
                 bytes: ByteArray,
             ) {
                 node?.onFrame(peer, bytes)
+            }
+
+            override fun onKeptFrame(
+                bytes: ByteArray,
+                fresh: Boolean,
+            ) {
+                node?.onKeptFrame(bytes, fresh)
             }
         }
 
@@ -374,6 +393,11 @@ class ShareController(
                 body: ByteArray,
             ) {
                 diagReceiver?.invoke(member, body)
+            }
+
+            override fun onPointAlert(point: GroupPoint) {
+                EventLog.event("share.point.alert", "point" to MeshNode.hex(point.id))
+                synchronized(pointAlerts) { pointAlerts[point.id] = point }
             }
         }
 
@@ -737,6 +761,88 @@ class ShareController(
         refresh()
     }
 
+    // ---- points of the group (P27) ------------------------------------------------------------------------------
+
+    /** Makes a point of the group at a place; `null` outside a group. */
+    fun createPoint(
+        lat: Double,
+        lon: Double,
+        name: String,
+        symbol: String = "",
+        altM: Int? = null,
+        duration: PointDuration = PointDuration.WhileGroup,
+        alert: Boolean = false,
+    ): GroupPoint? {
+        val n = node ?: return null
+        val p =
+            n.createPoint(
+                lat,
+                lon,
+                name.trim(),
+                symbol,
+                altM,
+                duration.expiresSec(clockMs() / MS_PER_S),
+                alert,
+            )
+        EventLog.event("share.point.create", "point" to MeshNode.hex(p.id), "alert" to alert, "end" to p.expiresSec)
+        refresh()
+        return p
+    }
+
+    /** Moves a point this device made; `false` when it is not its author or the point is gone. */
+    fun movePoint(
+        id: Long,
+        lat: Double,
+        lon: Double,
+        altM: Int? = null,
+    ): Boolean = changePoint(id) { it.copy(lat = lat, lon = lon, altM = altM) }
+
+    /** Renames a point this device made, and changes its symbol. */
+    fun renamePoint(
+        id: Long,
+        name: String,
+        symbol: String,
+    ): Boolean = changePoint(id) { it.copy(name = name.trim(), symbol = symbol) }
+
+    /** Extends (or shortens) a point this device made: [duration] counts from now. */
+    fun extendPoint(
+        id: Long,
+        duration: PointDuration,
+    ): Boolean = changePoint(id) { it.copy(expiresSec = duration.expiresSec(clockMs() / MS_PER_S)) }
+
+    /** Removes a point of the group, whoever made it. */
+    fun removePoint(id: Long): Boolean {
+        val done = node?.removePoint(id) == true
+        EventLog.event("share.point.remove", "point" to MeshNode.hex(id), "done" to done)
+        refresh()
+        return done
+    }
+
+    /** The alert of a point was seen. */
+    fun acknowledgePointAlert(id: Long) {
+        synchronized(pointAlerts) { pointAlerts.remove(id) }
+        refresh()
+    }
+
+    private fun changePoint(
+        id: Long,
+        change: (GroupPoint) -> GroupPoint,
+    ): Boolean {
+        val done = node?.updatePoint(id, change) != null
+        EventLog.event("share.point.change", "point" to MeshNode.hex(id), "done" to done)
+        refresh()
+        return done
+    }
+
+    /** Writes the points to the store when they changed since the last write (P27.2). */
+    private fun savePoints(points: List<GroupPoint>) {
+        synchronized(pointAlerts) {
+            if (points == savedPoints) return
+            savedPoints = points
+        }
+        store.writePoints(points)
+    }
+
     // ---- settings -------------------------------------------------------------------------------------------------
 
     /** Sets what the others see of this device and how often it sends. */
@@ -815,6 +921,9 @@ class ShareController(
                 clock = clockMs,
                 seqFloor = store.readSeq()?.let { it + SEQ_MARGIN } ?: 0L,
             )
+        // The points of the previous process: silent, given to each link that opens (P27.2).
+        savedPoints = store.readPoints()
+        node?.restorePoints(savedPoints)
         node?.setPicture(settings.pictureBytes())
         // The others see from the first link whether this device shares or only listens (P22.3).
         node?.setSharing(gps != null)
@@ -908,6 +1017,8 @@ class ShareController(
             unreadCount = 0
         }
         save()
+        synchronized(pointAlerts) { pointAlerts.clear() }
+        savePoints(emptyList())
         mutableState.update {
             ShareUi(settings = settings, excluded = it.excluded)
         }
@@ -921,6 +1032,11 @@ class ShareController(
         val alerts = synchronized(sosAlerts) { sosAlerts.values.toList() }
         val lifted = synchronized(sosAlerts) { liftedAlerts.values.toList() }
         val texts = synchronized(messages) { messages.toList() }
+        val points = n?.points().orEmpty()
+        val live = points.mapTo(HashSet()) { it.id }
+        // An alert goes with its point, removed or over.
+        val ringing = synchronized(pointAlerts) { pointAlerts.keys.retainAll(live).let { pointAlerts.values.toList() } }
+        n?.keptPoints()?.let(::savePoints)
         mutableState.update {
             it.copy(
                 members = members.sortedWith(compareBy({ m -> !m.isSelf }, { m -> m.name.lowercase() })),
@@ -936,6 +1052,8 @@ class ShareController(
                 serverIsBuiltIn = settings.server == null && serverForNewGroups() != null,
                 myName = displayName(),
                 unread = synchronized(messages) { unreadCount },
+                points = points,
+                pointAlerts = ringing,
             )
         }
     }

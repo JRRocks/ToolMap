@@ -39,6 +39,19 @@ interface MeshTransport {
 
     /** Gives up the link being negotiated with [peer], or closes it. */
     fun drop(peer: Long)
+
+    /**
+     * Keeps [frame] (a [Msg.Point]) for the members who come later under [key] ([RelayPaths.point]), or takes it off
+     * (`null`): on the server of a group that has one; nothing in the direct mode, where the members give the points to
+     * each other.
+     */
+    fun keep(
+        key: String,
+        frame: ByteArray?,
+    ) {}
+
+    /** The group has no member left: everything [keep] kept goes. */
+    fun clearKept() {}
 }
 
 interface MeshListener {
@@ -63,6 +76,9 @@ interface MeshListener {
 
     /** [member] lifted the alert last given to [onSos] (P22.2): called once per alert, however often it is repeated. */
     fun onSosLifted(member: Long) {}
+
+    /** A new point made with « Alerte » came, live (P27): not when it is given again to a member who arrives. */
+    fun onPointAlert(point: GroupPoint) {}
 
     /** The group key changed: persist it. */
     fun onRekeyed(key: ByteArray) {}
@@ -187,6 +203,10 @@ class MeshNode(
 
     /** The members whose alert was handed to the listener and not lifted since. */
     private val alerting = HashSet<Long>()
+
+    /** The points of the group (P27), tombstones included, until [KEPT_GRACE_S] after their end. */
+    private val points = LinkedHashMap<Long, GroupPoint>()
+    private var lastPointCheckMs = 0L
     private var closed = false
 
     private val me = Member(selfId, selfName, selfColor).also { members[selfId] = it }
@@ -248,6 +268,8 @@ class MeshNode(
         me.sharing?.let { sendTo(peer, Msg.State(selfId, stateSeq, it)) }
         sendTo(peer, peersMessage())
         if (missed.isNotEmpty()) sendTo(peer, Msg.Trail(selfId, missed.toList()))
+        val t = nowSec()
+        for (p in points.values) if (!p.isOver(t)) sendTo(peer, Msg.Point(selfId, nextSeq(), p, replay = true))
         broadcast(peersMessage(), except = peer)
         changed()
     }
@@ -429,6 +451,11 @@ class MeshNode(
                 changed()
             }
 
+            is Msg.Point -> {
+                if (msg.memberId == selfId) return
+                if (takePoint(msg.point, live = !msg.replay, via = from)) relay(raw, from)
+            }
+
             is Msg.Rekey -> {
                 onRekey(from, msg, raw)
             }
@@ -479,6 +506,7 @@ class MeshNode(
             is Msg.Sos -> msg.memberId
             is Msg.SosEnd -> msg.memberId
             is Msg.State -> msg.memberId
+            is Msg.Point -> msg.memberId
             is Msg.Rekey -> msg.memberId
             is Msg.Bye -> msg.memberId
             is Msg.Avatar -> msg.memberId
@@ -669,6 +697,176 @@ class MeshNode(
         }
     }
 
+    // ---- points of the group (P27) ------------------------------------------------------------------------------
+
+    /** The points of the group that are on: not removed, not over. */
+    fun points(): List<GroupPoint> =
+        synchronized(this) {
+            val t = nowSec()
+            points.values.filter { !it.removed && !it.isOver(t) }
+        }
+
+    /**
+     * Every point known, tombstones included, for the caller to keep between launches and give back to [restorePoints]
+     * (P27.2).
+     */
+    fun keptPoints(): List<GroupPoint> = synchronized(this) { points.values.toList() }
+
+    /** Takes back the points kept by a previous process, without ringing nor sending them (they go to each new link). */
+    fun restorePoints(kept: List<GroupPoint>) =
+        locked {
+            val t = nowSec()
+            for (p in kept) {
+                val known = points[p.id]
+                if (!p.isOver(t) && (known == null || p.replaces(known))) points[p.id] = p
+            }
+            changed()
+        }
+
+    /** Makes a point of this device and sends it to the group; [expiresSec] is [GroupPoint.WHILE_GROUP] or a time. */
+    fun createPoint(
+        lat: Double,
+        lon: Double,
+        name: String,
+        symbol: String = "",
+        altM: Int? = null,
+        expiresSec: Long = GroupPoint.WHILE_GROUP,
+        alert: Boolean = false,
+    ): GroupPoint =
+        locked {
+            val t = nowSec()
+            var id = random.nextLong()
+            while (id == 0L || points.containsKey(id)) id = random.nextLong()
+            val p = GroupPoint(id, selfId, 1, lat, lon, altM, name, symbol, t, t, expiresSec, alert)
+            sendPoint(p)
+            p
+        }
+
+    /**
+     * Moves, renames or extends a point of this device ([change] gives the new values; who made it, when and how it
+     * rings stay); `null` when this device is not its author or it is removed.
+     */
+    fun updatePoint(
+        id: Long,
+        change: (GroupPoint) -> GroupPoint,
+    ): GroupPoint? =
+        locked {
+            val known = points[id]?.takeIf { it.author == selfId && !it.removed && !it.isOver(nowSec()) }
+            known?.let {
+                val p =
+                    change(it).copy(
+                        id = it.id,
+                        author = it.author,
+                        rev = it.rev + 1,
+                        createdSec = it.createdSec,
+                        updatedSec = maxOf(nowSec(), it.updatedSec),
+                        alert = it.alert,
+                        removedBy = GroupPoint.LIVE,
+                    )
+                sendPoint(p)
+                p
+            }
+        }
+
+    /** Removes a point of the group, whoever made it: the others are told who did. `false` when it is not on. */
+    fun removePoint(id: Long): Boolean =
+        locked {
+            val known = points[id]?.takeIf { !it.removed && !it.isOver(nowSec()) } ?: return@locked false
+            sendPoint(
+                known.copy(rev = known.rev + 1, updatedSec = maxOf(nowSec(), known.updatedSec), removedBy = selfId),
+            )
+            true
+        }
+
+    /** A frame the server kept for the members who come later ([LinkListener.onKeptFrame]). */
+    fun onKeptFrame(
+        bytes: ByteArray,
+        fresh: Boolean,
+    ) = locked {
+        if (closed) return@locked
+        val msg =
+            try {
+                Wire.decode(bytes, crypto).msg
+            } catch (e: WireException) {
+                EventLog.event("mesh.kept.bad", "bytes" to bytes.size, "why" to e.message)
+                return@locked
+            }
+        if (msg !is Msg.Point || msg.memberId in removed) return@locked
+        val p = msg.point
+        val t = nowSec()
+        if (p.isOver(t)) {
+            // Its writer did not take it off (gone meanwhile): the first member who finds it long over does.
+            if (t >= p.endSec + KEPT_GRACE_S) transport.keep(RelayPaths.point(p.id), null)
+            return@locked
+        }
+        takePoint(p, live = fresh && !msg.replay, via = null)
+    }
+
+    /** Takes in [p] when it is news: unknown, or a later revision of a known point; `true` then. */
+    private fun takePoint(
+        p: GroupPoint,
+        live: Boolean,
+        via: Long?,
+    ): Boolean {
+        if (p.isOver(nowSec())) return false
+        val known = points[p.id]
+        if (known != null && !p.replaces(known)) return false
+        points[p.id] = p
+        EventLog.event(
+            "mesh.point.in",
+            "point" to hex(p.id),
+            "rev" to p.rev,
+            "removed" to p.removed,
+            "live" to live,
+            "via" to via?.let(::hex),
+        )
+        // Rings once, when it is first heard of: the changes that follow are silent.
+        if (known == null && live && p.alert && !p.removed && p.author != selfId) {
+            events += { listener.onPointAlert(p) }
+        }
+        changed()
+        return true
+    }
+
+    /** Keeps [p] and sends it to every neighbour and to the server. */
+    private fun sendPoint(p: GroupPoint) {
+        points[p.id] = p
+        val msg = Msg.Point(selfId, nextSeq(), p)
+        firstTime(selfId, msg.seq)
+        val frame = Wire.encode(msg, crypto)
+        EventLog.event("mesh.point.out", "point" to hex(p.id), "rev" to p.rev, "removed" to p.removed)
+        if (!closed) {
+            for (link in links.values) link.send(frame, false)
+            transport.keep(RelayPaths.point(p.id), frame)
+        }
+        changed()
+    }
+
+    /** Forgets the points over since [KEPT_GRACE_S]; their writer takes them off the server as soon as they end. */
+    private fun expirePoints(t: Long) {
+        var gone = false
+        val it = points.values.iterator()
+        while (it.hasNext()) {
+            val p = it.next()
+            if (!p.isOver(t)) continue
+            val late = t >= p.endSec + KEPT_GRACE_S
+            if (p.writer != selfId && !late) continue
+            transport.keep(RelayPaths.point(p.id), null)
+            it.remove()
+            gone = true
+        }
+        if (gone) changed()
+    }
+
+    /** The points sealed again with the current key, for the members who come after a re-key. */
+    private fun keepPointsAgain() {
+        for (p in points.values) {
+            transport.keep(RelayPaths.point(p.id), Wire.encode(Msg.Point(selfId, nextSeq(), p, replay = true), crypto))
+        }
+    }
+
+    private fun nowSec() = now() / MS_PER_S
+
     // ---- keys and leaving ---------------------------------------------------------------------------------------
 
     /** Removes [memberId]: a new key is sent to everyone else, so the member cannot read what comes next. */
@@ -682,6 +880,7 @@ class MeshNode(
             // The member is told it is out with the old key it knows, before the new one becomes the sealing key.
             dropMember(memberId)
             crypto.rekey(newKey)
+            keepPointsAgain()
             events += { listener.onRekeyed(newKey) }
             changed()
         }
@@ -732,6 +931,8 @@ class MeshNode(
     private fun close(sayBye: Boolean) {
         if (closed) return
         if (sayBye) broadcast(Msg.Bye(selfId))
+        // The last member to leave empties the group: the points kept "while the group exists" go with it (P27).
+        if (sayBye && members.values.none { it.id != selfId && !it.left }) transport.clearKept()
         closed = true
         for ((id, link) in links) {
             link.close()
@@ -776,6 +977,10 @@ class MeshNode(
             if (due(lastEnsureMs, t, ENSURE_EVERY_S)) ensureLinks()
             if (sos != null && sosSendsLeft > 0 && due(lastSosMs, t, SOS_REPEAT_S)) sendSosNow()
             if (liftSendsLeft > 0 && due(lastLiftMs, t, SOS_REPEAT_S)) sendLiftNow()
+            if (due(lastPointCheckMs, t, POINT_CHECK_S)) {
+                lastPointCheckMs = t
+                expirePoints(t / MS_PER_S)
+            }
         }
 
     /** `true` when [everyS] seconds passed since [last], or when the clock went back past it (P21.5 n). */
@@ -963,6 +1168,12 @@ class MeshNode(
         const val ENSURE_EVERY_S = 20L
         const val NEGOTIATION_TIMEOUT_S = 30L
         const val SOS_REPEAT_S = 15L
+
+        /** How often the points that ended are looked for (P27). */
+        const val POINT_CHECK_S = 10L
+
+        /** How long after its end a point stays on the server when its writer did not take it off (gone meanwhile). */
+        const val KEPT_GRACE_S = 600L
 
         /** How long an alert, and then its lift, is repeated (P22.2): two minutes. */
         const val SOS_REPEAT_FOR_S = 120L

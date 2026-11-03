@@ -270,6 +270,17 @@ class FirebaseRelay(
                 )
                 listener.onFrame(id, bytes)
             }
+
+            override fun kept(
+                key: String,
+                bytes: ByteArray,
+                serverMs: Long,
+            ) {
+                val ageMs = serverNow() - serverMs
+                EventLog.detail("relay.kept.in", "key" to key, "fid" to Wire.frameId(bytes), "ageMs" to ageMs)
+                // Written a moment ago: news for the members here; found on arrival: a replay, never rung (P27).
+                listener.onKeptFrame(bytes, fresh = ageMs <= CONTROL_MAX_AGE_MS)
+            }
         }
 
     // ---- life -------------------------------------------------------------------------------------------------
@@ -346,6 +357,40 @@ class FirebaseRelay(
                 it.link = null
                 it.droppedAt = serverNow()
             }
+        }
+    }
+
+    /** A point of the group goes to `b/w/<point>`, read by every member of the room, those who come later included. */
+    override fun keep(
+        key: String,
+        frame: ByteArray?,
+    ) {
+        val path = "rooms/$room/b/${RelayPaths.KEPT}/$key"
+        enqueue {
+            unlessRefused {
+                if (frame == null) {
+                    timed("w.del", null, 0) { db.delete(path) }
+                } else {
+                    val json = frameJson(frame)
+                    timed("w", frame, json.length) { db.put(path, json) }
+                }
+            }
+        }
+    }
+
+    override fun clearKept() {
+        enqueue { unlessRefused { timed("w.clear", null, 0) { db.delete("rooms/$room/b/${RelayPaths.KEPT}") } } }
+    }
+
+    /**
+     * Runs a write of the points of the group: rules published before P27.1 refuse it, which must not mark the whole
+     * server refused (positions and messages still go). Logged only; the user republishes the rules.
+     */
+    private fun unlessRefused(write: () -> Unit) {
+        try {
+            write()
+        } catch (e: FirebaseRefused) {
+            EventLog.event("relay.kept.refused", "why" to e.message)
         }
     }
 
@@ -873,6 +918,8 @@ class FirebaseRelay(
         onPositionChannel: Boolean,
     ) {
         val node = ownNode() ?: return
+        // A point of the group is written to its own slot by [keep], for those who come later too: not as a control frame.
+        if (Wire.typeOf(frame) == MsgType.POINT) return
         // `p` holds a single frame, read by a member who arrives: only positions go there. A PING (liveness, every
         // 15 s) goes with the control frames, else it would hide the position until the next one (P21.5 b).
         val toPositionSlot = onPositionChannel && Wire.typeOf(frame) == MsgType.POS

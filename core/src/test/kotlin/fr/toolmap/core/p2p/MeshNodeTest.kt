@@ -6,6 +6,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -116,6 +117,11 @@ private class Peer(
     val sos = ArrayList<Pair<Long, String>>()
     val lifted = ArrayList<Long>()
     val diags = ArrayList<Pair<Long, ByteArray>>()
+    val pointAlerts = ArrayList<GroupPoint>()
+
+    /** What the server keeps for this device ([MeshTransport.keep]): key to frame, `null` once taken off. */
+    val kept = LinkedHashMap<String, ByteArray?>()
+    var keptCleared = false
     var rekeyed: ByteArray? = null
     var excluded = false
     var changes = 0
@@ -180,6 +186,21 @@ private class Peer(
 
     override fun drop(peer: Long) {
         links.remove(peer)?.close()
+    }
+
+    override fun keep(
+        key: String,
+        frame: ByteArray?,
+    ) {
+        kept[key] = frame
+    }
+
+    override fun clearKept() {
+        keptCleared = true
+    }
+
+    override fun onPointAlert(point: GroupPoint) {
+        pointAlerts += point
     }
 
     override fun onChanged() {
@@ -720,5 +741,160 @@ class MeshNodeTest {
         net.pump()
         assertEquals("Alice M.", b.view(1).name)
         assertEquals(5, c.view(1).color)
+    }
+
+    // ---- points of the group (P27) ----------------------------------------------------------------------------
+
+    @Test
+    fun `a point reaches everyone, rings once on the others, and only its author changes it`() {
+        val (a, b, c) = threeMembers()
+        val p = b.node.createPoint(45.1, 6.2, "Télésiège", symbol = "ski-lift", alert = true)
+        net.pump()
+        assertEquals(listOf(p), a.node.points())
+        assertEquals(listOf(p), c.node.points())
+        assertEquals(listOf(p.id), a.pointAlerts.map { it.id })
+        assertEquals(listOf(p.id), c.pointAlerts.map { it.id })
+        assertTrue(b.pointAlerts.isEmpty())
+        // The author keeps it on the server; the others write nothing.
+        assertNotNull(b.kept[RelayPaths.point(p.id)])
+        assertTrue(a.kept.isEmpty())
+        // Moved and renamed by its author: silent, the same everywhere.
+        val moved = b.node.updatePoint(p.id) { it.copy(lat = 45.2, name = "Télésiège du haut") }
+        net.pump()
+        assertEquals(2, moved?.rev)
+        assertEquals(listOf("Télésiège du haut"), c.node.points().map { it.name })
+        assertEquals(45.2, a.node.points().single().lat, 1e-7)
+        assertEquals(1, a.pointAlerts.size)
+        // Somebody else cannot move it.
+        assertNull(a.node.updatePoint(p.id) { it.copy(lat = 0.0) })
+        // A late copy of the first revision changes nothing.
+        a.node.onFrame(2, Wire.encode(Msg.Point(2, 1, p), GroupCrypto(key)))
+        net.pump()
+        assertEquals("Télésiège du haut", a.node.points().single().name)
+    }
+
+    @Test
+    fun `any member removes a point, the others are told who, and the removal wins over a change at the same time`() {
+        val (a, b, c) = threeMembers()
+        val p = a.node.createPoint(45.0, 6.0, "Parking")
+        net.pump()
+        assertTrue(c.pointAlerts.isEmpty())
+        assertTrue(c.node.removePoint(p.id))
+        net.pump()
+        assertTrue(a.node.points().isEmpty())
+        assertTrue(b.node.points().isEmpty())
+        assertEquals(3L, a.node.keptPoints().single().removedBy)
+        // The remover writes the tombstone on the server, over the author's revision.
+        assertNotNull(c.kept[RelayPaths.point(p.id)])
+        assertFalse(c.node.removePoint(p.id))
+        // The author's change of the same revision, crossing the removal, does not bring it back.
+        a.node.onFrame(1, Wire.encode(Msg.Point(1, 99, p.copy(rev = 2, name = "Parking 2")), GroupCrypto(key)))
+        b.node.onFrame(1, Wire.encode(Msg.Point(1, 99, p.copy(rev = 2, name = "Parking 2")), GroupCrypto(key)))
+        net.pump()
+        assertTrue(b.node.points().isEmpty())
+    }
+
+    @Test
+    fun `a member who arrives later receives the points and the removals without ringing`() {
+        val a = peer(1, "Alice")
+        val b = peer(2, "Bruno")
+        net.connect(1, 2)
+        val on = a.node.createPoint(45.0, 6.0, "Rendez-vous", alert = true)
+        val off = a.node.createPoint(45.1, 6.1, "Ancien")
+        net.pump()
+        b.node.removePoint(off.id)
+        net.pump()
+        assertEquals(1, b.pointAlerts.size)
+        val d = peer(4, "Denis")
+        net.connect(2, 4)
+        assertEquals(listOf(on.id), d.node.points().map { it.id })
+        assertTrue(d.pointAlerts.isEmpty())
+        // The tombstone came too: an old copy of the removed point does not bring it back.
+        d.node.onFrame(2, Wire.encode(Msg.Point(1, 5, off), GroupCrypto(key)))
+        net.pump()
+        assertEquals(listOf(on.id), d.node.points().map { it.id })
+    }
+
+    @Test
+    fun `a point ends at its time, its writer takes it off the server, the others a while later`() {
+        val (a, b, _) = threeMembers()
+        val p = a.node.createPoint(45.0, 6.0, "30 min", expiresSec = net.nowMs / 1000 + 1800)
+        val kept = RelayPaths.point(p.id)
+        net.pump()
+        val extended = a.node.updatePoint(p.id) { it.copy(expiresSec = it.expiresSec + 1800) }
+        net.pump()
+        assertEquals(p.expiresSec + 1800, b.node.points().single().expiresSec)
+        net.tickAll(3600, every = 10)
+        assertTrue(a.node.points().isEmpty())
+        assertTrue(b.node.points().isEmpty())
+        assertTrue(a.kept.containsKey(kept) && a.kept[kept] == null)
+        assertFalse(b.kept.containsKey(kept))
+        net.tickAll(700, every = 10)
+        assertTrue(b.kept.containsKey(kept) && b.kept[kept] == null)
+        assertTrue(a.node.keptPoints().isEmpty() && b.node.keptPoints().isEmpty())
+        assertNotNull(extended)
+    }
+
+    @Test
+    fun `a point kept on the server rings when it was written a moment ago, not when it is found on arrival`() {
+        val a = peer(1, "Alice")
+        val b = peer(2, "Bruno")
+        val crypto = GroupCrypto(key)
+        val fresh = GroupPoint(7, 9, 1, 45.0, 6.0, name = "Tout de suite", createdSec = net.nowMs / 1000, alert = true)
+        a.node.onKeptFrame(Wire.encode(Msg.Point(9, 1, fresh), crypto), fresh = true)
+        b.node.onKeptFrame(Wire.encode(Msg.Point(9, 1, fresh), crypto), fresh = false)
+        assertEquals(listOf(7L), a.pointAlerts.map { it.id })
+        assertTrue(b.pointAlerts.isEmpty())
+        assertEquals(listOf(7L), b.node.points().map { it.id })
+        // A point long over that its writer left on the server is taken off by whoever finds it.
+        val over = fresh.copy(id = 8, expiresSec = net.nowMs / 1000 - GroupPoint.TOMBSTONE_KEEP_S)
+        b.node.onKeptFrame(Wire.encode(Msg.Point(9, 2, over), crypto), fresh = false)
+        assertTrue(b.kept.containsKey(RelayPaths.point(8)) && b.kept[RelayPaths.point(8)] == null)
+        assertEquals(listOf(7L), b.node.points().map { it.id })
+        // Garbage is dropped.
+        b.node.onKeptFrame(ByteArray(40), fresh = true)
+        assertEquals(1, b.node.points().size)
+    }
+
+    @Test
+    fun `the last member to leave empties what the server keeps, the others do not`() {
+        val a = peer(1, "Alice")
+        val b = peer(2, "Bruno")
+        net.connect(1, 2)
+        a.node.createPoint(45.0, 6.0, "Tant que le groupe existe")
+        net.pump()
+        a.node.leave()
+        net.pump()
+        assertFalse(a.keptCleared)
+        b.node.leave()
+        assertTrue(b.keptCleared)
+    }
+
+    @Test
+    fun `after removing a member the points are kept again with the new key`() {
+        val (a, b, _) = threeMembers()
+        val p = b.node.createPoint(45.0, 6.0, "Refuge")
+        net.pump()
+        a.node.remove(3)
+        net.pump()
+        val again = a.kept[RelayPaths.point(p.id)]
+        assertNotNull(again)
+        val newOnly = GroupCrypto(a.rekeyed!!)
+        val msg = Wire.decode(again, newOnly).msg as Msg.Point
+        assertEquals(p, msg.point)
+        assertTrue(msg.replay)
+    }
+
+    @Test
+    fun `points kept by a previous process come back silent and go to the next link`() {
+        val a = peer(1, "Alice")
+        val p = GroupPoint(5, 1, 3, 45.0, 6.0, name = "Gardé", createdSec = net.nowMs / 1000, alert = true)
+        val over = p.copy(id = 6, expiresSec = net.nowMs / 1000 - 1)
+        a.node.restorePoints(listOf(p, over))
+        assertEquals(listOf(p), a.node.points())
+        val b = peer(2, "Bruno")
+        net.connect(1, 2)
+        assertEquals(listOf(p), b.node.points())
+        assertTrue(b.pointAlerts.isEmpty())
     }
 }
