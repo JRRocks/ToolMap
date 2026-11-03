@@ -1,6 +1,9 @@
 package fr.toolmap.core.p2p
 
+import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.sketch.SketchStroke
 import kotlinx.serialization.Serializable
+import java.util.Base64
 
 /**
  * A point shared with the group (P27, `docs/specs/p2p-sharing.md` § 12): it exists only in the group, every member keeps
@@ -31,8 +34,34 @@ data class GroupPoint(
     val alert: Boolean = false,
     /** The member who removed it, [LIVE] while it is on. */
     val removedBy: Long = LIVE,
+    /** A waypoint, or a track or sketch whose [lat], [lon] is the anchor shown first (P27, 2026-11-03). */
+    val kind: GroupItemKind = GroupItemKind.WAYPOINT,
+    /** The packed geometry of a track or a sketch ([GroupShape]), in Base64; empty for a waypoint. */
+    val shape: String = "",
 ) {
     val removed: Boolean get() = removedBy != LIVE
+
+    /** The segments of a track; empty for another kind or an unreadable shape. */
+    fun track(): List<List<LonLat>> =
+        if (kind ==
+            GroupItemKind.TRACK
+        ) {
+            runCatching { GroupShape.unpackTrack(shapeBytes()) }.getOrDefault(emptyList())
+        } else {
+            emptyList()
+        }
+
+    /** The strokes of a sketch; empty for another kind or an unreadable shape. */
+    fun sketch(): List<SketchStroke> =
+        if (kind ==
+            GroupItemKind.SKETCH
+        ) {
+            runCatching { GroupShape.unpackSketch(shapeBytes()) }.getOrDefault(emptyList())
+        } else {
+            emptyList()
+        }
+
+    private fun shapeBytes(): ByteArray = if (shape.isEmpty()) ByteArray(0) else Base64.getDecoder().decode(shape)
 
     /** The member whose writing this revision is: the remover of a tombstone, else the author. */
     val writer: Long get() = if (removed) removedBy else author
@@ -71,6 +100,9 @@ data class GroupPoint(
         w.i16(altM?.coerceIn(Short.MIN_VALUE + 1, Short.MAX_VALUE.toInt()) ?: ALT_UNKNOWN)
         w.u32(createdSec).u32(updatedSec).u32(expiresSec).u64(removedBy).u8(if (alert) FLAG_ALERT else 0)
         w.str(name, MAX_NAME_BYTES).str(symbol, MAX_SYMBOL_BYTES)
+        // Appended after the fields of the first version, which reads a track or a sketch as a waypoint at its anchor.
+        val bytes = shapeBytes()
+        w.u8(kind.code).u16(bytes.size).bytes(bytes)
     }
 
     override fun toString(): String = "GroupPoint(${MeshNode.hex(id)} r$rev${if (removed) " removed" else ""})"
@@ -102,6 +134,11 @@ data class GroupPoint(
             val removedBy = r.u64()
             // Unknown bits are left for later versions.
             val flags = r.u8()
+            val name = r.str()
+            val symbol = r.str()
+            val kind = if (r.remaining > 0) GroupItemKind.of(r.u8()) else GroupItemKind.WAYPOINT
+            val shape = if (r.remaining > 0) r.bytes(r.u16()) else ByteArray(0)
+            if (shape.size > GroupShape.MAX_BYTES) throw WireException("shape too large")
             return GroupPoint(
                 id = id,
                 author = author,
@@ -109,13 +146,15 @@ data class GroupPoint(
                 lat = lat,
                 lon = lon,
                 altM = alt.takeIf { it != ALT_UNKNOWN },
-                name = r.str(),
-                symbol = r.str(),
+                name = name,
+                symbol = symbol,
                 createdSec = created,
                 updatedSec = updated,
                 expiresSec = expires,
                 alert = flags and FLAG_ALERT != 0,
                 removedBy = removedBy,
+                kind = kind,
+                shape = if (shape.isEmpty()) "" else Base64.getEncoder().encodeToString(shape),
             )
         }
     }

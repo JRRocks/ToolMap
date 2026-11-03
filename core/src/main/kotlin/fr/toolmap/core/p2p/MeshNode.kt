@@ -732,12 +732,30 @@ class MeshNode(
         altM: Int? = null,
         expiresSec: Long = GroupPoint.WHILE_GROUP,
         alert: Boolean = false,
+        kind: GroupItemKind = GroupItemKind.WAYPOINT,
+        shape: String = "",
     ): GroupPoint =
         locked {
             val t = nowSec()
             var id = random.nextLong()
             while (id == 0L || points.containsKey(id)) id = random.nextLong()
-            val p = GroupPoint(id, selfId, 1, lat, lon, altM, name, symbol, t, t, expiresSec, alert)
+            val p =
+                GroupPoint(
+                    id,
+                    selfId,
+                    1,
+                    lat,
+                    lon,
+                    altM,
+                    name,
+                    symbol,
+                    t,
+                    t,
+                    expiresSec,
+                    alert,
+                    kind = kind,
+                    shape = shape,
+                )
             sendPoint(p)
             p
         }

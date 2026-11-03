@@ -1,6 +1,8 @@
 package fr.toolmap.share
 
+import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.p2p.DtlsSetup
+import fr.toolmap.core.p2p.GroupItemKind
 import fr.toolmap.core.p2p.GroupPoint
 import fr.toolmap.core.p2p.LinkListener
 import fr.toolmap.core.p2p.MemberStatus
@@ -15,6 +17,9 @@ import fr.toolmap.core.p2p.PeerFix
 import fr.toolmap.core.p2p.PointDuration
 import fr.toolmap.core.p2p.TransportFactory
 import fr.toolmap.core.record.Fix
+import fr.toolmap.core.sketch.RawStroke
+import fr.toolmap.core.sketch.SketchStyle
+import fr.toolmap.core.sketch.XY
 import fr.toolmap.p2p.ShareStore
 import fr.toolmap.record.LocationSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -821,6 +826,30 @@ class ShareControllerTest {
             assertTrue(c.removePoint(theirs.id))
             runCurrent()
             assertEquals(listOf(mine.id), remote.node.points().map { it.id })
+        }
+
+    @Test
+    fun `a track and a sketch reach the other phone whole, and are kept with the points`() =
+        runTest {
+            val c = controller()
+            c.load()
+            c.createGroup()
+            val remote = connectRemote(c)
+            val segments = listOf(List(50) { i -> LonLat(6.4 + i * 1e-4, 45.1 + i * 5e-5) })
+            val track = assertNotNull(c.createTrack("Retour par la crête", segments, PointDuration.PRESETS[2]))
+            val origin = XY.of(LonLat(6.41, 45.11))
+            val style = SketchStyle(0xFFE53935.toInt(), widthMeters = 8.0, smoothingMeters = 2.0)
+            val stroke = RawStroke(style, List(40) { i -> origin + XY(i * 5.0, (i % 7) * 4.0) }).smoothed()
+            val sketch = assertNotNull(c.createSketch("Accès parking", listOf(stroke)))
+            runCurrent()
+            val got = remote.node.points().associateBy { it.id }
+            assertEquals(GroupItemKind.TRACK, got.getValue(track.id).kind)
+            assertEquals(50, got.getValue(track.id).track().single().size)
+            assertEquals(45.1, got.getValue(track.id).lat, 1e-6)
+            assertEquals(GroupItemKind.SKETCH, got.getValue(sketch.id).kind)
+            assertEquals(stroke.path.curves.size, got.getValue(sketch.id).sketch().single().path.curves.size)
+            assertEquals(setOf(track, sketch), store.readPoints().toSet())
+            assertNull(c.createTrack("Vide", emptyList()))
         }
 
     @Test

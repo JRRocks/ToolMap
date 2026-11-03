@@ -11,7 +11,7 @@
           "w": {
             "$point": {
               ".validate": "$point.matches(/^p[0-9a-f]{1,16}$/) && newData.hasChildren(['f', 't'])",
-              "f": { ".validate": "newData.isString() && newData.val().length <= 800" },
+              "f": { ".validate": "newData.isString() && newData.val().length <= 17000" },
               "t": { ".validate": "newData.isNumber()" },
               "$x": { ".validate": false }
             }

@@ -1601,3 +1601,15 @@
   5. **Règles** : nœud `b/w` validé à part ; l'utilisateur doit les **republier** dans la console Firebase ; d'ici là, l'écriture d'un point est refusée sans faire passer le serveur en « refusé ».
 - **Conséquences** : le serveur garde des trames chiffrées au-delà de 120 s (illisibles sans la clé) ; un groupe dont tous les membres partent sans « Quitter » garde ses points jusqu'à leur fin (ceux « tant que le groupe existe » jusqu'au retour d'un membre qui quitte) ; tout membre peut écrire un point au nom d'un autre (comme pour les autres messages, la confiance est celle du groupe).
 - **Alternatives rejetées** : second flux SSE sur `rooms/<pièce>/w` (une connexion de plus, la batterie) ; points rangés sous le nœud de leur auteur (effacés quand il quitte, alors qu'un point « tant que le groupe existe » doit lui survivre) ; rejeu par les membres via les trames `c` en mode serveur (N écritures à chaque arrivée, et rien si personne n'est en ligne).
+
+## ADR-113 — Partages du groupe : tracés et croquis dans le message `POINT`, forme compacte de 12 Ko au plus
+
+- **Date / statut** : 2026-11-03 — Accepté (session 89 ; demande de l'utilisateur : partager ou créer un tracé, un croquis ou un waypoint dans le groupe, qui n'y vit que là ; aperçu `docs/previews/p27-groupe-partages.html`, variante A). Complète ADR-112.
+- **Contexte** : les points du groupe (ADR-112) ont déjà tout ce qu'il faut à un partage : révisions, retrait par tout membre, durée, rejeu aux arrivants, emplacement persistant sur le serveur. Un tracé ou un croquis ne diffère que par sa géométrie, de quelques centaines d'octets à beaucoup plus, alors qu'une trame du maillage fait 16 Ko au plus et que l'emplacement `b/w` acceptait 800 caractères.
+- **Décision** :
+  1. **Même message `POINT`**, deux champs ajoutés à la fin : le genre (waypoint, tracé, croquis) et la forme. Les révisions, retraits, durées, rejeux et l'emplacement du serveur restent ceux d'ADR-112.
+  2. **Forme compacte** (`GroupShape`) : écarts successifs en varints zigzag, puis deflate. Tracé au 1e-5° (environ 1 m), simplifié par Douglas-Peucker (2 m, puis le double) jusqu'à 12 Ko ; croquis gardé tel quel (courbes de Bézier au décimètre, couleur, largeur et lissage de chaque trait), refusé au-delà de 12 Ko.
+  3. **Ancre** : `lat`, `lon` du point est le premier point du tracé ou le début du premier trait ; une version de P27.1 y voit un waypoint.
+  4. **Serveur** : `b/w/*/f` passe de 800 à 17 000 caractères (règles à republier par l'utilisateur).
+- **Conséquences** : un tracé de plusieurs milliers de points arrive simplifié chez les autres (l'auteur garde le sien) ; un très gros croquis ne peut pas être partagé (message à l'utilisateur) ; chaque rejeu redonne la forme entière à chaque nouvelle liaison.
+- **Alternatives rejetées** : un message par genre (trois fois la logique des révisions et du rejeu) ; découper une forme sur plusieurs trames (réassemblage, pertes partielles, pour un besoin rare) ; GPX ou GeoJSON en texte (cinq à dix fois plus gros).

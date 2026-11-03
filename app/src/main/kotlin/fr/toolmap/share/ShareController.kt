@@ -1,9 +1,12 @@
 package fr.toolmap.share
 
 import fr.toolmap.core.eventlog.EventLog
+import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.p2p.DiagChannel
+import fr.toolmap.core.p2p.GroupItemKind
 import fr.toolmap.core.p2p.GroupPoint
 import fr.toolmap.core.p2p.GroupRecord
+import fr.toolmap.core.p2p.GroupShape
 import fr.toolmap.core.p2p.LinkListener
 import fr.toolmap.core.p2p.MemberPalette
 import fr.toolmap.core.p2p.MemberStatus
@@ -31,6 +34,7 @@ import fr.toolmap.core.p2p.TransportFactory
 import fr.toolmap.core.p2p.TransportIdentity
 import fr.toolmap.core.p2p.WireException
 import fr.toolmap.core.record.Fix
+import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.p2p.ShareStore
 import fr.toolmap.record.LocationSource
 import kotlinx.coroutines.CoroutineScope
@@ -45,6 +49,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.Base64
 
 /** What the user can be told went wrong with a code or a group. */
 enum class ShareProblem {
@@ -785,6 +790,53 @@ class ShareController(
                 alert,
             )
         EventLog.event("share.point.create", "point" to MeshNode.hex(p.id), "alert" to alert, "end" to p.expiresSec)
+        refresh()
+        return p
+    }
+
+    /**
+     * Shares a track with the group, simplified as little as needed to fit one frame ([GroupShape.packTrack]); `null`
+     * outside a group, for an empty track or one that does not fit.
+     */
+    fun createTrack(
+        name: String,
+        segments: List<List<LonLat>>,
+        duration: PointDuration = PointDuration.WhileGroup,
+    ): GroupPoint? {
+        val anchor = segments.firstOrNull { it.isNotEmpty() }?.first() ?: return null
+        val shape = GroupShape.packTrack(segments) ?: return null
+        return createShape(name, anchor, GroupItemKind.TRACK, shape, duration)
+    }
+
+    /** Shares a sketch with the group; `null` outside a group, for an empty sketch or one too large for a frame. */
+    fun createSketch(
+        name: String,
+        strokes: List<SketchStroke>,
+        duration: PointDuration = PointDuration.WhileGroup,
+    ): GroupPoint? {
+        val anchor = strokes.firstOrNull()?.path?.start?.toLonLat() ?: return null
+        val shape = GroupShape.packSketch(strokes) ?: return null
+        return createShape(name, anchor, GroupItemKind.SKETCH, shape, duration)
+    }
+
+    private fun createShape(
+        name: String,
+        anchor: LonLat,
+        kind: GroupItemKind,
+        shape: ByteArray,
+        duration: PointDuration,
+    ): GroupPoint? {
+        val n = node ?: return null
+        val p =
+            n.createPoint(
+                anchor.lat,
+                anchor.lon,
+                name.trim(),
+                expiresSec = duration.expiresSec(clockMs() / MS_PER_S),
+                kind = kind,
+                shape = Base64.getEncoder().encodeToString(shape),
+            )
+        EventLog.event("share.point.create", "point" to MeshNode.hex(p.id), "kind" to kind.name, "bytes" to shape.size)
         refresh()
         return p
     }

@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-11-03 — Session 89 (suite 9) — [P27.1] Partages du groupe : tracés et croquis dans le message des points
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 21cdd32 (0.4.183). Copies : GitHub = local (0.4.183, référence) ; Drive non monté.
+- **Objectif** : faire passer un tracé ou un croquis par le partage du groupe, comme un point du groupe, sans rien changer encore à l'écran.
+- **Réalisé** :
+  - `GroupPoint` gagne un genre (`GroupItemKind` : waypoint, tracé, croquis) et une forme, écrits après les champs de P27.1 : une version précédente y lit un waypoint à l'ancre.
+  - `GroupShape` (`:core`) : tracé en écarts de 1e-5° et varints zigzag, compressé, simplifié (Douglas-Peucker, 2 m puis le double) jusqu'à 12 Ko ; croquis en courbes au décimètre avec couleur, largeur et lissage, refusé au-delà de 12 Ko. Lecture protégée contre des données abîmées (comptes bornés, 256 Ko décompressés au plus).
+  - `MeshNode.createPoint` prend le genre et la forme ; `ShareController.createTrack` et `createSketch` (ancre : premier point, début du premier trait).
+  - Règles Firebase : `b/w/*/f` à 17 000 caractères (à republier dans la console avec celles de P27.1).
+  - ADR-113 ; `docs/specs/p2p-sharing.md` § 12, `docs/specs/firebase-relay.md`, plan.
+- **Décisions (ADR)** : ADR-113 (tracés et croquis dans `POINT`, forme compacte de 12 Ko au plus).
+- **Tests / vérifications** :
+  - `GroupShapeTest` (5 tests : tracé au mètre et ses segments ; 40 000 points simplifiés sous 12 Ko, début et fin en place ; croquis au décimètre avec ses styles et refus au-delà de la limite ; données abîmées refusées ; trame ≤ 16 Ko et ≤ 17 000 caractères de Base64, lecture d'une trame de P27.1 en waypoint) et les autres tests `p2p` du `:core` : `./gradlew :core:test --tests "fr.toolmap.core.p2p.*"` vert.
+  - `ShareControllerTest` (+1 : un tracé et un croquis arrivent entiers chez l'autre téléphone et sont gardés avec les points).
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.183 → **0.4.184**) : **BUILD SUCCESSFUL** en 2 min 54 s.
+- **Problèmes / dette technique** : l'émulateur Firebase reste à faire (Node absent du poste) ; les règles sont à republier par l'utilisateur.
+- **Prochaine étape recommandée** : interface de la variante A (bloc « Dans le groupe », feuille « Partager dans le groupe », outils avec « Pour le groupe »), puis le message automatique et l'affichage sur la carte.
+
 ## 2026-11-03 — Session 89 (suite 8) — [P17][P27.0] Le cadre d'impression ne glisse plus vers le sud, et les partages du groupe choisis
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après a389c30 (0.4.181). Copies : GitHub = local (0.4.181, référence) ; Drive non monté.
 - **Objectif** : corriger le décalage de 12 km du cadre d'impression si la correction est légère ; préparer le partage de waypoints, tracés et croquis dans le groupe (demande de l'utilisateur).
