@@ -20,6 +20,22 @@
 
 ---
 
+## 2026-11-03 — Session 89 (suite 5) — [P26.4] Teinter un calque : la feuille et la roue
+- **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 4295047 (0.4.175, Fusion). Copies : GitHub = local (0.4.175, référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : coder « Teinter › » selon la piste choisie par l'utilisateur (« T1 - Teinter un calque », 2026-11-03), et finir P26.
+- **Réalisé** :
+  - Aperçu validé : `docs/previews/p26-teinter.html`, piste **T1 · Feuille**, le 2026-11-03.
+  - Ligne dépliée, « Couleurs » : entrée « Teinter › » sous « Fusion › », avec la pastille et « bleu · 50 % » (« couleur choisie », « aucune »). Feuille « Teinter … » (`TintSheet.kt`) : une phrase, pastilles aucune · six couleurs · roue, « Intensité » appliquée au relâcher, « Retirer la teinte ». Ligne du calque « · teinté » (`MapViewModel.setTint`).
+  - La roue : le cercle chromatique de la couleur d'un membre, rendu commun (`ColorWheelDialog` reçoit titre, pastille et palette), titré « Couleur de la teinte », palette des six couleurs.
+  - `docs/previews/p26-fusion-emulateur.html` complété (T1 et la roue à côté des captures 0.4.176) ; `docs/specs/blend-modes.md` § 6, `docs/specs/ui-index.md`, plans : P26 ✅.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `MapsRootPanelTest` (+1 : « Teinter » ouvre « Teinter IGN Cartes », pas d'intensité sans couleur, « bleu » teinte à 50 % et s'affiche deux fois, « Retirer la teinte » l'ôte, « Fermer » ferme ; ligne « 100 % d'opacité · teinté » et « couleur choisie · 30 % » pour une autre couleur) : 13 tests, 0 échec.
+  - Émulateur 0.4.176 : IGN Pentes, « Teinter › aucune » → feuille ; « bleu » → « bleu · 50 % », ligne « 31 % d'opacité · Produit · teinté » ; roue → « Couleur de la teinte », OK → « couleur choisie · 50 % ». Écart vu : les six couleurs de la roue passent sur deux lignes (le composant du Partage, inchangé).
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.176 → **0.4.177**) : **BUILD SUCCESSFUL** en 2 min 42 s.
+- **Problèmes / dette technique** : la légende du PDF ne cite ni le mode ni la teinte (texte nouveau : aperçu si l'utilisateur le veut).
+- **Prochaine étape recommandée** : captures P29.2 à P29.10 à côté des aperçus ; aperçu P27.0 (points du groupe dans l'interface).
+
 ## 2026-11-03 — Session 89 (suite 4) — [P26.1][P26.4][P26.5] Fusion d'un calque : la feuille des modes expliqués, et le PDF
 - **Branche / commit** : poste Windows (clone git), branche `claude/vibrant-galileo-q3s99n`, partie de 983196a (0.4.173, P28.8). Copies : GitHub = local (0.4.173, référence) ; Drive non monté. Poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : coder le panneau de fusion choisi par l'utilisateur (« Couleurs et fusion d'un calque - Je prend E », 2026-11-03) et imprimer les modes.

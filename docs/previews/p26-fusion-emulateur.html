@@ -1,5 +1,5 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fusion sur l'émulateur</title>
+<title>Fusion et teinte, émulateur</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <style>
 /* Page de choix P26.1 : état actuel (émulateur), puis une variante à la fois, choix en bas.
@@ -103,12 +103,18 @@ code{font-size:13px}
 .srow.on{background:#e3f4f3}
 .sg{font-size:12px;font-weight:500;color:var(--a-acc);padding:10px 16px 2px}
 .redraw{position:absolute;left:50%;transform:translateX(-50%);background:#163A4A;color:#fff;font-size:13px;border-radius:16px;padding:7px 14px;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.3)}
+.tintov{position:absolute;inset:0 0 74px;mix-blend-mode:color;pointer-events:none}
+.dlg{position:absolute;left:24px;right:24px;top:120px;background:#fff;border-radius:26px;box-shadow:0 8px 30px rgba(0,0,0,.4);padding:20px 20px 12px}
+.dlg h3{margin:0 0 12px;font-size:20px;font-weight:500;display:flex;align-items:center;gap:12px}
+.wheelc{width:100%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#fff,rgba(255,255,255,0) 70%),conic-gradient(from 90deg,#ff1744,#ff9100,#ffea00,#76ff03,#1de9b6,#29b6f6,#7c4dff,#e040fb,#ff1744);position:relative}
+.knob{position:absolute;width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #000;margin:-11px 0 0 -11px}
+.btns{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}.btns span{color:var(--a-acc);font-weight:500;font-size:14.5px;padding:10px 12px}
 </style></head><body>
 <div class="wrap">
-  <h1>Fusion d'un calque : l'aperçu validé à côté de l'émulateur</h1>
-  <p>À gauche, la variante <b>E · Feuille expliquée</b> de <code>p26-fusion.html</code>, choisie le 2026-11-03 ; à droite, ToolMap 0.4.175 sur l'émulateur (Medium_Phone, Android 37), favori « Rando été », calque IGN Pentes (montagne) à 31 % sur SCAN 25.</p>
+  <h1>Fusion et teinte d'un calque : les aperçus validés à côté de l'émulateur</h1>
+  <p>À gauche, la variante <b>E · Feuille expliquée</b> de <code>p26-fusion.html</code> et la piste <b>T1 · Feuille</b> de <code>p26-teinter.html</code>, choisies le 2026-11-03 ; à droite, ToolMap sur l'émulateur (Medium_Phone, Android 37 ; 0.4.175 pour la fusion, 0.4.176 pour la teinte), favori « Rando été », calque IGN Pentes (montagne) à 31 % sur SCAN 25.</p>
   <h2>Ligne dépliée, « Couleurs » ouvert</h2>
-  <p>L'entrée « Fusion › » vient avant les curseurs ; « Rotation des couleurs » remplace « Teinte ». « Teinter › » n'est pas encore là : il attend le choix sur <code>p26-teinter.html</code>.</p>
+  <p>L'entrée « Fusion › » vient avant les curseurs ; « Rotation des couleurs » remplace « Teinte ». En 0.4.175, « Teinter › » attendait encore son aperçu ; il est là depuis 0.4.176 (plus bas).</p>
   <div class="grid" id="g1"></div>
   <h2>La feuille des modes</h2>
   <p>Une phrase par mode, et une vignette de la vraie carte à l'endroit de l'écran, fusionnée avec ce mode. La feuille laisse le haut de l'écran visible, comme l'aperçu.</p>
@@ -116,6 +122,12 @@ code{font-size:13px}
   <h2>Après le choix de « Produit »</h2>
   <p>La feuille se ferme, la carte se redessine, et la ligne du calque indique le mode.</p>
   <div class="grid"><figure><img class="shot" src="p26/emu-p26-produit.jpg" alt="Émulateur : ligne d'IGN Pentes en Produit"><figcaption><b>Émulateur 0.4.175.</b> « 31 % d'opacité · Produit », entrée « Fusion › Produit ».</figcaption></figure></div>
+  <h2>« Teinter › » : la feuille (T1)</h2>
+  <p>Pastilles, intensité appliquée au relâcher, « Retirer la teinte » ; la carte reste visible au-dessus. La ligne du calque dit « · Produit · teinté ».</p>
+  <div class="grid" id="g3"></div>
+  <h2>La roue</h2>
+  <p>Le cercle chromatique de la couleur d'un membre, avec les six couleurs des pastilles ; sur l'émulateur, elles passent sur deux lignes.</p>
+  <div class="grid" id="g4"></div>
 </div>
 <script>
 const P={
@@ -180,5 +192,10 @@ const E2=`<div class="sheet"><div class="grab"></div><div style="display:flex;al
 const emu=(src,alt,cap)=>`<figure><img class="shot" src="${src}" alt="${alt}"><figcaption>${cap}</figcaption></figure>`;
 document.getElementById("g1").innerHTML=phone(E1,"multiply","<b>Aperçu validé (E).</b> Deux entrées courtes, puis les curseurs.")+emu("p26/emu-p26-ligne.jpg","Émulateur : ligne dépliée avec l'entrée Fusion","<b>Émulateur 0.4.175.</b> « Fusion › Normal », puis les curseurs.");
 document.getElementById("g2").innerHTML=phone(E2,"multiply","<b>Aperçu validé (E).</b> Une phrase par mode.")+emu("p26/emu-p26-feuille.jpg","Émulateur : feuille Fusion d'IGN Pentes","<b>Émulateur 0.4.175.</b> « Fusion d'IGN Pentes (montagne) », vignettes de la carte de l'écran.");
+const tphone=(inner,tint="",cap="")=>`<figure><div class="ph"><div class="in"><div class="map" style="background-blend-mode:multiply,normal"></div>${tint?`<div class="tintov" style="background:${tint};opacity:.5"></div>`:""}${head}${inner}${nav}</div></div><figcaption>${cap}</figcaption></figure>`;
+const T1a=`<div class="sheet" style="top:430px"><div class="grab"></div><div style="display:flex;align-items:center;padding:0 8px 0 16px"><b style="flex:1;font-size:18px;font-weight:500">Teinter IGN Plan v2</b><div class="ib">${ic("close")}</div></div><div class="sec"><div class="hint" style="margin:0 0 6px">Chaque pixel prend la couleur choisie et garde sa lumière ; l'intensité dose le mélange.</div>${tintRow(4,50)}<div class="link">Retirer la teinte</div></div></div>`;
+const wheel=`<div class="dlg"><h3><span class="dot" style="width:28px;height:28px;background:#00897B"></span>Couleur de la teinte</h3><div class="wheelc"><div class="knob" style="left:30%;top:68%;background:#00897B"></div></div><div class="lbl" style="margin-top:14px"><span>Luminosité</span></div><div class="sl"><i style="width:80%"></i><u style="left:80%"></u></div><div class="dots" style="margin-top:10px">${TINTS.map(c=>`<div class="dot" style="background:${c}"></div>`).join("")}</div><div class="btns"><span>Annuler</span><span>OK</span></div></div>`;
+document.getElementById("g3").innerHTML=tphone(T1a,"#1E88E5","<b>Aperçu validé (T1).</b> Bleu à 50 %.")+emu("p26/emu-p26-teinter.jpg","Émulateur : feuille Teinter IGN Pentes","<b>Émulateur 0.4.176.</b> « Teinter IGN Pentes (montagne) », bleu à 50 %.");
+document.getElementById("g4").innerHTML=tphone(wheel,"#00897B","<b>Aperçu validé.</b> La roue.")+emu("p26/emu-p26-roue.jpg","Émulateur : la roue des couleurs","<b>Émulateur 0.4.176.</b> « Couleur de la teinte ».");
 </script>
 </body></html>

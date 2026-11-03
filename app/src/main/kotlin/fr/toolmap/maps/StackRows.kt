@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerInputScope
@@ -334,6 +336,7 @@ private fun LayerSettings(
 ) {
     var colors by remember(layer.id) { mutableStateOf(false) }
     var blendSheet by remember(layer.id) { mutableStateOf(false) }
+    var tintSheet by remember(layer.id) { mutableStateOf(false) }
     AdjustSlider(
         key = "opacity",
         label = stringResource(R.string.layers_opacity, percentOf(layer.opacity)),
@@ -362,6 +365,13 @@ private fun LayerSettings(
             value = stringResource(layer.blend.label()),
             fade = fade,
         ) { blendSheet = true }
+        EntryRow(
+            label = stringResource(R.string.maps_tint),
+            value = tintText(layer),
+            fade = fade,
+            dot = layer.tint,
+            accent = false,
+        ) { tintSheet = true }
         AdjustSlider(
             key = "contrast",
             label = stringResource(R.string.layers_contrast, percentOf(layer.contrast)),
@@ -424,14 +434,27 @@ private fun LayerSettings(
             onDismiss = { blendSheet = false },
         )
     }
+    if (tintSheet) {
+        TintSheet(
+            layer = layer,
+            name = name,
+            onTint = { tint, strength -> vm.setTint(layer.id, tint, strength) },
+            onDismiss = { tintSheet = false },
+        )
+    }
 }
 
-/** An entry of the colours that opens a sheet (« Fusion › »): its name, then its value in the accent colour. */
+/**
+ * An entry of the colours that opens a sheet (« Fusion › », « Teinter › »): its name, then its value, in the accent
+ * colour when [accent], after a [dot] of that colour (`0xRRGGBB`) when there is one.
+ */
 @Composable
 private fun EntryRow(
     label: String,
     value: String,
     fade: PanelFade,
+    dot: Int? = null,
+    accent: Boolean = true,
     onClick: () -> Unit,
 ) {
     Column(Modifier.padding(start = 56.dp, end = 16.dp).alpha(fade.shown)) {
@@ -440,17 +463,22 @@ private fun EntryRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            if (dot != null) {
+                Box(
+                    Modifier
+                        .padding(end = 6.dp)
+                        .size(18.dp)
+                        .background(Color(OPAQUE or dot), CircleShape),
+                )
+            }
+            val color = if (accent) MaterialTheme.toolMap.accent else MaterialTheme.colorScheme.onSurfaceVariant
             Text(
                 value,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.toolMap.accent,
-                fontWeight = FontWeight.Medium,
+                color = color,
+                fontWeight = if (accent) FontWeight.Medium else null,
             )
-            Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.toolMap.accent,
-            )
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = color)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
@@ -537,12 +565,12 @@ internal fun layerStateLine(
             layer.inverted -> stringResource(R.string.maps_layer_line_inverted, percent)
             else -> stringResource(R.string.maps_layer_line, percent)
         }
-    // « 100 % d'opacité · Produit » (P26.4).
+    // « 100 % d'opacité · Produit · teinté » (P26.4).
+    val blend = stringResource(layer.blend.label()).takeIf { layer.blend != BlendMode.NORMAL }
+    val tinted = stringResource(R.string.maps_layer_tinted).takeIf { layer.tint != null }
     val look =
-        if (layer.blend == BlendMode.NORMAL) {
-            plain
-        } else {
-            stringResource(R.string.maps_layer_line_more, plain, stringResource(layer.blend.label()))
+        listOfNotNull(blend, tinted).fold(plain) { line, more ->
+            stringResource(R.string.maps_layer_line_more, line, more)
         }
     return when {
         !layer.visible -> {
@@ -559,7 +587,10 @@ internal fun layerStateLine(
                 stringResource(R.string.layers_inactive_here).takeUnless {
                     LayerElevation.isDrawnAt(layer, currentZoom)
                 },
-                look.takeIf { percent < FULL_PERCENT || layer.inverted || layer.blend != BlendMode.NORMAL },
+                look.takeIf {
+                    percent < FULL_PERCENT || layer.inverted || layer.blend != BlendMode.NORMAL ||
+                        layer.tint != null
+                },
             ).joinToString(" · ")
         }
     }
@@ -674,3 +705,4 @@ private const val DISABLED = 0.38f
 
 /** Opacity shown in a layer line only below this (a plain opaque layer says nothing about it). */
 private const val FULL_PERCENT = 100
+private const val OPAQUE = 0xFF shl 24

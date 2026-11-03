@@ -224,7 +224,7 @@ Depuis P29.3 (2026-10-27, variante C · Strates, ADR-076), la pile est le conten
 | Plus : Détails · Forcer la mise à jour des données locales (cette session) · Ne plus afficher · Ne plus afficher les autres | ✅ (P29.3) |
 | **Conditions d'affichage** (`maps/DisplayConditionsPanel.kt`, `MapsPage.CONDITIONS`) : panneau non modal en bas de la carte, la barre remonte au-dessus ; bandeau pétrole (titre, nom de la carte, ✕) ; Zoom et Altitude en une ligne chacun (libellé et valeur, barre, Réinitialiser en icône) ; « 0 m · centre N m · 4800 m et + » ; ET / OU et sa phrase seulement si les deux conditions sont posées ; ✕ et Retour ramènent au panneau, la ligne toujours dépliée | ✅ (P29.3, compact) |
 | **Feuille « Fusion de … »** (P26.4) : 16 modes en six familles (Normal · Assombrir · Éclaircir · Contraste · Comparer · Couleur), nom français, nom anglais en gris, une phrase, vignette de la vraie carte fusionnée ; un appui choisit et ferme ; la ligne du calque dit « · Produit » ; « Réinitialiser les couleurs » remet Normal et retire la teinte ; imprimé dans le PDF (P26.5) | ✅ P26.4 (Fusion) |
-| « Teinter › » : couleur et intensité d'une teinte (aperçu `docs/previews/p26-teinter.html`, T1 feuille ou T2 dans la ligne) | ⬜ P26.4 (choix attendu) |
+| **« Teinter › »** (P26.4, piste T1 de `docs/previews/p26-teinter.html` choisie le 2026-11-03) : feuille « Teinter … » : pastilles aucune, six couleurs et roue (« Couleur de la teinte », le cercle chromatique du Partage), « Intensité » appliquée au relâcher, « Retirer la teinte » ; l'entrée affiche « bleu · 50 % » ou « aucune », la ligne du calque « · teinté » | ✅ P26.4 |
 
 ### 5.3 Écran « Cartes disponibles » (`maps/AvailableMapsScreen.kt`)
 

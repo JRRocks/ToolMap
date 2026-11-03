@@ -177,6 +177,13 @@ class MapViewModel
             blend: BlendMode,
         ) = mutableState.update { it.withStack(it.stack.setBlend(id, blend)) }
 
+        /** The tint of [id] (P26.4): a colour `0xRRGGBB` (`null` = none) at [strength] (0..1). */
+        fun setTint(
+            id: String,
+            tint: Int?,
+            strength: Float,
+        ) = mutableState.update { it.withStack(it.stack.setTint(id, tint, strength)) }
+
         fun moveLayerUp(id: String) = mutableState.update { it.withStack(it.stack.moveUp(id)) }
 
         fun moveLayerDown(id: String) = mutableState.update { it.withStack(it.stack.moveDown(id)) }

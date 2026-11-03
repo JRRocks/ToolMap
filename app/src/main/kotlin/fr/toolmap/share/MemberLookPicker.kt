@@ -168,10 +168,10 @@ internal fun MemberLookPicker(
     }
     if (wheel) {
         ColorWheelDialog(
-            name = name,
-            icon = icon,
+            title = stringResource(R.string.share_color_title),
+            badge = { MemberBadge(name, MemberLook.pack(icon, it), picture = picture) },
             initial = argb,
-            picture = picture,
+            palette = MemberPalette.colors.toList(),
             onPick = {
                 wheel = false
                 onColor(it)
@@ -181,14 +181,17 @@ internal fun MemberLookPicker(
     }
 }
 
-/** The chromatic circle: hue around, saturation from the centre, a slider for the brightness, and the palette. */
+/**
+ * The chromatic circle: hue around, saturation from the centre, a slider for the brightness, and the [palette]. [badge]
+ * shows the colour being chosen beside the [title] (the member's icon; the dot of a tint, P26.4).
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ColorWheelDialog(
-    name: String,
-    icon: Int,
+internal fun ColorWheelDialog(
+    title: String,
+    badge: @Composable (Int) -> Unit,
     initial: Int,
-    picture: ByteArray?,
+    palette: List<Int>,
     onPick: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -209,8 +212,8 @@ private fun ColorWheelDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                MemberBadge(name, MemberLook.pack(icon, argb), picture = picture)
-                Text(stringResource(R.string.share_color_title))
+                badge(argb)
+                Text(title)
             }
         },
         text = {
@@ -263,7 +266,7 @@ private fun ColorWheelDialog(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    for ((i, c) in MemberPalette.colors.withIndex()) {
+                    for ((i, c) in palette.withIndex()) {
                         val label = stringResource(R.string.a11y_color_choice, i + 1)
                         Box(
                             modifier =

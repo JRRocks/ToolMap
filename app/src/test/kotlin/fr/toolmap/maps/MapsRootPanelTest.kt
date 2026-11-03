@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -132,6 +133,34 @@ class MapsRootPanelTest {
         rule.onAllNodesWithText("Fusion d'IGN Cartes").assertCountEquals(0)
         rule.onNodeWithText("100 % d'opacité · Produit").assertExists()
         rule.onNodeWithText("Produit").assertExists()
+    }
+
+    @Test
+    fun `Teinter opens a sheet whose dots tint the layer, and Retirer la teinte takes it off`() {
+        setContent()
+        rule.onNodeWithText("IGN Cartes").performClick()
+        rule.onNodeWithText("Couleurs").performClick()
+        rule.onNodeWithText("Teinter").assertExists()
+        rule.onNodeWithText("aucune").performClick()
+        rule.onNodeWithText("Teinter IGN Cartes").assertExists()
+        // No colour yet: no intensity.
+        rule.onAllNodesWithText("Intensité").assertCountEquals(0)
+        rule.onNodeWithContentDescription("bleu").performClick()
+        rule.waitForIdle()
+        val id = fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" }.id
+        val layer = { fixture.vm.state.value.stack.layers.first { it.id == id } }
+        assertEquals(0x1E88E5, layer().tint)
+        assertEquals(0.5f, layer().tintStrength)
+        rule.onAllNodesWithText("bleu · 50 %").assertCountEquals(2)
+        rule.onNodeWithText("Intensité").assertExists()
+        rule.onNodeWithText("Retirer la teinte").performClick()
+        rule.waitForIdle()
+        assertEquals(null, layer().tint)
+        rule.onNodeWithContentDescription("Fermer").performClick()
+        rule.onAllNodesWithText("Teinter IGN Cartes").assertCountEquals(0)
+        rule.runOnIdle { fixture.vm.setTint(id, 0x123456, 0.3f) }
+        rule.onNodeWithText("100 % d'opacité · teinté").assertExists()
+        rule.onNodeWithText("couleur choisie · 30 %").assertExists()
     }
 
     @Test
