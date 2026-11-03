@@ -249,7 +249,26 @@ nœud.
 trace ou un itinéraire ordinaire ; la carte ne bouge pas pendant le tracé ; aucun lissage, aucun SVG, aucun objet
 « dessin ».
 
-**Décisions**
+**Décisions du 2026-11-03 (premier lot « Croquis », elles priment sur les décisions du 2026-10-24 ci-dessous)**
+- Nom : **« Croquis »**. La tuile « Dessiner une trace » du panneau Traces et waypoints est retirée et remplacée par
+  « Croquis » ; une trace à la main se dessine par « Dessiner un itinéraire » avec BRouter éteint (le bouton de la
+  liste vide et l'aide « Prise en main » suivent).
+- La tuile ouvre l'**espace « Croquis » à part** : liste des croquis et « Nouveau croquis » ; liste vide : directement
+  le dessin. Un croquis = une session nommée (« Croquis du 3 nov. »), rouvrable pour la compléter.
+- Premier lot = **stylo seul** : formes, sélection et poignées, roue chromatique, surligneur, flèches, impression,
+  envoi au groupe et lissage de la main levée de l'itinéraire (P28.7) viennent ensuite.
+- Gestes : **bascule Main / Stylo** (remplace « un doigt dessine, deux doigts déplacent ») ; ouverture en **Main**.
+- Épaisseur au **curseur seul** (1 à 40 px telle qu'on la voit, enregistrée en mètres) ; **8 couleurs fixes** (rouge,
+  orange, jaune, vert, bleu, violet, noir, blanc) jusqu'à la roue de P26.
+- Au dézoom : le trait s'affine ; **tout le croquis disparaît** dès que son trait le plus épais passerait sous 1 px.
+- **Gomme partielle** sur les points bruts : elle retire les points sous le doigt et coupe le trait en morceaux.
+- Lissage faible / moyen / fort choisi avant de dessiner ; pendant le dessin, trait **affiché déjà lissé** (calculé à
+  la volée depuis les points bruts) ; **à « Enregistrer »**, chaque morceau est lissé et figé en chemin SVG, les points
+  bruts sont jetés. Croquis rouvert : chemins rééchantillonnés en points, la gomme agit partout, tout est reconverti à
+  l'enregistrement.
+- SVG en **stockage interne** seulement (Room, sauvegarde) : ni fichier .svg partagé, ni GeoJSON dans ce lot.
+
+**Décisions du 2026-10-24**
 - **Espace « Dessin » à part**, avec son propre bouton et sa propre liste (emplacement du bouton choisi sur l'aperçu) ;
   un dessin = un ensemble de traits et de formes avec un nom (afficher ou masquer, renommer, supprimer).
 - Stylo : un doigt dessine, deux doigts déplacent et zooment la carte.
@@ -271,7 +290,7 @@ trace ou un itinéraire ordinaire ; la carte ne bouge pas pendant le tracé ; au
 
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
-| P28.0 | ⬜ | Aperçu : bouton d'accès, espace « Dessin », barre d'outils, formes, sélection et poignées, fiche | Validation explicite, date au journal |
+| P28.0 | 🔄 | Aperçu : bouton d'accès, espace « Dessin », barre d'outils, formes, sélection et poignées, fiche. Premier lot : `docs/previews/p28-croquis.html` (tuile « Croquis », espace et stylo, variantes A Trousse · B Rail · C Pastille · D Carnet · E Équerre), montré le 2026-11-03 | Validation explicite, date au journal |
 | P28.1 | ⬜ | `:core` : lissage, modèle (traits, formes, style, épaisseur en mètres), chemin SVG, échantillonnage, mesures | Tests JVM (lissage, aller-retour SVG, surfaces) |
 | P28.2 | ⬜ | Stockage (Room, migration), sauvegarde, export GeoJSON et SVG | Test de migration ; aller-retour de sauvegarde |
 | P28.3 | ⬜ | Mode stylo : gestes, traits lissés, épaisseur en mètres sur MapLibre (au moins 1 px) | Émulateur : trait lissé, carte déplacée à deux doigts |
