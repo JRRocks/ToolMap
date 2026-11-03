@@ -138,13 +138,30 @@ class NavigationBackTest {
     @Test
     fun `back while drawing asks before losing the points`() {
         rule.onNodeWithContentDescription("Traces et waypoints").performClick()
-        rule.onNodeWithText("Dessiner une trace").performClick()
+        rule.onNodeWithText("Dessiner un itinéraire").performClick()
         rule.onNodeWithText("Ajouter ici").performClick()
+        // The first stop of a route is placed off the main thread (a waypoint under the crosshair is looked for).
+        rule.waitUntil(5_000) {
+            rule.onAllNodesWithText("Placez le réticule", substring = true).fetchSemanticsNodes().isEmpty()
+        }
         pressBack()
         assertFalse(rule.activity.isFinishing, "Back left the app while drawing")
         rule.onAllNodesWithText("Abandonner les modifications ?").assertCountEquals(1)
         rule.onNodeWithText("Abandonner").performClick()
         rule.onAllNodesWithText("Ajouter ici").assertCountEquals(0)
+    }
+
+    @Test
+    fun `back closes a sketch left untouched and the bar comes back`() {
+        rule.onNodeWithContentDescription("Traces et waypoints").performClick()
+        // No sketch yet: the tile opens the pen at once (P28).
+        rule.onNodeWithText("Croquis").performClick()
+        rule.onAllNodesWithText("Enregistrer").assertCountEquals(1)
+        rule.onAllNodesWithContentDescription("Menu").assertCountEquals(0)
+        pressBack()
+        assertFalse(rule.activity.isFinishing, "Back left the app from a sketch")
+        rule.onAllNodesWithText("Enregistrer").assertCountEquals(0)
+        assertMapShown()
     }
 
     @Test

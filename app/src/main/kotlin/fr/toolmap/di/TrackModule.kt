@@ -9,6 +9,7 @@ import dagger.hilt.components.SingletonComponent
 import fr.toolmap.data.elevation.ElevationCompleter
 import fr.toolmap.data.elevation.SourceElevationTiles
 import fr.toolmap.data.routing.BRouterEngine
+import fr.toolmap.data.tracks.SketchRepository
 import fr.toolmap.data.tracks.TrackDatabase
 import fr.toolmap.data.tracks.TrackDisplay
 import fr.toolmap.data.tracks.TrackRepository
@@ -28,6 +29,11 @@ object TrackModule {
     @Provides
     @Singleton
     fun trackRepository(db: TrackDatabase): TrackRepository = TrackRepository(db)
+
+    // The sketches of P28, in the same database: saved and restored with the library.
+    @Provides
+    @Singleton
+    fun sketchRepository(db: TrackDatabase): SketchRepository = SketchRepository(db)
 
     @Provides
     @Singleton

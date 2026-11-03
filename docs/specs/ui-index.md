@@ -252,13 +252,31 @@ Depuis P29.4 (variante « A · Topo » pour le panneau, la liste et le détail ;
 | Entrée | Statut |
 |---|---|
 | Champ « Lieu, trace ou waypoint » → recherche (lieux, coordonnées et vos éléments) | ✅ (P14.10 ; libellé P29.4) |
-| Tuiles Waypoint ici (grisée pendant le dessin) · Dessiner une trace · Dessiner un itinéraire (grisées pendant le dessin et la mesure), chacune avec son icône | ✅ (P14.10 ; libellés P29.4) |
+| Tuiles Waypoint ici (grisée pendant le dessin et le croquis) · **Croquis** · Dessiner un itinéraire (grisées pendant le dessin, la mesure et le croquis), chacune avec son icône. « Croquis » remplace « Dessiner une trace » depuis le 2026-11-03 (P28) : une trace à la main se dessine avec « Dessiner un itinéraire », BRouter éteint | ✅ (P14.10 ; libellés P29.4 ; Croquis P28) |
 | **Waypoint ici** enregistre aussitôt « Waypoint N » au centre de la carte, avec l'altitude du relief (attente de 3 s au plus, sinon sans altitude) et le symbole du dernier waypoint créé (sinon le drapeau rouge) ; snackbar « « Waypoint 1 » enregistré · 442 m » avec **Modifier**, qui ouvre le dialogue (§2.4). L'appui long sur la carte et « Ajouter un waypoint » du point central gardent le dialogue | ✅ (P29.4) |
 | Liste des traces et waypoints (« 1 trace · aucun itinéraire · 12 waypoints » ; zéro s'écrit « aucun », P18.5) → écran Traces (6.1) | ✅ (P14.10 ; libellé P29.4) |
 | Importer un fichier… (« GPX, KML, KMZ, GeoJSON ») → sélecteur de fichiers, comme l'import de l'écran Traces | ✅ (P14.10 ; KMZ cité en P29.4) |
 | Tout afficher sur la carte : interrupteur ; éteint, il masque dossiers, traces, itinéraires et waypoints ; allumé, il les remontre tous | ✅ (P14.10) |
 | « ? » de l'en-tête → ABOUT à la section « Traces et waypoints », surlignée 1,6 s | ✅ `[R5]` (session 49) |
 | Touche Retour : ferme le panneau | ✅ |
+
+### 6.0.1 Croquis (`sketch/`, P28 ; aperçu `docs/previews/p28-croquis.html` validé le 2026-11-03 : « Espace : A · Stylo : D »)
+
+| Entrée | Statut |
+|---|---|
+| Tuile **Croquis** du panneau du drapeau : sans croquis, ouvre aussitôt le stylo sur un nouveau croquis « Croquis du 3 nov. » ; sinon ouvre l'espace Croquis | ✅ (P28.6) |
+| **Espace Croquis** (variante A) : le panneau du drapeau devient « Croquis », flèche retour vers « Traces et waypoints », sous-titre « 3 croquis · 2 affichés à ce zoom » (« aucun affiché à ce zoom »), « ? » vers l'aide Traces et waypoints | ✅ (P28.6) |
+| Ligne d'un croquis : vignette des traits sur fond de carte papier, nom, « 3 traits · aujourd'hui » (date « 3 nov. » sinon) ; trop fin à ce zoom : ligne atténuée et « masqué à ce zoom, visible dès le zoom 13 » ; interrupteur afficher / masquer ; ⋮ Ouvrir · Renommer (dialogue « Renommer le croquis ») · Supprimer (confirmation rouge « Supprimer « … » ? ») ; appui sur la ligne : ouvrir | ✅ (P28.6) |
+| Bouton plein « Nouveau croquis » au pied de l'espace | ✅ (P28.6) |
+| Retour ou appui hors du panneau : retour au panneau du drapeau (Retour) ou fermeture (appui) | ✅ (P28.6) |
+| **Outil stylo** (variante D) : la barre du bas, les boîtes, le point central, les boutons et l'attribution disparaissent (comme le cadre d'impression) ; bandeau pétrole en haut : ✕ « Fermer le croquis », nom, « 4 traits » (« aucun trait »), bouton texte « Enregistrer » | ✅ (P28.3) |
+| Panneau du bas, étage 1 : 8 couleurs (rouge, orange, jaune, vert, bleu, violet, noir, blanc ; anneau sur la couleur choisie), curseur d'épaisseur 1 à 40 px avec « 6 px », puce « Lissage moyen ▾ » (Lissage faible · moyen · fort) | ✅ (P28.3) |
+| Panneau du bas, étage 2 : Main · Stylo · Gomme (segments ; le croquis s'ouvre en Main), Annuler, Rétablir | ✅ (P28.3) |
+| Main : la carte se déplace et zoome sous le doigt ; Stylo : un doigt dessine (un deuxième doigt annule le trait), le trait apparaît lissé au lever du doigt ; Gomme : disque sous le doigt, de la taille choisie, efface la partie touchée des traits (coupe un trait en deux), un geste = un pas d'annulation | ✅ (P28.3, P28.5 pour la gomme) |
+| Épaisseur gardée en mètres de carte : le trait double à chaque niveau de zoom avant et diminue de moitié à chaque niveau arrière ; un croquis dont le trait le plus large ferait moins d'1 px est masqué en entier | ✅ (P28.3, ADR-110) |
+| ✕ ou Retour : ferme ; après un changement, « Abandonner les modifications ? » (Abandonner en rouge) | ✅ (P28.3) |
+| Enregistrer : les traits sont lissés et gardés en chemin SVG, snackbar « Croquis enregistré » ; un croquis rouvert puis vidé est supprimé | ✅ (P28.2, P28.3) |
+| Mode Gomme (variante A de `docs/previews/p28-gomme.html`, validée le 2026-11-03) : l'étage du haut devient « Taille de la gomme » et sa valeur (« 32 px » par défaut), un curseur de 8 à 64 px et le disque de la gomme à sa taille (40 dp au plus) ; le panneau garde sa hauteur ; les couleurs, l'épaisseur et le lissage reviennent avec le Stylo ; la taille est gardée pour le croquis suivant | ✅ (P28.5) |
 
 ### 6.1 Liste (`tracks/TracksScreen.kt`)
 
@@ -274,13 +292,13 @@ Depuis P29.4 (variante « A · Topo » pour le panneau, la liste et le détail ;
 | ⋮ itinéraire : Afficher · Renommer · Déplacer vers… · Style · Exporter · Partager · Supprimer | ✅ |
 | ⋮ waypoint : **Modifier…** (dialogue du waypoint, « Déplacer au centre de la carte » vise le centre de la carte) · Afficher · Renommer · Déplacer vers… · Exporter · Partager · Supprimer | ✅ (Modifier… en P29.4) |
 | Nouveau dossier (haut de l'écran, masqué quand la bibliothèque est vide) ; Déplacer vers… (haut de la bibliothèque ou un dossier ; un dossier ne peut aller ni dans lui-même ni dans ses sous-dossiers) | ✅ (P16.5, ADR-055) |
-| Bibliothèque vide : icône route dans un disque de 64 dp, « Vos traces et waypoints s'afficheront ici », « Importez un fichier GPX, KML, KMZ ou GeoJSON, ou ouvrez-le avec ToolMap depuis une autre application. Vous pouvez aussi dessiner une trace sur la carte. », bouton plein « Importer un fichier… », bouton texte « Dessiner une trace sur la carte » (→ carte en mode dessin) | ✅ (P29.4) |
+| Bibliothèque vide : icône route dans un disque de 64 dp, « Vos traces et waypoints s'afficheront ici », « Importez un fichier GPX, KML, KMZ ou GeoJSON, ou ouvrez-le avec ToolMap depuis une autre application. Vous pouvez aussi dessiner une trace sur la carte. », bouton plein « Importer un fichier… », bouton texte « Dessiner un itinéraire sur la carte » (→ carte, dessin d'un itinéraire ; « Dessiner une trace sur la carte » jusqu'au 2026-11-03, P28) | ✅ (P29.4) |
 | Puces sous la barre : tri « Date ↓ » (menu : Date (récent d'abord) · Nom · Distance) puis filtre Tout · Traces · Itinéraires · Waypoints ; tri et filtre gardés d'une ouverture à l'autre (`AppSettings.library`) ; les dossiers restent en tête | ✅ `[F7]` (P14.7, session 49) |
 | Loupe de la barre : « Rechercher par nom » (tous les mots, sans casse ni accents) ; avec un texte, liste à plat de tout ce qui correspond, dossiers compris | ✅ `[F7]` |
 | Appui long sur un élément : sélection multiple ; barre « N sélectionnés » avec ✕, Afficher / masquer sur la carte, Déplacer vers…, Exporter en un seul GPX… (« Sélection »), Supprimer (confirmation « Supprimer N éléments ? ») ; Retour ou ✕ quittent la sélection | ✅ `[F7]` |
 | Dossiers ouverts et position de la liste gardés au retour d'un détail et quand on ferme puis rouvre l'explorateur, tant que l'application tourne ; tout est replié au lancement suivant (`TracksViewModel.expandedFolders`, `libraryScroll`) | ✅ (P14.11, session 49) |
 | Pas de bande vide sous la barre du haut (barre d'état comptée une seule fois : `consumeWindowInsets`) ; de même dans le détail d'une trace et Cartes hors ligne | ✅ (P14.11) |
-| Nouvelle trace / nouvel itinéraire / nouveau waypoint depuis la liste | 🕳️ (seulement depuis la carte ; « Dessiner une trace sur la carte » quand elle est vide) |
+| Nouvelle trace / nouvel itinéraire / nouveau waypoint depuis la liste | 🕳️ (seulement depuis la carte ; « Dessiner un itinéraire sur la carte » quand elle est vide) |
 
 ### 6.2 Détail d'une trace (`tracks/TrackDetailScreen.kt`)
 

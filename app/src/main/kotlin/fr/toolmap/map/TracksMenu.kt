@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.maps.MapsIcons
+import fr.toolmap.sketch.SketchIcons
 
 /** What the tracks panel shows, read from the screen each time it is composed. */
 data class TracksMenuState(
@@ -69,8 +70,10 @@ fun TracksMenuPanel(
             ) {
                 onAction(MenuAction.WAYPOINT)
             }
-            ActionTile(MenuIcons.Polyline, stringResource(R.string.tracks_tile_track), enabled = state.drawAllowed) {
-                onAction(MenuAction.DRAW_TRACK)
+            // « Croquis » in the place of « Dessiner une trace » (P28, 2026-11-03): a track by hand is a route drawn
+            // with BRouter off.
+            ActionTile(SketchIcons.Draw, stringResource(R.string.tracks_tile_sketch), enabled = state.drawAllowed) {
+                onAction(MenuAction.SKETCH)
             }
             ActionTile(MenuIcons.Directions, stringResource(R.string.tracks_tile_route), enabled = state.drawAllowed) {
                 onAction(MenuAction.DRAW_ROUTE)

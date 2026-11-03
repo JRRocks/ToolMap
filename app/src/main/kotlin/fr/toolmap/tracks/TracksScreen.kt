@@ -342,7 +342,7 @@ fun TracksScreen(
     /** A route or a waypoint touched: the map framed on it, with its sheet open. */
     onOpenOnMap: (ItemRef, MapRequest) -> Unit = { _, request -> onShowOnMap(request) },
     /** « Dessiner une trace sur la carte » of the empty library. */
-    onDrawTrack: () -> Unit = {},
+    onDrawRoute: () -> Unit = {},
     /** Where the map is looking, for « Déplacer au centre de la carte » of « Modifier… ». */
     mapCenter: () -> Pair<Double, Double> = { 0.0 to 0.0 },
     /** « Y aller » of « Modifier… »: the waypoint becomes the target, on the map. */
@@ -463,7 +463,7 @@ fun TracksScreen(
             val lib = library
             if (searchOpen) SearchField(query) { query = it }
             if (lib != null && lib.isEmpty) {
-                if (!searchOpen) EmptyLibrary(onImport = onImport, onDrawTrack = onDrawTrack)
+                if (!searchOpen) EmptyLibrary(onImport = onImport, onDrawRoute = onDrawRoute)
             } else if (lib != null) {
                 ViewChips(view, onSort = vm::setLibrarySort, onFilter = vm::setLibraryFilter)
                 if (!selecting) {
@@ -1198,7 +1198,7 @@ private fun itemSubtitle(row: LibraryRow.Item): String {
 @Composable
 private fun EmptyLibrary(
     onImport: () -> Unit,
-    onDrawTrack: () -> Unit,
+    onDrawRoute: () -> Unit,
 ) {
     val tm = MaterialTheme.toolMap
     Column(
@@ -1225,7 +1225,7 @@ private fun EmptyLibrary(
             Icon(MenuIcons.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
             Text(stringResource(R.string.tracks_import_file), modifier = Modifier.padding(start = 8.dp))
         }
-        TextButton(onClick = onDrawTrack, modifier = Modifier.padding(top = 4.dp)) {
+        TextButton(onClick = onDrawRoute, modifier = Modifier.padding(top = 4.dp)) {
             Text(stringResource(R.string.tracks_empty_draw))
         }
     }

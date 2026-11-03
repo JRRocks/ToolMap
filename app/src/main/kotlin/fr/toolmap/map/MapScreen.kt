@@ -190,6 +190,11 @@ import fr.toolmap.share.MemberSheet
 import fr.toolmap.share.ShareHud
 import fr.toolmap.share.ShareViewModel
 import fr.toolmap.share.serverUp
+import fr.toolmap.sketch.SketchLayers
+import fr.toolmap.sketch.SketchRow
+import fr.toolmap.sketch.SketchSpacePanel
+import fr.toolmap.sketch.SketchTool
+import fr.toolmap.sketch.SketchViewModel
 import fr.toolmap.sources.ImportDialog
 import fr.toolmap.tracks.TappedItemSheet
 import fr.toolmap.tracks.TrackSharing
@@ -215,6 +220,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.ceil
 import kotlin.math.ln
 import kotlin.math.roundToInt
 
@@ -237,6 +243,8 @@ fun MapScreen(
     /** « Importer un fichier… » of the tracks panel: the picker of track files (GPX, KML, GeoJSON). */
     onImportTracks: () -> Unit,
     draw: DrawViewModel,
+    /** The sketches (P28): the « Croquis » space of the flag and the pen. */
+    sketch: SketchViewModel,
     recording: RecordingViewModel,
     navigation: NavigationViewModel,
     print: PrintViewModel,
@@ -269,6 +277,8 @@ fun MapScreen(
     val drawUi by draw.ui.collectAsStateWithLifecycle()
     val editOverlay by draw.overlay.collectAsStateWithLifecycle()
     val drawCursor by draw.cursor.collectAsStateWithLifecycle()
+    val sketchUi by sketch.ui.collectAsStateWithLifecycle()
+    val savedSketches by sketch.sketches.collectAsStateWithLifecycle()
     val recordingUi by recording.state.collectAsStateWithLifecycle()
     val navTarget by navigation.target.collectAsStateWithLifecycle()
     val navGuidance by navigation.guidance.collectAsStateWithLifecycle()
@@ -347,6 +357,8 @@ fun MapScreen(
     var showPositioning by remember { mutableStateOf(false) }
     // The tracks and waypoints panel of the flag (P14.3), and the quick menu of the centre point (F1, ADR-043).
     var showTracks by remember { mutableStateOf(false) }
+    // The « Croquis » space (P28.6), which takes the place of the tracks panel, its back arrow returning to it.
+    var showSketches by remember { mutableStateOf(false) }
     var pointMenu by remember { mutableStateOf(false) }
     // The menus and panels that lead to a full screen are closed behind it, as when the map was rebuilt on return.
     LaunchedEffect(covered) {
@@ -354,6 +366,7 @@ fun MapScreen(
             showMenu = false
             showPositioning = false
             showTracks = false
+            showSketches = false
             pointMenu = false
         }
     }
@@ -623,6 +636,11 @@ fun MapScreen(
     SideEffect {
         controller.onDrawTap =
             when {
+                // A tap on a track under a sketch does not open it: the sketch keeps the map.
+                sketchUi.active -> {
+                    { _, _ -> }
+                }
+
                 drawUi.active && drawUi.chooseSegment == null && !drawUi.freehand -> {
                     { lat, lon -> draw.onMapTap(lat, lon, controller.metersFor(TAP_REACH_DP)) }
                 }
@@ -637,7 +655,7 @@ fun MapScreen(
             }
         // A locked screen takes no gesture at all: a long press in a pocket must not add a waypoint.
         controller.onLongPress = { lat, lon ->
-            if (!locked && !drawUi.active && !measureUi.active) {
+            if (!locked && !drawUi.active && !measureUi.active && !sketchUi.active) {
                 when (appSettings.canvas.longPress) {
                     LongPressAction.NONE -> {
                         Unit
@@ -997,8 +1015,8 @@ fun MapScreen(
     val trackLibrary = library
     val tracksState =
         TracksMenuState(
-            drawAllowed = !drawUi.active && !measureUi.active,
-            waypointAllowed = !drawUi.active,
+            drawAllowed = !drawUi.active && !measureUi.active && !sketchUi.active,
+            waypointAllowed = !drawUi.active && !sketchUi.active,
             tracks = trackLibrary?.tracks?.size ?: 0,
             routes = trackLibrary?.routes?.size ?: 0,
             waypoints = trackLibrary?.waypoints?.size ?: 0,
@@ -1156,8 +1174,18 @@ fun MapScreen(
                 onOpenSearch()
             }
 
-            MenuAction.DRAW_TRACK -> {
-                draw.startNewTrack()
+            MenuAction.SKETCH -> {
+                // The space of the sketches, or the pen at once while there is none (P28, 2026-11-03).
+                if (savedSketches.isEmpty()) {
+                    sketch.startNew(
+                        resources.getString(
+                            R.string.sketch_default_name,
+                            NameDates.formatDay(System.currentTimeMillis()),
+                        ),
+                    )
+                } else {
+                    showSketches = true
+                }
             }
 
             MenuAction.DRAW_ROUTE -> {
@@ -1212,7 +1240,8 @@ fun MapScreen(
     // While the print frame is placed, only the format band, Annuler / Suivant and an SOS stay over the map (preview
     // validated on 2026-10-26, docs/previews/cadre-impression.html, variant A); while the sheet is chosen, the frame
     // drawn on the map and the panel of the sheets (P17.8, variant E).
-    val framing = printUi.stage == PrintStage.FRAME || printUi.stage == PrintStage.SETUP
+    // A sketch is open the same way (P28.3, variant D): its band and its panel take the place of everything else.
+    val framing = printUi.stage == PrintStage.FRAME || printUi.stage == PrintStage.SETUP || sketchUi.active
     val barDp = with(density) { barHeight.toDp() }
     // The panel stays below the top of the screen, and above the bar.
     val menuMaxHeight =
@@ -1224,6 +1253,10 @@ fun MapScreen(
     BackHandler(enabled = showMenu) { showMenu = false }
     BackHandler(enabled = showPositioning) { showPositioning = false }
     BackHandler(enabled = showTracks) { showTracks = false }
+    BackHandler(enabled = showSketches) {
+        showSketches = false
+        showTracks = true
+    }
     BackHandler(enabled = mapsPage == MapsPage.ROOT && !covered) { maps.close() }
     // A locked screen keeps the app open: Back only says how to unlock it.
     BackHandler(enabled = locked && !showMenu) {
@@ -1236,7 +1269,8 @@ fun MapScreen(
     // were registered does not matter.
     BackHandler(
         enabled =
-            appSettings.confirmExit && !exitAsked && !showMenu && !showPositioning && !showTracks &&
+            appSettings.confirmExit && !exitAsked && !showMenu && !showPositioning && !showTracks && !showSketches &&
+                !sketchUi.active &&
                 !printUi.active && mapsPage != MapsPage.SAVE_AREA && mapsPage != MapsPage.ROOT &&
                 mapsPage != MapsPage.CONDITIONS && !locked &&
                 !chromeHidden &&
@@ -1386,7 +1420,26 @@ fun MapScreen(
             rootActions.onSaveArea()
         }
     }
-    val barPanelOpen = showMenu || showTracks || showPositioning || (mapsPage == MapsPage.ROOT && !covered)
+    val barPanelOpen =
+        showMenu || showTracks || showSketches || showPositioning || (mapsPage == MapsPage.ROOT && !covered)
+    // The saved sketches on the map, again when the zoom makes one appear or disappear (thinner than a pixel, ADR-110).
+    val sketchesThick by remember(savedSketches) {
+        derivedStateOf {
+            val zoom = controller.liveCamera.zoom
+            savedSketches.filter { s -> s.sketch.minVisibleZoom()?.let { zoom >= it } == true }.map { it.id }
+        }
+    }
+    LaunchedEffect(controller.isReady, savedSketches, sketchesThick, sketchUi.editingId, sketchUi.active) {
+        if (controller.isReady) {
+            controller.showSketches(
+                SketchLayers.geoJson(
+                    savedSketches,
+                    controller.liveCamera.zoom,
+                    sketchUi.editingId.takeIf { sketchUi.active },
+                ),
+            )
+        }
+    }
     // The panel of a tool floats above the bar as the panels of the bar do (P29.10, « Équerre »); a panel of the bar
     // opened meanwhile covers it, and it comes back when that one closes.
     val toolOpen =
@@ -1834,6 +1887,61 @@ fun MapScreen(
                 )
             }
         }
+        if (showSketches) {
+            Box(
+                modifier =
+                    Modifier.fillMaxSize().clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { showSketches = false },
+            )
+            Box(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(12.dp)) {
+                SketchSpacePanel(
+                    rows =
+                        savedSketches.map { s ->
+                            val from = s.sketch.minVisibleZoom()
+                            SketchRow(
+                                s,
+                                hiddenHere = s.id !in sketchesThick,
+                                visibleFromZoom =
+                                    from?.let {
+                                        ceil(it).toInt()
+                                    },
+                            )
+                        },
+                    onBack = {
+                        showSketches = false
+                        showTracks = true
+                    },
+                    onHelp = {
+                        showSketches = false
+                        onOpenAbout(HelpSection.TRACKS)
+                    },
+                    onNew = {
+                        showSketches = false
+                        sketch.startNew(
+                            resources.getString(
+                                R.string.sketch_default_name,
+                                NameDates.formatDay(System.currentTimeMillis()),
+                            ),
+                        )
+                    },
+                    onOpen = { id ->
+                        showSketches = false
+                        sketch.open(id)
+                    },
+                    onShow = sketch::setVisible,
+                    onRename = sketch::rename,
+                    onDelete = sketch::delete,
+                    maxHeight = menuMaxHeight,
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(bottom = bottomClearance + barDp + 12.dp)
+                            .onSizeChanged { barPanelHeight = it.height },
+                )
+            }
+        }
         if (showPositioning) {
             Box(
                 modifier =
@@ -1954,6 +2062,16 @@ fun MapScreen(
                         .windowInsetsPadding(
                             WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
                         ).onSizeChanged { conditionsPanelHeight = it.height },
+            )
+        }
+        if (sketchUi.active) {
+            SketchTool(
+                ui = sketchUi,
+                vm = sketch,
+                controller = controller,
+                onSaved = { id ->
+                    if (id != null) scope.launch { snackbar.showSnackbar(resources.getString(R.string.sketch_saved)) }
+                },
             )
         }
         // The messages stand over the panels (P29.5): « Enregistrement terminé » and its « Reprendre » stay in sight when

@@ -1,6 +1,7 @@
 package fr.toolmap.data.tracks
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -13,12 +14,18 @@ import androidx.room.RoomDatabase
             TrackChunkEntity::class,
             RouteEntity::class,
             WaypointEntity::class,
+            SketchEntity::class,
+            SketchStrokeEntity::class,
         ],
-    version = 1,
+    // 2: the sketches of P28 (two new tables, nothing else changes).
+    version = 2,
     exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 abstract class TrackDatabase : RoomDatabase() {
     abstract fun dao(): TrackDao
+
+    abstract fun sketchDao(): SketchDao
 
     companion object {
         const val FILE_NAME = "tracks.db"

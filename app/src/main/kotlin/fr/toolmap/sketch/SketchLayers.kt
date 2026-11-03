@@ -1,0 +1,120 @@
+package fr.toolmap.sketch
+
+import fr.toolmap.core.sketch.SketchScale
+import fr.toolmap.data.tracks.SavedSketch
+import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.sources.GeoJsonSource
+import java.util.Locale
+
+/**
+ * The saved sketches on the map (P28.3, ADR-110): each stroke a line of its colour whose width is kept in map meters,
+ * so it doubles at each zoom level in and halves at each level out, like ink on a paper map; a tap without moving is a
+ * dot. A sketch whose widest stroke would be thinner than one pixel is left out ([geoJson]).
+ */
+object SketchLayers {
+    private const val SOURCE = "tm-sketch"
+    private const val LINE_LAYER = "tm-sketch-line"
+    private const val DOT_LAYER = "tm-sketch-dot"
+    private const val EMPTY = """{"type":"FeatureCollection","features":[]}"""
+    private const val MAX_ZOOM = 24.0
+
+    fun install(style: Style) {
+        if (style.getSource(SOURCE) != null) return
+        style.addSource(GeoJsonSource(SOURCE, EMPTY))
+        // Width on screen = w0 × 2^zoom, w0 being the width in pixels at zoom 0.
+        val width =
+            Expression.interpolate(
+                Expression.exponential(2),
+                Expression.zoom(),
+                Expression.stop(0, Expression.get("w0")),
+                Expression.stop(
+                    MAX_ZOOM,
+                    Expression.product(Expression.get("w0"), Expression.literal(Math.pow(2.0, MAX_ZOOM))),
+                ),
+            )
+        val radius =
+            Expression.interpolate(
+                Expression.exponential(2),
+                Expression.zoom(),
+                Expression.stop(0, Expression.product(Expression.get("w0"), Expression.literal(0.5))),
+                Expression.stop(
+                    MAX_ZOOM,
+                    Expression.product(Expression.get("w0"), Expression.literal(Math.pow(2.0, MAX_ZOOM) / 2)),
+                ),
+            )
+        style.addLayer(
+            LineLayer(LINE_LAYER, SOURCE)
+                .withFilter(Expression.eq(Expression.geometryType(), Expression.literal("LineString")))
+                .withProperties(
+                    PropertyFactory.lineColor(Expression.toColor(Expression.get("color"))),
+                    PropertyFactory.lineWidth(width),
+                    PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                    PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                ),
+        )
+        style.addLayer(
+            CircleLayer(DOT_LAYER, SOURCE)
+                .withFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point")))
+                .withProperties(
+                    PropertyFactory.circleColor(Expression.toColor(Expression.get("color"))),
+                    PropertyFactory.circleRadius(radius),
+                ),
+        )
+    }
+
+    fun show(
+        style: Style,
+        geoJson: String,
+    ) {
+        style.getSourceAs<GeoJsonSource>(SOURCE)?.setGeoJson(geoJson)
+    }
+
+    /**
+     * The visible sketches drawn at [cameraZoom], the one being edited ([skipId]) apart: it is drawn by the tool
+     * itself. The curves are cut into lines finer than a tenth of their width.
+     */
+    fun geoJson(
+        sketches: List<SavedSketch>,
+        cameraZoom: Double,
+        skipId: Long?,
+    ): String {
+        val sb = StringBuilder("""{"type":"FeatureCollection","features":[""")
+        var first = true
+        val atZoom0 = SketchScale.metersPerPixel(0.0)
+        for (saved in sketches) {
+            if (!saved.visible || saved.id == skipId) continue
+            val minZoom = saved.sketch.minVisibleZoom() ?: continue
+            if (cameraZoom < minZoom) continue
+            for (stroke in saved.sketch.strokes) {
+                val w0 = stroke.style.widthMeters / atZoom0
+                val color = String.format(Locale.ROOT, "#%06X", stroke.style.color and 0xFFFFFF)
+                val points = stroke.path.sample(stroke.style.widthMeters / 10)
+                if (!first) sb.append(',')
+                first = false
+                sb.append("""{"type":"Feature","properties":{"color":"""").append(color)
+                sb.append("""","w0":""").append(w0).append("""},"geometry":""")
+                if (points.size < 2) {
+                    val p = points[0].toLonLat()
+                    sb.append(
+                        """{"type":"Point","coordinates":[""",
+                    ).append(p.lon).append(',').append(p.lat).append("]}")
+                } else {
+                    sb.append("""{"type":"LineString","coordinates":[""")
+                    points.forEachIndexed { i, xy ->
+                        val p = xy.toLonLat()
+                        if (i > 0) sb.append(',')
+                        sb.append('[').append(p.lon).append(',').append(p.lat).append(']')
+                    }
+                    sb.append("]}")
+                }
+                sb.append('}')
+            }
+        }
+        return sb.append("]}").toString()
+    }
+}

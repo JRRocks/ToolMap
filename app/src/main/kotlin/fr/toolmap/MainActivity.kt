@@ -94,6 +94,7 @@ import fr.toolmap.share.GroupAlertDialog
 import fr.toolmap.share.ShareScreen
 import fr.toolmap.share.ShareService
 import fr.toolmap.share.ShareViewModel
+import fr.toolmap.sketch.SketchViewModel
 import fr.toolmap.sources.UriReader
 import fr.toolmap.storage.StorageMoveActivity
 import fr.toolmap.storage.StorageScreen
@@ -166,6 +167,7 @@ class MainActivity : ComponentActivity() {
     private val mapsViewModel: MapsViewModel by viewModels()
     private val tracksViewModel: TracksViewModel by viewModels()
     private val drawViewModel: DrawViewModel by viewModels()
+    private val sketchViewModel: SketchViewModel by viewModels()
     private val recordingViewModel: RecordingViewModel by viewModels()
     private val navigationViewModel: NavigationViewModel by viewModels()
     private val printViewModel: PrintViewModel by viewModels()
@@ -397,6 +399,7 @@ class MainActivity : ComponentActivity() {
                                         open(Screen.TRACK_DETAIL)
                                     },
                                     draw = drawViewModel,
+                                    sketch = sketchViewModel,
                                     recording = recordingViewModel,
                                     navigation = navigationViewModel,
                                     print = printViewModel,
@@ -578,8 +581,8 @@ class MainActivity : ComponentActivity() {
                                                     tracksViewModel.onMapTap(ref)
                                                     toMap()
                                                 },
-                                                onDrawTrack = {
-                                                    drawViewModel.startNewTrack()
+                                                onDrawRoute = {
+                                                    drawViewModel.startNewRoute()
                                                     toMap()
                                                 },
                                                 mapCenter = { viewModel.state.value.camera.let { it.lat to it.lon } },

@@ -32,6 +32,7 @@ import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.data.tracks.DisplayData
 import fr.toolmap.data.tracks.ItemRef
 import fr.toolmap.share.ShareMapData
+import fr.toolmap.sketch.SketchLayers
 import fr.toolmap.waypoints.WaypointGlyphs
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdate
@@ -130,6 +131,7 @@ class MapController(
     private var measure: Triple<String, String, String>? = null
     private var grid: Pair<String, String>? = null
     private var watches: String? = null
+    private var sketches: String? = null
 
     /** True once the style is loaded and layers can be synchronised. */
     var isReady by mutableStateOf(false)
@@ -416,6 +418,13 @@ class MapController(
             .onFailure { Log.e(TAG, "Measure overlay failed", it) }
     }
 
+    /** The saved sketches (P28), as GeoJSON from [fr.toolmap.sketch.SketchLayers.geoJson]. */
+    fun showSketches(geoJson: String) {
+        sketches = geoJson
+        val s = style ?: return
+        runCatching { SketchLayers.show(s, geoJson) }.onFailure { Log.e(TAG, "Sketch overlay failed", it) }
+    }
+
     /** The radius circles of the watched waypoints, as GeoJSON; applied as soon as the style exists. */
     fun showWatches(geoJson: String) {
         watches = geoJson
@@ -523,6 +532,8 @@ class MapController(
         runCatching { NavLayers.install(s) }.onFailure { Log.e(TAG, "Target overlay install failed", it) }
         runCatching { ShareLayers.install(s) }.onFailure { Log.e(TAG, "Share overlay install failed", it) }
         ShareLayers.showLabels(s, placemarks.labels)
+        runCatching { SketchLayers.install(s) }.onFailure { Log.e(TAG, "Sketch overlay install failed", it) }
+        sketches?.let { SketchLayers.show(s, it) }
         runCatching { MeasureLayers.install(s) }.onFailure { Log.e(TAG, "Measure overlay install failed", it) }
         runCatching { GridLayers.install(s) }.onFailure { Log.e(TAG, "Grid overlay install failed", it) }
         runCatching { AlertLayers.install(s) }.onFailure { Log.e(TAG, "Watch overlay install failed", it) }

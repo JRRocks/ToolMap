@@ -292,12 +292,12 @@ trace ou un itinéraire ordinaire ; la carte ne bouge pas pendant le tracé ; au
 |---|---|---|---|
 | P28.0 | ✅ | Aperçu : bouton d'accès, espace « Dessin », barre d'outils, formes, sélection et poignées, fiche. Premier lot : `docs/previews/p28-croquis.html` (tuile « Croquis », espace et stylo, variantes A Trousse · B Rail · C Pastille · D Carnet · E Équerre), montré le 2026-11-03 ; **validé le 2026-11-03 : « Espace : A · Stylo : D »** (espace = panneau du drapeau avec liste et interrupteurs, A ; outil = bandeau du haut et barre du bas sur deux étages, D) | Validation explicite, date au journal |
 | P28.1 | ✅ | `:core` : lissage, modèle (traits, formes, style, épaisseur en mètres), chemin SVG, échantillonnage, mesures. Fait le 2026-11-03 pour le premier lot (traits, style, lissage, SVG, gomme, visibilité ; ADR-110, `core/sketch`) ; formes et mesures avec P28.4 et P28.5 | Tests JVM (lissage, aller-retour SVG, surfaces) |
-| P28.2 | ⬜ | Stockage (Room, migration), sauvegarde, export GeoJSON et SVG | Test de migration ; aller-retour de sauvegarde |
-| P28.3 | ⬜ | Mode stylo : gestes, traits lissés, épaisseur en mètres sur MapLibre (au moins 1 px) | Émulateur : trait lissé, carte déplacée à deux doigts |
+| P28.2 | ✅ | Stockage (Room, migration), sauvegarde, export GeoJSON et SVG. Fait le 2026-11-03 : tables `sketches` et `sketch_strokes` dans `tracks.db` (version 2, migration automatique), donc dans la sauvegarde ; export GeoJSON et SVG écartés par la décision du 2026-11-03 (SVG en stockage interne seulement) | Test de migration ; aller-retour de sauvegarde |
+| P28.3 | ✅ | Mode stylo : gestes, traits lissés, épaisseur en mètres sur MapLibre (au moins 1 px). Fait le 2026-11-03 (variante D, `app/sketch/SketchTool.kt`, `SketchLayers.kt`) ; vérifié sur l'émulateur | Émulateur : trait lissé, carte déplacée à deux doigts |
 | P28.4 | ⬜ | Formes et « Remplir » | Tests du modèle ; captures |
-| P28.5 | ⬜ | Sélection, modification, poignées, gomme, annuler et rétablir, fiche et mesures | Tests ; captures |
-| P28.6 | ⬜ | Espace « Dessin » : liste, afficher et masquer, renommer, supprimer | Test de rendu |
+| P28.5 | 🔄 | Sélection, modification, poignées, gomme, annuler et rétablir, fiche et mesures. 2026-11-03 : gomme partielle, annuler et rétablir faits ; panneau du mode Gomme : aperçu `docs/previews/p28-gomme.html` **validé le 2026-11-03 : variante A** (curseur « Taille de la gomme », 8 à 64 px), codé ; reste la sélection, les poignées, la fiche et les mesures, avec les formes (P28.4) | Tests ; captures |
+| P28.6 | ✅ | Espace « Dessin » : liste, afficher et masquer, renommer, supprimer. Fait le 2026-11-03 : espace « Croquis » de la variante A (`SketchPanel.kt`) | Test de rendu |
 | P28.7 | ⬜ | Lissage de la main levée des traces | `PolylineEditor` : test du lissage |
 | P28.8 | ⬜ | Impression vectorielle | PDF relu |
 | P28.9 | ⬜ | Envoi au groupe (après P27) | `MeshNodeTest` ; deux émulateurs |
-| P28.10 | ⬜ | Captures à côté de l'aperçu | Validées par l'utilisateur |
+| P28.10 | 🔄 | Captures à côté de l'aperçu. 2026-11-03 : captures de l'émulateur (0.4.166) à côté de l'aperçu validé, dans `docs/previews/p28-gomme.html` | Validées par l'utilisateur |

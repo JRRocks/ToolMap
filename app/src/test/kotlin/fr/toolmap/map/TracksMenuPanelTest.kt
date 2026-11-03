@@ -34,7 +34,7 @@ class TracksMenuPanelTest {
                 true
         })
         rule.onNodeWithText("Waypoint ici").performClick()
-        rule.onNodeWithText("Dessiner une trace").performClick()
+        rule.onNodeWithText("Croquis").performClick()
         rule.onNodeWithText("Dessiner un itinéraire").performClick()
         rule.onNodeWithText("Lieu, trace ou waypoint").performClick()
         rule.onNodeWithText("Importer un fichier…").performClick()
@@ -42,7 +42,7 @@ class TracksMenuPanelTest {
         assertEquals(
             listOf(
                 MenuAction.WAYPOINT,
-                MenuAction.DRAW_TRACK,
+                MenuAction.SKETCH,
                 MenuAction.DRAW_ROUTE,
                 MenuAction.SEARCH,
                 MenuAction.IMPORT_TRACKS,
@@ -55,7 +55,7 @@ class TracksMenuPanelTest {
     @Test
     fun `drawing and waypoints are off while a track is drawn, search and explorer stay on`() {
         setContent(drawAllowed = false, waypointAllowed = false, onAction = {}, onExplorer = {})
-        rule.onNodeWithText("Dessiner une trace").assertIsNotEnabled()
+        rule.onNodeWithText("Croquis").assertIsNotEnabled()
         rule.onNodeWithText("Dessiner un itinéraire").assertIsNotEnabled()
         rule.onNodeWithText("Waypoint ici").assertIsNotEnabled()
         rule.onNodeWithText("Lieu, trace ou waypoint").assertIsEnabled()

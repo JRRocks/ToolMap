@@ -351,7 +351,7 @@
   <string name="tracks_import">Importer</string>
   <string name="tracks_empty_title">Vos traces et waypoints s\'afficheront ici</string>
   <string name="tracks_empty_text">Importez un fichier GPX, KML, KMZ ou GeoJSON, ou ouvrez-le avec ToolMap depuis une autre application. Vous pouvez aussi dessiner une trace sur la carte.</string>
-  <string name="tracks_empty_draw">Dessiner une trace sur la carte</string>
+  <string name="tracks_empty_draw">Dessiner un itinéraire sur la carte</string>
   <string name="tracks_unnamed">Sans nom</string>
   <string name="tracks_waypoint">Waypoint</string>
   <string name="tracks_gone">Cette trace n\'existe plus.</string>
@@ -1259,7 +1259,7 @@
   <string name="about_more_title">Outils, partage et sauvegarde</string>
   <string name="about_start_map">Cartes : « Cartes » puis « Cartes disponibles » montre le catalogue ; « Ajouter une carte » puis « Nouvelle carte… » ouvre l\'assistant (adresse d\'un serveur de tuiles, clé d\'API, Referer), « Importer une carte (.aqx)… » reprend un fichier d\'AlpineQuest. Les calques se superposent, avec une opacité et une plage de zoom par calque.</string>
   <string name="about_start_offline">Hors ligne : dans « Cartes », la tuile « Enregistrer une zone » enregistre dans le téléphone les tuiles des cartes cochées ; l\'interrupteur « Hors ligne » n\'utilise plus que ce qui est enregistré. « Stockage » gère l\'espace occupé et importe ou exporte des fichiers .mbtiles.</string>
-  <string name="about_start_tracks">Traces : « Traces et waypoints » importe et exporte du GPX ou du KML ; « Ma position » puis « Enregistreur de trace » enregistre avec le GPS écran éteint ; « Dessiner une trace » ou « Dessiner un itinéraire » trace à la main.</string>
+  <string name="about_start_tracks">Traces : « Traces et waypoints » importe et exporte du GPX ou du KML ; « Ma position » puis « Enregistreur de trace » enregistre avec le GPS écran éteint ; « Dessiner un itinéraire » trace à la main (BRouter éteint) ; « Croquis » dessine librement sur la carte.</string>
   <string name="about_start_tools">Outils : recherche de lieux, mesure de distance et de surface, grille de coordonnées (DD, DMS, UTM, MGRS, Lambert 93), alertes de proximité et suivi de trace avec alerte d\'écart, altimètre barométrique, impression à l\'échelle en PDF.</string>
   <string name="about_start_share">Partage de position : un membre crée un groupe et montre un code QR ou envoie un lien, les autres le scannent ou l\'ouvrent pour rejoindre le groupe. Un serveur de coordination (Firebase) fait passer les positions, chiffrées : la clé du groupe reste dans les téléphones.</string>
   <!-- R5, F11 : section « Positionnement » de l'aide, ouverte par le « ? » du panneau (aperçu validé le 2026-10-20) -->
@@ -1996,7 +1996,7 @@
   <string name="exit_stop_many">Pour les arrêter plus tard, touchez leurs boutons « Arrêter » dans la notification de ToolMap, ou rouvrez ToolMap.</string>
   <string name="tracks_search">Lieu, trace ou waypoint</string>
   <string name="tracks_tile_waypoint">Waypoint ici</string>
-  <string name="tracks_tile_track">Dessiner une trace</string>
+  <string name="tracks_tile_sketch">Croquis</string>
   <string name="tracks_tile_route">Dessiner un itinéraire</string>
   <string name="tracks_counts">%1$s · %2$s · %3$s</string>
   <string name="tracks_none_tracks">aucune trace</string>
@@ -2227,4 +2227,55 @@
   <string name="fav_import_unreadable">Import impossible : ce fichier de favoris est illisible</string>
   <string name="fav_import_newer">Import impossible : ce fichier vient d\'une version plus récente de ToolMap</string>
   <string name="fav_import_empty">Import impossible : ce fichier ne contient aucun favori</string>
+
+  <!-- Croquis (P28, variantes A et D de docs/previews/p28-croquis.html, validées le 2026-11-03) -->
+  <string name="sketch_title">Croquis</string>
+  <string name="sketch_new">Nouveau croquis</string>
+  <string name="sketch_default_name">Croquis du %1$s</string>
+  <string name="sketch_band_sub">%1$s · %2$s</string>
+  <string name="sketch_none_shown">aucun affiché à ce zoom</string>
+  <string name="sketch_today">aujourd\'hui</string>
+  <string name="sketch_row_sub">%1$s · %2$s</string>
+  <string name="sketch_hidden_zoom">masqué à ce zoom, visible dès le zoom %1$d</string>
+  <string name="sketch_open">Ouvrir</string>
+  <string name="sketch_rename">Renommer</string>
+  <string name="sketch_rename_title">Renommer le croquis</string>
+  <string name="sketch_name_label">Nom</string>
+  <string name="sketch_delete">Supprimer</string>
+  <string name="sketch_delete_title">Supprimer « %1$s » ?</string>
+  <string name="sketch_delete_text">Le croquis et tous ses traits seront effacés.</string>
+  <string name="sketch_more">Actions du croquis</string>
+  <string name="sketch_no_strokes">aucun trait</string>
+  <string name="sketch_save">Enregistrer</string>
+  <string name="sketch_saved">Croquis enregistré</string>
+  <string name="sketch_close">Fermer le croquis</string>
+  <string name="sketch_mode_hand">Main</string>
+  <string name="sketch_mode_pen">Stylo</string>
+  <string name="sketch_mode_eraser">Gomme</string>
+  <string name="sketch_width">Épaisseur</string>
+  <string name="sketch_eraser_size">Taille de la gomme</string>
+  <string name="sketch_width_value">%1$d px</string>
+  <string name="sketch_smoothing_low">Lissage faible</string>
+  <string name="sketch_smoothing_medium">Lissage moyen</string>
+  <string name="sketch_smoothing_high">Lissage fort</string>
+  <string name="sketch_color_red">rouge</string>
+  <string name="sketch_color_orange">orange</string>
+  <string name="sketch_color_yellow">jaune</string>
+  <string name="sketch_color_green">vert</string>
+  <string name="sketch_color_blue">bleu</string>
+  <string name="sketch_color_violet">violet</string>
+  <string name="sketch_color_black">noir</string>
+  <string name="sketch_color_white">blanc</string>
+  <plurals name="sketch_count">
+    <item quantity="one">%d croquis</item>
+    <item quantity="other">%d croquis</item>
+  </plurals>
+  <plurals name="sketch_shown">
+    <item quantity="one">%d affiché à ce zoom</item>
+    <item quantity="other">%d affichés à ce zoom</item>
+  </plurals>
+  <plurals name="sketch_strokes">
+    <item quantity="one">%d trait</item>
+    <item quantity="other">%d traits</item>
+  </plurals>
 </resources>

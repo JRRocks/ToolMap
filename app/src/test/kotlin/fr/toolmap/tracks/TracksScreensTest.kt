@@ -62,7 +62,7 @@ class TracksScreensTest {
         onOpenDetail: (Long) -> Unit = {},
         onOpenOnMap: (ItemRef, MapRequest) -> Unit = { _, _ -> },
         onImport: () -> Unit = {},
-        onDrawTrack: () -> Unit = {},
+        onDrawRoute: () -> Unit = {},
     ) {
         fixture.fill(empty)
         waitForLibrary(empty)
@@ -76,7 +76,7 @@ class TracksScreensTest {
                         onOpenDetail = onOpenDetail,
                         onShowOnMap = {},
                         onOpenOnMap = onOpenOnMap,
-                        onDrawTrack = onDrawTrack,
+                        onDrawRoute = onDrawRoute,
                     )
                 }
             }
@@ -86,11 +86,11 @@ class TracksScreensTest {
     @Test
     fun `the empty library says what will be there and offers the import and the drawing`() {
         val calls = ArrayList<String>()
-        list(empty = true, onImport = { calls += "import" }, onDrawTrack = { calls += "draw" })
+        list(empty = true, onImport = { calls += "import" }, onDrawRoute = { calls += "draw" })
         rule.onNodeWithText("Vos traces et waypoints s'afficheront ici").assertExists()
         rule.onAllNodesWithText("Nouveau dossier").assertCountEquals(0)
         rule.onNodeWithText("Importer un fichier…").performClick()
-        rule.onNodeWithText("Dessiner une trace sur la carte").performClick()
+        rule.onNodeWithText("Dessiner un itinéraire sur la carte").performClick()
         assertEquals(listOf("import", "draw"), calls)
     }
 

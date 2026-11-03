@@ -81,7 +81,7 @@ enum class MenuAction {
     EXIT,
     ABOUT,
     SEARCH,
-    DRAW_TRACK,
+    SKETCH,
     DRAW_ROUTE,
     MEASURE,
     WAYPOINT,
