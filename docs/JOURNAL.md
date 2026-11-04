@@ -20,6 +20,19 @@
 
 ---
 
+## 2026-11-04 — Session 91 (suite 2) — [P35.0] Aperçu : logo, tour 3 (épingle reconnaissable, calques de données)
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après a3336fa (0.4.199) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies : GitHub = local = 0.4.199 (référence).
+- **Objectif** : 10 versions : 5 de « Épingle sur la pile » avec une épingle reconnaissable, 5 de « Transparence » où chaque calque est un groupe de données.
+- **Réalisé** :
+  - Demande de l'utilisateur (2026-11-04) : 5 variantes de la 04 (« pin populaire grâce à Google Maps donc reconnaissable ») et 5 de la 02 où chacun des 3 calques représente un groupe de données (ex. toponymie, altimétrie, planimétrie). Pas encore de validation du logo.
+  - 01 à 05 : épingle générique (goutte et trou rond, couleurs de ToolMap, rien de repris d'une autre marque) : 01 Épingle à trou (sur la pile, ombre), 02 Épingle turquoise (cartes claires), 03 Calques dans l'épingle (la pile à la place du trou), 04 Épingle au-dessus (flotte, ombre sur la carte, deux cartes), 05 Épingle en tranches (l'épingle coupée en trois calques).
+  - 06 à 10 : planimétrie en bas (route, rivière, bâtiment), altimétrie au milieu (courbes, sommet), toponymie en haut (point et lignes de nom, ou lettre « A ») ; 06 translucides, 07 écartées, 08 au trait, 09 en cascade vue de dessus, 10 gros symboles. Recommandation : 01 ; côté données, 10, seule lisible à 48 dp.
+  - Livré : `docs/previews/logo-tour3.html` et 11 images `docs/previews/logo/tour3-*.png`, envoyées à l'utilisateur. Aucun code ni ressource touché.
+- **Décisions (ADR)** : aucune (aperçu).
+- **Tests / vérifications** : page ouverte dans Chromium (Playwright), aucune erreur de console ; images faites par capture d'élément (`deviceScaleFactor: 2`, 660 px) et regardées. Pas de SDK Android dans cette session (`dl.google.com` refusé) : `version.properties` passé à **0.4.200** avec l'empreinte recalculée comme `appSourceFingerprint` ; la CI compile (le run de a3336fa était encore en cours, celui de 1c63265 annulé par le push suivant).
+- **Problèmes / dette technique** : aucun nouveau.
+- **Prochaine étape recommandée** : choix de l'utilisateur, puis P35.1 (icône adaptative, monochrome, logo de l'app).
+
 ## 2026-11-04 — Session 91 (suite) — [P35.0] Aperçu : logo « Calques empilés », 10 versions
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 1c63265 (0.4.198, premier tour du logo) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies : GitHub = local = 0.4.198 (référence), rien d'autre de poussé entre-temps.
 - **Objectif** : faire évoluer le logo à partir de la variante 03 « Calques empilés » : 10 versions, l'original en 01 et 9 évolutions.
