@@ -20,6 +20,26 @@
 
 ---
 
+## 2026-11-04 — Session 89 (suite 13) — [P25.5] « Renommer » un favori : fiche du favori à l'appui long
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 02ac68e (0.4.193) ; APK 0.4.195. Copies : GitHub `claude/vibrant-galileo-q3s99n` = 0.4.193, Drive = 0.4.193, local = 0.4.193 puis changements non poussés (référence) ; autres branches plus anciennes (main 0.4.134).
+- **Objectif** : renommer un favori (« Rando été » en « Rando été 2026 »…) sans le recréer, depuis une fiche du favori ouverte par un appui long.
+- **Réalisé** :
+  - Aperçu commun à P25.5 et P25.4 `docs/previews/p25-renommer-groupe.html` (captures de l'émulateur 0.4.192, 5 variantes pour Renommer, 5 pour l'envoi au groupe), **validé le 2026-11-04 : « Renommer C, Groupe D »**. Rendu de l'émulateur (0.4.194) ajouté dans l'aperçu (artifact « Favoris : renommer, groupe », version 3).
+  - `:core` : `Favorites.nameTaken` (nom d'un autre favori, casse et espaces ignorés) et `Favorites.renamed`.
+  - `:app` : l'appui long sur une puce ouvre la **fiche du favori** (`maps/FavoriteSheet.kt`) : vignette, nom, « 6 cartes · favori fourni, modifié » ; Appliquer · Renommer… · Partager… (« Fichier .toolmap », écran « Partager des favoris » avec ce favori coché) · Rétablir l'original (« Nom et réglages livrés », pour un favori fourni que l'utilisateur a mis à jour ou renommé) · Supprimer en rouge. Le menu déroulant d'avant est retiré.
+  - Dialogue « Renommer le favori » : champ « Nom du favori », nom tout sélectionné, clavier ouvert ; Renommer grisé si le nom est vide, inchangé ou pris (« Un autre favori porte déjà ce nom. ») ; enregistré sous le même id avec les mêmes cartes (`MapViewModel.renameFavorite`) ; snackbar « Favori renommé : … » avec « Annuler » (remet la version d'avant). Un favori fourni renommé devient la version de l'utilisateur (ADR-108, pas de nouvel ADR).
+  - Aide du panneau (« Un appui long ouvre sa fiche… ») et libellé TalkBack de la puce (« Ouvrir la fiche du favori ») mis à jour ; `SheetRow` de `GroupShares.kt` partagé.
+- **Décisions (ADR)** : aucune (règles d'ADR-108 appliquées au nom).
+- **Tests / vérifications** :
+  - `FavoriteChangesTest` (+2 : nom pris quelle que soit la casse, jamais par le favori lui-même ; favori fourni renommé : mêmes cartes, version de l'utilisateur, plus après retour au nom livré) ; `MapsRootPanelTest` (appui long → fiche, Supprimer puis Annuler ; Renommer : « rando hiver » refusé, « Rando été 2026 » enregistré avec le même id et les mêmes calques, puis « Rétablir l'original ») : `./gradlew spotlessApply` puis `./gradlew :core:test --tests "fr.toolmap.core.layers.FavoriteChangesTest" :app:testDebugUnitTest --tests "fr.toolmap.maps.MapsRootPanelTest"` **BUILD SUCCESSFUL**.
+  - `./gradlew assembleDebug` (0.4.194), installé sur l'émulateur (stockage : 512 Mo libres, puis 428 Mo). Au lancement, une fenêtre « ajouter un compte » de l'agenda Google (ouverte à 19 h 17, sans lien avec ToolMap) passait devant et le système affichait « Process system isn't responding » : « Wait », ToolMap remis devant par `am start`, rien touché dans les autres applications. Appui long sur « Rando été » : la fiche (sans « Rétablir l'original » : pas encore la version de l'utilisateur) ; Renommer… : nom sélectionné ; « rando hiver » : message et bouton grisé ; « Rando lac 2026 » : puce et bandeau renommés ; de nouveau « Rando lac » : message « Favori renommé : Rando lac » avec « Annuler » au-dessus du panneau ; « Essai » puis « Annuler » : « Rando lac » revient ; la fiche montre alors « Rétablir l'original », qui remet « Rando été » (état de départ). Appui long sur « Rando Hiver » ▸ Partager… : « Rando Hiver.toolmap », « 1 coché sur 2 ».
+  - Final : `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.195) **BUILD SUCCESSFUL in 4m 11s**.
+- **Aperçu validé** : `docs/previews/p25-renommer-groupe.html`, Renommer **C** (et Groupe D pour P25.4), validé le 2026-11-04 ; rendu de l'émulateur à côté.
+- **Problèmes / dette technique** :
+  - Écart avec l'aperçu : le message « Favori renommé » s'affiche au-dessus du panneau et non en bas sur lui (place de tous les messages depuis P29.5, comme « Favori mis à jour »).
+  - Règles Firebase de P27.1 toujours à republier dans la console avant P27.5 (et avant P25.4 si l'envoi passe par l'emplacement du serveur).
+- **Prochaine étape recommandée** : P25.4, envoi d'un favori au groupe selon la variante D validée.
+
 ## 2026-11-04 — Session 89 (suite 12) — [P28.4] Croquis : formes point par point et remplissages motif × couleur
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 9ca234e (0.4.191). Copies : GitHub `claude/vibrant-galileo-q3s99n` = 0.4.191, local = 0.4.191 puis changements non poussés (référence) ; autres branches plus anciennes (main 0.4.134) ; Drive non monté.
 - **Objectif** : poser les formes d'un croquis avec le moteur de Mesure → Surface plutôt qu'une liste de formes toutes faites, avec des remplissages prédéfinis (zone interdite hachurée, zone à préserver…).

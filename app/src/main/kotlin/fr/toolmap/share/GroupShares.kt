@@ -231,9 +231,9 @@ private fun itemTimeLeft(seconds: Long?): String {
     }
 }
 
-/** A row of a block or a sheet: an icon, a title and a summary under it. */
+/** A row of a block or a sheet: an icon, a title and a summary under it (also the sheet of a favourite, P25.5). */
 @Composable
-private fun SheetRow(
+internal fun SheetRow(
     icon: ImageVector,
     title: String,
     onClick: () -> Unit,

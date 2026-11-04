@@ -7,6 +7,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -50,6 +52,7 @@ class MapsRootPanelTest {
     private val opened = mutableListOf<String>()
     private val deleted = mutableListOf<Workspace>()
     private val updated = mutableListOf<Workspace>()
+    private val renamedTo = mutableListOf<Pair<String, String>>()
 
     @After
     fun tearDown() = fixture.close()
@@ -69,6 +72,7 @@ class MapsRootPanelTest {
                         onOpenStorage = { opened += "storage" },
                         onFavoriteDeleted = { deleted += it },
                         onFavoriteUpdated = { updated += it },
+                        onFavoriteRenamed = { previous, name -> renamedTo += previous.name to name },
                     ),
                 currentZoom = zoom,
                 maxHeight = 1900.dp,
@@ -288,12 +292,39 @@ class MapsRootPanelTest {
     }
 
     @Test
-    fun `a favourite chip offers Appliquer and Supprimer on a long press, and a delete can be undone`() {
+    fun `a long press opens the sheet of the favourite, whose Supprimer can be undone`() {
         setContent()
         rule.onNodeWithText("Rando été").performTouchInput { longClick() }
         rule.onNodeWithText("Appliquer").assertExists()
+        rule.onNodeWithText("Renommer…").assertExists()
+        rule.onNodeWithText("Fichier .toolmap").assertExists()
+        rule.onNodeWithText("6 cartes · favori fourni").assertExists()
         rule.onNodeWithText("Supprimer").performClick()
         assertEquals(listOf("Rando été"), deleted.map { it.name })
+    }
+
+    @Test
+    fun `Renommer refuses the name of another favourite, then saves the new one with the same maps (P25_5)`() {
+        setContent()
+        rule.onNodeWithText("Rando été").performTouchInput { longClick() }
+        rule.onNodeWithText("Renommer…").performClick()
+        rule.onNodeWithText("Renommer le favori").assertExists()
+        val field = hasSetTextAction()
+        rule.onNode(field).performTextReplacement("rando hiver")
+        rule.onNodeWithText("Un autre favori porte déjà ce nom.").assertExists()
+        rule.onNodeWithText("Renommer").assertIsNotEnabled()
+        rule.onNode(field).performTextReplacement("Rando été 2026")
+        rule.onNodeWithText("Renommer").assertIsEnabled().performClick()
+        rule.waitUntil { fixture.vm.favorites.value.any { it.name == "Rando été 2026" } }
+        val renamed = fixture.vm.favorites.value.first()
+        assertEquals(Workspaces.randoEte.id, renamed.id)
+        assertEquals(Workspaces.randoEte.layers, renamed.layers)
+        assertEquals(listOf("Rando été" to "Rando été 2026"), renamedTo)
+        // A provided favourite renamed is the user's version: « Rétablir l'original » brings the name back.
+        rule.onNodeWithText("Rando été 2026").performTouchInput { longClick() }
+        rule.onNodeWithText("Nom et réglages livrés").assertExists()
+        rule.onNodeWithText("Rétablir l'original").performClick()
+        rule.waitUntil { fixture.vm.favorites.value.first() == Workspaces.randoEte }
     }
 
     @Test

@@ -112,4 +112,23 @@ object Favorites {
         if (origin == null || stack.isEmpty || favorites.any { it.matches(stack) }) return null
         return favorites.firstOrNull { it.id == origin }
     }
+
+    /**
+     * True when a favorite other than [id] is called [name] (spaces around and case left aside): two chips of the same
+     * name could not be told apart, so « Renommer » refuses it (P25.5).
+     */
+    fun nameTaken(
+        favorites: List<Workspace>,
+        id: String,
+        name: String,
+    ): Boolean = favorites.any { it.id != id && it.name.trim().equals(name.trim(), ignoreCase = true) }
+
+    /**
+     * [favorite] under [name]: what « Renommer » saves. Its maps and settings do not change; for a built-in preset it
+     * becomes the user's version (ADR-108), which « Rétablir l'original » undoes with the shipped name.
+     */
+    fun renamed(
+        favorite: Workspace,
+        name: String,
+    ): Workspace = favorite.copy(name = name.trim())
 }

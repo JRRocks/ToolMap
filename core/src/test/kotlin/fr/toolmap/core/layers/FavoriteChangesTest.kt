@@ -128,4 +128,24 @@ class FavoriteChangesTest {
         // Changed into another favorite: that one is shown as applied instead.
         assertNull(Favorites.modified(favorites, rando.id, stackOf(winter)))
     }
+
+    @Test
+    fun `a name is taken by another favorite whatever its case and spaces, never by the favorite itself`() {
+        val favorites = Workspaces.builtin
+        assertTrue(Favorites.nameTaken(favorites, rando.id, "Rando Hiver"))
+        assertTrue(Favorites.nameTaken(favorites, rando.id, "  rando hiver "))
+        assertFalse(Favorites.nameTaken(favorites, rando.id, "Rando été"))
+        assertFalse(Favorites.nameTaken(favorites, rando.id, "Rando été 2026"))
+    }
+
+    @Test
+    fun `a renamed built-in preset keeps its maps and is the user's version until the original comes back`() {
+        val renamed = Favorites.renamed(rando, " Rando été 2026 ")
+        assertEquals("Rando été 2026", renamed.name)
+        assertEquals(rando.id, renamed.id)
+        assertEquals(rando.layers, renamed.layers)
+        assertTrue(renamed.matches(stackOf(rando)))
+        assertTrue(Favorites.isOverridden(renamed))
+        assertFalse(Favorites.isOverridden(Favorites.renamed(renamed, rando.name)))
+    }
 }

@@ -26,7 +26,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -82,7 +81,6 @@ import fr.toolmap.map.PanelBand
 import fr.toolmap.map.PanelCaption
 import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.theme.AlertDialog
-import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.FilledTonalButton
 import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
@@ -103,6 +101,8 @@ class MapsRootActions(
     val onShareFavorites: (applied: String?) -> Unit = {},
     /** A favourite was just updated: the screen offers « Annuler », which puts back [previous] (P25.9). */
     val onFavoriteUpdated: (previous: Workspace) -> Unit = {},
+    /** A favourite was just renamed [name]: the screen offers « Annuler », which puts back [previous] (P25.5). */
+    val onFavoriteRenamed: (previous: Workspace, name: String) -> Unit = { _, _ -> },
 )
 
 /*
@@ -132,6 +132,9 @@ fun MapsRootPanel(
     val expanded by maps.expandedLayer.collectAsStateWithLifecycle()
     var showSave by remember { mutableStateOf(false) }
     var showUpdate by remember { mutableStateOf(false) }
+    // The favourite whose sheet is open, and the one being renamed (P25.5), by id.
+    var sheetFor by remember { mutableStateOf<String?>(null) }
+    var renaming by remember { mutableStateOf<String?>(null) }
     val byId = remember(sources) { sources.associateBy { it.id } }
     val layers = state.stack.topToBottom()
     val applied = Favorites.applied(favorites, state.favorite, state.stack)
@@ -169,11 +172,7 @@ fun MapsRootPanel(
                 byId = byId,
                 thumbnails = maps.thumbnails,
                 onApply = vm::applyWorkspace,
-                onDelete = { favorite ->
-                    vm.deleteWorkspace(favorite.id)
-                    actions.onFavoriteDeleted(favorite)
-                },
-                onRestoreOriginal = { vm.restoreOriginalWorkspace(it.id) },
+                onOpen = { sheetFor = it.id },
                 onRestore = vm::restoreBuiltinWorkspaces,
             )
             PanelCaption(stringResource(R.string.maps_stack_caption))
@@ -232,6 +231,40 @@ fun MapsRootPanel(
                 showSave = false
             },
             onDismiss = { showSave = false },
+        )
+    }
+    favorites.firstOrNull { it.id == sheetFor }?.let { favorite ->
+        val cover = coverOf(favorite, byId)
+        FavoriteSheet(
+            favorite = favorite,
+            modified = favorite.id == modified?.id,
+            cover = cover,
+            coverName = cover?.let { byId[it]?.name } ?: favorite.name,
+            thumbnails = maps.thumbnails,
+            actions =
+                FavoriteSheetActions(
+                    onApply = vm::applyWorkspace,
+                    onRename = { renaming = it.id },
+                    onShare = { actions.onShareFavorites(it.id) },
+                    onRestoreOriginal = { vm.restoreOriginalWorkspace(it.id) },
+                    onDelete = {
+                        vm.deleteWorkspace(it.id)
+                        actions.onFavoriteDeleted(it)
+                    },
+                ),
+            onClose = { sheetFor = null },
+        )
+    }
+    favorites.firstOrNull { it.id == renaming }?.let { favorite ->
+        RenameFavoriteDialog(
+            favorite = favorite,
+            favorites = favorites,
+            onRename = { name ->
+                vm.renameFavorite(favorite, name)
+                actions.onFavoriteRenamed(favorite, name)
+                renaming = null
+            },
+            onDismiss = { renaming = null },
         )
     }
     if (showUpdate && modified != null) {
@@ -433,8 +466,7 @@ private fun MapsBand(
 /**
  * The favourites as chips: the round picture of the top base map of each, its name; the one applied is filled, the
  * one the stack came from and changed since is dashed with a dot (P25.9). A tap applies it (the panel stays open); a
- * long press offers « Appliquer », « Rétablir l'original » for a provided one the user updated, and « Supprimer ».
- * « Rétablir (n) » last brings back the provided ones deleted.
+ * long press opens its sheet ([FavoriteSheet], P25.5). « Rétablir (n) » last brings back the provided ones deleted.
  */
 @Composable
 private fun FavoriteChips(
@@ -445,8 +477,7 @@ private fun FavoriteChips(
     byId: Map<String, TileSource>,
     thumbnails: MapThumbnails,
     onApply: (Workspace) -> Unit,
-    onDelete: (Workspace) -> Unit,
-    onRestoreOriginal: (Workspace) -> Unit,
+    onOpen: (Workspace) -> Unit,
     onRestore: () -> Unit,
 ) {
     LazyRow(
@@ -465,8 +496,7 @@ private fun FavoriteChips(
                 coverName = cover?.let { byId[it]?.name } ?: favorite.name,
                 thumbnails = thumbnails,
                 onApply = { onApply(favorite) },
-                onDelete = { onDelete(favorite) },
-                onRestoreOriginal = { onRestoreOriginal(favorite) }.takeIf { Favorites.isOverridden(favorite) },
+                onOpen = { onOpen(favorite) },
             )
         }
         if (hiddenBuiltins > 0) {
@@ -504,41 +534,12 @@ private fun FavoriteChip(
     coverName: String,
     thumbnails: MapThumbnails,
     onApply: () -> Unit,
-    onDelete: () -> Unit,
-    onRestoreOriginal: (() -> Unit)?,
+    onOpen: () -> Unit,
 ) {
-    var menu by remember { mutableStateOf(false) }
-    Box {
-        ChipFrame(selected = selected, modified = modified, onClick = onApply, onLongClick = { menu = true }) {
-            MapThumbnail(cover.orEmpty(), coverName, thumbnails, size = 24.dp, shape = CircleShape)
-            Text(favorite.name, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-            if (modified) Box(Modifier.size(8.dp).background(MaterialTheme.toolMap.accent, CircleShape))
-        }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.maps_favorite_apply)) },
-                onClick = {
-                    menu = false
-                    onApply()
-                },
-            )
-            if (onRestoreOriginal != null) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.maps_favorite_restore_original)) },
-                    onClick = {
-                        menu = false
-                        onRestoreOriginal()
-                    },
-                )
-            }
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.layers_remove)) },
-                onClick = {
-                    menu = false
-                    onDelete()
-                },
-            )
-        }
+    ChipFrame(selected = selected, modified = modified, onClick = onApply, onLongClick = onOpen) {
+        MapThumbnail(cover.orEmpty(), coverName, thumbnails, size = 24.dp, shape = CircleShape)
+        Text(favorite.name, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+        if (modified) Box(Modifier.size(8.dp).background(MaterialTheme.toolMap.accent, CircleShape))
     }
 }
 

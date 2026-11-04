@@ -1464,6 +1464,17 @@ fun MapScreen(
                         if (answer == SnackbarResult.ActionPerformed) vm.revertFavorite(previous)
                     }
                 },
+                onFavoriteRenamed = { previous, name ->
+                    scope.launch {
+                        val answer =
+                            snackbar.showSnackbar(
+                                resources.getString(R.string.maps_favorite_renamed, name),
+                                actionLabel = resources.getString(R.string.action_cancel),
+                                duration = SnackbarDuration.Short,
+                            )
+                        if (answer == SnackbarResult.ActionPerformed) vm.revertFavorite(previous)
+                    }
+                },
             )
         }
     // « Sélectionner une zone » of an empty « Cartes hors ligne » screen: start the selection once the map is laid out.

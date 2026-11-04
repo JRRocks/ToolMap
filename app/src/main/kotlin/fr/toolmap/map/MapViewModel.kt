@@ -8,6 +8,7 @@ import fr.toolmap.R
 import fr.toolmap.core.download.ZoneShape
 import fr.toolmap.core.download.ZoomLimit
 import fr.toolmap.core.layers.BlendMode
+import fr.toolmap.core.layers.Favorites
 import fr.toolmap.core.layers.LayerStack
 import fr.toolmap.core.layers.RangeLogic
 import fr.toolmap.core.layers.Workspace
@@ -251,6 +252,15 @@ class MapViewModel
             val updated = Workspace.of(favorite.id, favorite.name, mutableState.value.stack)
             viewModelScope.launch(Dispatchers.IO) { workspaceStore.save(updated) }
             mutableState.update { it.withFavorite(favorite.id) }
+        }
+
+        /** « Renommer » (P25.5): [favorite] under [name], its maps unchanged; « Annuler » is [revertFavorite]. */
+        fun renameFavorite(
+            favorite: Workspace,
+            name: String,
+        ) {
+            if (name.isBlank()) return
+            viewModelScope.launch(Dispatchers.IO) { workspaceStore.save(Favorites.renamed(favorite, name)) }
         }
 
         /** Puts back [previous], the version of a favourite before « Mettre à jour »: « Annuler » of the snackbar. */
