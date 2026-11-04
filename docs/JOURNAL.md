@@ -20,6 +20,18 @@
 
 ---
 
+## 2026-11-04 — Session 91 (suite 3) — [P35.0] Aperçu : logo « Trois données » simplifié, 5 versions
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après dbdf165 (0.4.200) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies : GitHub = local = 0.4.200 (référence).
+- **Objectif** : simplifier la version 10 du tour 3 (« Trois données, gros symboles »), jugée trop chargée en détails par l'utilisateur.
+- **Réalisé** :
+  - Demande de l'utilisateur (2026-11-04), sur la capture de la 10 : « Tente de simplifier le nombre de formes sur celui-là, actuellement trop chargé en détails. » Pas encore de validation du logo.
+  - 01 rappelle la 10 telle quelle ; 02 Écartées, opaques (trois feuilles pleines et séparées, un signe chacune : route, courbe, lettre) ; 03 Les bords parlent (trois formes : bord droit = route, bord ondulé = courbe, lettre « A » droite sur la carte du dessus) ; 04 La lettre seule (calques de l'original et la lettre) ; 05 Translucides, sans bords (la 10 sans bords ni rivière, bâtiment, sommet) ; 06 Les signes seuls (route, courbe, lettre empilées, sans feuilles). Lettre « A » redressée partout (en perspective, elle se lisait mal). Recommandation : 03, ou 02.
+  - Livré : `docs/previews/logo-simple.html` et 7 images `docs/previews/logo/simple-*.png`, envoyées à l'utilisateur. Aucun code ni ressource touché.
+- **Décisions (ADR)** : aucune (aperçu).
+- **Tests / vérifications** : page ouverte dans Chromium (Playwright), aucune erreur de console ; images faites par capture d'élément (`deviceScaleFactor: 2`, 660 px) et regardées (bord ondulé de 03 adouci : trop de dents au premier rendu). Pas de SDK Android dans cette session (`dl.google.com` refusé) : `version.properties` passé à **0.4.201** avec l'empreinte recalculée comme `appSourceFingerprint` ; la CI compile. CI de a3336fa (0.4.199) verte (run 41901127085) ; celle de dbdf165 encore en cours à ce commit.
+- **Problèmes / dette technique** : le bord ondulé de 03 peut se lire comme de l'eau plutôt qu'une courbe de niveau.
+- **Prochaine étape recommandée** : choix de l'utilisateur, puis P35.1 (icône adaptative, monochrome, logo de l'app).
+
 ## 2026-11-04 — Session 91 (suite 2) — [P35.0] Aperçu : logo, tour 3 (épingle reconnaissable, calques de données)
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après a3336fa (0.4.199) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies : GitHub = local = 0.4.199 (référence).
 - **Objectif** : 10 versions : 5 de « Épingle sur la pile » avec une épingle reconnaissable, 5 de « Transparence » où chaque calque est un groupe de données.
