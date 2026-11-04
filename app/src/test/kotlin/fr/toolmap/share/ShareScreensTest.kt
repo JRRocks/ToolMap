@@ -11,6 +11,8 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import fr.toolmap.core.p2p.GroupItemKind
+import fr.toolmap.core.p2p.GroupPoint
 import fr.toolmap.core.p2p.MemberView
 import fr.toolmap.core.p2p.PeerState
 import fr.toolmap.ui.Formats
@@ -194,5 +196,40 @@ class ShareScreensTest {
         rule.onAllNodesWithText("Aller vers ce membre").assertCountEquals(0)
         rule.onAllNodesWithContentDescription("Actions sur Pixel 7").assertCountEquals(0)
         rule.onNodeWithText("Enregistrer sa trace").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a favorite shared by another reads its sentence and Ajouter while it is in the group, never your own`() {
+        fun favorite(
+            id: Long,
+            name: String,
+        ) = GroupPoint(id, 2L, 1, 45.0, 6.0, name = name, createdSec = 1, kind = GroupItemKind.FAVORITES)
+        val live = favorite(1, "Rando été")
+        val gone = favorite(2, "Hiver")
+        val mine = favorite(3, "Ville")
+        val ui =
+            ShareSamples.ui(now, inGroup = true).copy(
+                messages =
+                    listOf(
+                        ShareMessage(2L, "Galaxy A54", live.name, now, mine = false, point = live),
+                        ShareMessage(2L, "Galaxy A54", gone.name, now, mine = false, point = gone),
+                        ShareMessage(1L, "Pixel 7", mine.name, now, mine = true, point = mine),
+                    ),
+                points = listOf(live, mine),
+            )
+        val added = ArrayList<String>()
+        rule.setContent {
+            ToolMapTheme {
+                MessagesPage(ui, {}, {}, {}, { _, _ -> calls += "map" }, { added += it.name })
+            }
+        }
+        rule.onNodeWithText("Galaxy A54 a partagé un favori « Rando été »").assertExists()
+        rule.onNodeWithText("Galaxy A54 a partagé un favori « Hiver »").assertExists()
+        rule.onNodeWithText("Vous avez partagé un favori « Ville »").assertExists()
+        rule.onAllNodesWithText("Ajouter").assertCountEquals(1)
+        rule.onNodeWithContentDescription("Ajouter « Rando été » à mes favoris").performClick()
+        assertEquals(listOf("Rando été"), added)
+        rule.onNodeWithText("Galaxy A54 a partagé un favori « Hiver »").performClick()
+        assertEquals(emptyList(), calls)
     }
 }

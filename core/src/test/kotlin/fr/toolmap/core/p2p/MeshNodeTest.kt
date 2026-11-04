@@ -816,6 +816,25 @@ class MeshNodeTest {
     }
 
     @Test
+    fun `favorites beyond 4096 bytes ride deflated in one point, to everyone and to a member who arrives later`() {
+        val (a, b, c) = threeMembers()
+        val text = GroupShapeTest.favoritesText(8)
+        assertTrue(text.toByteArray(Charsets.UTF_8).size > 4096)
+        val shape = java.util.Base64.getEncoder().encodeToString(GroupShape.packText(text))
+        val p = a.node.createPoint(45.0, 6.0, "Rando été", kind = GroupItemKind.FAVORITES, shape = shape)
+        net.pump()
+        assertEquals(text, b.node.points().single().favoritesText())
+        assertEquals(text, c.node.points().single().favoritesText())
+        assertTrue(b.pointAlerts.isEmpty() && c.pointAlerts.isEmpty())
+        // Kept on the server by its author, in one slot.
+        assertNotNull(a.kept[RelayPaths.point(p.id)])
+        val d = peer(4, "Denis")
+        net.connect(3, 4)
+        assertEquals(text, d.node.points().single().favoritesText())
+        assertTrue(d.pointAlerts.isEmpty())
+    }
+
+    @Test
     fun `a point ends at its time, its writer takes it off the server, the others a while later`() {
         val (a, b, _) = threeMembers()
         val p = a.node.createPoint(45.0, 6.0, "30 min", expiresSec = net.nowMs / 1000 + 1800)

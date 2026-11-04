@@ -134,6 +134,65 @@ class ShareFavoritesTest {
         assertFalse(rule.onAllNodesWithTextExists("Clé d'accès", substring = true))
     }
 
+    @Test
+    fun `in a group Au groupe comes before Partager and both wait for a tick`() {
+        vm.open("ws-snow")
+        settle()
+        val byId = repository.sources.value.associateBy { it.id }
+        var toGroup = 0
+        rule.setContent {
+            val ui by vm.ui.collectAsState()
+            ShareFavoritesPage(
+                ui = ui,
+                byId = byId,
+                thumbnails = MapThumbnails(OkHttpClient(), repository),
+                snackbar = SnackbarHostState(),
+                onClose = {},
+                onToggle = vm::toggle,
+                onKeepKeys = vm::setKeepKeys,
+                onShare = {},
+                toGroup = FavoritesToGroup(members = 3, fromGroup = false),
+                onToGroup = { toGroup++ },
+            )
+        }
+        rule.onNodeWithText("Partager…").assertIsEnabled()
+        assertFalse(rule.onAllNodesWithTextExists("Envoyé par le partage d'Android", substring = false))
+        rule.onNodeWithText("Au groupe").performClick()
+        assertEquals(1, toGroup)
+        rule.onNodeWithText("Sortie neige").performClick()
+        rule.onNodeWithText("Au groupe").assertIsNotEnabled()
+        rule.onNodeWithText("Partager…").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `opened from the group the foot counts the members and only sends to the group`() {
+        vm.open(null)
+        settle()
+        vm.toggle("ws-osm")
+        settle()
+        val byId = repository.sources.value.associateBy { it.id }
+        var toGroup = 0
+        rule.setContent {
+            val ui by vm.ui.collectAsState()
+            ShareFavoritesPage(
+                ui = ui,
+                byId = byId,
+                thumbnails = MapThumbnails(OkHttpClient(), repository),
+                snackbar = SnackbarHostState(),
+                onClose = {},
+                onToggle = vm::toggle,
+                onKeepKeys = vm::setKeepKeys,
+                onShare = {},
+                toGroup = FavoritesToGroup(members = 3, fromGroup = true),
+                onToGroup = { toGroup++ },
+            )
+        }
+        rule.onNodeWithText("Au groupe · 3 membres").assertExists()
+        assertFalse(rule.onAllNodesWithTextExists("Partager…", substring = false))
+        rule.onNodeWithText("Envoyer au groupe").performClick()
+        assertEquals(1, toGroup)
+    }
+
     private fun settle() = org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
 
     private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.onAllNodesWithTextExists(

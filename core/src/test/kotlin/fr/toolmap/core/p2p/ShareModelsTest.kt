@@ -200,6 +200,8 @@ class ShareGeoJsonTest {
                     shape = shape,
                 ),
                 GroupPoint(3, 7, 1, 45.0, 6.0, name = "Croquis", createdSec = 1, kind = GroupItemKind.SKETCH),
+                // Favorites (P25.4) are not on the map.
+                GroupPoint(4, 7, 1, 45.0, 6.0, name = "Rando été", createdSec = 1, kind = GroupItemKind.FAVORITES),
             )
         val json = ShareGeoJson.items(points, listOf(member(7, "Marie", color = 0xFF2E7D32.toInt())))
         val features = parse(json).jsonObject["features"]!!.jsonArray.map { it.jsonObject }

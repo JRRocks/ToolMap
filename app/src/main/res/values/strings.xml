@@ -1051,6 +1051,15 @@
   <string name="group_item_keep_sub">Une copie à vous, qui reste après le groupe</string>
   <string name="group_item_remove">Retirer du groupe</string>
   <string name="group_item_kept">« %1$s » est gardé dans vos éléments.</string>
+  <!-- Favorites sent to the group (P25.4, variant D of docs/previews/p25-renommer-groupe.html, 2026-11-04) -->
+  <string name="group_shared_favorites">%1$s a partagé un favori « %2$s »</string>
+  <string name="group_shared_favorites_mine">Vous avez partagé un favori « %1$s »</string>
+  <string name="group_item_favorites">Favori</string>
+  <string name="group_share_favorites">Un favori…</string>
+  <string name="group_share_favorites_sub">Cartes et réglages d\'affichage</string>
+  <string name="group_item_add_favorites">Ajouter à mes favoris</string>
+  <string name="group_message_add">Ajouter</string>
+  <string name="group_message_add_label">Ajouter « %1$s » à mes favoris</string>
   <string name="group_pick_waypoints">Waypoints</string>
   <string name="group_pick_tracks">Traces</string>
   <string name="group_pick_sketches">Croquis</string>
@@ -2359,6 +2368,13 @@
   <string name="fav_share_footer">Envoyé par le partage d\'Android</string>
   <string name="fav_share_button">Partager…</string>
   <string name="fav_share_failed">Fichier non écrit : %1$s</string>
+  <!-- P25.4: « Au groupe » next to « Partager… », and the screen opened by « Un favori… » of the group -->
+  <string name="fav_share_to_group">Au groupe</string>
+  <plurals name="fav_share_group_footer">
+    <item quantity="one">Au groupe · %1$d membre</item>
+    <item quantity="many">Au groupe · %1$d membres</item>
+    <item quantity="other">Au groupe · %1$d membres</item>
+  </plurals>
 
   <!-- P25.3: opening a .toolmap file, sheet « Ajouter N favoris ? » (preview p25-partage-sauvegarde.html) -->
   <plurals name="fav_import_title">

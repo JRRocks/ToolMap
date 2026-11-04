@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.layers.FavoritesFileCodec
 import fr.toolmap.core.measure.Measure
 import fr.toolmap.core.p2p.GroupItemKind
 import fr.toolmap.core.p2p.GroupPoint
@@ -62,6 +63,7 @@ import fr.toolmap.core.p2p.PointDuration
 import fr.toolmap.core.track.NameDates
 import fr.toolmap.draw.RouteIcons
 import fr.toolmap.map.MenuIcons
+import fr.toolmap.maps.MapsIcons
 import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.sketch.SketchIcons
 import fr.toolmap.ui.Formats
@@ -104,6 +106,7 @@ internal fun shareSentence(
                 GroupItemKind.WAYPOINT -> stringResource(R.string.group_shared_waypoint_mine, name)
                 GroupItemKind.TRACK -> stringResource(R.string.group_shared_track_mine, name)
                 GroupItemKind.SKETCH -> stringResource(R.string.group_shared_sketch_mine, name)
+                GroupItemKind.FAVORITES -> stringResource(R.string.group_shared_favorites_mine, name)
             }
         }
 
@@ -112,6 +115,7 @@ internal fun shareSentence(
                 GroupItemKind.WAYPOINT -> stringResource(R.string.group_shared_waypoint, message.name, name)
                 GroupItemKind.TRACK -> stringResource(R.string.group_shared_track, message.name, name)
                 GroupItemKind.SKETCH -> stringResource(R.string.group_shared_sketch, message.name, name)
+                GroupItemKind.FAVORITES -> stringResource(R.string.group_shared_favorites, message.name, name)
             }
         }
     }
@@ -122,6 +126,7 @@ internal fun kindIcon(kind: GroupItemKind): ImageVector =
         GroupItemKind.WAYPOINT -> SettingsIcons.Place
         GroupItemKind.TRACK -> MenuIcons.Polyline
         GroupItemKind.SKETCH -> SketchIcons.Pen
+        GroupItemKind.FAVORITES -> MapsIcons.Bookmark
     }
 
 @Composable
@@ -131,8 +136,15 @@ private fun kindLabel(kind: GroupItemKind): String =
             GroupItemKind.WAYPOINT -> R.string.group_item_waypoint
             GroupItemKind.TRACK -> R.string.group_item_track
             GroupItemKind.SKETCH -> R.string.group_item_sketch
+            GroupItemKind.FAVORITES -> R.string.group_item_favorites
         },
     )
+
+/** How many maps the favorites of a share show (P25.4), `null` for another share or an unreadable file. */
+internal fun favoritesMaps(point: GroupPoint): Int? =
+    point.favoritesText()?.let { text ->
+        runCatching { FavoritesFileCodec.decode(text).favorites.sumOf { it.layers.size } }.getOrNull()
+    }
 
 /** The colour of the author of [point], `null` when it is not in the group any more. */
 private fun authorColor(
@@ -194,7 +206,7 @@ private fun GroupItemLine(
     )
 }
 
-/** « Croquis · Marie · encore 1 h 40 », with the length of a track. */
+/** « Croquis · Marie · encore 1 h 40 », with the length of a track or the maps of favorites. */
 @Composable
 private fun itemSummary(
     point: GroupPoint,
@@ -208,14 +220,24 @@ private fun itemSummary(
         } else {
             ui.members.firstOrNull { it.id == point.author }?.name ?: "?"
         }
-    val length =
-        if (point.kind == GroupItemKind.TRACK) {
-            remember(point) { point.track().sumOf { Measure.pathLength(it) } }.let { formats.distance(it) }
-        } else {
-            null
+    val size =
+        when (point.kind) {
+            GroupItemKind.TRACK -> {
+                remember(point) { point.track().sumOf { Measure.pathLength(it) } }.let { formats.distance(it) }
+            }
+
+            GroupItemKind.FAVORITES -> {
+                remember(point) { favoritesMaps(point) }?.let {
+                    pluralStringResource(R.plurals.fav_share_maps, it, it)
+                }
+            }
+
+            else -> {
+                null
+            }
         }
     val left = itemTimeLeft(point.remainingSec(nowMs / MS_PER_S))
-    return listOfNotNull(kindLabel(point.kind), by, length, left).joinToString(" · ")
+    return listOfNotNull(kindLabel(point.kind), by, size, left).joinToString(" · ")
 }
 
 /** « encore 1 h 40 », « encore 3 h », « encore 42 min », or « tant que le groupe existe » for `null`. */
@@ -276,7 +298,7 @@ internal fun SheetRow(
     }
 }
 
-/** « Partager dans le groupe »: a new waypoint, track or sketch, or one of mine. */
+/** « Partager dans le groupe »: a new waypoint, track or sketch, favorites (P25.4), or one of mine. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ShareChoiceSheet(
@@ -285,6 +307,7 @@ internal fun ShareChoiceSheet(
     onSketch: () -> Unit,
     onMine: () -> Unit,
     onClose: () -> Unit,
+    onFavorites: () -> Unit = {},
 ) {
     ModalBottomSheet(onDismissRequest = onClose) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 8.dp)) {
@@ -313,6 +336,13 @@ internal fun ShareChoiceSheet(
                 stringResource(R.string.group_share_sketch),
                 onSketch,
                 stringResource(R.string.group_share_sketch_sub),
+                accent,
+            )
+            SheetRow(
+                MapsIcons.Bookmark,
+                stringResource(R.string.group_share_favorites),
+                onFavorites,
+                stringResource(R.string.group_share_favorites_sub),
                 accent,
             )
             SheetRow(
@@ -349,7 +379,8 @@ private fun durationLabel(duration: PointDuration): String =
 
 /**
  * « Envoyer au groupe » (variant B, 2026-11-03): the name, and on one line the type, the duration and the mode, which
- * a touch opens to change. [count] items sent at once have no name to give.
+ * a touch opens to change. [count] items sent at once have no name to give. A [detail] (« 6 cartes » of favorites,
+ * P25.4) takes the place of the mode: such a share never rings.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -359,6 +390,7 @@ internal fun SendToGroupDialog(
     onSend: (name: String, duration: PointDuration, alert: Boolean) -> Unit,
     onDismiss: () -> Unit,
     count: Int = 1,
+    detail: String? = null,
 ) {
     var name by rememberSaveable { mutableStateOf(initialName) }
     var durationIndex by rememberSaveable { mutableStateOf(SEND_DURATIONS.indexOf(DEFAULT_DURATION)) }
@@ -366,7 +398,7 @@ internal fun SendToGroupDialog(
     var open by rememberSaveable { mutableStateOf(false) }
     val duration = SEND_DURATIONS[durationIndex]
     val what = if (count > 1) stringResource(R.string.group_send_count, count) else kindLabel(kind)
-    val mode = stringResource(if (alert) R.string.group_send_alert else R.string.group_send_silent)
+    val mode = detail ?: stringResource(if (alert) R.string.group_send_alert else R.string.group_send_silent)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.group_send_title)) },
@@ -419,6 +451,8 @@ internal fun SendToGroupDialog(
                             )
                         }
                     }
+                }
+                if (open && detail == null) {
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         listOf(false, true).forEachIndexed { i, value ->
                             SegmentedButton(
@@ -455,11 +489,14 @@ internal class GroupItemActions(
     val onExtend: (GroupPoint, PointDuration) -> Unit,
     val onKeep: (GroupPoint) -> Unit,
     val onRemove: (GroupPoint) -> Unit,
+    /** « Ajouter à mes favoris » (P25.4): the sheet « Ajouter N favoris ? » of a received file. */
+    val onAddFavorites: (GroupPoint) -> Unit = {},
 )
 
 /**
  * The sheet of a share (page 3 of `docs/previews/p27-creer-pour-le-groupe.html`, 2026-11-03): « Voir sur la carte »,
- * « Renommer » and « Prolonger » for its author, « Garder dans mes… », « Retirer du groupe » for everyone.
+ * « Renommer » and « Prolonger » for its author, « Garder dans mes… », « Retirer du groupe » for everyone. Favorites
+ * (P25.4, variant D of `p25-renommer-groupe.html`) have no place: « Ajouter à mes favoris » comes first instead.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -494,7 +531,20 @@ internal fun GroupItemSheet(
                     )
                 }
             }
-            SheetRow(SettingsIcons.Place, stringResource(R.string.group_item_show_map), { actions.onShow(point) })
+            val favorites = point.kind == GroupItemKind.FAVORITES
+            if (favorites) {
+                val accent = MaterialTheme.colorScheme.primary
+                SheetRow(
+                    MapsIcons.BookmarkAdd,
+                    stringResource(R.string.group_item_add_favorites),
+                    { actions.onAddFavorites(point) },
+                    stringResource(R.string.group_item_keep_sub),
+                    tint = accent,
+                    textColor = accent,
+                )
+            } else {
+                SheetRow(SettingsIcons.Place, stringResource(R.string.group_item_show_map), { actions.onShow(point) })
+            }
             if (mine) {
                 SheetRow(SketchIcons.Pen, stringResource(R.string.group_item_rename), { renaming = true })
                 SheetRow(
@@ -504,18 +554,21 @@ internal fun GroupItemSheet(
                     stringResource(R.string.group_item_extend_sub),
                 )
             }
-            SheetRow(
-                Icons.Filled.Add,
-                stringResource(
-                    when (point.kind) {
-                        GroupItemKind.WAYPOINT -> R.string.group_item_keep_waypoint
-                        GroupItemKind.TRACK -> R.string.group_item_keep_track
-                        GroupItemKind.SKETCH -> R.string.group_item_keep_sketch
-                    },
-                ),
-                { actions.onKeep(point) },
-                stringResource(R.string.group_item_keep_sub),
-            )
+            val keep =
+                when (point.kind) {
+                    GroupItemKind.WAYPOINT -> R.string.group_item_keep_waypoint
+                    GroupItemKind.TRACK -> R.string.group_item_keep_track
+                    GroupItemKind.SKETCH -> R.string.group_item_keep_sketch
+                    GroupItemKind.FAVORITES -> null
+                }
+            if (keep != null) {
+                SheetRow(
+                    Icons.Filled.Add,
+                    stringResource(keep),
+                    { actions.onKeep(point) },
+                    stringResource(R.string.group_item_keep_sub),
+                )
+            }
             SheetRow(
                 RouteIcons.Delete,
                 stringResource(R.string.group_item_remove),
@@ -631,6 +684,8 @@ internal fun GroupShareDialogs(
     onNewSketch: () -> Unit,
     mapCenter: () -> LonLat,
     onShowOnMap: (GroupPoint) -> Unit,
+    onFavorites: () -> Unit = {},
+    onAddFavorites: (GroupPoint) -> Unit = {},
 ) {
     val nowMs = System.currentTimeMillis()
     if (shareChoice) {
@@ -652,6 +707,10 @@ internal fun GroupShareDialogs(
                 onMine()
             },
             onClose = onCloseChoice,
+            onFavorites = {
+                onCloseChoice()
+                onFavorites()
+            },
         )
     }
     if (newWaypoint) {
@@ -688,6 +747,10 @@ internal fun GroupShareDialogs(
                     onRemove = {
                         vm.removeShare(it.id)
                         onCloseShare()
+                    },
+                    onAddFavorites = {
+                        onCloseShare()
+                        onAddFavorites(it)
                     },
                 ),
             onClose = onCloseShare,

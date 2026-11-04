@@ -34,9 +34,12 @@ data class GroupPoint(
     val alert: Boolean = false,
     /** The member who removed it, [LIVE] while it is on. */
     val removedBy: Long = LIVE,
-    /** A waypoint, or a track or sketch whose [lat], [lon] is the anchor shown first (P27, 2026-11-03). */
+    /**
+     * A waypoint, or a track or sketch whose [lat], [lon] is the anchor shown first (P27, 2026-11-03), or favorites
+     * anchored where the map of their sender was (P25.4).
+     */
     val kind: GroupItemKind = GroupItemKind.WAYPOINT,
-    /** The packed geometry of a track or a sketch ([GroupShape]), in Base64; empty for a waypoint. */
+    /** The packed geometry of a track or a sketch, or the deflated file of favorites ([GroupShape]), in Base64. */
     val shape: String = "",
 ) {
     val removed: Boolean get() = removedBy != LIVE
@@ -59,6 +62,14 @@ data class GroupPoint(
             runCatching { GroupShape.unpackSketch(shapeBytes()) }.getOrDefault(emptyList())
         } else {
             emptyList()
+        }
+
+    /** The text of the `.toolmap` file of shared favorites (P25.4); `null` for another kind or unreadable bytes. */
+    fun favoritesText(): String? =
+        if (kind == GroupItemKind.FAVORITES) {
+            runCatching { GroupShape.unpackText(shapeBytes()) }.getOrNull()
+        } else {
+            null
         }
 
     private fun shapeBytes(): ByteArray = if (shape.isEmpty()) ByteArray(0) else Base64.getDecoder().decode(shape)

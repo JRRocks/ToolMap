@@ -70,7 +70,8 @@ object ShareGeoJson {
 
     /**
      * The waypoints and tracks shared with the group (P27), in the colour of their author (grey once it left): a point
-     * per waypoint, a line per track. The sketches are drawn with the others ([GroupPoint.sketch]).
+     * per waypoint, a line per track. The sketches are drawn with the others ([GroupPoint.sketch]); favorites
+     * (P25.4) have no place on the map.
      */
     fun items(
         points: List<GroupPoint>,
@@ -82,7 +83,7 @@ object ShareGeoJson {
         var first = true
         for (p in points) {
             val segments = if (p.kind == GroupItemKind.TRACK) p.track().filter { it.size >= 2 } else emptyList()
-            if (p.kind == GroupItemKind.SKETCH || (p.kind == GroupItemKind.TRACK && segments.isEmpty())) continue
+            if (p.kind != GroupItemKind.WAYPOINT && segments.isEmpty()) continue
             if (!first) out.append(',')
             first = false
             out.append("{\"type\":\"Feature\",\"properties\":{\"pid\":").append(JsonText.quote(p.id.toString()))

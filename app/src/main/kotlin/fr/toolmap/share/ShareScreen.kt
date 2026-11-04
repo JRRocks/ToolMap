@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -93,6 +94,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.p2p.GroupItemKind
 import fr.toolmap.core.p2p.GroupPoint
 import fr.toolmap.core.p2p.MemberPalette
 import fr.toolmap.core.p2p.MemberStatus
@@ -162,6 +164,8 @@ fun ShareScreen(
     onShowArea: (GroupPoint) -> Unit = { onShowOnMap(it.lat, it.lon) },
     onNewGroupTrack: () -> Unit = {},
     onNewGroupSketch: () -> Unit = {},
+    onShareFavorites: () -> Unit = {},
+    onAddFavorites: (GroupPoint) -> Unit = {},
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -294,6 +298,7 @@ fun ShareScreen(
                 onSend = vm::sendText,
                 onRead = vm::markMessagesRead,
                 onShowOnMap = onShowOnMap,
+                onAddFavorites = onAddFavorites,
             )
         }
     }
@@ -312,6 +317,8 @@ fun ShareScreen(
         onNewSketch = onNewGroupSketch,
         mapCenter = mapCenter,
         onShowOnMap = onShowArea,
+        onFavorites = onShareFavorites,
+        onAddFavorites = onAddFavorites,
     )
 
     if (showIntro) {
@@ -889,51 +896,68 @@ private fun SubPage(
     }
 }
 
-/** The automatic message of a share, centred in the thread; a share still there is shown on the map on a tap (P27). */
+/**
+ * The automatic message of a share, centred in the thread; a share still there is shown on the map on a tap (P27).
+ * Favorites have no place: while they are in the group, « Ajouter » under the sentence adds them (P25.4, variant D).
+ */
 @Composable
 private fun ColumnScope.ShareNotice(
     message: ShareMessage,
     point: GroupPoint,
+    live: GroupPoint?,
     onShowOnMap: (lat: Double, lon: Double) -> Unit,
+    onAddFavorites: (GroupPoint) -> Unit,
 ) {
     val text = shareSentence(message, point)
-    Row(
+    val favorites = point.kind == GroupItemKind.FAVORITES
+    val onColor = MaterialTheme.colorScheme.onSecondaryContainer
+    Column(
         Modifier
             .align(Alignment.CenterHorizontally)
             .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.secondaryContainer)
             .then(
-                if (message.removal) {
+                if (message.removal || favorites) {
                     Modifier
                 } else {
                     Modifier.clickable(onClickLabel = stringResource(R.string.group_item_show, message.text)) {
                         onShowOnMap(point.lat, point.lon)
                     }
                 },
-            ).semantics(mergeDescendants = true) {}
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ).padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(
-            kindIcon(point.kind),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-            modifier = Modifier.size(18.dp),
-        )
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        Row(
+            Modifier.semantics(mergeDescendants = true) {},
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(kindIcon(point.kind), contentDescription = null, tint = onColor, modifier = Modifier.size(18.dp))
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = onColor)
+        }
+        if (favorites && !message.removal && !message.mine && live != null) {
+            val label = stringResource(R.string.group_message_add_label, live.name)
+            Button(
+                onClick = { onAddFavorites(live) },
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp),
+                modifier = Modifier.semantics { contentDescription = label },
+            ) { Text(stringResource(R.string.group_message_add)) }
+        }
     }
 }
 
 /** The page of the messages: the last 50 with their time, then the field and « Envoyer ». */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MessagesPage(
+internal fun MessagesPage(
     ui: ShareUi,
     onBack: () -> Unit,
     onSend: (String) -> Unit,
     onRead: () -> Unit,
     onShowOnMap: (lat: Double, lon: Double) -> Unit,
+    onAddFavorites: (GroupPoint) -> Unit,
 ) {
     // Open, the page reads what comes in.
     LaunchedEffect(ui.messages.size) { onRead() }
@@ -980,7 +1004,8 @@ private fun MessagesPage(
             for (message in shown) {
                 val point = message.point
                 if (point != null) {
-                    ShareNotice(message, point, onShowOnMap)
+                    val live = ui.points.firstOrNull { it.id == point.id }
+                    ShareNotice(message, point, live, onShowOnMap, onAddFavorites)
                     continue
                 }
                 Column {

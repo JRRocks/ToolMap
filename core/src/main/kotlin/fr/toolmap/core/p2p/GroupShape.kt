@@ -16,13 +16,14 @@ import java.util.zip.Inflater
 import kotlin.math.cos
 import kotlin.math.roundToLong
 
-/** What a share of the group is (P27, 2026-11-03): a waypoint, a track or a sketch. */
+/** What a share of the group is (P27, 2026-11-03): a waypoint, a track, a sketch, or favorites (P25.4). */
 enum class GroupItemKind(
     val code: Int,
 ) {
     WAYPOINT(0),
     TRACK(1),
     SKETCH(2),
+    FAVORITES(3),
     ;
 
     companion object {
@@ -215,6 +216,14 @@ object GroupShape {
         val keep = PathSimplifier.keptIndices(xs, ys, toleranceMeters)
         return points.filterIndexed { i, _ -> keep[i] }
     }
+
+    /** The text of a `.toolmap` file of favorites (P25.4), deflated; `null` when it does not fit [maxBytes]. */
+    fun packText(
+        text: String,
+        maxBytes: Int = MAX_BYTES,
+    ): ByteArray? = deflate(text.toByteArray(Charsets.UTF_8)).takeIf { it.size <= maxBytes }
+
+    fun unpackText(bytes: ByteArray): String = inflate(bytes).toString(Charsets.UTF_8)
 
     private fun deflate(data: ByteArray): ByteArray {
         val d = Deflater(Deflater.BEST_COMPRESSION)

@@ -35,7 +35,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
@@ -48,22 +51,36 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.layers.FavoritesExport
+import fr.toolmap.core.layers.FavoritesFile
 import fr.toolmap.core.layers.Workspace
+import fr.toolmap.core.p2p.GroupItemKind
+import fr.toolmap.core.p2p.PointDuration
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.download.formatBytes
 import fr.toolmap.settings.SettingsIcons
+import fr.toolmap.share.SendToGroupDialog
+import fr.toolmap.share.ShareIcons
 import fr.toolmap.ui.GroupBlock
 import fr.toolmap.ui.GroupCaption
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.screenInsets
 import fr.toolmap.ui.theme.Button
+import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.toolMap
+import kotlinx.coroutines.launch
+
+/** The group the favorites may go to (P25.4): its [members], and whether the screen was opened from the group. */
+data class FavoritesToGroup(
+    val members: Int,
+    val fromGroup: Boolean,
+)
 
 /**
  * « Partager des favoris » (P25.2, variant C « Poids » of `docs/previews/p25-partage-sauvegarde.html`): a full screen
  * opened by the « Partager » icon of the band of « Cartes et calques ». The card at the top says the file the ticks
  * make (its name, what it holds, its weight); the favorites to tick; the key of the added maps, removed or kept; and
- * « Partager… » in the bar at the foot, which hands the file to the share sheet of Android.
+ * « Partager… » in the bar at the foot, which hands the file to the share sheet of Android. In a group, the file also
+ * goes to it (P25.4): [onSendToGroup] is `false` when it could not be sent.
  */
 @Composable
 fun ShareFavoritesScreen(
@@ -71,10 +88,14 @@ fun ShareFavoritesScreen(
     thumbnails: MapThumbnails,
     sources: List<TileSource>,
     onClose: () -> Unit,
+    toGroup: FavoritesToGroup? = null,
+    onSendToGroup: (name: String, duration: PointDuration, file: SharedFile) -> Boolean = { _, _, _ -> false },
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val resources = LocalResources.current
     val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var sending by remember { mutableStateOf(false) }
     LaunchedEffect(vm) {
         vm.messages.collect { snackbar.showSnackbar(resources.getString(it.resId, *it.args.toTypedArray())) }
     }
@@ -88,7 +109,27 @@ fun ShareFavoritesScreen(
         onToggle = vm::toggle,
         onKeepKeys = vm::setKeepKeys,
         onShare = { vm.share(title) },
+        toGroup = toGroup,
+        onToGroup = { sending = true },
     )
+    val file = ui.file
+    if (sending && file != null) {
+        val maps = file.favorites.sumOf { it.layers.size }
+        SendToGroupDialog(
+            kind = GroupItemKind.FAVORITES,
+            initialName = file.name.removeSuffix(FavoritesFile.EXTENSION),
+            onSend = { name, duration, _ ->
+                sending = false
+                if (onSendToGroup(name, duration, file)) {
+                    onClose()
+                } else {
+                    scope.launch { snackbar.showSnackbar(resources.getString(R.string.group_send_failed)) }
+                }
+            },
+            onDismiss = { sending = false },
+            detail = pluralStringResource(R.plurals.fav_share_maps, maps, maps),
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -102,6 +143,8 @@ internal fun ShareFavoritesPage(
     onToggle: (String) -> Unit,
     onKeepKeys: (Boolean) -> Unit,
     onShare: () -> Unit,
+    toGroup: FavoritesToGroup? = null,
+    onToGroup: () -> Unit = {},
 ) {
     Scaffold(
         modifier = Modifier.windowInsetsPadding(screenInsets()),
@@ -120,7 +163,9 @@ internal fun ShareFavoritesPage(
                 navigationDescription = stringResource(R.string.action_close),
             )
         },
-        bottomBar = { ShareFoot(enabled = ui.file != null, onShare = onShare) },
+        bottomBar = {
+            ShareFoot(enabled = ui.file != null, onShare = onShare, toGroup = toGroup, onToGroup = onToGroup)
+        },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(
@@ -313,11 +358,17 @@ private fun KeyChoice(
     }
 }
 
-/** The bar at the foot: « Envoyé par le partage d'Android » and « Partager… », the only filled button. */
+/**
+ * The bar at the foot: « Envoyé par le partage d'Android » and « Partager… », the only filled button. In a group
+ * (P25.4, variant D of `docs/previews/p25-renommer-groupe.html`), « Au groupe » comes before « Partager… »; opened from
+ * the group, « Au groupe · 3 membres » and « Envoyer au groupe » instead.
+ */
 @Composable
 private fun ShareFoot(
     enabled: Boolean,
     onShare: () -> Unit,
+    toGroup: FavoritesToGroup?,
+    onToGroup: () -> Unit,
 ) {
     Column(Modifier.background(MaterialTheme.toolMap.panel).navigationBarsPadding()) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -326,16 +377,45 @@ private fun ShareFoot(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            val caption =
+                when {
+                    toGroup == null -> {
+                        stringResource(R.string.fav_share_footer)
+                    }
+
+                    toGroup.fromGroup -> {
+                        pluralStringResource(R.plurals.fav_share_group_footer, toGroup.members, toGroup.members)
+                    }
+
+                    else -> {
+                        ""
+                    }
+                }
             Text(
-                stringResource(R.string.fav_share_footer),
+                caption,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
-            Button(onClick = onShare, enabled = enabled) {
-                Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.fav_share_button), fontWeight = FontWeight.Medium)
+            if (toGroup?.fromGroup == true) {
+                Button(onClick = onToGroup, enabled = enabled) {
+                    Icon(ShareIcons.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.group_send_title), fontWeight = FontWeight.Medium)
+                }
+            } else {
+                if (toGroup != null) {
+                    OutlinedButton(onClick = onToGroup, enabled = enabled) {
+                        Icon(ShareIcons.Group, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.fav_share_to_group), fontWeight = FontWeight.Medium)
+                    }
+                }
+                Button(onClick = onShare, enabled = enabled) {
+                    Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.fav_share_button), fontWeight = FontWeight.Medium)
+                }
             }
         }
     }

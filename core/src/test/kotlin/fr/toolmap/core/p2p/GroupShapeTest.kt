@@ -1,6 +1,9 @@
 package fr.toolmap.core.p2p
 
 import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.layers.FavoritesFile
+import fr.toolmap.core.layers.FavoritesFileCodec
+import fr.toolmap.core.layers.Workspaces
 import fr.toolmap.core.sketch.RawStroke
 import fr.toolmap.core.sketch.SketchFill
 import fr.toolmap.core.sketch.SketchPath
@@ -146,5 +149,46 @@ class GroupShapeTest {
         assertEquals(item.name, read.name)
     }
 
+    @Test
+    fun `a favorites file is deflated whole, comes back to the character and is refused when it does not fit`() {
+        val text = favoritesText(8)
+        assertTrue(text.toByteArray(Charsets.UTF_8).size > 4096, "${text.length}")
+        val packed = assertNotNullShape(GroupShape.packText(text))
+        assertTrue(packed.size < 4096, "${packed.size}")
+        assertEquals(text, GroupShape.unpackText(packed))
+        val item =
+            GroupPoint(
+                id = 7,
+                author = 8,
+                rev = 1,
+                lat = 45.1,
+                lon = 6.4,
+                name = "Rando été",
+                createdSec = 1_790_000_000,
+                kind = GroupItemKind.FAVORITES,
+                shape = Base64.getEncoder().encodeToString(packed),
+            )
+        assertEquals(text, item.favoritesText())
+        assertEquals(8, FavoritesFileCodec.decode(item.favoritesText()!!).favorites.size)
+        // Another kind, or damaged bytes, has no file.
+        assertNull(item.copy(kind = GroupItemKind.SKETCH).favoritesText())
+        assertNull(item.copy(shape = Base64.getEncoder().encodeToString(packed.copyOf(10))).favoritesText())
+        // Text that does not shrink (keys, long added maps) past the limit is refused, not cut.
+        val noise = Random(3).let { r -> String(CharArray(30_000) { ('a' + r.nextInt(26)) }) }
+        assertNull(GroupShape.packText(noise))
+        assertNull(GroupShape.packText(text, maxBytes = packed.size - 1))
+    }
+
     private fun assertNotNullShape(bytes: ByteArray?): ByteArray = assertNotNull(bytes, "no shape")
+
+    companion object {
+        /** A `.toolmap` file of [count] favorites of six maps each, as « Partager des favoris » writes it. */
+        fun favoritesText(count: Int): String =
+            FavoritesFileCodec.encode(
+                FavoritesFile(
+                    appVersion = "0.4.196",
+                    favorites = List(count) { Workspaces.randoEte.copy(id = "ws-$it", name = "Sortie $it") },
+                ),
+            )
+    }
 }

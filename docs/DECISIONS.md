@@ -1626,3 +1626,16 @@
   5. **Groupe** : un bloc ajouté après les traits (0 = main levée, 1 = ligne, 2 + motif = zone), écrit seulement si le croquis a une forme ; une version plus ancienne l'ignore et voit des traits.
 - **Conséquences** : dans l'outil, le motif de la zone en cours est ancré à l'écran (il glisse quand la carte bouge) ; enregistrée, la carte l'ancre au monde. Ajouter un motif demande sa géométrie dans `SketchFills`, son code et son nom.
 - **Alternatives rejetées** : formes toutes faites (rectangle, cercle, flèche) : refusé par l'utilisateur ; motifs à l'échelle du terrain (illisibles en dézoomant) ; un remplissage par nom figé (« Interdit » = hachures rouges seulement), moins libre que motif × couleur.
+
+## ADR-115 — Favoris envoyés au groupe : fichier `.toolmap` compressé dans le message `POINT`
+
+- **Date / statut** : 2026-11-04 — Accepté (session 89 ; P25.4, aperçu `docs/previews/p25-renommer-groupe.html`, **variante D** validée le 2026-11-04). Complète ADR-105 (format `.toolmap`) et ADR-113 (partages du groupe).
+- **Contexte** : un favori se partage déjà par fichier (`.toolmap`, ADR-105) et le groupe sait déjà porter un partage avec ses révisions, son retrait, sa durée, son rejeu et l'emplacement du serveur (ADR-112, ADR-113). Le fichier dépasse vite les 4096 octets d'une trame ordinaire (une carte ajoutée embarque sa définition AQX), mais il se compresse très bien (texte JSON répétitif).
+- **Décision** :
+  1. **Quatrième genre du `POINT`** : `GroupItemKind.FAVORITES` (3). La forme est le **texte entier du fichier `.toolmap`, compressé (deflate)** ; refusé au-delà de 12 Ko compressés (« Envoi impossible : trop grand pour le groupe, ou plus de groupe. »). Pas de découpage en plusieurs trames.
+  2. **Ancre** : le centre de la carte de l'expéditeur au moment de l'envoi ; elle ne sert qu'à une version plus ancienne, qui lit un genre inconnu comme un waypoint. Les favoris n'ont **pas de place sur la carte** (`ShareGeoJson` les saute) ni de « Voir sur la carte ».
+  3. **Jamais d'alerte** : le dialogue « Envoyer au groupe » remplace « Silencieux / Alerte » par le nombre de cartes (« Favori · 2 h · 6 cartes »).
+  4. **Recevoir = la feuille « Ajouter N favoris ? » de P25.3** : « Ajouter » sous le message automatique (tant que le partage est dans le groupe, jamais pour les siens) et « Ajouter à mes favoris » dans la fiche décompressent le texte et le passent à `FavoritesImportViewModel.receive`, comme un fichier ouvert : mêmes contrôles (cartes ajoutées, clés à saisir, noms déjà pris).
+  5. **Le nom** du partage n'est qu'une étiquette (par défaut, le nom du fichier sans `.toolmap`) : les favoris ajoutés gardent leurs noms d'origine.
+- **Conséquences** : un favori très chargé en cartes ajoutées peut ne pas tenir (12 Ko compressés, soit plusieurs dizaines de Ko de texte) ; le serveur garde le fichier tant que le partage vit, sous l'emplacement `b/w` porté à 17 000 caractères par ADR-113 (règles à republier par l'utilisateur) ; la clé d'une carte n'est envoyée que si l'expéditeur a choisi « Garder la clé ».
+- **Alternatives rejetées** : un nouveau type de message (toute la logique des révisions et du rejeu à refaire) ; découper le fichier sur plusieurs trames (réassemblage et pertes partielles pour un cas rare) ; n'envoyer que les noms des cartes (le destinataire n'aurait pas les cartes ajoutées).

@@ -828,6 +828,20 @@ class ShareController(
         return createShape(name, anchor, GroupItemKind.SKETCH, shape, duration, alert)
     }
 
+    /**
+     * Shares favorites with the group (P25.4): the `.toolmap` [text] deflated in one point anchored at [anchor] (the
+     * centre of the map), never ringing; `null` outside a group or for a file too large for a frame.
+     */
+    fun createFavorites(
+        name: String,
+        text: String,
+        anchor: LonLat,
+        duration: PointDuration = PointDuration.WhileGroup,
+    ): GroupPoint? {
+        val shape = GroupShape.packText(text) ?: return null
+        return createShape(name, anchor, GroupItemKind.FAVORITES, shape, duration, alert = false)
+    }
+
     private fun createShape(
         name: String,
         anchor: LonLat,

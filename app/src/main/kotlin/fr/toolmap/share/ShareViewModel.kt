@@ -238,6 +238,14 @@ class ShareViewModel
             alert: Boolean,
         ): Boolean = sent(controller.createSketch(name, strokes, duration, alert))
 
+        /** Favorites for the group (P25.4); `false` when the file is too large or there is no group any more. */
+        fun shareFavorites(
+            name: String,
+            text: String,
+            anchor: LonLat,
+            duration: PointDuration,
+        ): Boolean = controller.createFavorites(name, text, anchor, duration) != null
+
         private fun sent(point: GroupPoint?): Boolean {
             if (point == null) mutableMessages.tryEmit(UiMessage(R.string.group_send_failed, emptyList()))
             return point != null
@@ -271,6 +279,10 @@ class ShareViewModel
                         point.sketch().flatMap { s ->
                             listOf(s.path.start) + s.path.curves.map { it.end }
                         }.map { it.toLonLat() }
+                    }
+
+                    GroupItemKind.FAVORITES -> {
+                        emptyList()
                     }
                 }.ifEmpty { listOf(LonLat(point.lon, point.lat)) }
             return MapRequest(
@@ -339,6 +351,11 @@ class ShareViewModel
                                     val strokes = sketches.load(item.id)?.sketch?.strokes.orEmpty()
                                     controller.createSketch(label, strokes, duration, alert)
                                 }
+
+                                // Favorites are sent from « Partager des favoris », never from this list.
+                                GroupItemKind.FAVORITES -> {
+                                    null
+                                }
                             }
                         }.getOrNull()
                     if (sent == null) failed++
@@ -367,6 +384,11 @@ class ShareViewModel
 
                         GroupItemKind.SKETCH -> {
                             sketches.save(null, point.name, point.sketch())
+                        }
+
+                        // Added by the sheet « Ajouter N favoris ? » instead (P25.4).
+                        GroupItemKind.FAVORITES -> {
+                            return@launch
                         }
                     }
                 }.onSuccess {

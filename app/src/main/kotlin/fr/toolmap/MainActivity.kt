@@ -51,6 +51,7 @@ import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.geo.LonLatZoom
 import fr.toolmap.core.geo.NavTarget
 import fr.toolmap.core.geo.ZoomMapping
+import fr.toolmap.core.layers.FavoritesExport
 import fr.toolmap.core.layers.FavoritesFileCodec
 import fr.toolmap.core.maps.OnlineCatalog
 import fr.toolmap.core.settings.ThemeMode
@@ -75,6 +76,7 @@ import fr.toolmap.maps.AvailableMapsActions
 import fr.toolmap.maps.AvailableMapsScreen
 import fr.toolmap.maps.FavoritesImportViewModel
 import fr.toolmap.maps.FavoritesShareViewModel
+import fr.toolmap.maps.FavoritesToGroup
 import fr.toolmap.maps.MapKeyDialog
 import fr.toolmap.maps.MapsViewModel
 import fr.toolmap.maps.ReceiveFavoritesSheet
@@ -290,6 +292,8 @@ class MainActivity : ComponentActivity() {
                                 if (uri != null) scope.launch(Dispatchers.IO) { readForImport(uri, tracksOnly = true) }
                             }
                         var detailId by rememberSaveable { mutableLongStateOf(NO_TRACK) }
+                        // « Partager des favoris » opened from « Partager dans le groupe » sends to the group (P25.4).
+                        var favoritesFromGroup by rememberSaveable { mutableStateOf(false) }
                         // The panel whose « ? » opened the help, which then starts at its section (R5, F11).
                         var helpSection by rememberSaveable { mutableStateOf<HelpSection?>(null) }
                         val openWizard = { sourceId: String? ->
@@ -390,6 +394,7 @@ class MainActivity : ComponentActivity() {
                                     onOpenAvailable = { open(Screen.AVAILABLE) },
                                     onShareFavorites = { applied ->
                                         favoritesViewModel.open(applied)
+                                        favoritesFromGroup = false
                                         open(Screen.SHARE_FAVORITES)
                                     },
                                     tracks = tracksViewModel,
@@ -512,6 +517,21 @@ class MainActivity : ComponentActivity() {
                                                 thumbnails = mapsViewModel.thumbnails,
                                                 sources = sources,
                                                 onClose = ::back,
+                                                toGroup =
+                                                    if (shareUi.inGroup) {
+                                                        FavoritesToGroup(shareUi.members.size, favoritesFromGroup)
+                                                    } else {
+                                                        null
+                                                    },
+                                                onSendToGroup = { name, duration, file ->
+                                                    val camera = viewModel.state.value.camera
+                                                    shareViewModel.shareFavorites(
+                                                        name,
+                                                        file.text,
+                                                        LonLat(camera.lon, camera.lat),
+                                                        duration,
+                                                    )
+                                                },
                                             )
                                         }
 
@@ -655,6 +675,19 @@ class MainActivity : ComponentActivity() {
                                                         ),
                                                     )
                                                     toMap()
+                                                },
+                                                onShareFavorites = {
+                                                    favoritesViewModel.open(null)
+                                                    favoritesFromGroup = true
+                                                    open(Screen.SHARE_FAVORITES)
+                                                },
+                                                onAddFavorites = { point ->
+                                                    point.favoritesText()?.let {
+                                                        favoritesImport.receive(
+                                                            it,
+                                                            FavoritesExport.fileName(point.name),
+                                                        )
+                                                    }
                                                 },
                                             )
                                         }
