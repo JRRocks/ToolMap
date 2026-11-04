@@ -36,7 +36,12 @@ class ShareCadence(
     }
 
     companion object {
-        const val MIN_INTERVAL_S = 5
+        const val MIN_INTERVAL_S = 1
+
+        /** Below this interval the settings warn about the battery and the server (P23). */
+        const val WARN_BELOW_S = 5
+        const val MAX_INTERVAL_S = 86_400
+        const val MAX_MOVE_M = 10_000
         const val KEEP_ALIVE_FACTOR = 5
         private const val EARLY_TOLERANCE_S = 1
         val PRESETS_S = listOf(5, 10, 15, 30, 60, 120, 300, 600, 900, 1800)

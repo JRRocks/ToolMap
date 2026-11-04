@@ -63,11 +63,15 @@ import fr.toolmap.core.layers.FavoriteChange
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.layers.LayerElevation
 import fr.toolmap.core.layers.LayerField
+import fr.toolmap.core.layers.RasterAdjust
 import fr.toolmap.core.maps.MapCatalog
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.download.formatBytes
 import fr.toolmap.map.MapViewModel
 import fr.toolmap.settings.SettingsIcons
+import fr.toolmap.ui.EntryField
+import fr.toolmap.ui.ValueDialog
+import fr.toolmap.ui.numberText
 import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.Switch
@@ -337,9 +341,12 @@ private fun LayerSettings(
     var colors by remember(layer.id) { mutableStateOf(false) }
     var blendSheet by remember(layer.id) { mutableStateOf(false) }
     var tintSheet by remember(layer.id) { mutableStateOf(false) }
+    var typing by remember(layer.id) { mutableStateOf<Adjust?>(null) }
     AdjustSlider(
         key = "opacity",
-        label = stringResource(R.string.layers_opacity, percentOf(layer.opacity)),
+        label = stringResource(R.string.layers_opacity_name),
+        valuePill = "${percentOf(layer.opacity)} %",
+        onType = { typing = Adjust.OPACITY },
         value = layer.opacity,
         range = 0f..1f,
         fade = fade,
@@ -374,7 +381,9 @@ private fun LayerSettings(
         ) { tintSheet = true }
         AdjustSlider(
             key = "contrast",
-            label = stringResource(R.string.layers_contrast, percentOf(layer.contrast)),
+            label = stringResource(R.string.layers_contrast_name),
+            valuePill = signedPercent(layer.contrast),
+            onType = { typing = Adjust.CONTRAST },
             value = layer.contrast,
             range = -1f..1f,
             fade = fade,
@@ -382,7 +391,9 @@ private fun LayerSettings(
         )
         AdjustSlider(
             key = "brightness",
-            label = stringResource(R.string.layers_brightness, percentOf(layer.brightness)),
+            label = stringResource(R.string.layers_brightness_name),
+            valuePill = signedPercent(layer.brightness),
+            onType = { typing = Adjust.BRIGHTNESS },
             value = layer.brightness,
             range = -1f..1f,
             fade = fade,
@@ -390,7 +401,9 @@ private fun LayerSettings(
         )
         AdjustSlider(
             key = "saturation",
-            label = stringResource(R.string.layers_saturation, percentOf(layer.saturation)),
+            label = stringResource(R.string.layers_saturation_name),
+            valuePill = signedPercent(layer.saturation),
+            onType = { typing = Adjust.SATURATION },
             value = layer.saturation,
             range = -1f..1f,
             fade = fade,
@@ -398,7 +411,9 @@ private fun LayerSettings(
         )
         AdjustSlider(
             key = "hue",
-            label = stringResource(R.string.layers_hue, hue),
+            label = stringResource(R.string.layers_hue_name),
+            valuePill = "${numberText(hue)}°",
+            onType = { typing = Adjust.HUE },
             value = layer.hue,
             range = HUE_RANGE,
             fade = fade,
@@ -442,7 +457,74 @@ private fun LayerSettings(
             onDismiss = { tintSheet = false },
         )
     }
+    typing?.let { adjust -> AdjustDialog(adjust, layer, vm) { typing = null } }
 }
+
+/** The values of an unfolded line that can be typed (P23.4). */
+private enum class Adjust { OPACITY, CONTRAST, BRIGHTNESS, SATURATION, HUE }
+
+/** « −20 % », « 0 % », « +35 % »: a colour correction of −1..1 as its pill shows it. */
+private fun signedPercent(fraction: Float): String {
+    val p = percentOf(fraction)
+    return (if (p > 0) "+" else "") + numberText(p) + " %"
+}
+
+/** The window of one value of the line: opacity 0 to 100 %, corrections −100 to 100 %, hue −180 to 180°. */
+@Composable
+private fun AdjustDialog(
+    adjust: Adjust,
+    layer: LayerConfig,
+    vm: MapViewModel,
+    onClose: () -> Unit,
+) {
+    val percent = stringResource(R.string.value_unit_percent)
+    val hueMax = RasterAdjust.MAX_HUE.roundToInt()
+    val (title, field) =
+        when (adjust) {
+            Adjust.OPACITY -> {
+                R.string.layers_opacity_name to EntryField(null, percentOf(layer.opacity), 0, PERCENT_MAX, percent)
+            }
+
+            Adjust.CONTRAST -> {
+                R.string.layers_contrast_name to
+                    EntryField(null, percentOf(layer.contrast), -PERCENT_MAX, PERCENT_MAX, percent)
+            }
+
+            Adjust.BRIGHTNESS -> {
+                R.string.layers_brightness_name to
+                    EntryField(null, percentOf(layer.brightness), -PERCENT_MAX, PERCENT_MAX, percent)
+            }
+
+            Adjust.SATURATION -> {
+                R.string.layers_saturation_name to
+                    EntryField(null, percentOf(layer.saturation), -PERCENT_MAX, PERCENT_MAX, percent)
+            }
+
+            Adjust.HUE -> {
+                R.string.layers_hue_name to EntryField(null, layer.hue.roundToInt(), -hueMax, hueMax, "°")
+            }
+        }
+    val name = stringResource(title)
+    ValueDialog(
+        title = name,
+        fields = listOf(field),
+        onDone = { values ->
+            val v = values[0] ?: return@ValueDialog
+            val fraction = v / PERCENT_MAX.toFloat()
+            when (adjust) {
+                Adjust.OPACITY -> vm.setOpacity(layer.id, fraction)
+                Adjust.CONTRAST -> vm.setAdjustments(layer.id, fraction, layer.brightness, layer.saturation)
+                Adjust.BRIGHTNESS -> vm.setAdjustments(layer.id, layer.contrast, fraction, layer.saturation)
+                Adjust.SATURATION -> vm.setAdjustments(layer.id, layer.contrast, layer.brightness, fraction)
+                Adjust.HUE -> vm.setHue(layer.id, v.toFloat())
+            }
+            onClose()
+        },
+        onDismiss = onClose,
+    )
+}
+
+private const val PERCENT_MAX = 100
 
 /**
  * An entry of the colours that opens a sheet (« Fusion › », « Teinter › »): its name, then its value, in the accent

@@ -89,7 +89,7 @@ class ShareModelsTest {
         assertEquals(MemberPalette.colors.size - 1, s.colorIndex)
         assertEquals(ShareCadence.MIN_INTERVAL_S, s.intervalSec)
         assertEquals(0, s.minMoveMeters)
-        assertEquals(1800, ShareState.fromJson("{\"settings\":{\"intervalSec\":99999}}").settings.intervalSec)
+        assertEquals(86_400, ShareState.fromJson("{\"settings\":{\"intervalSec\":99999}}").settings.intervalSec)
         // Unknown fields from a later version are ignored.
         assertNotNull(ShareState.fromJson("{\"future\":1,\"settings\":{\"name\":\"a\"}}"))
     }

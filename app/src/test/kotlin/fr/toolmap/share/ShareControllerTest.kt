@@ -795,9 +795,14 @@ class ShareControllerTest {
             c.load()
             c.createGroup()
             assertEquals("Phone", c.state.value.self?.name)
-            c.updateSettings { it.copy(intervalSec = 1, minMoveMeters = 100_000) }
-            assertEquals(5, c.state.value.settings.intervalSec)
-            assertEquals(1000, c.state.value.settings.minMoveMeters)
+            c.updateSettings { it.copy(intervalSec = 0, minMoveMeters = 100_000) }
+            assertEquals(1, c.state.value.settings.intervalSec)
+            assertEquals(10_000, c.state.value.settings.minMoveMeters)
+            // Typed values between the presets are kept as they are (P23.3).
+            c.updateSettings { it.copy(intervalSec = 45, minMoveMeters = 7) }
+            assertEquals(45, c.state.value.settings.intervalSec)
+            assertEquals(7, c.state.value.settings.minMoveMeters)
+            assertEquals(45, c.state.value.settings.cadence().intervalSec)
         }
 
     @Test

@@ -100,14 +100,20 @@ import fr.toolmap.core.p2p.MemberView
 import fr.toolmap.core.p2p.PeerState
 import fr.toolmap.core.p2p.RelayConfig
 import fr.toolmap.core.p2p.ShareCadence
+import fr.toolmap.core.settings.ValueEntry
 import fr.toolmap.draw.RouteIcons
 import fr.toolmap.map.MenuIcons
 import fr.toolmap.maps.MapsIcons
 import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.sketch.SketchIcons
+import fr.toolmap.ui.EntryField
 import fr.toolmap.ui.GroupBlock
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.ToolMapTopBar
+import fr.toolmap.ui.ValueDialog
+import fr.toolmap.ui.ValuePill
+import fr.toolmap.ui.durationText
+import fr.toolmap.ui.numberText
 import fr.toolmap.ui.rememberNotificationAsk
 import fr.toolmap.ui.screenInsets
 import fr.toolmap.ui.theme.AlertDialog
@@ -122,6 +128,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 
 private fun problemText(problem: ShareProblem): Int =
     when (problem) {
@@ -1067,29 +1074,33 @@ private fun SendSettingsCard(
     ui: ShareUi,
     vm: ShareViewModel,
 ) {
+    // The field of the window that has the cursor: 0 the interval, 1 the distance; `null` while it is closed (P23.3).
+    var typing by remember { mutableStateOf<Int?>(null) }
     val move =
         if (ui.settings.minMoveMeters == 0) {
             stringResource(R.string.share_move_always)
         } else {
-            "${ui.settings.minMoveMeters} m"
+            "${numberText(ui.settings.minMoveMeters)} m"
         }
     FoldCard(
         title = stringResource(R.string.share_send_settings),
-        summary = stringResource(R.string.share_send_summary, secondsText(ui.settings.intervalSec), move),
+        summary = stringResource(R.string.share_send_summary, durationText(ui.settings.intervalSec), move),
     ) {
         PresetSlider(
             label = stringResource(R.string.share_interval),
             presets = ShareCadence.PRESETS_S,
             value = ui.settings.intervalSec,
-            format = { secondsText(it) },
+            format = { durationText(it) },
             onChange = { v -> vm.updateSettings { it.copy(intervalSec = v) } },
+            onType = { typing = 0 },
         )
         PresetSlider(
             label = stringResource(R.string.share_min_move),
             presets = ShareCadence.MOVE_PRESETS_M,
             value = ui.settings.minMoveMeters,
-            format = { if (it == 0) stringResource(R.string.share_move_always) else "$it m" },
+            format = { if (it == 0) stringResource(R.string.share_move_always) else "${numberText(it)} m" },
             onChange = { v -> vm.updateSettings { it.copy(minMoveMeters = v) } },
+            onType = { typing = 1 },
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
@@ -1098,6 +1109,38 @@ private fun SendSettingsCard(
             }
             Switch(checked = ui.settings.stun, onCheckedChange = { on -> vm.updateSettings { it.copy(stun = on) } })
         }
+    }
+    typing?.let { focus ->
+        val warn = stringResource(R.string.share_interval_warn)
+        ValueDialog(
+            title = stringResource(R.string.share_send_settings),
+            fields =
+                listOf(
+                    EntryField(
+                        stringResource(R.string.share_interval),
+                        ui.settings.intervalSec,
+                        ShareCadence.MIN_INTERVAL_S,
+                        ShareCadence.MAX_INTERVAL_S,
+                        timeUnit = ValueEntry.TimeUnit.SECONDS,
+                    ),
+                    EntryField(
+                        stringResource(R.string.share_min_move),
+                        ui.settings.minMoveMeters,
+                        0,
+                        ShareCadence.MAX_MOVE_M,
+                        suffix = stringResource(R.string.value_unit_m),
+                    ),
+                ),
+            focus = focus,
+            warning = { values -> warn.takeIf { (values[0] ?: Int.MAX_VALUE) < ShareCadence.WARN_BELOW_S } },
+            onDone = { values ->
+                val interval = values[0] ?: ui.settings.intervalSec
+                val move = values[1] ?: ui.settings.minMoveMeters
+                vm.updateSettings { it.copy(intervalSec = interval, minMoveMeters = move) }
+                typing = null
+            },
+            onDismiss = { typing = null },
+        )
     }
 }
 
@@ -1165,15 +1208,6 @@ private fun FoldCard(
     }
 }
 
-private fun secondsText(seconds: Int): String =
-    if (seconds <
-        SECONDS_PER_MINUTE
-    ) {
-        "$seconds s"
-    } else {
-        "${seconds / SECONDS_PER_MINUTE} min"
-    }
-
 @Composable
 private fun PresetSlider(
     label: String,
@@ -1181,21 +1215,29 @@ private fun PresetSlider(
     value: Int,
     format: @Composable (Int) -> String,
     onChange: (Int) -> Unit,
+    onType: () -> Unit,
 ) {
-    val index = presets.indexOfFirst { it >= value }.let { if (it < 0) presets.lastIndex else it }
-    var position by remember(index) { mutableFloatStateOf(index.toFloat()) }
+    // A typed value between two presets puts the slider on the nearest; its pill keeps the exact value (P23.3).
+    val index = presets.indices.minBy { kotlin.math.abs(presets[it].toLong() - value) }
+    var position by remember(index, value) { mutableFloatStateOf(index.toFloat()) }
+    val moved = position.roundToInt().coerceIn(0, presets.lastIndex)
     Column {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(label)
-            Text(
-                format(presets[position.toInt().coerceIn(0, presets.lastIndex)]),
-                style = MaterialTheme.typography.titleSmall,
-            )
+            ValuePill(format(if (moved == index) value else presets[moved]), label, onClick = onType)
         }
         Slider(
             value = position,
             onValueChange = { position = it },
-            onValueChangeFinished = { onChange(presets[position.toInt().coerceIn(0, presets.lastIndex)]) },
+            // Only a slider that moved replaces the value: a touch that leaves it on its preset keeps a typed one.
+            onValueChangeFinished = {
+                val to = position.roundToInt().coerceIn(0, presets.lastIndex)
+                if (to != index) onChange(presets[to])
+            },
             valueRange = 0f..presets.lastIndex.toFloat(),
             steps = presets.size - 2,
         )
@@ -1454,7 +1496,6 @@ private fun PasteDialog(
 /** The height of the main buttons of the screen (create, join), as in the preview of P29.0. */
 private val MAIN_BUTTON_HEIGHT = 52.dp
 private const val MS_PER_S = 1000L
-private const val SECONDS_PER_MINUTE = 60
 private const val VISIBLE_MESSAGES = 50
 private val QR_SIZE = 192.dp
 private const val MAX_DRAFT = 200

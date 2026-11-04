@@ -118,7 +118,7 @@ class LayerZoomTest {
         assertEquals(12, reversed.displayMaxZoom)
         val clamped = stack.setZoomRange(id, -4, 99)[id]!!
         assertEquals(0, clamped.displayMinZoom)
-        assertEquals(ZoomBar.MAX, clamped.displayMaxZoom)
+        assertEquals(ZoomBar.MAX_TYPED, clamped.displayMaxZoom)
         val cleared = stack.setZoomRange(id, 8, 16).setZoomRange(id, null, null)[id]!!
         assertNull(cleared.displayMinZoom)
         assertNull(cleared.displayMaxZoom)

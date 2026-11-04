@@ -18,11 +18,12 @@
   <string name="layers_move_up">Monter</string>
   <string name="layers_move_down">Descendre</string>
   <string name="layers_remove">Supprimer</string>
-  <string name="layers_opacity">Opacité : %1$d %%</string>
-  <string name="layers_contrast">Contraste : %1$d %%</string>
-  <string name="layers_brightness">Luminosité : %1$d %%</string>
-  <string name="layers_saturation">Saturation : %1$d %%</string>
-  <string name="layers_hue">Rotation des couleurs : %1$d°</string>
+  <string name="layers_opacity_name">Opacité</string>
+  <string name="layers_contrast_name">Contraste</string>
+  <string name="layers_brightness_name">Luminosité</string>
+  <string name="layers_saturation_name">Saturation</string>
+  <string name="layers_hue_name">Rotation des couleurs</string>
+  <string name="value_unit_percent" formatted="false">%</string>
   <string name="layers_reset_adjustments">Réinitialiser les couleurs</string>
 
   <string name="layers_display_all">Visible à tous les zooms</string>
@@ -1113,6 +1114,7 @@
   <string name="share_interval">Fréquence d\'envoi</string>
   <string name="share_min_move">Déplacement minimal</string>
   <string name="share_move_always">Toujours</string>
+  <string name="share_interval_warn">Moins de 5 s : plus de batterie, et plus d\'envois au serveur.</string>
   <string name="share_stun">Serveur STUN public</string>
   <string name="share_stun_hint">Aide à se connecter à travers les box et les réseaux mobiles. Seule l\'adresse réseau lui est révélée, jamais une position.</string>
   <string name="share_members">Membres</string>
@@ -2289,6 +2291,23 @@
   <string name="cond_short_alt_above">dès %1$d m</string>
   <string name="cond_short_alt_below">sous %1$d m</string>
   <string name="cond_short_alt_between">%1$d à %2$d m</string>
+  <string name="cond_pill_alt_between">%1$d à %2$d</string>
+  <string name="cond_zoom_title">Zoom du calque</string>
+  <string name="cond_elevation_title">Altitude du calque</string>
+  <string name="cond_beyond_zoom">Zoom %1$d · au-delà de la barre</string>
+  <string name="cond_beyond_alt">%1$d m · au-delà de la barre</string>
+  <string name="cond_below_alt">%1$d m · en dessous de la barre</string>
+  <string name="value_edit_desc">Modifier %1$s : %2$s</string>
+  <string name="value_from">De</string>
+  <string name="value_to">À</string>
+  <string name="value_limits">%1$s à %2$s</string>
+  <string name="value_optional">%1$s · vide = sans limite</string>
+  <string name="value_out_of_range">Hors limites : %1$s</string>
+  <string name="value_whole">Un nombre entier, sans virgule</string>
+  <string name="value_unit_s">s</string>
+  <string name="value_unit_min">min</string>
+  <string name="value_unit_h">h</string>
+  <string name="value_unit_m">m</string>
 
   <!-- P25.2 : partage de plusieurs favoris (variante C « Poids » de docs/previews/p25-partage-sauvegarde.html, validée le 2026-11-02) -->
   <string name="fav_share_title">Partager des favoris</string>

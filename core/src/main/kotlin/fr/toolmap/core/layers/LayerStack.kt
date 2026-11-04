@@ -71,21 +71,22 @@ data class LayerStack(
 
     /**
      * Sets the display range of [id] (displayed zoom, inclusive; `null` = unbounded). Out-of-range values are
-     * clamped to 0..[ZoomBar.MAX] and a minimum above the maximum raises the maximum to it.
+     * clamped to 0..[ZoomBar.MAX_TYPED] and a minimum above the maximum raises the maximum to it.
      */
     fun setZoomRange(
         id: String,
         min: Int?,
         max: Int?,
     ): LayerStack {
-        val low = min?.coerceIn(0, ZoomBar.MAX)
-        val high = max?.coerceIn(0, ZoomBar.MAX)?.let { if (low != null && it < low) low else it }
+        val low = min?.coerceIn(0, ZoomBar.MAX_TYPED)
+        val high = max?.coerceIn(0, ZoomBar.MAX_TYPED)?.let { if (low != null && it < low) low else it }
         return update(id) { it.copy(displayMinZoom = low, displayMaxZoom = high) }
     }
 
     /**
      * Sets the elevation band of layer [id] (metres, inclusive, `null` = unbounded, P20) and how it combines with the
-     * zoom range; a minimum above the maximum raises the maximum to it.
+     * zoom range; bounds are clamped to [ElevationBar.MIN_TYPED]..[ElevationBar.MAX_TYPED] and a minimum above
+     * the maximum raises the maximum to it.
      */
     fun setElevationRange(
         id: String,
@@ -93,8 +94,18 @@ data class LayerStack(
         max: Int?,
         logic: RangeLogic,
     ): LayerStack {
-        val high = max?.let { if (min != null && it < min) min else it }
-        return update(id) { it.copy(displayMinElevation = min, displayMaxElevation = high, rangeLogic = logic) }
+        val low = min?.coerceIn(ElevationBar.MIN_TYPED, ElevationBar.MAX_TYPED)
+        val high =
+            max?.coerceIn(ElevationBar.MIN_TYPED, ElevationBar.MAX_TYPED)?.let {
+                if (low != null &&
+                    it < low
+                ) {
+                    low
+                } else {
+                    it
+                }
+            }
+        return update(id) { it.copy(displayMinElevation = low, displayMaxElevation = high, rangeLogic = logic) }
     }
 
     fun setAdjustments(

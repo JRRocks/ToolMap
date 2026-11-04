@@ -174,8 +174,8 @@ class ShareState(
                     },
                 picture = picture?.takeIf { pictureBytes() != null },
                 color = color?.let(MemberLook::argb),
-                intervalSec = intervalSec.coerceIn(ShareCadence.MIN_INTERVAL_S, MAX_INTERVAL_S),
-                minMoveMeters = minMoveMeters.coerceIn(0, MAX_MOVE_M),
+                intervalSec = intervalSec.coerceIn(ShareCadence.MIN_INTERVAL_S, ShareCadence.MAX_INTERVAL_S),
+                minMoveMeters = minMoveMeters.coerceIn(0, ShareCadence.MAX_MOVE_M),
                 server = server?.let { RelayConfig.of(it.dbUrl, it.apiKey) }?.takeIf(RelayConfig::isUsable),
             )
 
@@ -187,7 +187,5 @@ class ShareState(
         }
 
         private const val HEX = 16
-        private const val MAX_INTERVAL_S = 1800
-        private const val MAX_MOVE_M = 1000
     }
 }

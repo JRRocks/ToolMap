@@ -77,11 +77,11 @@ composant de saisie commun (`NumberField` privé de `PrintPanel`).
 
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
-| P23.0 | ⬜ | Aperçu : valeur touchable, fenêtre de saisie, barre en butée | Validation explicite, date au journal |
-| P23.1 | ⬜ | `:core` : bornes, `setZoomRange` 0–24, intervalle et distance libres (`ShareCadence`, réglages du partage) | Tests JVM des bornes et des valeurs hors liste |
-| P23.2 | ⬜ | Composant + Conditions d'affichage (zoom, altitude) ; correction de la perte de valeur | Test : valeur hors barre gardée après un toucher de la barre |
-| P23.3 | ⬜ | Partage : intervalle et distance, avertissement sous 5 s | `ShareControllerTest` (45 s, 7 m) |
-| P23.4 | ⬜ | Opacité et couleurs | Tests de rendu |
+| P23.0 | ✅ | Aperçu : valeur touchable, fenêtre de saisie, barre en butée. `docs/previews/p23-saisie.html` (état actuel, 5 variantes : A Pastille et dialogue, B Soulignée et feuille à raccourcis, C Bulle collée à la valeur, D Dialogue avec − et +, E Un crayon pour tout le panneau), **validé le 2026-11-04 : « A · Pastille et dialogue avec l'onglet "fréquence d'envoi" de E qui propose la distance en plus »** ; rendu de l'émulateur ajouté à l'aperçu | Validation explicite, date au journal |
+| P23.1 | ✅ | `:core` : bornes, `setZoomRange` 0–24, intervalle et distance libres (`ShareCadence`, réglages du partage). `ValueEntry` (nombre tapé, durée en s / min / h), `ZoomBar.keptBounds` | Tests JVM des bornes et des valeurs hors liste |
+| P23.2 | ✅ | Composant (`ui/ValueWindow.kt` : `ValuePill`, `ValueDialog`) + Conditions d'affichage (zoom, altitude, De / À côte à côte) ; correction de la perte de valeur ; flèche et ligne « au-delà de la barre » | Test : valeur hors barre gardée après un toucher de la barre (`DisplayConditionsTypingTest`, et sur l'émulateur 0.4.189) |
+| P23.3 | ✅ | Partage : une fenêtre « Réglages d'envoi » pour l'intervalle (s / min / h) et la distance, avertissement sous 5 s ; la pastille garde une valeur hors des crans | `ShareControllerTest` (45 s, 7 m) ; émulateur : 3 s avec avertissement, 2 min, 7 m |
+| P23.4 | ✅ | Opacité et couleurs (contraste, luminosité, saturation, rotation) en pastilles avec leur fenêtre ; `percentOf` arrondi | `MapsRootPanelTest` (87 %, −45°) ; émulateur : 87 % |
 
 ---
 

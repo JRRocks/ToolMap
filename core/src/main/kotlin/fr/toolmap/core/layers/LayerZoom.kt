@@ -50,6 +50,9 @@ object LayerZoom {
 object ZoomBar {
     const val MAX = 20
 
+    /** The highest zoom that can be typed (P23): beyond the bar, its handle stays at the end. */
+    const val MAX_TYPED = 24
+
     enum class Handle { MIN, MAX }
 
     data class Range(
@@ -109,4 +112,21 @@ object ZoomBar {
 
     /** Back to layer bounds: a handle at the end of the bar means "no limit" (`null`). */
     fun toBounds(range: Range): Pair<Int?, Int?> = (range.min.takeIf { it > 0 }) to (range.max.takeIf { it < MAX })
+
+    /**
+     * The bounds after the bar went from [from] to [to]: a handle that did not move keeps its bound [old], even one
+     * typed beyond the bar or between two of its steps; one that moved takes the bound under it ([bounds]).
+     */
+    fun keptBounds(
+        old: Pair<Int?, Int?>,
+        from: Range,
+        to: Range,
+        bounds: (Range) -> Pair<Int?, Int?>,
+    ): Pair<Int?, Int?> {
+        val (low, high) = bounds(to)
+        return (if (to.min == from.min) old.first else low) to (if (to.max == from.max) old.second else high)
+    }
+
+    /** True when a typed maximum lies beyond the end of the bar (the handle shows an arrow there). */
+    fun isBeyond(max: Int?): Boolean = max != null && max > MAX
 }

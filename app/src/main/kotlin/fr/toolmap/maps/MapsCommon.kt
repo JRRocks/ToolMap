@@ -146,4 +146,4 @@ fun tilesText(
 }
 
 /** "40 %" of a 0..1 fraction. */
-internal fun percentOf(fraction: Float): Int = (fraction * PERCENT).toInt()
+internal fun percentOf(fraction: Float): Int = Math.round(fraction * PERCENT)

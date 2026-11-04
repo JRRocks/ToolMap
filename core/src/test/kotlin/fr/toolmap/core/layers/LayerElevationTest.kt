@@ -113,6 +113,20 @@ class LayerElevationTest {
     }
 
     @Test
+    fun `a typed band is kept to the metre within its limits, beyond the bar too`() {
+        val stack = LayerStack().add("osm")
+        val typed = stack.setElevationRange("l1", -300, 6237, RangeLogic.AND).layers.single()
+        assertEquals(-300, typed.displayMinElevation)
+        assertEquals(6237, typed.displayMaxElevation)
+        assertTrue(ElevationBar.isBelow(typed.displayMinElevation))
+        assertTrue(ElevationBar.isBeyond(typed.displayMaxElevation))
+        assertFalse(ElevationBar.isBeyond(4800))
+        val clamped = stack.setElevationRange("l1", -2000, 12_000, RangeLogic.AND).layers.single()
+        assertEquals(ElevationBar.MIN_TYPED, clamped.displayMinElevation)
+        assertEquals(ElevationBar.MAX_TYPED, clamped.displayMaxElevation)
+    }
+
+    @Test
     fun `the style of a banded layer uses its band source and drops the camera range with OU`() {
         val stack =
             LayerStack()

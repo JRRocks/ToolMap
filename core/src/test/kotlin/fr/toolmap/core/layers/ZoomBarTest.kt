@@ -2,6 +2,8 @@ package fr.toolmap.core.layers
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class ZoomBarTest {
     private val width = 200f // 10 px per zoom level
@@ -61,5 +63,27 @@ class ZoomBarTest {
         assertEquals(0.5f, ZoomBar.fractionOf(48.0, max))
         assertEquals(ZoomBar.Range(30, max), ZoomBar.moved(ZoomBar.Range(30, 60), ZoomBar.Handle.MAX, 200, max))
         assertEquals(ZoomBar.Handle.MAX, ZoomBar.nearestHandle(150f, width, ZoomBar.Range(30, 60), max))
+    }
+
+    @Test
+    fun `touching the bar keeps a typed bound whose handle did not move`() {
+        // 1500 to 6200 m typed: the maximum sits at the end of the bar, beyond it.
+        val old = 1525 to 6200
+        val from = ElevationBar.rangeOf(old.first, old.second)
+        assertEquals(ZoomBar.Range(31, ElevationBar.STEPS), from)
+        val minMoved = ZoomBar.moved(from, ZoomBar.Handle.MIN, 40, ElevationBar.STEPS)
+        assertEquals(2000 to 6200, ZoomBar.keptBounds(old, from, minMoved, ElevationBar::toBounds))
+        // A touch that leaves both handles where they were changes nothing.
+        assertEquals(old, ZoomBar.keptBounds(old, from, from, ElevationBar::toBounds))
+        // The maximum dragged back onto the bar takes the bar's value; dragged to its end again, no limit.
+        val maxMoved = ZoomBar.moved(from, ZoomBar.Handle.MAX, 80, ElevationBar.STEPS)
+        assertEquals(1525 to 4000, ZoomBar.keptBounds(old, from, maxMoved, ElevationBar::toBounds))
+        // A zoom typed beyond the bar (22) stays while the minimum moves.
+        val zoom = ZoomBar.rangeOf(12, 22)
+        assertEquals(ZoomBar.Range(12, ZoomBar.MAX), zoom)
+        assertTrue(ZoomBar.isBeyond(22))
+        assertFalse(ZoomBar.isBeyond(20))
+        val moved = ZoomBar.moved(zoom, ZoomBar.Handle.MIN, 10)
+        assertEquals(10 to 22, ZoomBar.keptBounds(12 to 22, zoom, moved, ZoomBar::toBounds))
     }
 }

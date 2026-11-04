@@ -6,8 +6,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -38,6 +40,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import fr.toolmap.core.layers.RasterAdjust
+import fr.toolmap.ui.ValuePill
 import fr.toolmap.ui.theme.toolMap
 
 /*
@@ -91,6 +94,9 @@ internal fun AdjustSlider(
     hueTrack: Boolean = false,
     /** What TalkBack reads as the value when the slider's own (a share of its range) would mislead. */
     valueText: String? = null,
+    /** The value in a pill after [label] ([valuePill]): touched, [onType] opens its window (P23.4). */
+    valuePill: String? = null,
+    onType: () -> Unit = {},
 ) {
     // The finger on the slider, from the moment it touches: Material's slider reports nothing before it drags.
     var holding by remember { mutableStateOf(false) }
@@ -109,7 +115,14 @@ internal fun AdjustSlider(
             .alpha(if (mine) 1f else fade.shown)
             .padding(start = 48.dp, end = 8.dp, top = 4.dp),
     ) {
-        Text(label, style = MaterialTheme.typography.labelMedium)
+        if (valuePill == null) {
+            Text(label, style = MaterialTheme.typography.labelMedium)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(label, style = MaterialTheme.typography.labelMedium)
+                ValuePill(valuePill, label, onClick = onType, small = true)
+            }
+        }
         val watched =
             Modifier
                 .pointerInput(Unit) {

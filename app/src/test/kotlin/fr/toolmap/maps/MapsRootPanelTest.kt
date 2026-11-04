@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
@@ -19,6 +20,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import fr.toolmap.core.layers.BlendMode
@@ -94,9 +96,9 @@ class MapsRootPanelTest {
     @Test
     fun `a tap unfolds a line in place, with the opacity and the commands of the layer`() {
         setContent()
-        rule.onAllNodesWithText("Opacité : 100 %").assertCountEquals(0)
+        rule.onAllNodesWithContentDescription("Modifier Opacité : 100 %").assertCountEquals(0)
         rule.onNodeWithText("IGN Cartes").performClick()
-        rule.onNodeWithText("Opacité : 100 %").assertExists()
+        rule.onNodeWithContentDescription("Modifier Opacité : 100 %").assertExists()
         for (command in listOf("Monter", "Descendre", "Conditions", "Couleurs", "Plus")) {
             rule.onNodeWithText(command).assertExists()
         }
@@ -108,11 +110,30 @@ class MapsRootPanelTest {
     }
 
     @Test
+    fun `the opacity and the hue are typed in their window (P23_4)`() {
+        setContent()
+        rule.onNodeWithText("IGN Cartes").performClick()
+        rule.onNodeWithContentDescription("Modifier Opacité : 100 %").performClick()
+        rule.onNode(hasSetTextAction()).performTextReplacement("87")
+        rule.onNodeWithText("OK").performClick()
+        rule.waitForIdle()
+        val layer = { fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" } }
+        assertEquals(0.87f, layer().opacity, 1e-6f)
+        rule.onNodeWithContentDescription("Modifier Opacité : 87 %").assertExists()
+        rule.onNodeWithText("Couleurs").performClick()
+        rule.onNodeWithContentDescription("Modifier Rotation des couleurs : 0°").performScrollTo().performClick()
+        rule.onNode(hasSetTextAction()).performTextReplacement("-45")
+        rule.onNodeWithText("OK").performClick()
+        rule.waitForIdle()
+        assertEquals(-45f, layer().hue)
+    }
+
+    @Test
     fun `the colours unfold under the commands`() {
         setContent()
         rule.onNodeWithText("IGN Cartes").performClick()
         rule.onNodeWithText("Couleurs").performClick()
-        rule.onNodeWithText("Contraste : 0 %").assertExists()
+        rule.onNodeWithContentDescription("Modifier Contraste : 0 %").assertExists()
         rule.onNodeWithText("Couleurs inversées").assertExists()
     }
 
@@ -168,19 +189,19 @@ class MapsRootPanelTest {
         setContent()
         rule.onNodeWithText("IGN Cartes").performClick()
         rule.onNodeWithText("Couleurs").performClick()
-        rule.onNodeWithText("Rotation des couleurs : 0°").assertExists()
+        rule.onNodeWithContentDescription("Modifier Rotation des couleurs : 0°").assertExists()
         val id = fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" }.id
         rule.runOnIdle {
             fixture.vm.setHue(id, 120f)
             fixture.vm.setAdjustments(id, 0.2f, 0f, 0f)
         }
-        rule.onNodeWithText("Rotation des couleurs : 120°").assertExists()
+        rule.onNodeWithContentDescription("Modifier Rotation des couleurs : 120°").assertExists()
         rule.onNodeWithText("Réinitialiser les couleurs").performClick()
         rule.waitForIdle()
         val layer = fixture.vm.state.value.stack.layers.first { it.id == id }
         assertEquals(0f, layer.hue)
         assertEquals(0f, layer.contrast)
-        rule.onNodeWithText("Rotation des couleurs : 0°").assertExists()
+        rule.onNodeWithContentDescription("Modifier Rotation des couleurs : 0°").assertExists()
     }
 
     @Test
@@ -209,7 +230,7 @@ class MapsRootPanelTest {
         rule.onAllNodesWithContentDescription("Masquer la carte").onFirst().performClick()
         rule.waitForIdle()
         assertTrue(fixture.vm.state.value.stack.topToBottom().first().visible.not())
-        rule.onAllNodesWithText("Opacité : 100 %").assertCountEquals(0)
+        rule.onAllNodesWithContentDescription("Modifier Opacité : 100 %").assertCountEquals(0)
     }
 
     @Test

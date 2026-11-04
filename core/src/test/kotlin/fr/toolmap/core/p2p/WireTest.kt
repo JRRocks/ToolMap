@@ -344,8 +344,14 @@ class ShareCadenceTest {
     }
 
     @Test
-    fun `an interval under five seconds is refused`() {
-        assertFailsWith<IllegalArgumentException> { ShareCadence(4, 0.0) }
+    fun `an interval under one second is refused, a typed one from one second is kept`() {
+        assertFailsWith<IllegalArgumentException> { ShareCadence(0, 0.0) }
+        assertEquals(1, ShareCadence(1, 0.0).intervalSec)
+        assertEquals(1, ShareState.fromJson("{\"settings\":{\"intervalSec\":1}}").settings.intervalSec)
+        // Typed values between the presets (P23.3) are kept as they are.
+        val typed = ShareState.fromJson("{\"settings\":{\"intervalSec\":45,\"minMoveMeters\":7}}").settings
+        assertEquals(45 to 7, typed.intervalSec to typed.minMoveMeters)
+        assertEquals(10_000, ShareState.fromJson("{\"settings\":{\"minMoveMeters\":20000}}").settings.minMoveMeters)
         assertEquals(5, ShareCadence.PRESETS_S.first())
         assertEquals(1800, ShareCadence.PRESETS_S.last())
     }

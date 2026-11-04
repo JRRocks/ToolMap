@@ -41,11 +41,14 @@ import fr.toolmap.core.layers.RangeLogic
 import fr.toolmap.core.layers.ZoomBar
 import fr.toolmap.layers.RangeBar
 import fr.toolmap.map.PanelBand
+import fr.toolmap.ui.EntryField
+import fr.toolmap.ui.ValueDialog
+import fr.toolmap.ui.ValuePill
 import fr.toolmap.ui.theme.toolMap
 import kotlin.math.roundToInt
 
 private val LOGIC_WIDTH = 168.dp
-private val LABEL_WIDTH = 72.dp
+private val LABEL_WIDTH = 116.dp
 
 /**
  * « Conditions d'affichage » of a layer (P20, variant A validated on 2026-10-23), compact since P29.3 (« Strates »): a
@@ -67,14 +70,21 @@ fun DisplayConditionsPanel(
     modifier: Modifier = Modifier,
 ) {
     // What the bars show while a finger moves them; the layer itself changes when it lifts.
-    var zoomDraft by remember(layer.displayMinZoom, layer.displayMaxZoom) {
-        mutableStateOf(ZoomBar.rangeOf(layer.displayMinZoom, layer.displayMaxZoom))
-    }
-    var bandDraft by remember(layer.displayMinElevation, layer.displayMaxElevation) {
-        mutableStateOf(ElevationBar.rangeOf(layer.displayMinElevation, layer.displayMaxElevation))
-    }
-    val (zoomMin, zoomMax) = ZoomBar.toBounds(zoomDraft)
-    val (bandMin, bandMax) = ElevationBar.toBounds(bandDraft)
+    val zoomBar = ZoomBar.rangeOf(layer.displayMinZoom, layer.displayMaxZoom)
+    val bandBar = ElevationBar.rangeOf(layer.displayMinElevation, layer.displayMaxElevation)
+    var zoomDraft by remember(layer.displayMinZoom, layer.displayMaxZoom) { mutableStateOf(zoomBar) }
+    var bandDraft by remember(layer.displayMinElevation, layer.displayMaxElevation) { mutableStateOf(bandBar) }
+    // A handle that does not move keeps its bound, even one typed beyond the bar or between two steps (P23).
+    val (zoomMin, zoomMax) =
+        ZoomBar.keptBounds(layer.displayMinZoom to layer.displayMaxZoom, zoomBar, zoomDraft, ZoomBar::toBounds)
+    val (bandMin, bandMax) =
+        ZoomBar.keptBounds(
+            layer.displayMinElevation to layer.displayMaxElevation,
+            bandBar,
+            bandDraft,
+            ElevationBar::toBounds,
+        )
+    var typing by remember { mutableStateOf<Typed?>(null) }
     val draft =
         layer.copy(
             displayMinZoom = zoomMin,
@@ -99,9 +109,10 @@ fun DisplayConditionsPanel(
             }
             Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 8.dp)) {
                 val zoomSummary = zoomSummary(zoomMin, zoomMax)
+                val zoomLabel = stringResource(R.string.cond_section_zoom)
                 BarRow(
-                    label = stringResource(R.string.cond_section_zoom),
-                    value = zoomShort(zoomMin, zoomMax),
+                    label = zoomLabel,
+                    value = { ValuePill(zoomShort(zoomMin, zoomMax), zoomLabel, onClick = { typing = Typed.ZOOM }) },
                     onReset = { onZoomRange(null, null) }.takeIf { layer.hasZoomRange },
                 ) {
                     RangeBar(
@@ -113,15 +124,26 @@ fun DisplayConditionsPanel(
                         stateText = zoomSummary,
                         onChange = { zoomDraft = it },
                         onRelease = {
-                            val (low, high) = ZoomBar.toBounds(zoomDraft)
+                            val (low, high) =
+                                ZoomBar.keptBounds(
+                                    layer.displayMinZoom to layer.displayMaxZoom,
+                                    zoomBar,
+                                    zoomDraft,
+                                    ZoomBar::toBounds,
+                                )
                             if (low != layer.displayMinZoom || high != layer.displayMaxZoom) onZoomRange(low, high)
                         },
+                        beyondEnd = ZoomBar.isBeyond(zoomMax),
                     )
                 }
+                if (ZoomBar.isBeyond(zoomMax)) BeyondLine(stringResource(R.string.cond_beyond_zoom, zoomMax ?: 0))
                 val bandSummary = bandSummary(bandMin, bandMax)
+                val bandLabel = stringResource(R.string.cond_section_elevation)
                 BarRow(
-                    label = stringResource(R.string.cond_section_elevation),
-                    value = bandShort(bandMin, bandMax),
+                    label = bandLabel,
+                    value = {
+                        ValuePill(bandPill(bandMin, bandMax), bandLabel, onClick = { typing = Typed.ELEVATION })
+                    },
                     onReset = { onElevationRange(null, null, layer.rangeLogic) }.takeIf { layer.hasElevationRange },
                 ) {
                     RangeBar(
@@ -133,15 +155,25 @@ fun DisplayConditionsPanel(
                         stateText = bandSummary,
                         onChange = { bandDraft = it },
                         onRelease = {
-                            val (low, high) = ElevationBar.toBounds(bandDraft)
+                            val (low, high) =
+                                ZoomBar.keptBounds(
+                                    layer.displayMinElevation to layer.displayMaxElevation,
+                                    bandBar,
+                                    bandDraft,
+                                    ElevationBar::toBounds,
+                                )
                             if (low != layer.displayMinElevation || high != layer.displayMaxElevation) {
                                 onElevationRange(low, high, layer.rangeLogic)
                             }
                         },
+                        belowStart = ElevationBar.isBelow(bandMin),
+                        beyondEnd = ElevationBar.isBeyond(bandMax),
                     )
                 }
+                if (ElevationBar.isBelow(bandMin)) BeyondLine(stringResource(R.string.cond_below_alt, bandMin ?: 0))
+                if (ElevationBar.isBeyond(bandMax)) BeyondLine(stringResource(R.string.cond_beyond_alt, bandMax ?: 0))
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = LABEL_WIDTH + 20.dp, end = 52.dp),
+                    modifier = Modifier.fillMaxWidth().padding(start = LABEL_WIDTH + 27.dp, end = 59.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
@@ -180,13 +212,86 @@ fun DisplayConditionsPanel(
             }
         }
     }
+    when (typing) {
+        Typed.ZOOM -> {
+            RangeDialog(
+                title = stringResource(R.string.cond_zoom_title),
+                low = layer.displayMinZoom,
+                high = layer.displayMaxZoom,
+                min = 0,
+                max = ZoomBar.MAX_TYPED,
+                suffix = null,
+                onDone = { low, high -> onZoomRange(low, high) },
+                onDismiss = { typing = null },
+            )
+        }
+
+        Typed.ELEVATION -> {
+            RangeDialog(
+                title = stringResource(R.string.cond_elevation_title),
+                low = layer.displayMinElevation,
+                high = layer.displayMaxElevation,
+                min = ElevationBar.MIN_TYPED,
+                max = ElevationBar.MAX_TYPED,
+                suffix = stringResource(R.string.value_unit_m),
+                onDone = { low, high -> onElevationRange(low, high, layer.rangeLogic) },
+                onDismiss = { typing = null },
+            )
+        }
+
+        null -> {
+            Unit
+        }
+    }
+}
+
+/** Which value window of the panel is open. */
+private enum class Typed { ZOOM, ELEVATION }
+
+/** « De » and « À », each optional (empty = no limit), within [min]..[max]. */
+@Composable
+private fun RangeDialog(
+    title: String,
+    low: Int?,
+    high: Int?,
+    min: Int,
+    max: Int,
+    suffix: String?,
+    onDone: (Int?, Int?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ValueDialog(
+        title = title,
+        fields =
+            listOf(
+                EntryField(stringResource(R.string.value_from), low, min, max, suffix, optional = true),
+                EntryField(stringResource(R.string.value_to), high, min, max, suffix, optional = true),
+            ),
+        onDone = { values ->
+            onDone(values[0], values[1])
+            onDismiss()
+        },
+        onDismiss = onDismiss,
+        sideBySide = true,
+    )
+}
+
+/** Under a bar: the exact bound typed beyond its end, the handle staying there with its arrow. */
+@Composable
+private fun BeyondLine(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.toolMap.accent,
+        modifier = Modifier.padding(start = 16.dp + LABEL_WIDTH + 4.dp + 18.dp, bottom = 2.dp),
+    )
 }
 
 /** A condition in one line: its name and value on the left, its bar, « Réinitialiser » as an icon at the end. */
 @Composable
 private fun BarRow(
     label: String,
-    value: String,
+    value: @Composable () -> Unit,
     onReset: (() -> Unit)?,
     bar: @Composable () -> Unit,
 ) {
@@ -200,7 +305,7 @@ private fun BarRow(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(value, style = MaterialTheme.typography.bodyMedium)
+            value()
         }
         Box(Modifier.weight(1f).padding(start = 4.dp)) { bar() }
         if (onReset != null) {
@@ -243,6 +348,14 @@ private fun bandShort(
         min == null -> stringResource(R.string.cond_short_alt_below, max)
         else -> stringResource(R.string.cond_short_alt_between, min, max)
     }
+
+/** The elevation band in its pill: « 1500 à 6200 » without the unit, which the bar ends say (P23, variant A). */
+@Composable
+private fun bandPill(
+    min: Int?,
+    max: Int?,
+): String =
+    if (min != null && max != null) stringResource(R.string.cond_pill_alt_between, min, max) else bandShort(min, max)
 
 @Composable
 private fun LogicChoice(

@@ -44,6 +44,15 @@ object ElevationBar {
     const val STEP = 50
     const val STEPS = MAX_METERS / STEP
 
+    /** What can be typed (P23), to the metre: beyond the bar, its handle stays at the end. */
+    const val MIN_TYPED = -500
+    const val MAX_TYPED = 9000
+
+    /** A typed minimum below the start of the bar, a typed maximum beyond its end. */
+    fun isBelow(min: Int?): Boolean = min != null && min < 0
+
+    fun isBeyond(max: Int?): Boolean = max != null && max > MAX_METERS
+
     /** The bar position of a layer band: an unset bound sits at the end of the bar. */
     fun rangeOf(
         min: Int?,
