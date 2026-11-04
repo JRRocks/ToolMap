@@ -20,6 +20,19 @@
 
 ---
 
+## 2026-11-04 — Session 90 — [P34.0] Aperçu : le panneau « Cartes et calques » en sous-onglets, 10 styles
+- **Branche / commit** : session cloud (claude.ai/code), branche `claude/vibrant-galileo-q3s99n` repartie de 02ac68e (0.4.193), rebasée sur 7525f5f (0.4.195, P25.5 de la session locale) avant de pousser ; poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : demande de l'utilisateur relayée par la session locale « ToolMap » : le panneau « Cartes et calques » (onglet « Cartes » de la barre du bas) est trop chargé ; proposer 10 styles visuels qui le découpent en sous-onglets ou sections, en aperçu seulement.
+- **Réalisé** :
+  - Versions au début : GitHub `claude/vibrant-galileo-q3s99n` en **0.4.193** (02ac68e, entrée « Session 89 (suite 12) », référence), `claude/blissful-hopper-8kr9d6` (iOS) en 0.4.145, `main` en 0.4.134, `claude/pensive-edison-cgzr8t` en 0.4.102 ; Drive non lisible depuis le cloud ; local : clone de la branche en 0.4.142, propre, en retard de 34 commits : remis sur la branche (`git checkout -B … origin/…`), rien de perdu.
+  - Numéro : la demande disait « P30.0 », déjà pris par les itinéraires (P30.0 validé le 2026-10-28) ; P32 (iOS) et P33 (sauvegarde) aussi : tâche notée **P34**, fichier `docs/previews/p34-cartes-onglets.html`.
+  - Aperçu fait avec les guides d'impeccable (dépôt `pbakaus/impeccable`, commit `5af4319` du 2026-11-04 : `SKILL.md`, mode « Operate », `android.md`, `layout.md`, `distill.md`, `craft-floor.md`), dans le style Crête (ADR-074) : cinq constats (tout d'un coup, états tronqués, six tuiles toujours là, ligne qui déplie tout, aucun élément qui domine) ; état actuel reconstruit d'après `MapsRootPanel.kt` et `StackRows.kt` (panneau ouvert, puis une ligne dépliée) ; 10 styles de deux écrans chacun, nuit par défaut et jour au choix : 1 Onglets (Calques · Favoris · Hors ligne), 2 Segments et pastilles (états en pastilles), 3 Barre d'outils (six tuiles en une barre d'icônes), 4 Fiche du calque (réglages d'une carte sur leur page), 5 Puces et carnet (dense, à filets), 6 Accordéon (une section ouverte à la fois), 7 Fond et superpositions (favori en menu du bandeau), 8 Rail (rail pétrole en équerre), 9 Tableau (colonnes zooms, altitude, opacité), 10 Deux hauteurs (panneau bas, tiré vers le haut) ; recommandation : 1 avec la fiche de 4, ou 10 pour garder la carte visible ; page de choix. Référence MGRS fictive (`32T LR 41280 07315`), cartes et favoris de l'exemple de l'utilisateur sans position réelle.
+  - Publiée en Artifact (page privée claude.ai) pour l'utilisateur.
+- **Décisions (ADR)** : aucune (aperçu).
+- **Tests / vérifications** : page ouverte dans Chromium (Playwright) à 1 100 px en nuit et en jour et à 390 px : aucune erreur de console, pas de défilement horizontal ; chaque bande vue en capture (corrigés : interrupteur de la fiche écrasé, couleur de l'œil du style 8, chiffres du tableau passés à la ligne). Pas d'APK pour un aperçu seul : `version.properties` (**0.4.196**) suit seulement le titre et l'objectif de cette entrée, qui entrent dans l'empreinte des sources (ADR-059).
+- **Problèmes / dette technique** : aucun.
+- **Prochaine étape recommandée** : choix de l'utilisateur (1 à 10, ou un style avec des changements), puis code du style choisi (P34.1).
+
 ## 2026-11-04 — Session 89 (suite 13) — [P25.5] « Renommer » un favori : fiche du favori à l'appui long
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 02ac68e (0.4.193) ; APK 0.4.195. Copies : GitHub `claude/vibrant-galileo-q3s99n` = 0.4.193, Drive = 0.4.193, local = 0.4.193 puis changements non poussés (référence) ; autres branches plus anciennes (main 0.4.134).
 - **Objectif** : renommer un favori (« Rando été » en « Rando été 2026 »…) sans le recréer, depuis une fiche du favori ouverte par un appui long.

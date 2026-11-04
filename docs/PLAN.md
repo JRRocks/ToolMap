@@ -406,6 +406,13 @@ Tuiles **Terrarium** (AWS open data `elevation-tiles-prod`) traitées comme une 
 | P33.1 | ✅ | Format et restauration : rubriques choisies à l'écriture et à la restauration, stockages de tuiles choisis (format 2), fusion des tuiles au démarrage (la plus récente gardée), anciennes sauvegardes toujours restaurées | Tests JVM (`BackupServiceTest`, `BackupModelTest`) : rubrique décochée intacte, fusion, format 1 avec et sans tuiles |
 | P33.2 | ✅ | Écrans « Sauvegarder » et « Restaurer » de la variante C. Fait en session 87 (0.4.154) : sauvegarde de 2 cartes choisies (zip de format 2), restauration sans les réglages (gardés), carte absente remise ; captures à côté de l'aperçu | Émulateur : sauvegarde de 2 cartes choisies, restauration partielle ; captures à côté de l'aperçu |
 
+### P34 — Panneau « Cartes et calques » en sous-onglets (demande du 2026-11-04 : le panneau est trop chargé)
+> P30 (itinéraires), P32 (iOS) et P33 (sauvegarde) étant pris, la tâche demandée sous « P30.0 » par la session locale « ToolMap » est notée P34.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P34.0 | ⬜ | Aperçu montré le 2026-11-04 (session 90) : état actuel (0.4.193, reconstruit depuis `MapsRootPanel.kt` et `StackRows.kt`) et 10 styles qui découpent le panneau (1 Onglets · 2 Segments et pastilles · 3 Barre d'outils · 4 Fiche du calque · 5 Puces et carnet · 6 Accordéon · 7 Fond et superpositions · 8 Rail · 9 Tableau · 10 Deux hauteurs), nuit et jour, recommandation 1 avec la fiche de 4 : `docs/previews/p34-cartes-onglets.html` ; **en attente du choix de l'utilisateur**, aucun code avant | Validation explicite de l'utilisateur, date consignée au journal |
+
 ## 4. Stratégie de test
 - **JVM (`:core`)** : parseurs, URL de tuiles, maths d'échelle, statistiques, codec P2P. Rapides, exécutables partout.
 - **Robolectric + MockWebServer (`:data`, `:p2p`)** : Room, MbTilesStore, intercepteur (en-têtes, mode hors ligne, zooms complétés), relais Firebase (émulateur Firebase via `scripts/firebase-emulator-test.sh`).
