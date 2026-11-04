@@ -42,6 +42,10 @@ data class SketchStrokeEntity(
     val widthMeters: Double,
     val smoothingMeters: Double,
     val path: String,
+    /** A shape placed point by point (P28.4): « line » or « zone »; `null` for a freehand stroke. */
+    val shape: String? = null,
+    /** The fill of a zone ([fr.toolmap.core.sketch.SketchFill.code]). */
+    val fill: String? = null,
 )
 
 data class SketchWithStrokes(

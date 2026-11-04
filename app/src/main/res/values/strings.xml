@@ -2425,4 +2425,55 @@
     <item quantity="one">%d trait</item>
     <item quantity="other">%d traits</item>
   </plurals>
+  <!-- P28.4 : formes posées point par point, motifs des zones (variante E de docs/previews/p28-formes.html) -->
+  <string name="sketch_mode_shape">Forme</string>
+  <string name="sketch_shape_line">Ligne</string>
+  <string name="sketch_shape_zone">Zone</string>
+  <string name="sketch_shape_finish">Terminer</string>
+  <string name="sketch_pattern">Motif</string>
+  <string name="sketch_fill_none">Aucun</string>
+  <string name="sketch_fill_tint">Teinte</string>
+  <string name="sketch_fill_hatch">Hachures</string>
+  <string name="sketch_fill_stripes">Bandes</string>
+  <string name="sketch_fill_dots">Points</string>
+  <string name="sketch_fill_grid">Quadrillage</string>
+  <string name="sketch_fill_cross">Croisillons</string>
+  <string name="sketch_fill_waves">Vagues</string>
+  <string name="sketch_fill_outline">Contour</string>
+  <string name="sketch_fill_described">%1$s %2$s</string>
+  <string name="sketch_fill_named">%1$s : %2$s</string>
+  <string name="sketch_preset_forbidden">Interdit</string>
+  <string name="sketch_preset_danger">Danger</string>
+  <string name="sketch_preset_preserve">À préserver</string>
+  <string name="sketch_preset_to_search">À fouiller</string>
+  <string name="sketch_preset_searched">Fouillé</string>
+  <string name="sketch_preset_wet">Humide</string>
+  <string name="sketch_shape_perimeter">périmètre %1$s · %2$s</string>
+  <string name="sketch_band_in_progress">1 en cours</string>
+  <string name="sketch_band_shape_in_progress">1 forme en cours</string>
+  <plurals name="sketch_shapes">
+    <item quantity="one">%d forme</item>
+    <item quantity="other">%d formes</item>
+  </plurals>
+  <plurals name="sketch_shape_points">
+    <item quantity="one">%d point</item>
+    <item quantity="other">%d points</item>
+  </plurals>
+  <!-- Couleurs accordées au motif : masculin singulier, féminin singulier, masculin pluriel, féminin pluriel. -->
+  <string-array name="sketch_color_ms">
+    <item>rouge</item><item>orange</item><item>jaune</item><item>vert</item>
+    <item>bleu</item><item>violet</item><item>noir</item><item>blanc</item>
+  </string-array>
+  <string-array name="sketch_color_fs">
+    <item>rouge</item><item>orange</item><item>jaune</item><item>verte</item>
+    <item>bleue</item><item>violette</item><item>noire</item><item>blanche</item>
+  </string-array>
+  <string-array name="sketch_color_mp">
+    <item>rouges</item><item>orange</item><item>jaunes</item><item>verts</item>
+    <item>bleus</item><item>violets</item><item>noirs</item><item>blancs</item>
+  </string-array>
+  <string-array name="sketch_color_fp">
+    <item>rouges</item><item>orange</item><item>jaunes</item><item>vertes</item>
+    <item>bleues</item><item>violettes</item><item>noires</item><item>blanches</item>
+  </string-array>
 </resources>

@@ -2,7 +2,9 @@ package fr.toolmap.core.p2p
 
 import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.sketch.RawStroke
+import fr.toolmap.core.sketch.SketchFill
 import fr.toolmap.core.sketch.SketchPath
+import fr.toolmap.core.sketch.SketchShape
 import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.core.sketch.SketchStyle
 import fr.toolmap.core.sketch.XY
@@ -82,6 +84,24 @@ class GroupShapeTest {
         for ((a, b) in before.zip(after)) assertTrue(abs(a.x - b.x) <= 0.05 && abs(a.y - b.y) <= 0.05, "$a $b")
         assertTrue(back[1].path.curves.isEmpty())
         assertNull(GroupShape.packSketch(listOf(stroke, dot), maxBytes = 10))
+    }
+
+    @Test
+    fun `the lines and zones of a sketch keep their kind and fill, and a sketch without one is packed as before`() {
+        val origin = XY.of(LonLat(6.4, 45.1))
+        val style = SketchStyle(0xFFE53935.toInt(), widthMeters = 6.0, smoothingMeters = 2.5)
+        val corners = listOf(origin, origin + XY(300.0, 0.0), origin + XY(150.0, 260.0))
+        val free = RawStroke(style, List(40) { i -> origin + XY(i * 7.0, 30 * sin(i / 5.0)) }).smoothed()
+        val zone = RawStroke(style, corners, SketchShape(closed = true, fill = SketchFill.WAVES)).smoothed()
+        val line = RawStroke(style, corners, SketchShape(closed = false)).smoothed()
+        val back = GroupShape.unpackSketch(assertNotNullShape(GroupShape.packSketch(listOf(free, zone, line))))
+        assertEquals(listOf(null, zone.shape, line.shape), back.map { it.shape })
+        assertEquals(3, back[1].path.vertices(closed = true).size)
+        // Without a shape, nothing follows the strokes: what an older app sends and reads.
+        val plain = assertNotNullShape(GroupShape.packSketch(listOf(free)))
+        assertNull(GroupShape.unpackSketch(plain).single().shape)
+        val withZone = assertNotNullShape(GroupShape.packSketch(listOf(free, zone)))
+        assertTrue(GroupShape.unpackSketch(withZone).size == 2)
     }
 
     @Test

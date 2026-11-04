@@ -414,6 +414,11 @@ class PdfPage internal constructor(
         ops.append("B\n")
     }
 
+    /** Clips what follows to the path just built, without painting it (until [restore]). */
+    fun clip() {
+        ops.append("W n\n")
+    }
+
     /** Strokes a polyline through [xs] / [ys] (parallel arrays), skipping points closer than [minStepMm] to the last. */
     fun polyline(
         xs: DoubleArray,

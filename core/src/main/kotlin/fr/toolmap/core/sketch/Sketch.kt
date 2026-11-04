@@ -18,21 +18,45 @@ data class SketchStyle(
     val smoothingMeters: Double,
 )
 
-/** A stroke being edited: the raw points, which the eraser cuts and which are shown smoothed on the fly. */
+/**
+ * A shape placed point by point as a measure is (P28.4, variant E of docs/previews/p28-formes.html): straight sides
+ * between its vertices, never smoothed. A line is open; a zone is closed and has a [fill] in the colour of the shape.
+ */
+data class SketchShape(
+    val closed: Boolean,
+    val fill: SketchFill = SketchFill.NONE,
+)
+
+/**
+ * A stroke being edited: the raw points, which the eraser cuts and which are shown smoothed on the fly. For a
+ * [shape], the points are its vertices.
+ */
 data class RawStroke(
     val style: SketchStyle,
     val points: List<XY>,
+    val shape: SketchShape? = null,
 ) {
-    fun smoothed(): SketchStroke = SketchStroke(style, SketchSmoother.fit(points, style.smoothingMeters))
+    fun smoothed(): SketchStroke =
+        if (shape != null) {
+            SketchStroke(style, SketchPath.through(points, shape.closed), shape)
+        } else {
+            SketchStroke(style, SketchSmoother.fit(points, style.smoothingMeters))
+        }
 }
 
-/** A saved stroke: only its smoothed SVG path is kept. */
+/** A saved stroke: only its smoothed SVG path is kept; a shape keeps its straight sides. */
 data class SketchStroke(
     val style: SketchStyle,
     val path: SketchPath,
+    val shape: SketchShape? = null,
 ) {
     /** Back to points for editing (a reopened sketch); smoothing it again may move it very slightly. */
-    fun toRaw(): RawStroke = RawStroke(style, path.sample(style.smoothingMeters / 4))
+    fun toRaw(): RawStroke =
+        if (shape != null) {
+            RawStroke(style, path.vertices(shape.closed), shape)
+        } else {
+            RawStroke(style, path.sample(style.smoothingMeters / 4))
+        }
 }
 
 /** A named drawing session (« Croquis du 3 nov. »): shown or hidden as a whole. */

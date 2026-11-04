@@ -2,7 +2,9 @@ package fr.toolmap.core.p2p
 
 import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.sketch.Cubic
+import fr.toolmap.core.sketch.SketchFill
 import fr.toolmap.core.sketch.SketchPath
+import fr.toolmap.core.sketch.SketchShape
 import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.core.sketch.SketchStyle
 import fr.toolmap.core.sketch.XY
@@ -119,6 +121,20 @@ object GroupShape {
                 point(c.end)
             }
         }
+        // The shapes of P28.4 come after every stroke, so that an older app reads the strokes and ignores them: per
+        // stroke, 0 for a freehand stroke, 1 for a line, 2 + the index of its fill for a zone.
+        if (strokes.any { it.shape != null }) {
+            for (s in strokes) {
+                val shape = s.shape
+                w.unsigned(
+                    when {
+                        shape == null -> 0L
+                        !shape.closed -> 1L
+                        else -> 2L + shape.fill.ordinal
+                    },
+                )
+            }
+        }
         return deflate(w.toByteArray()).takeIf { it.size <= maxBytes }
     }
 
@@ -132,16 +148,41 @@ object GroupShape {
             y += r.signed()
             return XY(x / DM, y / DM)
         }
-        return List(r.count()) {
-            val style =
-                SketchStyle(
-                    color = r.unsigned().toInt(),
-                    widthMeters = r.unsigned() / CM,
-                    smoothingMeters = r.unsigned() / CM,
-                )
-            val curves = r.count()
-            val start = point()
-            SketchStroke(style, SketchPath(start, List(curves) { Cubic(point(), point(), point()) }))
+        val strokes =
+            List(r.count()) {
+                val style =
+                    SketchStyle(
+                        color = r.unsigned().toInt(),
+                        widthMeters = r.unsigned() / CM,
+                        smoothingMeters = r.unsigned() / CM,
+                    )
+                val curves = r.count()
+                val start = point()
+                SketchStroke(style, SketchPath(start, List(curves) { Cubic(point(), point(), point()) }))
+            }
+        if (!r.hasMore()) return strokes
+        return strokes.map { s ->
+            when (val code = r.unsigned()) {
+                0L -> {
+                    s
+                }
+
+                1L -> {
+                    s.copy(shape = SketchShape(closed = false))
+                }
+
+                else -> {
+                    s.copy(
+                        shape =
+                            SketchShape(
+                                true,
+                                SketchFill.entries.getOrElse(code.toInt() - 2) {
+                                    SketchFill.NONE
+                                },
+                            ),
+                    )
+                }
+            }
         }
     }
 
@@ -234,6 +275,8 @@ object GroupShape {
         private val data: ByteArray,
     ) {
         private var pos = 0
+
+        fun hasMore(): Boolean = pos < data.size
 
         fun unsigned(): Long {
             var v = 0L

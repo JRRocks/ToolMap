@@ -100,6 +100,7 @@ import fr.toolmap.core.alert.AlertGeoJson
 import fr.toolmap.core.altitude.AltitudeSource
 import fr.toolmap.core.download.ZoneShape
 import fr.toolmap.core.geo.Bounds
+import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.geo.LonLatZoom
 import fr.toolmap.core.geo.NavTarget
 import fr.toolmap.core.geo.Navigation
@@ -125,6 +126,8 @@ import fr.toolmap.core.settings.NorthReferenceMath
 import fr.toolmap.core.settings.barometerOn
 import fr.toolmap.core.settings.withBarometer
 import fr.toolmap.core.sketch.Sketch
+import fr.toolmap.core.sketch.SketchScale
+import fr.toolmap.core.sketch.XY
 import fr.toolmap.core.source.Credits
 import fr.toolmap.core.state.CameraState
 import fr.toolmap.core.track.NameDates
@@ -195,6 +198,7 @@ import fr.toolmap.share.ShareHud
 import fr.toolmap.share.ShareViewModel
 import fr.toolmap.share.serverUp
 import fr.toolmap.sketch.SketchLayers
+import fr.toolmap.sketch.SketchMode
 import fr.toolmap.sketch.SketchRow
 import fr.toolmap.sketch.SketchSpacePanel
 import fr.toolmap.sketch.SketchTool
@@ -654,7 +658,19 @@ fun MapScreen(
     SideEffect {
         controller.onDrawTap =
             when {
-                // A tap on a track under a sketch does not open it: the sketch keeps the map.
+                // A tap places a point of a shape (P28.4), as in the measure; a tap on a track under a sketch does not open
+                // it: the sketch keeps the map.
+                sketchUi.active && sketchUi.mode == SketchMode.SHAPE -> {
+                    { lat, lon ->
+                        val zoom = controller.liveCamera.zoom
+                        sketch.addShapePoint(
+                            XY.of(LonLat(lon, lat)),
+                            zoom,
+                            TAP_REACH_DP * SketchScale.metersPerPixel(zoom),
+                        )
+                    }
+                }
+
                 sketchUi.active -> {
                     { _, _ -> }
                 }

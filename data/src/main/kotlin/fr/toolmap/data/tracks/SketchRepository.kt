@@ -1,7 +1,9 @@
 package fr.toolmap.data.tracks
 
 import fr.toolmap.core.sketch.Sketch
+import fr.toolmap.core.sketch.SketchFill
 import fr.toolmap.core.sketch.SketchPath
+import fr.toolmap.core.sketch.SketchShape
 import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.core.sketch.SketchStyle
 import kotlinx.coroutines.flow.Flow
@@ -63,7 +65,16 @@ class SketchRepository(
         widthMeters = s.style.widthMeters,
         smoothingMeters = s.style.smoothingMeters,
         path = s.path.toSvg(),
+        shape = s.shape?.let { if (it.closed) ZONE else LINE },
+        fill = s.shape?.takeIf { it.closed }?.fill?.code,
     )
+
+    private fun shapeOf(row: SketchStrokeEntity): SketchShape? =
+        when (row.shape) {
+            LINE -> SketchShape(closed = false)
+            ZONE -> SketchShape(closed = true, fill = SketchFill.of(row.fill))
+            else -> null
+        }
 
     private fun decode(row: SketchWithStrokes): SavedSketch =
         SavedSketch(
@@ -77,9 +88,14 @@ class SketchRepository(
                     row.strokes.sortedBy { it.ord }.mapNotNull { s ->
                         // A path that cannot be read is left out rather than losing the whole sketch.
                         runCatching { SketchPath.parse(s.path) }.getOrNull()?.let { path ->
-                            SketchStroke(SketchStyle(s.colorArgb, s.widthMeters, s.smoothingMeters), path)
+                            SketchStroke(SketchStyle(s.colorArgb, s.widthMeters, s.smoothingMeters), path, shapeOf(s))
                         }
                     },
                 ),
         )
+
+    private companion object {
+        const val LINE = "line"
+        const val ZONE = "zone"
+    }
 }

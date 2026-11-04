@@ -8,7 +8,9 @@ import fr.toolmap.core.pdf.PdfPage
 import fr.toolmap.core.pdf.PdfProbe
 import fr.toolmap.core.sketch.RawStroke
 import fr.toolmap.core.sketch.Sketch
+import fr.toolmap.core.sketch.SketchFill
 import fr.toolmap.core.sketch.SketchPath
+import fr.toolmap.core.sketch.SketchShape
 import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.core.sketch.SketchStyle
 import fr.toolmap.core.sketch.XY
@@ -334,6 +336,38 @@ class PrintExportTest {
         assertEquals(curves(page(bare, PrintContent())), curves(page(bare, sketches)))
         val noTracks = template.copy(dressing = Dressing(tracks = false))
         assertEquals(curves(drawn), curves(page(noTracks, sketches)))
+    }
+
+    @Test
+    fun `a hatched zone is printed clipped to its outline, a tinted one as a light fill, a line without a fill`() {
+        val origin = XY.of(LonLat(6.0, 45.0))
+        val style = SketchStyle(0xFFE53935.toInt(), widthMeters = 10.0, smoothingMeters = 2.0)
+        val corners = listOf(origin, origin + XY(800.0, 0.0), origin + XY(800.0, 600.0), origin + XY(0.0, 600.0))
+
+        fun page(vararg strokes: SketchStroke) =
+            PdfProbe(
+                export(
+                    plan(PrintTemplate(scale = 25_000.0, dpi = 100)),
+                    content = PrintContent(sketches = listOf(Sketch("Croquis", strokes.toList()))),
+                ).second,
+            ).contentOfPage(0)
+        val hatched = page(RawStroke(style, corners, SketchShape(true, SketchFill.HATCH)).smoothed())
+        val empty = page()
+
+        fun count(
+            pattern: String,
+            page: String,
+        ) = Regex(pattern).findAll(page).count() - Regex(pattern).findAll(empty).count()
+        assertEquals(1, count("W n\n", hatched), "clipped to the zone")
+        // A zone of 23 × 17 mm on paper (800 × 600 map meters at 45° N, 1:25 000), hatched 1.8 mm apart: some 20
+        // lines over its box, each stroked alone.
+        assertTrue(count(" l\nS\n", hatched) in 12..30, "hatching: ${count(" l\nS\n", hatched)}")
+        val tinted = page(RawStroke(style, corners, SketchShape(true, SketchFill.TINT)).smoothed())
+        assertEquals(0, count("W n\n", tinted))
+        assertEquals(1, count("\nf\n", tinted))
+        val line = page(RawStroke(style, corners, SketchShape(false)).smoothed())
+        assertEquals(3, count(" c\n", line))
+        assertEquals(0, count("\nf\n", line))
     }
 
     @Test

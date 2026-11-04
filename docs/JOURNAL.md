@@ -20,6 +20,29 @@
 
 ---
 
+## 2026-11-04 — Session 89 (suite 12) — [P28.4] Croquis : formes point par point et remplissages motif × couleur
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 9ca234e (0.4.191). Copies : GitHub `claude/vibrant-galileo-q3s99n` = 0.4.191, local = 0.4.191 puis changements non poussés (référence) ; autres branches plus anciennes (main 0.4.134) ; Drive non monté.
+- **Objectif** : poser les formes d'un croquis avec le moteur de Mesure → Surface plutôt qu'une liste de formes toutes faites, avec des remplissages prédéfinis (zone interdite hachurée, zone à préserver…).
+- **Réalisé** :
+  - Aperçu `docs/previews/p28-formes.html` (état actuel en capture, catalogue des remplissages, 5 variantes du panneau, sélection et fiche), **validé le 2026-11-04 : « E »** (Motif × couleur). Pendant l'aperçu, demande de l'utilisateur : « P28.5 fera partie de P28.4 / Pas de modification sur les dessins à la main » (décisions dans `docs/plan-fonctions-2026-10.md`).
+  - `:core` : `SketchShape` (ligne ou zone, remplissage) sur `RawStroke` / `SketchStroke` ; `SketchPath.through` (côtés droits, jamais lissés) et `vertices` ; `SketchFill` (8 motifs), `SketchFillPreset` (Interdit, Danger, À préserver, À fouiller, Fouillé, Humide), `SketchFills` (géométrie des motifs en dp) ; PDF : zone découpée et marques redessinées (`PdfWriter.clip`, `PageComposer.drawSketchFill`) ; groupe : bloc des formes après les traits dans `GroupShape`.
+  - `:data` : base 3 (migration automatique 2 → 3), colonnes `shape` et `fill` des traits.
+  - `:app` : 4e mode **Forme** (Main · Stylo · Forme · Gomme, icône au-dessus du nom) ; panneau de la variante E (Ligne · Zone, chiffres en direct, Motif et ses 8 cases, 8 couleurs, nom de la combinaison, « Ajouter ici » et « Terminer ») ; point central entre le bandeau et le panneau ; appui sur la carte = un point, appui près du premier point = zone fermée ; zone en cours remplie jusqu'au viseur avec lignes élastiques ; carte : motifs en images répétées par MapLibre (`SketchPatterns`, `SketchLayers`), teinte à 25 % ; la gomme enlève une forme entière ; annuler / rétablir couvrent la forme en cours.
+- **Décisions (ADR)** : ADR-114 (formes = traits à coins, remplissage motif × couleur, motifs à taille d'écran, base 3, bloc du groupe).
+- **Tests / vérifications** :
+  - `SketchShapeTest` (5 : coins, aller-retour SVG, codes et noms, motifs périodiques, écart des hachures), `GroupShapeTest` (+1 : formes gardées), `PrintExportTest` (+1 : zone hachurée, teinte, ligne au PDF) : `./gradlew :core:test` **BUILD SUCCESSFUL**.
+  - `SketchRepositoryTest` (+1 : base 2 → 3, formes gardées) ; `SketchToolTest` (+3 : formes posées point par point et enregistrées, couche de la carte, panneau Forme) : **BUILD SUCCESSFUL**.
+  - `./gradlew assembleDebug` (0.4.192), puis émulateur : stockage plein (`INSTALL_FAILED_INSUFFICIENT_STORAGE`) ; données de l'application sauvegardées (`run-as … tar`), application désinstallée et réinstallée, données restaurées (base migrée en 3 sans erreur, croquis existants affichés). Mode Forme : zone de 4 points « 14.22 ha · périmètre 1.52 km · 4 points », « Hachures rouges : **Interdit** » ; zone « Points verts : **À préserver** » ; ligne de 3 points ; enregistré : la carte dessine hachures et points ; gomme sur la zone verte : forme enlevée entière (« 2 formes »), annulée. Captures ajoutées à l'aperçu, section « Rendu sur l'émulateur (0.4.192) » (artifact « Croquis : formes », version 2).
+  - Un ANR au premier lancement après la réinstallation : fil principal bloqué 25 s à l'ouverture de la carte (le système accuse `ShareService`, qui attendait derrière) ; la pile du fil principal (bugreport) attend le `RenderThread` dans `DrawFrameTask::drawFrame`, soit le GPU de l'émulateur, pas le code de l'application. Non reproduit au lancement suivant (carte en ≈ 1 s) ; les images des motifs sont 56 petites tuiles, quelques ms.
+  - Final : `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` (0.4.193) **BUILD SUCCESSFUL in 3m 22s**.
+- **Aperçu validé** : `docs/previews/p28-formes.html`, variante E, validée le 2026-11-04 ; rendu de l'émulateur à côté.
+- **Problèmes / dette technique** :
+  - Sélection, poignées et fiche d'une forme (ex-P28.5) : aperçu montré, pas encore validé ; non codé.
+  - Dans l'outil, le motif de la zone en cours est ancré à l'écran (il glisse quand la carte bouge) ; enregistrée, il est ancré au monde.
+  - La ligne de l'espace Croquis compte « 3 traits » pour trois formes (le bandeau dit « 3 formes ») : à aligner avec un aperçu.
+  - Règles Firebase de P27.1 toujours à republier dans la console avant P27.5.
+- **Prochaine étape recommandée** : faire valider la fiche de sélection d'une forme, puis la coder (poignées, + entre deux points, fiche) ; sinon P24 (grilles MGRS / UTM).
+
 ## 2026-11-04 — Session 89 (suite 11) — [P23] Saisie précise des valeurs : pastille et dialogue
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 08945da (0.4.186). Copies : GitHub = local (0.4.186, référence) ; Drive non monté.
 - **Objectif** : taper une valeur exacte (zoom, altitude, fréquence et déplacement du partage, opacité et couleurs d'un calque) au lieu de la chercher au curseur.

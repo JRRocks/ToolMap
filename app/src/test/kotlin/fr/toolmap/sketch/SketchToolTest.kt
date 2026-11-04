@@ -16,9 +16,13 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.sketch.RawStroke
 import fr.toolmap.core.sketch.Sketch
+import fr.toolmap.core.sketch.SketchFill
+import fr.toolmap.core.sketch.SketchPalette
 import fr.toolmap.core.sketch.SketchPath
 import fr.toolmap.core.sketch.SketchScale
+import fr.toolmap.core.sketch.SketchShape
 import fr.toolmap.core.sketch.SketchSmoothing
 import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.core.sketch.SketchStyle
@@ -202,6 +206,103 @@ class SketchToolTest {
             ).getJSONArray("features")
         assertEquals(3, framed.length())
         assertEquals(1.5, framed.getJSONObject(0).getJSONObject("properties").getDouble("min"), 1e-9)
+    }
+
+    @Test
+    fun shapesArePlacedPointByPointClosedOnTheFirstPointAndSaved() =
+        runBlocking {
+            val vm = newVm()
+            vm.startNew("Croquis")
+            vm.setMode(SketchMode.SHAPE)
+            val corners = listOf(origin, origin + XY(200 * mpp, 0.0), origin + XY(100 * mpp, 150 * mpp))
+            corners.forEach { vm.addShapePoint(it, zoom, reach = 24 * mpp) }
+            assertEquals(corners, vm.ui.value.draft)
+            assertTrue(vm.ui.value.draftComplete)
+            // One step back takes the last point off, and it comes back.
+            vm.undo()
+            assertEquals(2, vm.ui.value.draft.size)
+            vm.redo()
+            // A tap beside the first point closes the zone, in the colour and pattern chosen.
+            vm.addShapePoint(origin + XY(10 * mpp, 5 * mpp), zoom, reach = 24 * mpp)
+            val zone = vm.ui.value.strokes.single()
+            assertEquals(SketchShape(closed = true, fill = SketchFill.HATCH), zone.raw.shape)
+            assertEquals(corners, zone.raw.points)
+            assertEquals(6 * mpp, zone.raw.style.widthMeters, 1e-9)
+            assertTrue(vm.ui.value.draft.isEmpty())
+            // A line of two points is kept when the mode changes; one of a single point is dropped.
+            vm.setShapeClosed(false)
+            vm.addShapePoint(origin + XY(0.0, 300 * mpp), zoom)
+            vm.addShapePoint(origin + XY(300 * mpp, 300 * mpp), zoom)
+            vm.setMode(SketchMode.HAND)
+            assertEquals(SketchShape(closed = false), vm.ui.value.strokes.last().raw.shape)
+            vm.setMode(SketchMode.SHAPE)
+            vm.addShapePoint(origin + XY(0.0, 500 * mpp), zoom)
+            vm.setMode(SketchMode.PEN)
+            assertEquals(2, vm.ui.value.strokes.size)
+            assertTrue(vm.ui.value.draft.isEmpty())
+            // The eraser takes a shape it touches as a whole.
+            vm.beginErase()
+            vm.eraseAt(origin + XY(100 * mpp, 0.0), 8 * mpp)
+            vm.endErase()
+            assertEquals(listOf(false), vm.ui.value.strokes.map { it.raw.shape?.closed })
+            vm.undo()
+            val id = vm.saveNow()!!
+            val back = repo.load(id)!!.sketch.strokes
+            assertEquals(listOf(true, false), back.map { it.shape?.closed })
+            assertEquals(SketchFill.HATCH, back[0].shape?.fill)
+        }
+
+    @Test
+    fun mapLayerFillsAZoneUnderItsOutline() {
+        val corners = listOf(origin, origin + XY(200 * mpp, 0.0), origin + XY(100 * mpp, 150 * mpp))
+        val style = SketchStyle(SketchPalette.COLORS[0], 6 * mpp, 6 * mpp)
+        val hatched = RawStroke(style, corners, SketchShape(true, SketchFill.HATCH)).smoothed()
+        val tinted = RawStroke(style, corners, SketchShape(true, SketchFill.TINT)).smoothed()
+        val line = RawStroke(style, corners, SketchShape(false)).smoothed()
+        val sketch = SavedSketch(1, true, 0, 0, Sketch("Zones", listOf(hatched, tinted, line)))
+        val features = JSONObject(SketchLayers.geoJson(listOf(sketch), zoom, null)).getJSONArray("features")
+        val kinds =
+            (0 until features.length()).map {
+                features.getJSONObject(it).getJSONObject("geometry").getString("type")
+            }
+        assertEquals(listOf("Polygon", "LineString", "Polygon", "LineString", "LineString"), kinds)
+        val fill = features.getJSONObject(0).getJSONObject("properties")
+        assertEquals("hatch", fill.getString("fill"))
+        assertEquals(SketchPatterns.id(SketchFill.HATCH, SketchPalette.COLORS[0]), fill.getString("pattern"))
+        assertFalse(features.getJSONObject(2).getJSONObject("properties").has("pattern"))
+        val ring = features.getJSONObject(0).getJSONObject("geometry").getJSONArray("coordinates").getJSONArray(0)
+        assertEquals(ring.getJSONArray(0).toString(), ring.getJSONArray(ring.length() - 1).toString())
+    }
+
+    @Test
+    fun shapeTierShowsLineOrZonePatternsAndTheNameOfAKnownCombination() {
+        val vm = newVm()
+        vm.startNew("Croquis du 4 nov.")
+        vm.setMode(SketchMode.SHAPE)
+        val controller = MapController(RuntimeEnvironment.getApplication())
+        rule.setContent {
+            ToolMapTheme {
+                val ui by vm.ui.collectAsState()
+                SketchTool(ui = ui, vm = vm, controller = controller, onSaved = {})
+            }
+        }
+        rule.onNodeWithText("Forme").assertIsDisplayed()
+        rule.onNodeWithText("Motif").assertIsDisplayed()
+        rule.onNodeWithText("Hachures rouges : Interdit").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Hachures").assertIsSelected()
+        rule.onNodeWithText("Ajouter ici").assertIsDisplayed()
+        rule.onNodeWithText("Terminer").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Points").performClick()
+        assertEquals(SketchFill.DOTS, vm.ui.value.fill)
+        rule.onNodeWithContentDescription("orange").performClick()
+        rule.onNodeWithText("Points orange").assertIsDisplayed()
+        vm.addShapePoint(origin, zoom)
+        rule.onNodeWithText("2 traits", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("1 forme en cours").assertIsDisplayed()
+        rule.onNodeWithText("Ligne").performClick()
+        assertFalse(vm.ui.value.shapeClosed)
+        rule.onAllNodesWithText("Motif").assertCountEquals(0)
+        rule.onNodeWithText("Lissage moyen").assertDoesNotExist()
     }
 
     @Test

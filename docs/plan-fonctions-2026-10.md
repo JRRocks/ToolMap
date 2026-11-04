@@ -275,6 +275,19 @@ trace ou un itinéraire ordinaire ; la carte ne bouge pas pendant le tracé ; au
   l'enregistrement.
 - SVG en **stockage interne** seulement (Room, sauvegarde) : ni fichier .svg partagé, ni GeoJSON dans ce lot.
 
+**Décisions du 2026-11-04 (formes, P28.4)** : elles remplacent, pour les formes, celles du 2026-10-24 ci-dessous.
+- Pas de liste de formes toutes faites (trait droit, flèche, cercle, rectangle, triangle) : une forme se pose **point
+  par point avec le moteur de Mesure → Surface** (point central, « Ajouter ici » ou appui sur la carte, chiffres en
+  direct, annuler et rétablir). Deux sortes : **Ligne** (ouverte) et **Zone** (fermée par « Terminer » ou en touchant
+  le premier point).
+- L'interrupteur « Remplir » devient des **remplissages** : aperçu `docs/previews/p28-formes.html`, **validé le
+  2026-11-04 : « E »** (variante « Motif × couleur ») : 8 motifs (aucun, teinte, hachures, bandes, points, quadrillage,
+  croisillons, vagues) dans la couleur choisie ; six combinaisons ont un nom (hachures rouges : Interdit, bandes
+  jaunes : Danger, points verts : À préserver, quadrillage bleu : À fouiller, croisillons noirs : Fouillé, vagues
+  bleues : Humide).
+- **P28.5 fait partie de P28.4** : la sélection, les poignées et la fiche ne concernent que les formes. **Les traits à
+  main levée ne se sélectionnent pas et ne se modifient pas** ; seule la gomme agit dessus.
+
 **Décisions du 2026-10-24**
 - **Espace « Dessin » à part**, avec son propre bouton et sa propre liste (emplacement du bouton choisi sur l'aperçu) ;
   un dessin = un ensemble de traits et de formes avec un nom (afficher ou masquer, renommer, supprimer).
@@ -301,8 +314,8 @@ trace ou un itinéraire ordinaire ; la carte ne bouge pas pendant le tracé ; au
 | P28.1 | ✅ | `:core` : lissage, modèle (traits, formes, style, épaisseur en mètres), chemin SVG, échantillonnage, mesures. Fait le 2026-11-03 pour le premier lot (traits, style, lissage, SVG, gomme, visibilité ; ADR-110, `core/sketch`) ; formes et mesures avec P28.4 et P28.5 | Tests JVM (lissage, aller-retour SVG, surfaces) |
 | P28.2 | ✅ | Stockage (Room, migration), sauvegarde, export GeoJSON et SVG. Fait le 2026-11-03 : tables `sketches` et `sketch_strokes` dans `tracks.db` (version 2, migration automatique), donc dans la sauvegarde ; export GeoJSON et SVG écartés par la décision du 2026-11-03 (SVG en stockage interne seulement) | Test de migration ; aller-retour de sauvegarde |
 | P28.3 | ✅ | Mode stylo : gestes, traits lissés, épaisseur en mètres sur MapLibre (au moins 1 px). Fait le 2026-11-03 (variante D, `app/sketch/SketchTool.kt`, `SketchLayers.kt`) ; vérifié sur l'émulateur | Émulateur : trait lissé, carte déplacée à deux doigts |
-| P28.4 | ⬜ | Formes et « Remplir » | Tests du modèle ; captures |
-| P28.5 | 🔄 | Sélection, modification, poignées, gomme, annuler et rétablir, fiche et mesures. 2026-11-03 : gomme partielle, annuler et rétablir faits ; panneau du mode Gomme : aperçu `docs/previews/p28-gomme.html` **validé le 2026-11-03 : variante A** (curseur « Taille de la gomme », 8 à 64 px), codé ; reste la sélection, les poignées, la fiche et les mesures, avec les formes (P28.4) | Tests ; captures |
+| P28.4 | 🔄 | Formes et remplissages (décisions du 2026-11-04). Fait le 2026-11-04 (0.4.192 et suivantes) : mode **Forme** (Main · Stylo · Forme · Gomme), Ligne \| Zone, pose point par point (point central, « Ajouter ici », appui sur la carte, premier point touché), chiffres de la mesure, 8 motifs × 8 couleurs avec le nom des six combinaisons connues, « Terminer » ; motifs sur la carte (MapLibre), sous le doigt (outil), à l'impression (PDF, découpés à la zone) et dans l'envoi au groupe ; base `tracks.db` version 3 ; la gomme retire une forme touchée en entier. Reste la sélection, les poignées et la fiche (ex-P28.5), dont l'aperçu attend la validation | Tests du modèle ; captures |
+| P28.5 | 🔄 | Rattachée à P28.4 le 2026-11-04 (demande de l'utilisateur) : sélection, poignées et fiche des **formes** seulement, pas des traits à main levée. 2026-11-03 : gomme partielle, annuler et rétablir faits ; panneau du mode Gomme : aperçu `docs/previews/p28-gomme.html` **validé le 2026-11-03 : variante A** (curseur « Taille de la gomme », 8 à 64 px), codé ; fiche de sélection proposée dans `docs/previews/p28-formes.html`, pas encore validée | Tests ; captures |
 | P28.6 | ✅ | Espace « Dessin » : liste, afficher et masquer, renommer, supprimer. Fait le 2026-11-03 : espace « Croquis » de la variante A (`SketchPanel.kt`) | Test de rendu |
 | P28.7 | ✅ | Lissage de la main levée des traces. Fait le 2026-11-03 (session 89, 0.4.172) : `Freehand.smooth` (lisseur du Croquis) dans `PolylineEditor.addStroke` ; la main levée des itinéraires garde l'amincissement (une étape par point) | `PolylineEditor` : test du lissage |
 | P28.8 | ✅ | Impression vectorielle. Fait le 2026-11-03 (session 89, 0.4.173) : croquis visibles imprimés en courbes avec les traces (`PageComposer.drawSketches`), PDF d'exemple `core/build/print-samples/sketch-25000.pdf` relu | PDF relu |

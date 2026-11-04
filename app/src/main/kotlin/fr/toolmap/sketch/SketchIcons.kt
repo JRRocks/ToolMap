@@ -53,6 +53,20 @@ object SketchIcons {
         )
     }
 
+    /** The outline of a pentagon: the shapes placed point by point (P28.4). */
+    val Shape: ImageVector by lazy {
+        icon(
+            "Pentagon",
+            "M12,2L22,9.3L18.2,21H5.8L2,9.3z" +
+                "M12,4.5L4.35,10.05L7.25,19H16.75L19.65,10.05z",
+        )
+    }
+
+    /** A broken line: « Ligne » of the shapes. */
+    val Line: ImageVector by lazy {
+        icon("ShowChart", "M3.5,18.49l6,-6.01l4,4L22,6.92l-1.41,-1.41l-7.09,7.97l-4,-4L2,16.99z")
+    }
+
     private fun icon(
         name: String,
         pathData: String,

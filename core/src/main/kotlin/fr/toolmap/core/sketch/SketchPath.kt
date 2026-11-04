@@ -90,8 +90,27 @@ data class SketchPath(
         return out
     }
 
+    /** The vertices of a path made by [through]: the start and the end of each side, the closing side left out. */
+    fun vertices(closed: Boolean): List<XY> {
+        val ends = curves.map { it.end }
+        return listOf(start) + if (closed && ends.isNotEmpty()) ends.dropLast(1) else ends
+    }
+
     companion object {
         private const val MAX_FLATTEN_DEPTH = 16
+
+        /** Straight sides through [points] (a shape, P28.4), back to the first one when [closed]. */
+        fun through(
+            points: List<XY>,
+            closed: Boolean,
+        ): SketchPath {
+            require(points.isNotEmpty()) { "A shape has at least one point" }
+            val ring = if (closed && points.size > 2) points + points[0] else points
+            return SketchPath(
+                ring[0],
+                ring.zipWithNext { a, b -> Cubic(a + (b - a) * (1.0 / 3), a + (b - a) * (2.0 / 3), b) },
+            )
+        }
 
         private fun tenths(v: Double): Long = Math.round(v * 10)
 

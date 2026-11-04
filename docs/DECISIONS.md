@@ -1613,3 +1613,16 @@
   4. **Serveur** : `b/w/*/f` passe de 800 à 17 000 caractères (règles à republier par l'utilisateur).
 - **Conséquences** : un tracé de plusieurs milliers de points arrive simplifié chez les autres (l'auteur garde le sien) ; un très gros croquis ne peut pas être partagé (message à l'utilisateur) ; chaque rejeu redonne la forme entière à chaque nouvelle liaison.
 - **Alternatives rejetées** : un message par genre (trois fois la logique des révisions et du rejeu) ; découper une forme sur plusieurs trames (réassemblage, pertes partielles, pour un besoin rare) ; GPX ou GeoJSON en texte (cinq à dix fois plus gros).
+
+## ADR-114 — Formes des croquis : traits à coins, remplissage par motif × couleur, motifs à taille d'écran
+
+- **Date / statut** : 2026-11-04 — Accepté (session 89 ; demande de l'utilisateur : poser les formes avec le moteur de Mesure → Surface et des remplissages prédéfinis ; aperçu `docs/previews/p28-formes.html`, variante E). Complète ADR-110 et ADR-113.
+- **Contexte** : une forme (ligne ou zone) doit vivre avec les traits du croquis (annuler, gomme, enregistrement, impression, envoi au groupe) sans être lissée, et porter un remplissage lisible à tous les zooms, à l'écran comme sur le papier.
+- **Décision** :
+  1. **Une forme est un trait** (`SketchStroke`) avec une `SketchShape(closed, fill)` : son chemin est fait de cubiques droites entre les points posés (`SketchPath.through`), jamais lissé ; `vertices()` rend les coins. La gomme enlève une forme entière.
+  2. **Remplissage = motif × couleur** (`SketchFill` : aucun, teinte, hachures, bandes, points, quadrillage, croisillons, vagues), la couleur étant celle du trait ; `SketchFillPreset` nomme six combinaisons. La géométrie des motifs est dans `:core` (`SketchFills`), en dp, pour l'écran et le PDF.
+  3. **Carte** : un motif est une image répétée par MapLibre (`fill-pattern`, une image par motif et couleur de la palette, tracée à la densité de l'écran) : il garde sa taille à l'écran quand on zoome. La teinte est un `FillLayer` à 25 %. **PDF** : la zone est découpée (`W n`) et les marques redessinées à 0,2 mm par dp.
+  4. **Stockage** : base 3 (migration automatique 2 → 3), colonnes `shape` (« line », « zone ») et `fill` de `sketch_strokes`.
+  5. **Groupe** : un bloc ajouté après les traits (0 = main levée, 1 = ligne, 2 + motif = zone), écrit seulement si le croquis a une forme ; une version plus ancienne l'ignore et voit des traits.
+- **Conséquences** : dans l'outil, le motif de la zone en cours est ancré à l'écran (il glisse quand la carte bouge) ; enregistrée, la carte l'ancre au monde. Ajouter un motif demande sa géométrie dans `SketchFills`, son code et son nom.
+- **Alternatives rejetées** : formes toutes faites (rectangle, cercle, flèche) : refusé par l'utilisateur ; motifs à l'échelle du terrain (illisibles en dézoomant) ; un remplissage par nom figé (« Interdit » = hachures rouges seulement), moins libre que motif × couleur.

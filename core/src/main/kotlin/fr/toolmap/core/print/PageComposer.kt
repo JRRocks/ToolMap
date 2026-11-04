@@ -7,6 +7,9 @@ import fr.toolmap.core.pdf.PdfColor
 import fr.toolmap.core.pdf.PdfFont
 import fr.toolmap.core.pdf.PdfPage
 import fr.toolmap.core.pdf.TextAlign
+import fr.toolmap.core.sketch.SketchFill
+import fr.toolmap.core.sketch.SketchFills
+import fr.toolmap.core.sketch.XY
 import java.text.DecimalFormatSymbols
 import java.util.Locale
 import kotlin.math.abs
@@ -253,6 +256,10 @@ class PageComposer(
                 page.save()
                 val color = PdfColor.fromArgb(stroke.style.color)
                 val alpha = (stroke.style.color ushr ALPHA_SHIFT) / OPAQUE
+                val shape = stroke.shape
+                if (shape != null && shape.closed && shape.fill != SketchFill.NONE && path.curves.size > 2) {
+                    drawSketchFill(page, shape.fill, color, alpha, xs, ys)
+                }
                 if (alpha < 1.0) page.alpha(alpha)
                 if (path.curves.isEmpty()) {
                     // A tap: a dot as wide as the stroke.
@@ -272,6 +279,54 @@ class PageComposer(
                 page.restore()
             }
         }
+    }
+
+    /**
+     * The fill of a zone (P28.4): a tint, or its pattern drawn over the zone and clipped to it, at the size the screen
+     * shows it ([SKETCH_FILL_MM_PER_DP]). [xs] / [ys] are the start then the control points of its straight sides.
+     */
+    private fun drawSketchFill(
+        page: PdfPage,
+        fill: SketchFill,
+        color: PdfColor,
+        alpha: Double,
+        xs: List<Double>,
+        ys: List<Double>,
+    ) {
+        page.save()
+        page.moveTo(xs[0], ys[0])
+        for (i in 3 until xs.size step 3) page.lineTo(xs[i], ys[i])
+        page.closePath()
+        if (fill == SketchFill.TINT) {
+            page.alpha(alpha * fill.opacity)
+            page.fillColor(color)
+            page.fill()
+            page.restore()
+            return
+        }
+        page.clip()
+        val marks = SketchFills.marks(fill, XY(xs.min(), ys.min()), XY(xs.max(), ys.max()), SKETCH_FILL_MM_PER_DP)
+        if (marks.groundAlpha > 0) {
+            page.alpha(alpha * marks.groundAlpha)
+            page.fillColor(color)
+            page.rect(xs.min(), ys.min(), xs.max() - xs.min(), ys.max() - ys.min())
+            page.fill()
+        }
+        page.alpha(alpha * fill.opacity)
+        if (marks.lines.isNotEmpty()) {
+            page.strokeColor(color)
+            page.lineWidth(marks.lineWidth)
+            page.lineStyle(LineCap.BUTT, LineJoin.ROUND)
+            for (line in marks.lines) {
+                page.polyline(DoubleArray(line.size) { line[it].x }, DoubleArray(line.size) { line[it].y })
+            }
+        }
+        if (marks.dots.isNotEmpty()) {
+            page.fillColor(color)
+            for (d in marks.dots) page.circle(d.x, d.y, marks.dotRadius)
+            page.fill()
+        }
+        page.restore()
     }
 
     /** A disc of the waypoint's colour with its white icon, and its name outlined in white (P17, Q16). */
@@ -1466,6 +1521,9 @@ class PageComposer(
 
         /** The thinnest a sketch stroke is printed, in millimeters (P28.8). */
         const val SKETCH_MIN_MM = 0.1
+
+        /** One dp of a fill pattern on paper (P28.4): hatching 9 dp apart prints 1.8 mm apart. */
+        const val SKETCH_FILL_MM_PER_DP = 0.2
         private const val ALPHA_SHIFT = 24
         private const val OPAQUE = 255.0
         const val TRACK_MIN_STEP_MM = 0.05

@@ -3,7 +3,10 @@ package fr.toolmap.data.tracks
 import android.database.sqlite.SQLiteDatabase
 import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.sketch.Cubic
+import fr.toolmap.core.sketch.RawStroke
+import fr.toolmap.core.sketch.SketchFill
 import fr.toolmap.core.sketch.SketchPath
+import fr.toolmap.core.sketch.SketchShape
 import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.core.sketch.SketchStyle
 import fr.toolmap.core.sketch.XY
@@ -99,7 +102,7 @@ class SketchRepositoryTest {
             val file = context.getDatabasePath("migration-test.db")
             file.parentFile?.mkdirs()
             file.delete()
-            createVersion1(file)
+            createVersion(file, 1) { it.execSQL("INSERT INTO folders (name, visible, createdAt) VALUES ('Lac', 1, 0)") }
             val migrated =
                 androidx.room.Room
                     .databaseBuilder(context, TrackDatabase::class.java, file.path)
@@ -117,11 +120,54 @@ class SketchRepositoryTest {
             }
         }
 
-    /** A database file exactly as version 1 wrote it, from the exported schema (`schemas/…/1.json`). */
-    private fun createVersion1(file: File) {
+    @Test
+    fun `a sketch of version 2 keeps its strokes, and lines and zones come back with their fill`() =
+        runBlocking {
+            val context = RuntimeEnvironment.getApplication()
+            val file = context.getDatabasePath("migration-v2-test.db")
+            file.parentFile?.mkdirs()
+            file.delete()
+            createVersion(file, 2) {
+                it.execSQL(
+                    "INSERT INTO sketches (id, name, visible, createdAt, updatedAt) VALUES (1, 'Repérage', 1, 0, 0)",
+                )
+                it.execSQL(
+                    "INSERT INTO sketch_strokes (sketchId, ord, colorArgb, widthMeters, smoothingMeters, path) " +
+                        "VALUES (1, 0, -1, 3.0, 1.0, 'M10 20 c1 1 2 2 3 3')",
+                )
+            }
+            val migrated =
+                androidx.room.Room
+                    .databaseBuilder(context, TrackDatabase::class.java, file.path)
+                    .allowMainThreadQueries()
+                    .build()
+            try {
+                val sketches = SketchRepository(migrated) { now }
+                val old = assertNotNull(sketches.load(1)).sketch.strokes.single()
+                assertNull(old.shape)
+                val style = SketchStyle(-1, widthMeters = 3.0, smoothingMeters = 1.0)
+                val corners = listOf(origin, origin + XY(100.0, 0.0), origin + XY(50.0, 80.0))
+                val zone = RawStroke(style, corners, SketchShape(closed = true, fill = SketchFill.DOTS)).smoothed()
+                val line = RawStroke(style, corners, SketchShape(closed = false)).smoothed()
+                sketches.save(1, "Repérage", listOf(old, zone, line))
+                val back = assertNotNull(sketches.load(1)).sketch.strokes
+                assertEquals(listOf(null, zone.shape, line.shape), back.map { it.shape })
+                assertEquals(3, back[1].toRaw().points.size)
+            } finally {
+                migrated.close()
+                file.delete()
+            }
+        }
+
+    /** A database file exactly as [version] wrote it, from the exported schema (`schemas/…/<version>.json`). */
+    private fun createVersion(
+        file: File,
+        version: Int,
+        fill: (SQLiteDatabase) -> Unit,
+    ) {
         val schema =
             JSONObject(
-                File("schemas/fr.toolmap.data.tracks.TrackDatabase/1.json").readText(),
+                File("schemas/fr.toolmap.data.tracks.TrackDatabase/$version.json").readText(),
             ).getJSONObject("database")
         val sqlite = SQLiteDatabase.openOrCreateDatabase(file, null)
         val entities = schema.getJSONArray("entities")
@@ -136,8 +182,8 @@ class SketchRepositoryTest {
         }
         val setup = schema.getJSONArray("setupQueries")
         for (i in 0 until setup.length()) sqlite.execSQL(setup.getString(i))
-        sqlite.execSQL("INSERT INTO folders (name, visible, createdAt) VALUES ('Lac', 1, 0)")
-        sqlite.version = 1
+        fill(sqlite)
+        sqlite.version = version
         sqlite.close()
     }
 }
