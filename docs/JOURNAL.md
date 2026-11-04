@@ -20,6 +20,18 @@
 
 ---
 
+## 2026-11-04 — Session 91 (suite 4) — [P35.0] Logo : forme « Arrondis » choisie, aperçu de 10 couleurs
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 6c53f05 (0.4.201) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies : GitHub = local = 0.4.201 (référence).
+- **Objectif** : proposer 10 jeux de couleurs pour la forme de logo choisie par l'utilisateur, chacun expliqué.
+- **Réalisé** :
+  - **Forme validée le 2026-11-04** : l'utilisateur envoie la capture de « 09 Arrondis » (deuxième tour, `docs/previews/logo/calques-09-arrondis.png`) avec « Je choisis ce logo. Propose-moi 10 variantes de couleurs. Explique tes choix pour les 10. » La couleur reste à choisir.
+  - 10 couleurs, forme inchangée (et monochrome identique) : 01 Nuit (tel que choisi), 02 Pétrole (fond des barres de l'app), 03 Turquoise plein (inversé), 04 Papier clair, 05 Dégradé nuit vers pétrole, 06 Couleurs topo (bistre, bleu, vert sur crème, une couleur par carte), 07 Ambre (troisième couleur du thème), 08 Ton sur ton (turquoise seul), 09 Glacier (bleus et blanc neige), 10 Alpenglow (rose orangé des sommets au couchant). Chaque image porte son explication et ses codes couleur. Recommandation : 02, ou 10.
+  - Livré : `docs/previews/logo-couleurs.html` et 11 images `docs/previews/logo/couleurs-*.png`, envoyées à l'utilisateur. Aucun code ni ressource touché.
+- **Décisions (ADR)** : aucune (aperçu ; l'ADR viendra avec le code, P35.1).
+- **Tests / vérifications** : page ouverte dans Chromium (Playwright), aucune erreur de console ; images faites par capture d'élément (`deviceScaleFactor: 2`, 660 px) et regardées. Pas de SDK Android dans cette session (`dl.google.com` refusé) : `version.properties` passé à **0.4.202** avec l'empreinte recalculée comme `appSourceFingerprint` ; la CI compile (run de 6c53f05 en cours à ce commit, annulé par ce push).
+- **Problèmes / dette technique** : aucun.
+- **Prochaine étape recommandée** : choix de la couleur par l'utilisateur, puis P35.1 : icône adaptative (`ic_launcher_background`, `ic_launcher_foreground`), calque `monochrome` à part, logo du bouton Menu (B1) et du bandeau du menu (M1), capture de l'émulateur à côté de l'aperçu.
+
 ## 2026-11-04 — Session 91 (suite 3) — [P35.0] Aperçu : logo « Trois données » simplifié, 5 versions
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après dbdf165 (0.4.200) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies : GitHub = local = 0.4.200 (référence).
 - **Objectif** : simplifier la version 10 du tour 3 (« Trois données, gros symboles »), jugée trop chargée en détails par l'utilisateur.
