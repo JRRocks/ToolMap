@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-11-04 — Session 91 — [P35.0] Aperçu : logo de l'application, 8 variantes
+- **Branche / commit** : session cloud (claude.ai/code), branche `claude/vibrant-galileo-q3s99n` (demandée par la tâche ; la session était ouverte sur `claude/fervent-gates-a2d7ne`, en 0.4.134), repartie de 28ce611 (0.4.197) ; poussée sur `JRRocks/ToolMap` (pas de PR).
+- **Objectif** : trouver un logo pour ToolMap qui dise ce que propose l'application, simple ou abstrait, en plusieurs variantes au choix ; aperçu seulement (CLAUDE.md, « aperçu validé avant le code »).
+- **Réalisé** :
+  - Versions au début : GitHub `claude/vibrant-galileo-q3s99n` en **0.4.197** (28ce611, entrée « Session 89 (suite 14) », référence), `claude/blissful-hopper-8kr9d6` en 0.4.145, `main` et `claude/fervent-gates-a2d7ne` en 0.4.134, `claude/pensive-edison-cgzr8t` en 0.4.102 ; Drive non lisible depuis le cloud ; local : clone propre sur `claude/fervent-gates-a2d7ne` (0.4.134), remis sur la branche de référence (`git checkout -B … origin/…`), rien de perdu.
+  - Ce que l'app promet, écrit en tête de l'aperçu : n'importe quelle carte, superposée et gardée hors ligne ; le relief, la trace et l'itinéraire ; la position précise, à l'échelle du papier ; le groupe sur la même carte, sans serveur obligé.
+  - Icône actuelle relevée (`res/drawable/ic_launcher_background.xml` et `ic_launcher_foreground.xml` : deux sommets blancs sur vert `#2E6B3A`, hors du thème « Crête » pétrole `#163A4A` et turquoise `#5CC9C2`).
+  - 8 variantes, trois couleurs au plus, prises dans le thème : 01 Courbes de niveau (relief et sommet), 02 Épingle et sommet (le waypoint), 03 Calques empilés (superposition), 04 Carte pliée (papier, hors ligne, PDF à l'échelle), 05 Le groupe (maillage du partage), 06 Boussole (s'orienter, aller vers un point ; fond clair), 07 Lacets (trace et itinéraire), 08 Réticule (point central, MGRS / UTM, échelle). Pour chacune : forme seule, icône adaptative (108 dp, zone visible 72 dp) sous les masques cercle, squircle et carré arrondi sur fond d'écran clair et sombre, 48 dp parmi quatre icônes génériques (sans marque), monochrome d'Android 13+ (calque `monochrome` teinté, clair et sombre), une phrase de sens, et comparaison avec l'actuelle. Recommandation : 01, puis 02.
+  - Livré : `docs/previews/logo-toolmap.html` (SVG inline) et 10 images PNG (660 px de large, échelle 2) dans `docs/previews/logo/` : `logo-00-ensemble.png`, `logo-00-actuelle.png`, `logo-01-courbes.png` … `logo-08-reticule.png`.
+  - Aucun code ni ressource touché (`res/`, `strings.xml`, icônes).
+- **Décisions (ADR)** : aucune (aperçu).
+- **Tests / vérifications** :
+  - Page ouverte dans Chromium (Playwright) : aucune erreur de console ; à 390 px de large, pas de défilement horizontal (`scrollWidth` = 390). Images faites par Playwright (une capture d'élément par variante, `deviceScaleFactor: 2`, 660 px de large) et regardées une à une : corrigés en cours de route la variante 01 (lisait comme un œil : courbes allongées et décentrées vers le sommet) et la variante 07 (départ coupé par le masque cercle : tracé recentré dans la zone sûre de 66 dp).
+  - Build local impossible dans cette session : le hook SessionStart n'a pas pu télécharger le SDK Android (`dl.google.com` refusé par la règle réseau de l'environnement, HTTP 403). `version.properties` passé de 0.4.197 à **0.4.198** avec l'empreinte recalculée par un script qui reprend `appSourceFingerprint` d'`app/build.gradle.kts` (contrôlé d'abord : il redonne `7e5db2d43424127b` sur 28ce611), puisque cette entrée change les lignes du journal qui entrent dans l'APK. La CI fait `check assembleDebug` (résultat dans le message de fin de session).
+- **Problèmes / dette technique** : pour coder le logo choisi (P35.1), le calque `monochrome` devra être un dessin à part (il reprend aujourd'hui `ic_launcher_foreground`), et le logo du bouton Menu (B1) et du bandeau du menu (M1) suivre.
+- **Prochaine étape recommandée** : choix de l'utilisateur (01 à 08, ou une variante avec des changements), puis P35.1 : icône adaptative, monochrome et logo de l'app selon la variante validée.
+
 ## 2026-11-04 — Session 89 (suite 14) — [P25.4] Favoris envoyés au groupe : « Au groupe », « Un favori… » et « Ajouter »
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après d195da2 (0.4.196, aperçu P34.0 d'une session cloud, poussé par-dessus 7525f5f : avance rapide du local). Copies : GitHub `claude/vibrant-galileo-q3s99n` = 0.4.196 (référence, puis changements locaux non poussés), Drive = 0.4.193, local = 0.4.196 ; autres branches plus anciennes (main 0.4.134).
 - **Objectif** : envoyer un ou plusieurs favoris au groupe et les ajouter chez les autres d'un appui, selon la variante D validée le 2026-11-04.

@@ -413,6 +413,13 @@ Tuiles **Terrarium** (AWS open data `elevation-tiles-prod`) traitées comme une 
 |---|---|---|---|
 | P34.0 | ⬜ | Aperçu montré le 2026-11-04 (session 90) : état actuel (0.4.193, reconstruit depuis `MapsRootPanel.kt` et `StackRows.kt`) et 10 styles qui découpent le panneau (1 Onglets · 2 Segments et pastilles · 3 Barre d'outils · 4 Fiche du calque · 5 Puces et carnet · 6 Accordéon · 7 Fond et superpositions · 8 Rail · 9 Tableau · 10 Deux hauteurs), nuit et jour, recommandation 1 avec la fiche de 4 : `docs/previews/p34-cartes-onglets.html` ; **en attente du choix de l'utilisateur**, aucun code avant | Validation explicite de l'utilisateur, date consignée au journal |
 
+### P35 — Logo de l'application (demande du 2026-11-04 : un logo qui dit ce que propose ToolMap)
+> L'icône actuelle (deux sommets blancs sur fond vert `#2E6B3A`, `res/drawable/ic_launcher_*.xml`) est hors du thème bleu nuit et turquoise. Le logo sert aussi dans l'app : bouton Menu (B1) et bandeau du menu (M1), `docs/specs/ui-index.md` §2 et §3.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P35.0 | ⬜ | Aperçu montré le 2026-11-04 (session 91) : icône actuelle et 8 variantes (01 Courbes de niveau · 02 Épingle et sommet · 03 Calques empilés · 04 Carte pliée · 05 Le groupe · 06 Boussole · 07 Lacets · 08 Réticule), chacune en forme seule, icône adaptative sous trois masques sur fond d'écran clair et sombre, 48 dp parmi d'autres icônes, monochrome (Android 13+) et sa signification ; recommandation 01, puis 02 : `docs/previews/logo-toolmap.html` et images `docs/previews/logo/` ; **en attente du choix de l'utilisateur**, aucun code ni ressource avant | Validation explicite de l'utilisateur, date consignée au journal |
+
 ## 4. Stratégie de test
 - **JVM (`:core`)** : parseurs, URL de tuiles, maths d'échelle, statistiques, codec P2P. Rapides, exécutables partout.
 - **Robolectric + MockWebServer (`:data`, `:p2p`)** : Room, MbTilesStore, intercepteur (en-têtes, mode hors ligne, zooms complétés), relais Firebase (émulateur Firebase via `scripts/firebase-emulator-test.sh`).
