@@ -20,6 +20,19 @@
 
 ---
 
+## 2026-11-04 — Session 91 (suite) — [P35.0] Aperçu : logo « Calques empilés », 10 versions
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 1c63265 (0.4.198, premier tour du logo) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies : GitHub = local = 0.4.198 (référence), rien d'autre de poussé entre-temps.
+- **Objectif** : faire évoluer le logo à partir de la variante 03 « Calques empilés » : 10 versions, l'original en 01 et 9 évolutions.
+- **Réalisé** :
+  - Demande de l'utilisateur (2026-11-04) : « Évolue vers le numéro 3 calques empilés. Sur 10, propose 9 évolutions et garde l'original comme numéro 1. » Ce n'est pas encore la validation du logo : le choix final reste à faire.
+  - 10 versions, même présentation que le premier tour (forme seule, trois masques sur fond clair et sombre, 48 dp parmi d'autres icônes, monochrome Android 13+, comparaison avec l'actuelle, une phrase de sens) : 01 original · 02 Transparence (trois cartes translucides, opacité et fusion) · 03 Courbes sur la carte · 04 Épingle sur la pile · 05 Feuillets écartés · 06 Relief en saillie · 07 Pyramide de niveaux (cartes en gradins qui font la montagne) · 08 Fond clair · 09 Arrondis (deux couleurs sur bleu nuit, traits épais) · 10 Éventail. Recommandation : 09, le plus lisible en petit, ou 07, le plus parlant.
+  - Livré : `docs/previews/logo-calques.html` et 11 images (`docs/previews/logo/calques-00-ensemble.png`, `calques-01-original.png` … `calques-10-eventail.png`), envoyées à l'utilisateur.
+  - Aucun code ni ressource touché.
+- **Décisions (ADR)** : aucune (aperçu).
+- **Tests / vérifications** : page ouverte dans Chromium (Playwright), aucune erreur de console ; images faites par capture d'élément (`deviceScaleFactor: 2`, 660 px de large) et regardées : la version 03 a été reprise (des ellipses régulières lisaient comme un œil, remplacées par des courbes irrégulières vues en perspective). Toujours pas de SDK Android dans cette session (`dl.google.com` refusé) : `version.properties` passé à **0.4.199** avec l'empreinte recalculée comme `appSourceFingerprint` ; la CI compile. CI du premier tour (run 41899819293, 1c63265) encore en cours au moment de ce commit.
+- **Problèmes / dette technique** : aucun nouveau.
+- **Prochaine étape recommandée** : choix de l'utilisateur parmi 01 à 10 (ou une version avec des changements), puis P35.1 : icône adaptative, monochrome et logo de l'app.
+
 ## 2026-11-04 — Session 91 — [P35.0] Aperçu : logo de l'application, 8 variantes
 - **Branche / commit** : session cloud (claude.ai/code), branche `claude/vibrant-galileo-q3s99n` (demandée par la tâche ; la session était ouverte sur `claude/fervent-gates-a2d7ne`, en 0.4.134), repartie de 28ce611 (0.4.197) ; poussée sur `JRRocks/ToolMap` (pas de PR).
 - **Objectif** : trouver un logo pour ToolMap qui dise ce que propose l'application, simple ou abstrait, en plusieurs variantes au choix ; aperçu seulement (CLAUDE.md, « aperçu validé avant le code »).
