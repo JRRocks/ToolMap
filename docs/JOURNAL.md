@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-11-05 — Session 91 (suite 5) — [P35.1] Nouvelle icône de l'application : calques arrondis sur papier clair
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après fb40a88 (0.4.202, CI verte : run 41904339048) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies au début : GitHub `claude/vibrant-galileo-q3s99n` = local = 0.4.202 (référence), `claude/blissful-hopper-8kr9d6` 0.4.145, `main` et `claude/fervent-gates-a2d7ne` 0.4.134, `claude/pensive-edison-cgzr8t` 0.4.102 ; Drive non lisible depuis le cloud.
+- **Objectif** : remplacer l'icône de l'application (deux sommets sur vert) par le logo validé : trois cartes empilées aux coins arrondis, une crête sur celle du dessus, sur fond papier clair.
+- **Aperçu validé** : forme « 09 Arrondis » validée le 2026-11-04 (`docs/previews/logo/calques-09-arrondis.png`, `docs/previews/logo-calques.html`) ; couleurs « 04 Papier clair » validées le **2026-11-05** (« Papier clair, mets celui-là en place » ; `docs/previews/logo/couleurs-04-papier.png`, `docs/previews/logo-couleurs.html`).
+- **Réalisé** :
+  - `res/drawable/ic_launcher_background.xml` : fond papier `#F2F5F6`.
+  - `res/drawable/ic_launcher_foreground.xml` : carte du bas `#9DB0B7`, du milieu pétrole `#163A4A` (traits de 6, bouts ronds), carte du dessus turquoise `#14918C` (contour de 7, coins ronds), crête papier `#F2F5F6` (trait de 3,4), mêmes coordonnées que l'aperçu (zone visible de 72 dp, tout dans les 66 dp sûrs).
+  - `res/drawable/ic_launcher_monochrome.xml` (nouveau) : calque de l'icône à thème d'Android 13+, séparé du premier plan (avant, il réutilisait le premier plan) : carte du bas à demi-opacité, carte du milieu pleine, carte du dessus avec la crête en creux (contour pair-impair calculé avec shapely : carte arrondie moins le trait de la crête, 800 caractères, sous la limite de la règle Lint `VectorPath`) ; `mipmap-anydpi/ic_launcher.xml` pointe dessus.
+  - Pas changés, faute d'aperçu (CLAUDE.md) : le logo dans l'app (`MenuIcons.Mountain` du bouton Menu, du bandeau du menu et du rond des commandes masquées) et l'icône de notification `ic_stat_toolmap` (les deux sommets) : tâche **P35.2**, aperçu d'abord.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - Fichiers XML convertis en SVG sans retouche (script de la session) et comparés à l'aperçu validé, à 216 px et à l'échelle 2 : couleur, 99 pixels sur 187 488 diffèrent, de 24 niveaux au plus (anticrénelage) ; monochrome, 1 239 pixels, tous sur les pointes haute et basse de la carte du dessus, que le masque SVG de l'aperçu coupait (défaut de l'aperçu ; les fichiers XML gardent les pointes rondes, comme la version couleur). Page `docs/previews/logo-rendu.html` et images `docs/previews/logo/rendu-*.png` (comparaison, aperçu, fichiers res/).
+  - Build local impossible : le SDK Android ne se télécharge toujours pas (`dl.google.com` refusé, HTTP 403). `version.properties` passé à **0.4.203** avec l'empreinte recalculée comme `appSourceFingerprint` ; la CI fait `check assembleDebug` (Lint compris).
+  - Pas d'émulateur dans la session cloud : la capture de l'icône sur Android (écran d'accueil, icône à thème) reste à faire, d'où P35.1 en 🔄.
+- **Problèmes / dette technique** : sur un fond d'écran clair, l'icône claire se détache moins (déjà visible dans l'aperçu choisi).
+- **Prochaine étape recommandée** : sur le poste Windows, installer la 0.4.203 sur l'émulateur, capturer l'écran d'accueil (icône normale et à thème) à côté de `couleurs-04-papier.png`, puis P35.2 (aperçu du logo dans l'app et de l'icône de notification).
+
 ## 2026-11-04 — Session 91 (suite 4) — [P35.0] Logo : forme « Arrondis » choisie, aperçu de 10 couleurs
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 6c53f05 (0.4.201) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies : GitHub = local = 0.4.201 (référence).
 - **Objectif** : proposer 10 jeux de couleurs pour la forme de logo choisie par l'utilisateur, chacun expliqué.

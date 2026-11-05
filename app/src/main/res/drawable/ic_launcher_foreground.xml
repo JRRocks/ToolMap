@@ -4,11 +4,30 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Two mountain peaks inside the 66dp adaptive-icon safe zone. -->
+    <!-- Three stacked maps with rounded corners, a ridge on the top one (P35.1, « Arrondis », colours « Papier clair »,
+         docs/previews/logo/couleurs-04-papier.png). Everything stays inside the 66 dp safe zone. -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M24,72 L44,38 L56,56 L64,44 L84,72 Z" />
+        android:pathData="M30,66 L54,78 L78,66"
+        android:strokeWidth="6"
+        android:strokeColor="#9DB0B7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
     <path
-        android:fillColor="#B7E4C0"
-        android:pathData="M44,38 L50,48 L44,46 L38,48 Z" />
+        android:pathData="M30,55 L54,67 L78,55"
+        android:strokeWidth="6"
+        android:strokeColor="#163A4A"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:fillColor="#14918C"
+        android:pathData="M54,32 L78,44 L54,56 L30,44 Z"
+        android:strokeWidth="7"
+        android:strokeColor="#14918C"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M40.5,46 L48,40 L52.5,43 L58,37.5 L67.5,44.5"
+        android:strokeWidth="3.4"
+        android:strokeColor="#F2F5F6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 </vector>

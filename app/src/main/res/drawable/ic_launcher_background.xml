@@ -4,7 +4,8 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Paper background of the launcher icon (P35.1, « Arrondis », colours « Papier clair »). -->
     <path
-        android:fillColor="#2E6B3A"
+        android:fillColor="#F2F5F6"
         android:pathData="M0,0h108v108h-108z" />
 </vector>

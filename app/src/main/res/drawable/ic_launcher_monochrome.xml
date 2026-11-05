@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Themed icon (Android 13+): the launcher tints this layer, only its alpha counts. The ridge is a hole in the top
+         map (even-odd outline of the round-joined map minus the ridge stroke), the lowest map at half alpha (P35.1). -->
+    <path
+        android:pathData="M30,66 L54,78 L78,66"
+        android:strokeAlpha="0.5"
+        android:strokeWidth="6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M30,55 L54,67 L78,55"
+        android:strokeWidth="6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M28.4,40.9 L27.6,41.4 L27,42.2 L26.6,43 L26.5,44 L26.6,45 L27,45.8 L27.6,46.6 L28.4,47.1 L52.4,59.1 L53.2,59.4 L54,59.5 L54.8,59.4 L55.6,59.1 L79.6,47.1 L80.4,46.6 L81,45.8 L81.4,45 L81.5,44 L81.4,43 L81,42.2 L80.4,41.4 L79.6,40.9 L55.6,28.9 L54.8,28.6 L54,28.5 L53.2,28.6 L52.4,28.9 Z M41.6,47.3 L41.2,47.6 L40.8,47.7 L40.3,47.7 L39.9,47.6 L39.5,47.4 L39.2,47.1 L38.9,46.7 L38.8,46.3 L38.8,45.8 L38.9,45.4 L39.1,45 L39.4,44.7 L46.9,38.7 L47.3,38.4 L47.7,38.3 L48.1,38.3 L48.6,38.4 L48.9,38.6 L52.3,40.8 L56.8,36.3 L57.2,36 L57.6,35.8 L58.1,35.8 L58.6,35.9 L59,36.1 L68.5,43.1 L68.8,43.4 L69.1,43.8 L69.2,44.2 L69.2,44.7 L69.1,45.1 L68.9,45.5 L68.6,45.8 L68.2,46.1 L67.8,46.2 L67.3,46.2 L66.9,46.1 L66.5,45.9 L58.2,39.7 L53.7,44.2 L53.3,44.5 L52.9,44.7 L52.4,44.7 L52,44.6 L51.6,44.4 L48.1,42.1 Z" />
+</vector>
