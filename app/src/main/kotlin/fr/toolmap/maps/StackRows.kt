@@ -8,20 +8,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,10 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -51,7 +40,6 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,29 +56,22 @@ import fr.toolmap.core.maps.MapCatalog
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.download.formatBytes
 import fr.toolmap.map.MapViewModel
-import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.EntryField
 import fr.toolmap.ui.ValueDialog
-import fr.toolmap.ui.numberText
 import fr.toolmap.ui.theme.AlertDialog
-import fr.toolmap.ui.theme.DropdownMenu
-import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
 import kotlin.math.roundToInt
 
 /*
- * The lines of the layer stack in « Cartes et calques » (P29.3, « Strates »): a handle to drag the layer up or down,
- * its thumbnail (ringed in turquoise when the map draws it at its zoom, faded when it does not), its name and state,
- * its eye. A tap unfolds the line in place: opacity, Monter · Descendre · Conditions · Couleurs · Plus, the colours
- * unfolding under it in turn. The former « Cartes affichées » sheet and its ⋮ menu are gone. While a slider is held,
- * the lines fade away with the panel and leave that slider alone ([PanelFade], P26.6).
+ * The lines of the layer stack in « Cartes et calques » (P34, style 4 « Fiche du calque », docs/previews/
+ * p34-cartes-onglets.html, band 4): a handle to drag the layer up or down, its thumbnail (ringed in turquoise when the
+ * map draws it at its zoom, faded when it does not), its name, « inactif à ce zoom » only when it is so, its eye and ›.
+ * A touch opens the sheet of the layer in the panel ([LayerSheet]); nothing unfolds in the list any more.
  */
 
-/**
- * The layers, top first; [expanded] is the one unfolded (one at a time), [onExpand] changes it. [changes] are the
- * layers that differ from the favourite the stack came from, by layer id (P25.9).
- */
+/** The layers, top first; [onOpen] opens the sheet of one. [changes] are the layers that differ from the favourite the
+ * stack came from, by layer id (P25.9). */
 @Composable
 internal fun StackRows(
     layers: List<LayerConfig>,
@@ -98,20 +79,15 @@ internal fun StackRows(
     maps: MapsViewModel,
     vm: MapViewModel,
     currentZoom: Double,
-    expanded: String?,
-    onExpand: (String?) -> Unit,
-    fade: PanelFade,
+    onOpen: (String) -> Unit,
     changes: Map<String, FavoriteChange> = emptyMap(),
 ) {
-    val forced by maps.forced.collectAsStateWithLifecycle()
-    var details by remember { mutableStateOf<String?>(null) }
     var dragging by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val step = with(LocalDensity.current) { ROW_STEP.toPx() }
     val latestLayers by rememberUpdatedState(layers)
     layers.forEachIndexed { index, layer ->
         key(layer.id) {
-            val open = expanded == layer.id
             val drag: suspend PointerInputScope.() -> Unit = {
                 detectVerticalDragGestures(
                     onDragStart = {
@@ -141,76 +117,35 @@ internal fun StackRows(
                 }
             }
             val lifted = dragging == layer.id
-            Column(
+            Box(
                 Modifier
                     .zIndex(if (lifted) 1f else 0f)
                     .graphicsLayer {
                         translationY = if (lifted) dragOffset else 0f
                         shadowElevation = if (lifted) 8.dp.toPx() else 0f
-                    }.then(
-                        if (open) {
-                            Modifier
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                .clip(MaterialTheme.shapes.medium)
-                                .background(MaterialTheme.toolMap.tile.copy(alpha = fade.shown))
-                        } else {
-                            Modifier.background(MaterialTheme.toolMap.panel.copy(alpha = fade.shown))
-                        },
-                    ),
+                    }.background(MaterialTheme.toolMap.panel),
             ) {
-                Box(Modifier.alpha(fade.shown)) {
-                    LayerLine(
-                        layer = layer,
-                        change = changes[layer.id],
-                        source = byId[layer.sourceId],
-                        maps = maps,
-                        currentZoom = currentZoom,
-                        open = open,
-                        canUp = index > 0,
-                        canDown = index < layers.lastIndex,
-                        dragGesture = drag,
-                        onToggle = { onExpand(if (open) null else layer.id) },
-                        vm = vm,
-                    )
-                }
-                if (open) {
-                    LayerSettings(
-                        layer = layer,
-                        name = byId[layer.sourceId]?.name ?: layer.sourceId,
-                        below = layers.drop(index + 1).filter { LayerElevation.isDrawnAt(it, currentZoom) },
-                        thumbnails = maps.thumbnails,
-                        forced = layer.sourceId in forced,
-                        canUp = index > 0,
-                        canDown = index < layers.lastIndex,
-                        onConditions = { maps.openConditions(layer.id) },
-                        onDetails = { details = layer.id },
-                        onForce = { maps.setForced(layer.sourceId, layer.sourceId !in forced) },
-                        fade = fade,
-                        vm = vm,
-                    )
-                }
-            }
-            if (!open && index < layers.lastIndex && expanded != layers[index + 1].id) {
-                HorizontalDivider(
-                    Modifier.padding(start = 48.dp).alpha(fade.shown),
-                    color = MaterialTheme.colorScheme.outlineVariant,
+                LayerLine(
+                    layer = layer,
+                    change = changes[layer.id],
+                    source = byId[layer.sourceId],
+                    maps = maps,
+                    currentZoom = currentZoom,
+                    canUp = index > 0,
+                    canDown = index < layers.lastIndex,
+                    dragGesture = drag,
+                    onOpen = { onOpen(layer.id) },
+                    vm = vm,
                 )
             }
-        }
-    }
-    details?.let { layerId ->
-        val layer = layers.firstOrNull { it.id == layerId }
-        if (layer == null) {
-            details = null
-        } else {
-            DetailsDialog(layer, byId[layer.sourceId], maps, layer.sourceId in forced) { details = null }
         }
     }
 }
 
 /**
- * The line of a layer: handle, thumbnail, name and state, the arrow that unfolds it, the eye. A layer that differs
- * from the favourite the stack came from ([change]) says how, in the accent colour.
+ * The line of a layer: handle, thumbnail, name, « inactif à ce zoom » when the map does not draw it at its zoom, the
+ * eye and ›. A layer that differs from the favourite the stack came from ([change]) says how instead, in the accent
+ * colour.
  */
 @Composable
 private fun LayerLine(
@@ -219,11 +154,10 @@ private fun LayerLine(
     source: TileSource?,
     maps: MapsViewModel,
     currentZoom: Double,
-    open: Boolean,
     canUp: Boolean,
     canDown: Boolean,
     dragGesture: suspend PointerInputScope.() -> Unit,
-    onToggle: () -> Unit,
+    onOpen: () -> Unit,
     vm: MapViewModel,
 ) {
     val name = source?.name ?: stringResource(R.string.layers_missing_source, layer.sourceId)
@@ -231,15 +165,16 @@ private fun LayerLine(
     val up = stringResource(R.string.layers_move_up)
     val down = stringResource(R.string.layers_move_down)
     val dragLabel = stringResource(R.string.maps_layer_drag)
-    val state = stringResource(if (open) R.string.menu_more_shown else R.string.menu_more_hidden)
+    val second =
+        change?.let { changedStateLine(layer, it, currentZoom) }
+            ?: stringResource(R.string.layers_inactive_here).takeIf {
+                layer.visible && !LayerElevation.isDrawnAt(layer, currentZoom)
+            }
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = ROW_STEP)
-            .clickable(
-                onClickLabel = stringResource(if (open) R.string.maps_layer_fold else R.string.maps_layer_unfold),
-                onClick = onToggle,
-            ).semantics { stateDescription = state }
+            .clickable(onClickLabel = stringResource(R.string.maps_layer_open), onClick = onOpen)
             .padding(end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -287,191 +222,46 @@ private fun LayerLine(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                change?.let { changedStateLine(layer, it, currentZoom) } ?: layerStateLine(layer, currentZoom),
-                style = MaterialTheme.typography.bodySmall,
-                color =
-                    if (change !=
-                        null
-                    ) {
-                        MaterialTheme.toolMap.accent
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                fontWeight = if (change != null) FontWeight.Medium else null,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (second != null) {
+                Text(
+                    second,
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (change !=
+                            null
+                        ) {
+                            MaterialTheme.toolMap.accent
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    fontWeight = if (change != null) FontWeight.Medium else null,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
-        Icon(
-            if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-        )
         IconButton(onClick = { vm.setVisible(layer.id, !layer.visible) }) {
             Icon(
                 if (layer.visible) MapsIcons.Visibility else MapsIcons.VisibilityOff,
                 contentDescription =
                     stringResource(if (layer.visible) R.string.maps_layer_hide else R.string.maps_layer_show),
+                tint = if (layer.visible) MaterialTheme.toolMap.accent else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
-/**
- * What an unfolded line adds: the opacity, then the commands of the layer, the colours unfolding under them (contrast,
- * brightness, saturation, hue, inverted colours).
- */
+/** The values of a layer that can be typed in a window (P23.4): its opacity on its sheet, its colours on its page. */
+internal enum class Adjust { OPACITY, CONTRAST, BRIGHTNESS, SATURATION, HUE }
+
+/** The window of one value of a layer: opacity 0 to 100 %, corrections −100 to 100 %, hue −180 to 180°. */
 @Composable
-private fun LayerSettings(
-    layer: LayerConfig,
-    name: String,
-    below: List<LayerConfig>,
-    thumbnails: MapThumbnails,
-    forced: Boolean,
-    canUp: Boolean,
-    canDown: Boolean,
-    onConditions: () -> Unit,
-    onDetails: () -> Unit,
-    onForce: () -> Unit,
-    fade: PanelFade,
-    vm: MapViewModel,
-) {
-    var colors by remember(layer.id) { mutableStateOf(false) }
-    var blendSheet by remember(layer.id) { mutableStateOf(false) }
-    var tintSheet by remember(layer.id) { mutableStateOf(false) }
-    var typing by remember(layer.id) { mutableStateOf<Adjust?>(null) }
-    AdjustSlider(
-        key = "opacity",
-        label = stringResource(R.string.layers_opacity_name),
-        valuePill = "${percentOf(layer.opacity)} %",
-        onType = { typing = Adjust.OPACITY },
-        value = layer.opacity,
-        range = 0f..1f,
-        fade = fade,
-        onChange = { vm.setOpacity(layer.id, it) },
-    )
-    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 8.dp).alpha(fade.shown)) {
-        Command(MapsIcons.ArrowUpward, stringResource(R.string.layers_move_up), enabled = canUp) {
-            vm.moveLayerUp(layer.id)
-        }
-        Command(MapsIcons.ArrowDownward, stringResource(R.string.layers_move_down), enabled = canDown) {
-            vm.moveLayerDown(layer.id)
-        }
-        Command(MapsIcons.Tune, stringResource(R.string.maps_cmd_conditions), onClick = onConditions)
-        Command(SettingsIcons.Palette, stringResource(R.string.maps_cmd_colors), selected = colors) {
-            colors = !colors
-        }
-        MoreCommand(layer, forced, onDetails, onForce, vm)
-    }
-    if (colors) {
-        val hue = layer.hue.roundToInt()
-        EntryRow(
-            label = stringResource(R.string.maps_blend),
-            value = stringResource(layer.blend.label()),
-            fade = fade,
-        ) { blendSheet = true }
-        EntryRow(
-            label = stringResource(R.string.maps_tint),
-            value = tintText(layer),
-            fade = fade,
-            dot = layer.tint,
-            accent = false,
-        ) { tintSheet = true }
-        AdjustSlider(
-            key = "contrast",
-            label = stringResource(R.string.layers_contrast_name),
-            valuePill = signedPercent(layer.contrast),
-            onType = { typing = Adjust.CONTRAST },
-            value = layer.contrast,
-            range = -1f..1f,
-            fade = fade,
-            onChange = { vm.setAdjustments(layer.id, it, layer.brightness, layer.saturation) },
-        )
-        AdjustSlider(
-            key = "brightness",
-            label = stringResource(R.string.layers_brightness_name),
-            valuePill = signedPercent(layer.brightness),
-            onType = { typing = Adjust.BRIGHTNESS },
-            value = layer.brightness,
-            range = -1f..1f,
-            fade = fade,
-            onChange = { vm.setAdjustments(layer.id, layer.contrast, it, layer.saturation) },
-        )
-        AdjustSlider(
-            key = "saturation",
-            label = stringResource(R.string.layers_saturation_name),
-            valuePill = signedPercent(layer.saturation),
-            onType = { typing = Adjust.SATURATION },
-            value = layer.saturation,
-            range = -1f..1f,
-            fade = fade,
-            onChange = { vm.setAdjustments(layer.id, layer.contrast, layer.brightness, it) },
-        )
-        AdjustSlider(
-            key = "hue",
-            label = stringResource(R.string.layers_hue_name),
-            valuePill = "${numberText(hue)}°",
-            onType = { typing = Adjust.HUE },
-            value = layer.hue,
-            range = HUE_RANGE,
-            fade = fade,
-            // Whole degrees: a favourite keeps the value its line shows.
-            onChange = { vm.setHue(layer.id, it.roundToInt().toFloat()) },
-            hueTrack = true,
-            valueText = "$hue°",
-        )
-        Column(Modifier.padding(start = 56.dp, end = 16.dp, bottom = 8.dp).alpha(fade.shown)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.maps_layer_inverted),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(checked = layer.inverted, onCheckedChange = { vm.setInverted(layer.id, it) })
-            }
-            TextButton(onClick = { vm.resetColors(layer.id) }) {
-                Text(stringResource(R.string.layers_reset_adjustments))
-            }
-        }
-    }
-    if (blendSheet) {
-        BlendSheet(
-            layer = layer,
-            name = name,
-            below = below,
-            thumbnails = thumbnails,
-            onPick = {
-                blendSheet = false
-                vm.setBlend(layer.id, it)
-            },
-            onDismiss = { blendSheet = false },
-        )
-    }
-    if (tintSheet) {
-        TintSheet(
-            layer = layer,
-            name = name,
-            onTint = { tint, strength -> vm.setTint(layer.id, tint, strength) },
-            onDismiss = { tintSheet = false },
-        )
-    }
-    typing?.let { adjust -> AdjustDialog(adjust, layer, vm) { typing = null } }
-}
-
-/** The values of an unfolded line that can be typed (P23.4). */
-private enum class Adjust { OPACITY, CONTRAST, BRIGHTNESS, SATURATION, HUE }
-
-/** « −20 % », « 0 % », « +35 % »: a colour correction of −1..1 as its pill shows it. */
-private fun signedPercent(fraction: Float): String {
-    val p = percentOf(fraction)
-    return (if (p > 0) "+" else "") + numberText(p) + " %"
-}
-
-/** The window of one value of the line: opacity 0 to 100 %, corrections −100 to 100 %, hue −180 to 180°. */
-@Composable
-private fun AdjustDialog(
+internal fun AdjustDialog(
     adjust: Adjust,
     layer: LayerConfig,
     vm: MapViewModel,
@@ -527,112 +317,6 @@ private fun AdjustDialog(
 private const val PERCENT_MAX = 100
 
 /**
- * An entry of the colours that opens a sheet (« Fusion › », « Teinter › »): its name, then its value, in the accent
- * colour when [accent], after a [dot] of that colour (`0xRRGGBB`) when there is one.
- */
-@Composable
-private fun EntryRow(
-    label: String,
-    value: String,
-    fade: PanelFade,
-    dot: Int? = null,
-    accent: Boolean = true,
-    onClick: () -> Unit,
-) {
-    Column(Modifier.padding(start = 56.dp, end = 16.dp).alpha(fade.shown)) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = onClick),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            if (dot != null) {
-                Box(
-                    Modifier
-                        .padding(end = 6.dp)
-                        .size(18.dp)
-                        .background(Color(OPAQUE or dot), CircleShape),
-                )
-            }
-            val color = if (accent) MaterialTheme.toolMap.accent else MaterialTheme.colorScheme.onSurfaceVariant
-            Text(
-                value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = color,
-                fontWeight = if (accent) FontWeight.Medium else null,
-            )
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = color)
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    }
-}
-
-/** A command of an unfolded line: its icon over a short name, a 56 dp cell. */
-@Composable
-private fun RowScope.Command(
-    icon: ImageVector,
-    label: String,
-    enabled: Boolean = true,
-    selected: Boolean = false,
-    onClick: () -> Unit,
-) {
-    val color = MaterialTheme.toolMap.onTile
-    Column(
-        Modifier
-            .weight(1f)
-            .heightIn(min = ROW_STEP)
-            .clip(MaterialTheme.shapes.small)
-            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.toolMap.tile)
-            .clickable(enabled = enabled, onClick = onClick)
-            .alpha(if (enabled) 1f else DISABLED)
-            .padding(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(icon, contentDescription = null, tint = color)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = color, maxLines = 1)
-    }
-}
-
-/** « Plus »: what an unfolded line keeps behind a touch (details, forced update, removing it or the others). */
-@Composable
-private fun RowScope.MoreCommand(
-    layer: LayerConfig,
-    forced: Boolean,
-    onDetails: () -> Unit,
-    onForce: () -> Unit,
-    vm: MapViewModel,
-) {
-    var open by remember { mutableStateOf(false) }
-    Box(Modifier.weight(1f)) {
-        Row(Modifier.fillMaxWidth()) {
-            Command(Icons.Filled.MoreVert, stringResource(R.string.maps_cmd_more)) { open = true }
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            fun choose(action: () -> Unit) {
-                open = false
-                action()
-            }
-            DropdownMenuItem(text = {
-                Text(stringResource(R.string.maps_layer_details))
-            }, onClick = { choose(onDetails) })
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.maps_layer_force_update)) },
-                trailingIcon = { if (forced) Icon(Icons.Filled.Check, contentDescription = null) },
-                onClick = { choose(onForce) },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.maps_layer_undisplay)) },
-                onClick = { choose { vm.removeLayer(layer.id) } },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.maps_layer_undisplay_others)) },
-                onClick = { choose { vm.removeOtherLayers(layer.id) } },
-            )
-        }
-    }
-}
-
-/**
  * The grey line of a layer: hidden; else its zoom range or elevation band and whether it is drawn now (ADR-063, P20),
  * with the opacity and inverted colours when they are not the plain ones.
  */
@@ -680,8 +364,8 @@ internal fun layerStateLine(
 
 /**
  * The line of a layer that differs from the favourite the stack came from (P25.9): « Opacité 50 % (31 % dans le
- * favori) », the zoom range with the favourite's, « masquée »; a layer the favourite does not have is « absente du
- * favori »; other changes keep the usual line.
+ * favori) », the zoom range with the favourite's, « masquée »; a layer the favourite does not have is « Ajoutée depuis
+ * le favori » (choice G, P34.1); other changes keep the usual line.
  */
 @Composable
 internal fun changedStateLine(
@@ -692,7 +376,7 @@ internal fun changedStateLine(
     val usual = layerStateLine(layer, currentZoom)
     return when (change) {
         is FavoriteChange.Added -> {
-            stringResource(R.string.maps_layer_line_new, usual)
+            stringResource(R.string.maps_layer_line_added)
         }
 
         is FavoriteChange.Changed -> {
@@ -719,7 +403,7 @@ internal fun changedStateLine(
 
 /** « Détails » of a layer: its kind, zooms, origin, rights, data source, what is stored and the forced update. */
 @Composable
-private fun DetailsDialog(
+internal fun DetailsDialog(
     layer: LayerConfig,
     source: TileSource?,
     maps: MapsViewModel,
@@ -783,8 +467,6 @@ private fun DetailsDialog(
 /** The height of a line, and how far the finger goes to move a dragged layer by one place. */
 private val ROW_STEP = 56.dp
 private const val FADED = 0.5f
-private const val DISABLED = 0.38f
 
 /** Opacity shown in a layer line only below this (a plain opaque layer says nothing about it). */
 private const val FULL_PERCENT = 100
-private const val OPAQUE = 0xFF shl 24

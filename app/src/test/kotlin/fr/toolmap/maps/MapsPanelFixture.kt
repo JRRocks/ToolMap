@@ -5,6 +5,7 @@ import fr.toolmap.core.source.LevelDef
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.source.ZoomSet
 import fr.toolmap.data.download.ZoneDownloader
+import fr.toolmap.data.download.ZoneJobStore
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.data.sources.SourceRepository
 import fr.toolmap.data.state.WorkStateStore
@@ -63,6 +64,9 @@ class MapsPanelFixture(
     private val offline = OfflineMode()
     private val settings = SettingsStore(File(root, "settings.json"))
 
+    /** The zone downloads the « Hors ligne » page of the panel counts (P34). */
+    val jobs = ZoneJobStore(File(root, "jobs"))
+
     val maps =
         MapsViewModel(
             context = RuntimeEnvironment.getApplication(),
@@ -74,6 +78,7 @@ class MapsPanelFixture(
             forcedRefresh = ForcedRefresh(),
             thumbnails = MapThumbnails(OkHttpClient(), repository),
             settingsStore = settings,
+            jobStore = jobs,
         )
 
     val vm =

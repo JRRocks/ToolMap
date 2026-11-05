@@ -40,8 +40,9 @@ import java.io.File
 import java.io.FileOutputStream
 
 /**
- * PNG renders of « Cartes et calques » (P29.3, « Strates »): the panel over the bar, a line unfolded, the compact
- * conditions, by day and by night, for the comparison with the validated preview where no emulator is at hand.
+ * PNG renders of « Cartes et calques » (P29.3, « Strates », P34): the panel over the bar, the sheet of a map and its
+ * « Couleurs » page, the compact conditions, by day and by night, for the comparison with the validated preview where
+ * no emulator is at hand.
  * Skipped unless the folder is given: `./gradlew :app:testDebugUnitTest --tests '*MapsPanelRenderTest*'
  * -Ptoolmap.renders=<folder>`.
  */

@@ -111,6 +111,59 @@ object MapsIcons {
         icon("ArrowDownward", "m20 12-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z")
     }
 
+    /** A crossed-out cloud: « Hors ligne… » at the foot of « Cartes et calques » (P34). */
+    val CloudOff: ImageVector by lazy {
+        icon(
+            "CloudOff",
+            "M19.35 10.04C18.67 6.59 15.64 4 12 4c-1.48 0-2.85.43-4.01 1.17l1.46 1.46C10.21 6.23 11.08 6 12 6" +
+                "c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3 0 1.13-.64 2.11-1.56 2.62l1.45 1.45" +
+                "C23.16 18.16 24 16.68 24 15c0-2.64-2.05-4.78-4.65-4.96zM3 5.27l2.75 2.74C2.56 8.15 0 10.77 0 14" +
+                "c0 3.31 2.69 6 6 6h11.73l2 2L21 20.73 4.27 4 3 5.27zM7.73 10l8 8H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h1.73z",
+        )
+    }
+
+    /** Two discs that overlap: « Fusion » on the « Couleurs » page of a layer (P34). */
+    val Blend: ImageVector by lazy {
+        icon(
+            "Blend",
+            "M15 7.5c-1.43 0-2.75.43-3.86 1.16A6.98 6.98 0 0 0 7.5 7.5a7 7 0 0 0 0 14c1.34 0 2.6-.38 3.66-1.04" +
+                "A6.98 6.98 0 0 0 15 21.5a7 7 0 0 0 0-14z",
+        )
+    }
+
+    /** A palette without its holes: « Teinter » on the « Couleurs » page of a layer (P34). */
+    val Tint: ImageVector by lazy {
+        icon(
+            "Tint",
+            "M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99" +
+                " 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8z",
+        )
+    }
+
+    /** An « i » in a ring: « Détails » in the « Plus » menu of a layer (P34). */
+    val InfoOutline: ImageVector by lazy {
+        icon(
+            "InfoOutline",
+            "M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" +
+                "m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z",
+        )
+    }
+
+    /** Two arrows in a circle: « Forcer la mise à jour » in the « Plus » menu of a layer (P34). */
+    val Sync: ImageVector by lazy {
+        icon(
+            "Sync",
+            "M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12" +
+                "c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12" +
+                "c0 4.42 3.58 8 8 8v3l4-4-4-4v3z",
+        )
+    }
+
+    /** A bin: « Ne plus afficher » in the « Plus » menu of a layer (P34). */
+    val Delete: ImageVector by lazy {
+        icon("Delete", "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z")
+    }
+
     /** Sliders: « Conditions » of a layer. */
     val Tune: ImageVector by lazy {
         icon(

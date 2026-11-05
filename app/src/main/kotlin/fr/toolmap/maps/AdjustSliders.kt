@@ -97,6 +97,8 @@ internal fun AdjustSlider(
     /** The value in a pill after [label] ([valuePill]): touched, [onType] opens its window (P23.4). */
     valuePill: String? = null,
     onType: () -> Unit = {},
+    /** On a page of the panel (the sheet of a layer, P34): 16 dp margins, the name in body text, the pill at the end. */
+    onPage: Boolean = false,
 ) {
     // The finger on the slider, from the moment it touches: Material's slider reports nothing before it drags.
     var holding by remember { mutableStateOf(false) }
@@ -113,14 +115,19 @@ internal fun AdjustSlider(
             .shadow(PILL_ELEVATION * pill, shape, clip = false)
             .background(MaterialTheme.toolMap.panel.copy(alpha = pill), shape)
             .alpha(if (mine) 1f else fade.shown)
-            .padding(start = 48.dp, end = 8.dp, top = 4.dp),
+            .padding(start = if (onPage) 8.dp else 48.dp, end = 8.dp, top = 4.dp),
     ) {
+        val labelStyle = if (onPage) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.labelMedium
         if (valuePill == null) {
-            Text(label, style = MaterialTheme.typography.labelMedium)
+            Text(label, style = labelStyle)
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(label, style = MaterialTheme.typography.labelMedium)
-                ValuePill(valuePill, label, onClick = onType, small = true)
+            Row(
+                if (onPage) Modifier.fillMaxWidth() else Modifier,
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = if (onPage) Arrangement.SpaceBetween else Arrangement.spacedBy(6.dp),
+            ) {
+                Text(label, style = labelStyle)
+                ValuePill(valuePill, label, onClick = onType, small = !onPage)
             }
         }
         val watched =

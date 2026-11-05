@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -25,6 +26,11 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
+import fr.toolmap.core.download.ZoneJob
+import fr.toolmap.core.download.ZoneProgress
+import fr.toolmap.core.download.ZoneRequest
+import fr.toolmap.core.download.ZoneShape
+import fr.toolmap.core.download.ZoneStatus
 import fr.toolmap.core.layers.BlendMode
 import fr.toolmap.core.layers.Workspace
 import fr.toolmap.core.layers.Workspaces
@@ -39,8 +45,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * « Cartes et calques » since P29.3 (« Strates »): the stack is the panel, its lines unfold in place, the favourites
- * are chips, the offline mode and the coverage are two switches, four tiles lead out (no « Importer .aqx » here).
+ * « Cartes et calques » since P29.3 (« Strates »), lightened by P34: the stack is the panel, a touch on a line opens
+ * the sheet of the map, the favourites are chips, « Cartes disponibles » and « Hors ligne… » lead out (no « Importer
+ * .aqx » here); the offline mode and the coverage are the two switches of the « Hors ligne » page.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class, qualifiers = "w412dp-h2000dp")
@@ -88,33 +95,59 @@ class MapsRootPanelTest {
     }
 
     @Test
-    fun `the stack is in the panel, top first, with no sheet to open`() {
+    fun `the stack is in the panel, top first, inactif à ce zoom only where it is so`() {
         setContent()
-        rule.onNodeWithText("Cartes affichées · du dessus vers le dessous").assertExists()
+        rule.onNodeWithText("Du dessus vers le dessous").assertExists()
         val top = { text: String -> rule.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top }
         assertTrue(top("IGN Pentes montagne") < top("OpenStreetMap"))
         assertTrue(top("OpenStreetMap") < top("IGN Cartes"))
-        rule.onNodeWithText("Visible aux zooms 1 à 8 · inactif à ce zoom", substring = true).assertExists()
+        // Only OpenStreetMap, kept to zooms 1 to 8, is not drawn at zoom 12.
+        rule.onAllNodesWithText("inactif à ce zoom").assertCountEquals(1)
+        rule.onNodeWithText("OpenStreetMap").assert(hasText("inactif à ce zoom"))
+        rule.onAllNodesWithContentDescription("Modifier Opacité : 100 %").assertCountEquals(0)
     }
 
     @Test
-    fun `a tap unfolds a line in place, with the opacity and the commands of the layer`() {
+    fun `a tap opens the sheet of the layer in the panel, and the arrow comes back to the list (P34)`() {
         setContent()
-        rule.onAllNodesWithContentDescription("Modifier Opacité : 100 %").assertCountEquals(0)
         rule.onNodeWithText("IGN Cartes").performClick()
+        rule.onNodeWithText("3e carte sur 3").assertExists()
+        rule.onNodeWithText("Du dessus vers le dessous").assertDoesNotExist()
+        rule.onNodeWithText("Actif au zoom 12").assertExists()
+        rule.onNodeWithText("Visible à tous les zooms").assertExists()
         rule.onNodeWithContentDescription("Modifier Opacité : 100 %").assertExists()
-        for (command in listOf("Monter", "Descendre", "Conditions", "Couleurs", "Plus")) {
-            rule.onNodeWithText(command).assertExists()
-        }
-        // Monter moves the layer up: IGN Cartes comes above OpenStreetMap.
-        rule.onNodeWithText("Monter").performClick()
+        rule.onNodeWithText("Tous les zooms · toutes altitudes").assertExists()
+        rule.onNodeWithText("Normal · couleurs d'origine").assertExists()
+        rule.onNodeWithText("3e sur 3").assertExists()
+        rule.onNodeWithText("Détails · mettre à jour · ne plus afficher").assertExists()
+        rule.onNodeWithContentDescription("Descendre").assertIsNotEnabled()
+        // Monter moves the layer up: IGN Cartes comes above OpenStreetMap, 2nd of 3.
+        rule.onNodeWithContentDescription("Monter").performClick()
         rule.waitForIdle()
         val order = fixture.vm.state.value.stack.topToBottom().map { it.sourceId }
         assertEquals(listOf("ign-slopes", "ign-maps", "osm"), order)
+        rule.onNodeWithText("2e carte sur 3").assertExists()
+        rule.onNodeWithContentDescription("Retour").performClick()
+        rule.onNodeWithText("Du dessus vers le dessous").assertExists()
     }
 
     @Test
-    fun `the opacity and the hue are typed in their window (P23_4)`() {
+    fun `the sheet of a layer not drawn at this zoom says from which zoom it is, and its switch hides it`() {
+        setContent()
+        rule.onNodeWithText("OpenStreetMap").performClick()
+        rule.onNodeWithText("Inactif au zoom 12").assertExists()
+        rule.onNodeWithText("Visible aux zooms 1 à 8").assertExists()
+        rule.onNodeWithText("Zooms 1 à 8 · toutes altitudes").assertExists()
+        rule.onNodeWithText("2e carte sur 3").assertExists()
+        val switch = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)
+        rule.onNode(switch).performClick()
+        rule.waitForIdle()
+        assertTrue(fixture.vm.state.value.stack.layers.first { it.sourceId == "osm" }.visible.not())
+        rule.onNodeWithText("Masquée").assertExists()
+    }
+
+    @Test
+    fun `the opacity of the sheet is typed in its window (P23_4)`() {
         setContent()
         rule.onNodeWithText("IGN Cartes").performClick()
         rule.onNodeWithContentDescription("Modifier Opacité : 100 %").performClick()
@@ -124,6 +157,13 @@ class MapsRootPanelTest {
         val layer = { fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" } }
         assertEquals(0.87f, layer().opacity, 1e-6f)
         rule.onNodeWithContentDescription("Modifier Opacité : 87 %").assertExists()
+    }
+
+    @Test
+    fun `the hue is typed in its window (P23_4)`() {
+        setContent()
+        rule.onNodeWithText("IGN Cartes").performClick()
+        val layer = { fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" } }
         rule.onNodeWithText("Couleurs").performClick()
         rule.onNodeWithContentDescription("Modifier Rotation des couleurs : 0°").performScrollTo().performClick()
         rule.onNode(hasSetTextAction()).performTextReplacement("-45")
@@ -133,12 +173,23 @@ class MapsRootPanelTest {
     }
 
     @Test
-    fun `the colours unfold under the commands`() {
+    fun `Couleurs opens the colours page of the sheet, and the arrow comes back to the sheet (P34)`() {
         setContent()
         rule.onNodeWithText("IGN Cartes").performClick()
         rule.onNodeWithText("Couleurs").performClick()
-        rule.onNodeWithContentDescription("Modifier Contraste : 0 %").assertExists()
-        rule.onNodeWithText("Couleurs inversées").assertExists()
+        rule.onNodeWithText("3e carte sur 3").assertDoesNotExist()
+        rule.onNodeWithText("Fusion").assert(hasText("Normal"))
+        rule.onNodeWithText("Teinter").assert(hasText("Aucune"))
+        for (pill in listOf("Contraste : 0 %", "Luminosité : 0 %", "Saturation : 0 %", "Rotation des couleurs : 0°")) {
+            rule.onNodeWithContentDescription("Modifier $pill").assertExists()
+        }
+        val switch = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)
+        rule.onNode(switch and hasText("Couleurs inversées")).assertIsOff().performClick()
+        rule.waitForIdle()
+        assertTrue(fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" }.inverted)
+        rule.onNodeWithContentDescription("Retour").performClick()
+        rule.onNodeWithText("3e carte sur 3").assertExists()
+        rule.onNodeWithText("Normal · couleurs inversées").assertExists()
     }
 
     @Test
@@ -146,8 +197,7 @@ class MapsRootPanelTest {
         setContent()
         rule.onNodeWithText("IGN Cartes").performClick()
         rule.onNodeWithText("Couleurs").performClick()
-        rule.onNodeWithText("Fusion").assertExists()
-        rule.onNodeWithText("Normal").performClick()
+        rule.onNodeWithText("Fusion").performClick()
         rule.onNodeWithText("Fusion d'IGN Cartes").assertExists()
         rule.onNodeWithText("Assombrir").assertExists()
         rule.onNodeWithText("garde les traits sombres des deux cartes").assertExists()
@@ -156,8 +206,9 @@ class MapsRootPanelTest {
         val layer = fixture.vm.state.value.stack.layers.first { it.sourceId == "ign-maps" }
         assertEquals(BlendMode.MULTIPLY, layer.blend)
         rule.onAllNodesWithText("Fusion d'IGN Cartes").assertCountEquals(0)
-        rule.onNodeWithText("100 % d'opacité · Produit").assertExists()
-        rule.onNodeWithText("Produit").assertExists()
+        rule.onNodeWithText("Fusion").assert(hasText("Produit"))
+        rule.onNodeWithContentDescription("Retour").performClick()
+        rule.onNodeWithText("Produit · couleurs d'origine").assertExists()
     }
 
     @Test
@@ -165,8 +216,7 @@ class MapsRootPanelTest {
         setContent()
         rule.onNodeWithText("IGN Cartes").performClick()
         rule.onNodeWithText("Couleurs").performClick()
-        rule.onNodeWithText("Teinter").assertExists()
-        rule.onNodeWithText("aucune").performClick()
+        rule.onNodeWithText("Teinter").performClick()
         rule.onNodeWithText("Teinter IGN Cartes").assertExists()
         // No colour yet: no intensity.
         rule.onAllNodesWithText("Intensité").assertCountEquals(0)
@@ -176,16 +226,20 @@ class MapsRootPanelTest {
         val layer = { fixture.vm.state.value.stack.layers.first { it.id == id } }
         assertEquals(0x1E88E5, layer().tint)
         assertEquals(0.5f, layer().tintStrength)
-        rule.onAllNodesWithText("bleu · 50 %").assertCountEquals(2)
+        rule.onNodeWithText("bleu · 50 %").assertExists()
+        // The line of the page, under the sheet that names « Teinter » too.
+        rule.onAllNodesWithText("Teinter").onFirst().assert(hasText("Bleu · 50 %"))
         rule.onNodeWithText("Intensité").assertExists()
         rule.onNodeWithText("Retirer la teinte").performClick()
         rule.waitForIdle()
         assertEquals(null, layer().tint)
-        rule.onNodeWithContentDescription("Fermer").performClick()
+        // The ✕ of the sheet, not the one of the panel's band under it.
+        rule.onAllNodesWithContentDescription("Fermer").onLast().performClick()
         rule.onAllNodesWithText("Teinter IGN Cartes").assertCountEquals(0)
         rule.runOnIdle { fixture.vm.setTint(id, 0x123456, 0.3f) }
-        rule.onNodeWithText("100 % d'opacité · teinté").assertExists()
-        rule.onNodeWithText("couleur choisie · 30 %").assertExists()
+        rule.onNodeWithText("Teinter").assert(hasText("Couleur choisie · 30 %"))
+        rule.onNodeWithContentDescription("Retour").performClick()
+        rule.onNodeWithText("Normal · teinté").assertExists()
     }
 
     @Test
@@ -229,7 +283,7 @@ class MapsRootPanelTest {
     }
 
     @Test
-    fun `the eye hides a layer without unfolding its line`() {
+    fun `the eye hides a layer without opening its sheet`() {
         setContent()
         rule.onAllNodesWithContentDescription("Masquer la carte").onFirst().performClick()
         rule.waitForIdle()
@@ -265,6 +319,39 @@ class MapsRootPanelTest {
         assertEquals(1, fixture.vm.favorites.value.count { it.name == "Mes pentes" })
         rule.onNodeWithText("Mes pentes · 3 cartes\n2 dessinées au zoom 12").assertExists()
         rule.onNodeWithText("Nouveau…").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a map added since the favourite says so in the accent line (choice G, P34)`() {
+        val osm =
+            fixture.vm.state.value.stack.layers
+                .first { it.sourceId == "osm" }
+        fixture.vm.removeLayer(osm.id)
+        fixture.vm.saveWorkspace("Sans OSM")
+        rule.waitUntil { fixture.vm.favorites.value.any { it.name == "Sans OSM" } }
+        fixture.vm.addLayer("osm")
+        setContent()
+        rule.onNodeWithText("OpenStreetMap").assert(hasText("Ajoutée depuis le favori"))
+        rule.onNodeWithText("Mettre à jour").assertExists()
+    }
+
+    @Test
+    fun `Plus opens a menu over the sheet, whose Ne plus afficher takes the map off and comes back to the list`() {
+        setContent()
+        rule.onNodeWithText("OpenStreetMap").performClick()
+        rule.onNodeWithText("Plus").performClick()
+        for (item in listOf("Détails", "Forcer la mise à jour", "Ne plus afficher les autres")) {
+            rule.onNodeWithText(item).assertExists()
+        }
+        rule.onNodeWithText("Forcer la mise à jour").performClick()
+        rule.waitForIdle()
+        assertTrue("osm" in fixture.maps.forced.value)
+        rule.onNodeWithText("Plus").performClick()
+        rule.onNodeWithText("Ne plus afficher").performClick()
+        rule.waitForIdle()
+        val order = fixture.vm.state.value.stack.topToBottom().map { it.sourceId }
+        assertEquals(listOf("ign-slopes", "ign-maps"), order)
+        rule.onNodeWithText("Du dessus vers le dessous").assertExists()
     }
 
     @Test
@@ -328,18 +415,41 @@ class MapsRootPanelTest {
     }
 
     @Test
-    fun `offline and coverage are switches, and four tiles lead out`() {
+    fun `Hors ligne opens a page of two switches and three ways out, and the list then says the offline mode (P34)`() {
         setContent()
+        rule.onNodeWithText("Cartes disponibles").performScrollTo().performClick()
+        rule.onNodeWithText("Hors ligne…").performScrollTo().performClick()
+        rule.onNodeWithText("Tuiles stockées sur ce téléphone").assertExists()
+        rule.onNodeWithText("Du dessus vers le dessous").assertDoesNotExist()
         val switch = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)
-        rule.onNode(switch and hasText("Hors ligne")).performScrollTo().assertIsOff()
         rule.onNode(switch and hasText("Couverture")).assertIsOff()
-        rule.onNode(switch and hasText("Hors ligne")).performClick()
+        rule.onNode(switch and hasText("Mode hors ligne")).assertIsOff().performClick()
         rule.waitForIdle()
         assertTrue(fixture.vm.offline.value)
-        for (tile in listOf("Cartes disponibles", "Enregistrer une zone", "Téléchargements", "Stockage")) {
-            rule.onNodeWithText(tile).performScrollTo().performClick()
+        rule.onNodeWithText("Téléchargements").assert(hasText("Aucun en cours"))
+        for (row in listOf("Enregistrer une zone", "Téléchargements", "Stockage")) {
+            rule.onNodeWithText(row).performScrollTo().performClick()
         }
         assertEquals(listOf("available", "zone", "downloads", "storage"), opened)
+        rule.onNodeWithContentDescription("Retour").performClick()
+        rule.onNodeWithText("Hors ligne · activé").assertExists()
+        rule.onNodeWithText("3 cartes\nHors ligne · tuiles stockées seulement").assertExists()
         rule.onAllNodesWithText("Importer .aqx").assertCountEquals(0)
+    }
+
+    @Test
+    fun `the Hors ligne page says how far the downloads going are`() {
+        val zone = ZoneShape.Rectangle(5.90, 45.40, 6.00, 45.50)
+        fixture.jobs.save(
+            ZoneJob(
+                ZoneRequest("a", "Belledonne", listOf("osm"), 10, 14, zone),
+                ZoneStatus.RUNNING,
+                ZoneProgress(total = 200, downloaded = 80, alreadyStored = 4),
+            ),
+        )
+        fixture.jobs.save(ZoneJob(ZoneRequest("b", "Vercors", listOf("osm"), 10, 14, zone), ZoneStatus.DONE))
+        setContent()
+        rule.onNodeWithText("Hors ligne…").performScrollTo().performClick()
+        rule.onNodeWithText("Téléchargements").assert(hasText("1 en cours · 42 %"))
     }
 }

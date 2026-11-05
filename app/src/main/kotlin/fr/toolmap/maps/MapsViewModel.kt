@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.toolmap.core.aqx.AqxWriter
+import fr.toolmap.core.download.ZoneJob
 import fr.toolmap.core.download.ZoneRequest
 import fr.toolmap.core.download.ZoneShape
 import fr.toolmap.core.download.ZoomLimit
@@ -26,6 +27,7 @@ import fr.toolmap.core.maps.ZoneStrips
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.core.wizard.SourceIds
+import fr.toolmap.data.download.ZoneJobStore
 import fr.toolmap.data.elevation.SourceElevationTiles
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.data.sources.SourceRepository
@@ -61,6 +63,20 @@ import javax.inject.Inject
  * panel of the layer [MapsViewModel.conditionsLayer] (P20).
  */
 enum class MapsPage { NONE, ROOT, SAVE_AREA, CONDITIONS }
+
+/**
+ * What the panel `ROOT` shows (P34): the list of the maps ([layerId] `null`, [page] `MAIN`), the « Hors ligne » page,
+ * the sheet of the layer [layerId] or its « Couleurs » page.
+ */
+data class RootView(
+    val layerId: String? = null,
+    val page: RootPage = RootPage.MAIN,
+) {
+    /** One step back: a page of the sheet to the sheet, the sheet or « Hors ligne » to the list. */
+    fun back(): RootView = if (layerId != null && page != RootPage.MAIN) RootView(layerId) else RootView()
+}
+
+enum class RootPage { MAIN, COLORS, OFFLINE }
 
 /** Disk figures behind the gauge of the "Available maps" screen. */
 data class StorageFigures(
@@ -126,7 +142,11 @@ class MapsViewModel
         val forcedRefresh: ForcedRefresh,
         val thumbnails: MapThumbnails,
         private val settingsStore: SettingsStore,
+        jobStore: ZoneJobStore,
     ) : ViewModel() {
+        /** The zone downloads, newest first: their state on the « Hors ligne » page of the panel (P34). */
+        val jobs: StateFlow<List<ZoneJob>> = jobStore.jobs
+
         private val mutablePage = MutableStateFlow(MapsPage.NONE)
         val page: StateFlow<MapsPage> = mutablePage.asStateFlow()
 
@@ -135,16 +155,17 @@ class MapsViewModel
         /** The layer whose « Conditions d'affichage » are open (page `CONDITIONS`). */
         val conditionsLayer: StateFlow<String?> = mutableConditionsLayer.asStateFlow()
 
-        private val mutableExpandedLayer = MutableStateFlow<String?>(null)
+        private val mutableView = MutableStateFlow(RootView())
 
         /**
-         * The layer whose line is unfolded in « Cartes et calques » (P29.3, « Strates »): kept while its conditions are
-         * open, so that closing them comes back to the line being set.
+         * What « Cartes et calques » shows (P34, style 4 « Fiche du calque »): the list, the sheet of a layer or one
+         * of its pages. Kept while the conditions of the layer are open, so that closing them comes back to its sheet,
+         * and while a full screen opened from the panel covers it; closing the panel goes back to the list.
          */
-        val expandedLayer: StateFlow<String?> = mutableExpandedLayer.asStateFlow()
+        val view: StateFlow<RootView> = mutableView.asStateFlow()
 
-        fun setExpanded(layerId: String?) {
-            mutableExpandedLayer.value = layerId
+        fun show(view: RootView) {
+            mutableView.value = view
         }
 
         val sources: StateFlow<List<TileSource>> = repository.sources
@@ -305,6 +326,7 @@ class MapsViewModel
 
         fun open(page: MapsPage) {
             if (page != MapsPage.SAVE_AREA) mutableArea.value = null
+            if (page == MapsPage.NONE) mutableView.value = RootView()
             mutablePage.value = page
         }
 
@@ -313,11 +335,11 @@ class MapsViewModel
         /** Opens the « Conditions d'affichage » panel of layer [layerId] over the map, the maps panel closing. */
         fun openConditions(layerId: String) {
             mutableConditionsLayer.value = layerId
-            mutableExpandedLayer.value = layerId
+            mutableView.value = RootView(layerId)
             open(MapsPage.CONDITIONS)
         }
 
-        /** Closes the conditions: back to the maps panel, the line of the layer still unfolded (P29.3). */
+        /** Closes the conditions: back to the maps panel, at the sheet of the layer (P34). */
         fun closeConditions() = open(MapsPage.ROOT)
 
         private val mutableSaveAreaAsked = MutableStateFlow(false)

@@ -407,7 +407,7 @@ internal fun zoomLineText(
 
 /** "Zooms 8 à 16": the zoom range as the panel says it. */
 @Composable
-private fun zoomSummary(
+internal fun zoomSummary(
     min: Int?,
     max: Int?,
 ): String =

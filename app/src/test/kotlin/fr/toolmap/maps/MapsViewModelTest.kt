@@ -13,6 +13,7 @@ import fr.toolmap.core.source.ZoomSet
 import fr.toolmap.core.tiles.TilePlanner
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.data.download.ZoneDownloader
+import fr.toolmap.data.download.ZoneJobStore
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.data.sources.SourceRepository
 import fr.toolmap.data.storage.StorageManager
@@ -101,6 +102,7 @@ class MapsViewModelTest {
                 forcedRefresh = forcedRefresh,
                 thumbnails = MapThumbnails(OkHttpClient(), repository),
                 settingsStore = settings,
+                jobStore = ZoneJobStore(File(root, "jobs")),
             )
     }
 
@@ -143,15 +145,26 @@ class MapsViewModelTest {
     }
 
     @Test
-    fun `closing the conditions comes back to the panel, the line of the layer still unfolded`() {
+    fun `closing the conditions comes back to the panel, at the sheet of the layer (P34)`() {
         vm.open(MapsPage.ROOT)
-        vm.setExpanded("a")
+        vm.show(RootView("a"))
         vm.openConditions("b")
         assertEquals(MapsPage.CONDITIONS, vm.page.value)
         assertEquals("b", vm.conditionsLayer.value)
         vm.closeConditions()
         assertEquals(MapsPage.ROOT, vm.page.value)
-        assertEquals("b", vm.expandedLayer.value)
+        assertEquals(RootView("b"), vm.view.value)
+    }
+
+    @Test
+    fun `closing the panel goes back to the list, and back goes up one step`() {
+        vm.open(MapsPage.ROOT)
+        vm.show(RootView("a", RootPage.COLORS))
+        assertEquals(RootView("a"), vm.view.value.back())
+        assertEquals(RootView(), RootView("a").back())
+        assertEquals(RootView(), RootView(page = RootPage.OFFLINE).back())
+        vm.close()
+        assertEquals(RootView(), vm.view.value)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package fr.toolmap.maps
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -10,17 +11,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -34,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,18 +48,14 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.inset
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.layers.FavoriteChange
@@ -79,10 +73,8 @@ import fr.toolmap.map.MenuIcons
 import fr.toolmap.map.PANEL_INSET
 import fr.toolmap.map.PanelBand
 import fr.toolmap.map.PanelCaption
-import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.FilledTonalButton
-import fr.toolmap.ui.theme.Switch
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
 import kotlin.math.floor
@@ -106,12 +98,14 @@ class MapsRootActions(
 )
 
 /*
- * « Cartes et calques » since P29.3 (« Strates », docs/previews/design-03-cartes.html, variant C): the layer stack is
- * the panel itself. The band says what is shown and how many maps are drawn at the zoom of the map; the favourites are
- * a row of chips; each layer is a line (drag handle, thumbnail, name and state, eye) that unfolds in place with its
- * opacity, its order, its conditions, its colours and the rest of its commands; at the foot, the offline mode and the
- * coverage as two switches, then the four ways to the catalogue, the zone, the downloads and the storage. While a
- * slider of the unfolded line is held, everything else fades away so that the map shows what it changes (P26.6).
+ * « Cartes et calques » since P29.3 (« Strates »), lightened by P34 (style 4 « Fiche du calque », docs/previews/
+ * p34-cartes-onglets.html, band 4): the layer stack is the panel itself. The band says what is shown and how many maps
+ * are drawn at the zoom of the map; the favourites are a row of chips; each layer is a line (drag handle, thumbnail,
+ * name, eye, ›) whose touch opens its sheet in the panel ([LayerSheet], ← back to the list), the sheet opening its
+ * « Couleurs » page ([ColorsPage]); at the foot, « Cartes disponibles » and « Hors ligne… », which opens the « Hors
+ * ligne » page ([OfflinePage]; docs/previews/p34-complements.html, A, D, F and G validated on 2026-11-05). While a
+ * slider of a sheet or of its colours is held, everything else fades away so that the map shows what it changes
+ * (P26.6).
  */
 @Composable
 fun MapsRootPanel(
@@ -129,7 +123,7 @@ fun MapsRootPanel(
     val offline by vm.offline.collectAsStateWithLifecycle()
     val coverage by vm.coverage.collectAsStateWithLifecycle()
     val sources by maps.sources.collectAsStateWithLifecycle()
-    val expanded by maps.expandedLayer.collectAsStateWithLifecycle()
+    val view by maps.view.collectAsStateWithLifecycle()
     var showSave by remember { mutableStateOf(false) }
     var showUpdate by remember { mutableStateOf(false) }
     // The favourite whose sheet is open, and the one being renamed (P25.5), by id.
@@ -143,6 +137,14 @@ fun MapsRootPanel(
     val changes = remember(modified, state.stack) { modified?.let { FavoriteChanges.of(it, state.stack) }.orEmpty() }
     val drawn = layers.count { it.visible && it.opacity > 0f && LayerElevation.isDrawnAt(it, currentZoom) }
     val fade = rememberPanelFade()
+    val favoriteName = applied?.name ?: modified?.let { stringResource(R.string.maps_band_modified, it.name) }
+    // The layer whose sheet is open (P34); gone from the stack, the list comes back.
+    val sheet = view.layerId?.let { id -> layers.indexOfFirst { it.id == id }.takeIf { it >= 0 } }
+    LaunchedEffect(view.layerId, sheet) { if (view.layerId != null && sheet == null) maps.show(RootView()) }
+    BackHandler(enabled = view != RootView()) { maps.show(view.back()) }
+    val offlinePage = sheet == null && view.page == RootPage.OFFLINE
+    val sheetName =
+        sheet?.let { layers[it].sourceId }?.let { byId[it]?.name ?: stringResource(R.string.layers_missing_source, it) }
 
     BarPanel(
         maxHeight = maxHeight,
@@ -150,77 +152,99 @@ fun MapsRootPanel(
         containerAlpha = fade.shown,
         header = {
             Box(Modifier.alpha(fade.shown)) {
-                MapsBand(
-                    favorite = applied?.name ?: modified?.let { stringResource(R.string.maps_band_modified, it.name) },
-                    single = layers.singleOrNull()?.let { byId[it.sourceId]?.name },
-                    count = layers.size,
-                    drawn = drawn,
-                    zoom = floor(currentZoom).toInt(),
-                    onShare = { actions.onShareFavorites(applied?.id) },
-                    onSave = { showSave = true },
-                    onHelp = actions.onHelp,
-                )
+                if (sheet != null && view.page == RootPage.COLORS) {
+                    BackBand(
+                        title = stringResource(R.string.maps_cmd_colors),
+                        subtitle = sheetName.orEmpty(),
+                        onBack = { maps.show(RootView(layers[sheet].id)) },
+                        onClose = maps::close,
+                    )
+                } else if (sheet != null) {
+                    LayerSheetBand(
+                        name = sheetName.orEmpty(),
+                        favorite = favoriteName,
+                        rank = sheet + 1,
+                        count = layers.size,
+                        onBack = { maps.show(RootView()) },
+                        onClose = maps::close,
+                    )
+                } else if (offlinePage) {
+                    BackBand(
+                        title = stringResource(R.string.maps_offline_short),
+                        subtitle = stringResource(R.string.maps_offline_page_sub),
+                        onBack = { maps.show(RootView()) },
+                        onClose = maps::close,
+                    )
+                } else {
+                    MapsBand(
+                        favorite = favoriteName,
+                        single = layers.singleOrNull()?.let { byId[it.sourceId]?.name },
+                        count = layers.size,
+                        drawn = drawn,
+                        zoom = floor(currentZoom).toInt(),
+                        offline = offline,
+                        onShare = { actions.onShareFavorites(applied?.id) },
+                        onSave = { showSave = true },
+                        onHelp = actions.onHelp,
+                    )
+                }
             }
         },
     ) {
-        Column(Modifier.alpha(fade.shown)) {
-            FavoriteChips(
+        if (sheet != null && view.page == RootPage.COLORS) {
+            ColorsPage(
+                layer = layers[sheet],
+                name = sheetName.orEmpty(),
+                below = layers.drop(sheet + 1),
+                thumbnails = maps.thumbnails,
+                fade = fade,
+                vm = vm,
+            )
+        } else if (sheet != null) {
+            LayerSheetContent(
+                layer = layers[sheet],
+                source = byId[layers[sheet].sourceId],
+                name = sheetName.orEmpty(),
+                rank = sheet + 1,
+                count = layers.size,
+                maps = maps,
+                vm = vm,
+                currentZoom = currentZoom,
+                fade = fade,
+            )
+        } else if (offlinePage) {
+            val jobs by maps.jobs.collectAsStateWithLifecycle()
+            val figures by maps.storageFigures.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { maps.refreshStorage() }
+            OfflinePage(
+                offline = offline,
+                coverage = coverage,
+                jobs = jobs,
+                figures = figures,
+                onOffline = vm::setOffline,
+                onCoverage = vm::setCoverage,
+                onSaveArea = actions.onSaveArea,
+                onDownloads = actions.onOpenDownloads,
+                onStorage = actions.onOpenStorage,
+            )
+        } else {
+            StackList(
+                layers = layers,
                 favorites = favorites,
                 applied = applied,
                 modified = modified,
+                changes = changes,
                 hiddenBuiltins = hiddenBuiltins.size,
                 byId = byId,
-                thumbnails = maps.thumbnails,
-                onApply = vm::applyWorkspace,
-                onOpen = { sheetFor = it.id },
-                onRestore = vm::restoreBuiltinWorkspaces,
-            )
-            PanelCaption(stringResource(R.string.maps_stack_caption))
-            if (layers.isEmpty()) {
-                Text(
-                    stringResource(R.string.maps_displayed_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
-        }
-        StackRows(
-            layers = layers,
-            byId = byId,
-            maps = maps,
-            vm = vm,
-            currentZoom = currentZoom,
-            expanded = expanded,
-            onExpand = maps::setExpanded,
-            fade = fade,
-            changes =
-                changes
-                    .mapNotNull { change ->
-                        when (change) {
-                            is FavoriteChange.Changed -> change.layerId to change
-                            is FavoriteChange.Added -> change.layerId to change
-                            else -> null
-                        }
-                    }.toMap(),
-        )
-        Column(Modifier.alpha(fade.shown)) {
-            if (layers.isNotEmpty() && modified != null) {
-                UpdateButtons(onUpdate = { showUpdate = true }, onNew = { showSave = true })
-            } else if (layers.isNotEmpty() && applied == null) {
-                // The stack matches no favourite: the way to keep it, next to it.
-                TextButton(onClick = { showSave = true }, modifier = Modifier.padding(start = 8.dp)) {
-                    Icon(MapsIcons.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(stringResource(R.string.maps_save_hint_button), modifier = Modifier.padding(start = 8.dp))
-                }
-            }
-            SwitchCells(
+                maps = maps,
+                vm = vm,
+                actions = actions,
+                currentZoom = currentZoom,
                 offline = offline,
-                coverage = coverage,
-                onOffline = { vm.setOffline(!offline) },
-                onCoverage = { vm.setCoverage(!coverage) },
+                onFavorite = { sheetFor = it.id },
+                onSave = { showSave = true },
+                onUpdate = { showUpdate = true },
             )
-            NavTiles(actions)
         }
     }
     if (showSave) {
@@ -279,6 +303,150 @@ fun MapsRootPanel(
             onDismiss = { showUpdate = false },
         )
     }
+}
+
+/**
+ * The list of the panel (P34, band 4): the favourites, « Du dessus vers le dessous » and one line per map, what keeps
+ * the stack as a favourite, then two links, « Cartes disponibles » and « Hors ligne… ».
+ */
+@Composable
+private fun StackList(
+    layers: List<LayerConfig>,
+    favorites: List<Workspace>,
+    applied: Workspace?,
+    modified: Workspace?,
+    changes: List<FavoriteChange>,
+    hiddenBuiltins: Int,
+    byId: Map<String, TileSource>,
+    maps: MapsViewModel,
+    vm: MapViewModel,
+    actions: MapsRootActions,
+    currentZoom: Double,
+    offline: Boolean,
+    onFavorite: (Workspace) -> Unit,
+    onSave: () -> Unit,
+    onUpdate: () -> Unit,
+) {
+    FavoriteChips(
+        favorites = favorites,
+        applied = applied,
+        modified = modified,
+        hiddenBuiltins = hiddenBuiltins,
+        byId = byId,
+        thumbnails = maps.thumbnails,
+        onApply = vm::applyWorkspace,
+        onOpen = onFavorite,
+        onRestore = vm::restoreBuiltinWorkspaces,
+    )
+    PanelCaption(stringResource(R.string.maps_stack_caption))
+    if (layers.isEmpty()) {
+        Text(
+            stringResource(R.string.maps_displayed_empty),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    }
+    StackRows(
+        layers = layers,
+        byId = byId,
+        maps = maps,
+        vm = vm,
+        currentZoom = currentZoom,
+        onOpen = { maps.show(RootView(it)) },
+        changes =
+            changes
+                .mapNotNull { change ->
+                    when (change) {
+                        is FavoriteChange.Changed -> change.layerId to change
+                        is FavoriteChange.Added -> change.layerId to change
+                        else -> null
+                    }
+                }.toMap(),
+    )
+    if (layers.isNotEmpty() && modified != null) {
+        UpdateButtons(onUpdate = onUpdate, onNew = onSave)
+    } else if (layers.isNotEmpty() && applied == null) {
+        // The stack matches no favourite: the way to keep it, next to it.
+        TextButton(onClick = onSave, modifier = Modifier.padding(start = 8.dp)) {
+            Icon(MapsIcons.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(stringResource(R.string.maps_save_hint_button), modifier = Modifier.padding(start = 8.dp))
+        }
+    }
+    Row(Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        TextButton(onClick = actions.onOpenAvailable) {
+            Icon(MapsIcons.Map, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(stringResource(R.string.maps_available), modifier = Modifier.padding(start = 8.dp))
+        }
+        // On, the link says it in the accent colour (choice A, P34.1).
+        val accent = MaterialTheme.toolMap.accent
+        TextButton(
+            onClick = { maps.show(RootView(page = RootPage.OFFLINE)) },
+            colors =
+                if (offline) {
+                    ButtonDefaults.textButtonColors(
+                        contentColor = accent,
+                    )
+                } else {
+                    ButtonDefaults.textButtonColors()
+                },
+        ) {
+            Icon(MapsIcons.CloudOff, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(
+                stringResource(if (offline) R.string.maps_offline_link_on else R.string.maps_offline_link),
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The sheet of [layer] (P34): [LayerSheet] on the view models, with the window where its opacity is typed and the
+ * « Détails » of « Plus ».
+ */
+@Composable
+private fun LayerSheetContent(
+    layer: LayerConfig,
+    source: TileSource?,
+    name: String,
+    rank: Int,
+    count: Int,
+    maps: MapsViewModel,
+    vm: MapViewModel,
+    currentZoom: Double,
+    fade: PanelFade,
+) {
+    var typing by remember(layer.id) { mutableStateOf(false) }
+    var details by remember(layer.id) { mutableStateOf(false) }
+    val forced by maps.forced.collectAsStateWithLifecycle()
+    val isForced = layer.sourceId in forced
+    LayerSheet(
+        layer = layer,
+        name = name,
+        rank = rank,
+        count = count,
+        thumbnails = maps.thumbnails,
+        currentZoom = currentZoom,
+        fade = fade,
+        onVisible = { vm.setVisible(layer.id, it) },
+        onOpacity = { vm.setOpacity(layer.id, it) },
+        onTypeOpacity = { typing = true },
+        onConditions = { maps.openConditions(layer.id) },
+        onColors = { maps.show(RootView(layer.id, RootPage.COLORS)) },
+        onUp = { vm.moveLayerUp(layer.id) },
+        onDown = { vm.moveLayerDown(layer.id) },
+        more =
+            MoreActions(
+                forced = isForced,
+                onDetails = { details = true },
+                onForce = { maps.setForced(layer.sourceId, !isForced) },
+                onRemoveOthers = { vm.removeOtherLayers(layer.id) },
+                // The layer gone, the panel comes back to the list.
+                onRemove = { vm.removeLayer(layer.id) },
+            ),
+    )
+    if (typing) AdjustDialog(Adjust.OPACITY, layer, vm) { typing = false }
+    if (details) DetailsDialog(layer, source, maps, isForced) { details = false }
 }
 
 /**
@@ -432,21 +600,24 @@ private fun MapsBand(
     count: Int,
     drawn: Int,
     zoom: Int,
+    /** The offline mode is on: the second line says it, instead of the maps drawn (choice A, P34.1). */
+    offline: Boolean,
     onShare: () -> Unit,
     onSave: () -> Unit,
     onHelp: () -> Unit,
 ) {
     val maps = pluralStringResource(R.plurals.maps_band_count, count, count)
+    val offlineLine = stringResource(R.string.maps_band_offline)
     val subtitle =
         if (count == 0) {
-            stringResource(R.string.maps_band_empty)
+            stringResource(R.string.maps_band_empty) + if (offline) "\n$offlineLine" else ""
         } else {
             val what = (favorite ?: single)?.let { "$it · $maps" } ?: maps
             val now =
-                if (drawn == 0) {
-                    stringResource(R.string.maps_band_none_drawn, zoom)
-                } else {
-                    pluralStringResource(R.plurals.maps_band_drawn, drawn, drawn, zoom)
+                when {
+                    offline -> offlineLine
+                    drawn == 0 -> stringResource(R.string.maps_band_none_drawn, zoom)
+                    else -> pluralStringResource(R.plurals.maps_band_drawn, drawn, drawn, zoom)
                 }
             "$what\n$now"
         }
@@ -603,110 +774,6 @@ private fun Modifier.dashedBorder(
             color,
             style = Stroke(stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))),
         )
-    }
-}
-
-/** « Hors ligne » and « Couverture », two switches of the same kind side by side. */
-@Composable
-private fun SwitchCells(
-    offline: Boolean,
-    coverage: Boolean,
-    onOffline: () -> Unit,
-    onCoverage: () -> Unit,
-) {
-    val offlineSpoken =
-        stringResource(R.string.maps_option_offline) + ", " + stringResource(R.string.maps_option_offline_sub)
-    Row(
-        Modifier.fillMaxWidth().padding(start = PANEL_INSET, end = PANEL_INSET, top = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        SwitchCell(stringResource(R.string.maps_offline_short), offline, onOffline, spoken = offlineSpoken)
-        SwitchCell(stringResource(R.string.maps_chip_coverage), coverage, onCoverage)
-    }
-}
-
-@Composable
-private fun RowScope.SwitchCell(
-    label: String,
-    on: Boolean,
-    onToggle: () -> Unit,
-    spoken: String? = null,
-) {
-    Row(
-        Modifier
-            .weight(1f)
-            .heightIn(min = 56.dp)
-            .clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.toolMap.tile)
-            .toggleable(value = on, role = Role.Switch, onValueChange = { onToggle() })
-            .then(if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier)
-            .padding(start = 12.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.toolMap.onTile,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        Switch(checked = on, onCheckedChange = null, modifier = Modifier.offset(x = (-2).dp))
-    }
-}
-
-/** The four ways out of the panel, in a 2 × 2 grid: icon and name on one line (four do not fit in a row). */
-@Composable
-private fun NavTiles(actions: MapsRootActions) {
-    val rows =
-        listOf(
-            listOf(
-                Triple(MapsIcons.Map, R.string.maps_available, actions.onOpenAvailable),
-                Triple(MapsIcons.CropFree, R.string.maps_tile_save_area, actions.onSaveArea),
-            ),
-            listOf(
-                Triple(MapsIcons.Download, R.string.menu_downloads, actions.onOpenDownloads),
-                Triple(SettingsIcons.Storage, R.string.maps_chip_storage, actions.onOpenStorage),
-            ),
-        )
-    rows.forEach { row ->
-        Row(
-            Modifier.fillMaxWidth().padding(start = PANEL_INSET, end = PANEL_INSET, top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            row.forEach { (icon, label, onClick) -> NavTile(icon, stringResource(label), onClick) }
-        }
-    }
-    Spacer(Modifier.height(4.dp))
-}
-
-@Composable
-private fun RowScope.NavTile(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.toolMap.tile,
-        contentColor = MaterialTheme.toolMap.onTile,
-        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
-    ) {
-        Row(
-            Modifier.padding(start = 12.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-            // 13 sp, so that « Téléchargements » holds on one line in half the width of a phone.
-            Text(
-                label,
-                style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 17.sp),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
     }
 }
 
