@@ -242,6 +242,60 @@ Une ligne par problème, au moment où il arrive :
   son battement arrivent, `mesh.state.in sharing=true`, mais 1re `mesh.pos.in` à 21:08:54 seulement (`acc=110`) ·
   défauts (c) et (k) de `docs/specs/p21-corrections.md`, déjà connus.
 
+### Test du 2026-11-05 : partages du groupe (P25.4, P27.5)
+
+Groupe sur serveur, règles de P27.1 publiées le 2026-11-05. Émulateur 0.4.204 (APK de la CI) qui partage sa position
+fictive ; téléphone de l'utilisateur **à l'écoute seulement** (pas de partage de position, demande de l'utilisateur).
+On ne teste que ce qui n'est pas la position : waypoints, tracés, croquis, favoris de cartes, messages.
+
+Ordre (✅ vu des deux côtés, ❌ problème noté ci-dessous) :
+
+1. téléphone → émulateur : croquis ;
+2. émulateur → téléphone : waypoint silencieux, puis waypoint avec alerte ;
+3. émulateur → téléphone : nouveau tracé dessiné ;
+4. émulateur → téléphone : nouveau croquis au stylo, avec une forme (P28.4) ;
+5. émulateur → téléphone : « Partager un des miens… », une trace longue (trame de plus de 4 096 octets, `b/w`) ;
+6. émulateur → téléphone : un favori de cartes, puis « Ajouter » sur le téléphone (P25.4) ;
+7. téléphone → émulateur : waypoint et favori ;
+8. retrait d'un partage, d'un côté puis de l'autre ;
+9. message texte dans les deux sens.
+
+Déroulé :
+
+- 11:40 · 1 ✅ · le téléphone, entré par le lien et « À l'écoute », partage un croquis : l'émulateur le voit dans
+  « Dans le groupe » et sur la carte, traits identiques.
+- 11:48 · 9 (sens émulateur → téléphone) ✅ · message de l'émulateur reçu sur le téléphone.
+- 11:49 · 2 ✅ · waypoints « Test S2 silencieux » (2 h) et « Test S2 alerte » (1 h, alerte) reçus.
+- 11:50 · 3 ✅ · tracé dessiné de 6 points (9,70 km, 2 h) reçu.
+- 11:53 · 4 ✅ · croquis de 2 traits et une zone hachurée reçu.
+- 11:55 · 6 ✅ · favori « Rando été » (6 cartes) reçu (« RAS, tout est visible », l'utilisateur).
+- 12:14 · 8 (sens téléphone → émulateur) ✅ · le téléphone retire les deux waypoints « Test S2 » : l'émulateur reçoit
+  leur retrait (`mesh.point.in … removed=true`) et ils quittent sa liste.
+- 12:16 et 12:27 · 5 · « Partager un des miens… » : trace enregistrée de 1,29 km (33 octets), puis trace GPX de
+  871 points et 8,64 km importée sur l'émulateur (`fixtures/gpx/korita-zbevnica.gpx`) : **657 octets** une fois
+  compressée. Aucun refus du serveur sur `b/w`. Une trame de plus de 4 096 octets n'est pas atteinte par un usage
+  normal ; « 03-OCT-10 #2 » reçu sur le téléphone ✅ (capture du téléphone, 12:41).
+- 12:20 et 12:21 · 7 (croquis) ✅ · deux autres croquis du téléphone reçus, tous deux nommés « Croquis du 5 nov. ».
+- 12:24 · hors scénario · `relay.stream.renew streamAgeS=3485` puis flux rouvert en 0,2 s : renouvellement prévu du
+  flux, pas une coupure.
+- 12:28 · 8 (sens émulateur → téléphone) ✅ · « Sortie du 3 nov. » retirée du groupe par l'émulateur : absente de la
+  liste du téléphone à 12:41 (7 éléments).
+- 12:52 · 7 ✅ · le téléphone partage un waypoint « ici » et le favori « OpenMap » (5 cartes) : reçus par l'émulateur ;
+  « Ajouter à mes favoris », feuille « Ajouter 1 favori ? », puis la puce « OpenMap » appliquée donne ses 5 cartes.
+
+Bilan : les 9 scénarios passent (5 sans trame de plus de 4 096 octets, hors d'atteinte en usage normal). P25.4 et
+P27.5 sont vérifiés. Un défaut d'affichage noté (noms de croquis identiques), reporté dans
+`docs/specs/p21-corrections.md`.
+
+Problèmes relevés (heure · scénario · symptôme · preuve) :
+
+- 12:41 · 1, 7 · **trois croquis du groupe portent le même nom « Croquis du 5 nov. »** et ne se distinguent que par
+  « encore 1 h 39 » / « 1 h 40 » · capture du téléphone · le nom proposé d'un croquis n'a que la date, celui d'un
+  tracé a aussi l'heure (« Tracé du 5 nov. 2026 à 11:50 ») ; piste : même forme que le tracé (texte visible : aperçu
+  avant le code).
+- 12:24 · hors scénario · **émulateur surchargé** (charge 13) : le sélecteur de fichiers et l'appli Messages du système
+  « ne répondent pas » ; ToolMap n'est pas en cause (aucun `app.exit`), à ne pas confondre avec un défaut.
+
 ## 6. Travail restant
 
 Aucun : P21 clos le 2026-10-24. Ce qui restait (alertes et option t visibles, (o) dit aux autres membres, P21.6 en

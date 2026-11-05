@@ -733,3 +733,24 @@ sont encore refusées).
   continu), écran éteint 49 % du temps.
 - **Retirés à la demande de l'utilisateur** : T0 en marchant (l'écran qui tient immobile tient en mouvement), n° 18 (une
   heure, trop long), n° 19 (redémarrage du téléphone : l'utilisateur revoit lui-même ses services).
+
+## Test en direct du 2026-11-05 : partages du groupe (P25.4, P27.5)
+
+Plan et déroulé : `docs/plan-partage.md`, « Test du 2026-11-05 ». Téléphone de l'utilisateur à l'écoute seulement,
+émulateur 0.4.204 (APK de la CI), groupe sur serveur, règles de `b/w` republiées le jour même.
+
+- **Vérifiés dans les deux sens** : waypoints (silencieux, alerte), tracés (dessiné ; trace GPX de 871 points et
+  8,64 km envoyée en 657 octets), croquis (traits et zone hachurée), favoris de cartes avec « Ajouter à mes favoris »,
+  messages, retraits. Aucun refus du serveur, aucun plantage de ToolMap.
+- **Non atteint** : une trame de plus de 4 096 octets (la compression garde les partages courants bien en dessous) ;
+  le cas reste couvert par `MeshNodeTest`.
+- **Nouveau** : s ci-dessous.
+
+## s — Croquis du groupe au même nom (visible : aperçu d'abord)
+
+- **Preuve** : capture du téléphone (12:41) : trois éléments « Croquis du 5 nov. » dans « Dans le groupe », que seule
+  la durée restante distingue (« encore 1 h 39 », « encore 1 h 40 », « tant que le groupe existe »).
+- **Cause** : le nom proposé à un nouveau croquis n'a que la date ; celui d'un tracé dessiné a aussi l'heure
+  (« Tracé du 5 nov. 2026 à 11:50 »).
+- **Correction proposée** : nommer un croquis comme un tracé (« Croquis du 5 nov. 2026 à 12:20 »). Texte visible :
+  aperçu et validation de l'utilisateur avant le code.

@@ -20,6 +20,24 @@
 
 ---
 
+## 2026-11-05 — Session 89 (suite 16) — [P25.4][P27.5] Test en direct des partages du groupe : tout passe dans les deux sens
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 359ab0b (0.4.204, CI verte) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies au début : GitHub `claude/vibrant-galileo-q3s99n` = Drive = local = **0.4.204** (référence : GitHub, local sans changement) ; autres branches plus anciennes (`claude/blissful-hopper-8kr9d6` 0.4.145, `main` 0.4.134, `claude/pensive-edison-cgzr8t` 0.4.102).
+- **Objectif** : vérifier en conditions réelles, sur le serveur et avec les règles de `b/w` republiées, que les partages du groupe (waypoints, tracés, croquis, favoris de cartes, messages, retraits) passent entre le téléphone de l'utilisateur, à l'écoute seulement, et l'émulateur.
+- **Réalisé** :
+  - Règles Firebase de P27.1 republiées par l'utilisateur dans la console (guidé pas à pas).
+  - Émulateur passé sur l'APK 0.4.204 de la CI (configuration du serveur incluse ; données sauvegardées et restaurées par `run-as … tar`), nouveau groupe, invitation donnée à l'utilisateur dans la conversation (jamais écrite dans le dépôt).
+  - Plan du test et déroulé minute par minute dans `docs/plan-partage.md` (« Test du 2026-11-05 ») ; bilan et défaut s dans `docs/specs/p21-corrections.md`.
+  - P25.4 et P27.5 passés à ✅ (`docs/PLAN.md`, `docs/plan-fonctions-2026-10.md`).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - Les 9 scénarios du plan passent : croquis du téléphone vu à l'identique sur l'émulateur ; waypoints silencieux et avec alerte, tracé dessiné, croquis avec zone hachurée, favori « Rando été », trace GPX de 871 points (`fixtures/gpx/korita-zbevnica.gpx`, 8,64 km, **657 octets** une fois compressée) et message reçus sur le téléphone (« RAS, tout est visible », capture du téléphone à 12:41) ; waypoint et favori « OpenMap » du téléphone reçus par l'émulateur, « Ajouter à mes favoris » puis puce appliquée : 5 cartes ; retraits vus des deux côtés.
+  - Journal d'événements de l'émulateur (`files/eventlog/current.log`) : `share.point.create` de 33 à 657 octets, `mesh.point.in` pour chaque envoi du téléphone, aucun refus du serveur, renouvellement du flux à 3 485 s rouvert en 0,2 s.
+- **Problèmes / dette technique** :
+  - **s** : trois croquis du groupe nommés « Croquis du 5 nov. », car le nom proposé n'a que la date (`NameDates.formatDay`), là où un tracé a aussi l'heure (`NameDates.format`) ; texte visible, aperçu avant correction.
+  - Une trame de plus de 4 096 octets n'est pas atteinte en usage normal : seul `MeshNodeTest` la couvre.
+  - Émulateur surchargé (charge 13) pendant l'import : sélecteur de fichiers et appli Messages du système bloqués un moment ; ToolMap n'est pas en cause.
+- **Prochaine étape recommandée** : aperçu de la correction s (nom des croquis avec l'heure) ; capture de l'icône P35.1 sur l'émulateur, puis P35.2.
+
 ## 2026-11-05 — Session 89 (suite 15) — [P34.1–P34.5] Panneau « Cartes et calques » : liste allégée, fiche de la carte, pages Couleurs et Hors ligne
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 7380e53 (0.4.203, P35.1 d'une session cloud : avance rapide du local, travail P34 gardé hors commit) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies avant le commit : GitHub `claude/vibrant-galileo-q3s99n` = **0.4.203** (référence), local = 0.4.202 (fb40a88) plus le travail P34 non commité, Drive = 0.4.199 ; autres branches plus anciennes (`claude/blissful-hopper-8kr9d6` 0.4.145, `main` 0.4.134, `claude/pensive-edison-cgzr8t` 0.4.102).
 - **Objectif** : alléger le panneau « Cartes et calques » selon le style 4 « Fiche du calque » : une ligne courte par carte, les réglages d'une carte sur sa fiche dans le panneau, les couleurs et le hors ligne sur leur propre page.
