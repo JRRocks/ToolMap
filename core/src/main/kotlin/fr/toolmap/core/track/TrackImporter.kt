@@ -4,6 +4,8 @@ import java.io.ByteArrayInputStream
 import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipException
 import java.util.zip.ZipInputStream
 
 /** Reads a track file whichever its format: the content decides, the file name is only a hint for the error. */
@@ -52,13 +54,26 @@ object TrackImporter {
      * The main KML of a KMZ, streamed to the parser and never held whole, at most [MAX_BYTES] like a KML file (P36
      * review: a small zip bomb made the import hold 128 MB of KML, then copy it, and the app ran out of memory).
      */
-    private fun readKmz(bytes: ByteArray): TrackDocument {
-        val index = kmlEntryIndex(bytes) ?: throw TrackFormatException("KMZ archive without a .kml file")
-        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
-            repeat(index + 1) { zip.nextEntry ?: throw TrackFormatException("KMZ archive without a .kml file") }
-            return KmlReader.read(Bounded(zip, MAX_BYTES.toLong())).copy(format = SourceFormat.KMZ)
+    private fun readKmz(bytes: ByteArray): TrackDocument =
+        try {
+            val index = kmlEntryIndex(bytes) ?: throw TrackFormatException("KMZ archive without a .kml file")
+            ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+                repeat(index + 1) { zip.next() ?: throw TrackFormatException("KMZ archive without a .kml file") }
+                KmlReader.read(Bounded(zip, MAX_BYTES.toLong())).copy(format = SourceFormat.KMZ)
+            }
+        } catch (e: IOException) {
+            // A download cut short, a damaged or password-protected archive: walking it fails outside the KML reader,
+            // and the callers only know a file that cannot be read (P36 audit: such a file took the app down).
+            throw TrackFormatException("Not a readable KMZ archive: ${e.message}", e)
         }
-    }
+
+    /** The next entry; a name that is not text is a damaged archive (some Java versions say it another way). */
+    private fun ZipInputStream.next(): ZipEntry? =
+        try {
+            nextEntry
+        } catch (e: IllegalArgumentException) {
+            throw ZipException("bad entry name: ${e.message}").apply { initCause(e) }
+        }
 
     /**
      * The index of the main KML of a KMZ: `doc.kml` if present, else the first `.kml` entry. The entries before it are
@@ -71,7 +86,7 @@ object TrackImporter {
         ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
             var index = 0
             while (true) {
-                val entry = zip.nextEntry ?: break
+                val entry = zip.next() ?: break
                 val kml = !entry.isDirectory && entry.name.endsWith(".kml", ignoreCase = true)
                 if (kml && entry.name.equals("doc.kml", ignoreCase = true)) return index
                 if (kml && chosen == null) chosen = index

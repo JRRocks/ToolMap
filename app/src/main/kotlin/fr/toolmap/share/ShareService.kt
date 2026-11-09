@@ -226,6 +226,7 @@ class ShareService : Service() {
         for (alert in pending) {
             if (!notifiedSos.add(alert.memberId)) continue
             manager.notify(
+                SOS_TAG,
                 sosNotificationId(alert.memberId),
                 NotificationCompat
                     .Builder(this, SOS_CHANNEL_ID)
@@ -247,6 +248,7 @@ class ShareService : Service() {
             if (lifted != null) {
                 val at = time.format(Instant.ofEpochMilli(lifted.alertAtMs).atZone(ZoneId.systemDefault()))
                 manager.notify(
+                    SOS_TAG,
                     sosNotificationId(id),
                     NotificationCompat
                         .Builder(this, SOS_CHANNEL_ID)
@@ -260,14 +262,18 @@ class ShareService : Service() {
                         .build(),
                 )
             } else {
-                manager.cancel(sosNotificationId(id))
+                manager.cancel(SOS_TAG, sosNotificationId(id))
             }
             if (ui.sos.none { it.memberId == id }) notifiedSos.remove(id)
         }
     }
 
-    private fun sosNotificationId(memberId: Long): Int =
-        SOS_NOTIFICATION_BASE + (memberId xor (memberId ushr 32)).toInt().and(SOS_ID_MASK)
+    /**
+     * The alerts of the group have a tag of their own and one number per member. Without a tag, numbers kept to 256
+     * values from 4200 ran into those of the alerts of a followed track (4300, 4301, 4400 and up): « de retour sur le
+     * tracé » replaced the alert of a member, and two members could share a number (P36 audit).
+     */
+    private fun sosNotificationId(memberId: Long): Int = (memberId xor (memberId ushr Int.SIZE_BITS)).toInt()
 
     private fun textFor(ui: ShareUi): String {
         val linked = ui.others.count { it.status == MemberStatus.DIRECT }
@@ -326,8 +332,7 @@ class ShareService : Service() {
 
     companion object {
         private const val SOS_CHANNEL_ID = "sharing-sos"
-        private const val SOS_NOTIFICATION_BASE = 4200
-        private const val SOS_ID_MASK = 0xFF
+        private const val SOS_TAG = "sos"
         private const val LIFTED_NOTIFICATION_MS = 10 * 60_000L
         private const val NOTIFY_EVERY_MILLIS = 10_000L
         private const val ACTION_STOP = "fr.toolmap.share.STOP"

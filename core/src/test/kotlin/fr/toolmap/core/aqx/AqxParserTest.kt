@@ -3,7 +3,15 @@ package fr.toolmap.core.aqx
 import fr.toolmap.core.geo.LonLatZoom
 import fr.toolmap.core.source.ClearColor
 import fr.toolmap.core.source.LevelDef
+import fr.toolmap.core.xml.XmlNesting
+import org.w3c.dom.DOMException
+import org.w3c.dom.DOMImplementation
+import org.w3c.dom.Document
+import org.xml.sax.EntityResolver
+import org.xml.sax.ErrorHandler
+import org.xml.sax.InputSource
 import java.io.File
+import javax.xml.parsers.DocumentBuilder
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -239,6 +247,39 @@ class AqxParserTest {
         val xxe = """<?xml version="1.0"?><!DOCTYPE aqx [<!ENTITY x SYSTEM "file:///etc/passwd">]><aqx>&x;</aqx>"""
         assertFailsWith<AqxParseException> { AqxParser.parse(xxe) }
         assertFailsWith<AqxParseException> { AqxParser.parse("<!doctype aqx><aqx/>") }
+    }
+
+    @Test
+    fun `what Android's DOM builder cannot take is an invalid file, not a crash`() {
+        // Thousands of elements inside one another overflow the stack of Android's builder (not the JDK's): refused
+        // before any builder reads the text.
+        val deep = "<aqx>" + "<a>".repeat(20_000) + "</a>".repeat(20_000) + "</aqx>"
+        assertFailsWith<AqxParseException> { AqxParser.parse(deep) }
+        // A name Android's builder refuses with an unchecked DOMException (`<a::b/>` there): the same refusal.
+        val refusing =
+            object : DocumentBuilder() {
+                override fun parse(source: InputSource): Document =
+                    throw DOMException(DOMException.INVALID_CHARACTER_ERR, "a::b")
+
+                override fun isNamespaceAware() = false
+
+                override fun isValidating() = false
+
+                override fun setEntityResolver(resolver: EntityResolver?) = Unit
+
+                override fun setErrorHandler(handler: ErrorHandler?) = Unit
+
+                override fun newDocument(): Document = error("not used")
+
+                override fun getDOMImplementation(): DOMImplementation = error("not used")
+            }
+        val error = assertFailsWith<AqxParseException> { AqxParser.parse("<a::b/>") { refusing } }
+        assertTrue(error.cause is DOMException)
+        // Ordinary nesting, comments, CDATA and quoted `>` are read as before.
+        assertTrue(XmlNesting.exceeds("<a><b><c/></b></a>", 1))
+        assertFalse(XmlNesting.exceeds("<a><b><c/></b></a>", 2))
+        assertFalse(XmlNesting.exceeds("<a><!-- <b><b><b> --><![CDATA[<b><b><b>]]><b x='>' y=\"<b>\"/></a>", 1))
+        assertFalse(XmlNesting.exceeds("<a><b></b><b></b><b></b></a>", 2))
     }
 
     @Test

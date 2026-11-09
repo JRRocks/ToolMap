@@ -2,6 +2,7 @@ package fr.toolmap
 
 import android.content.Intent
 import android.net.Uri
+import android.os.BadParcelableException
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -32,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.core.content.IntentCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -55,6 +57,7 @@ import fr.toolmap.core.layers.FavoritesExport
 import fr.toolmap.core.layers.FavoritesFileCodec
 import fr.toolmap.core.maps.OnlineCatalog
 import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.settings.ThemeMode
 import fr.toolmap.core.track.NameDates
 import fr.toolmap.core.track.TrackImporter
@@ -786,6 +789,13 @@ class MainActivity : ComponentActivity() {
 
     /** "Open with" / "Share" of an `.aqx` map definition or of a GPX, KML, KMZ or GeoJSON file from another app. */
     private fun handleIntent(intent: Intent?) {
+        // Reopened from the recent apps after « Quitter »: Android gives back the intent the task was started with,
+        // link or file included. It was handled then: handling it again joined anew a group that had been left (an
+        // invitation is good for seven days) and imported the same file twice (P36 audit).
+        if (IncomingIntent.isReplay(intent?.flags ?: 0)) {
+            EventLog.event("app.intent", "action" to intent?.action, "history" to true)
+            return
+        }
         // The fixed starting points of the measure scripts (tools/perf): benchmark build only, and only from an explicit
         // launch (`am start -n … --es`), never from a link a browser or a message opens.
         if (BuildConfig.PERF_INTENT && intent?.hasCategory(Intent.CATEGORY_BROWSABLE) != true && intent?.data == null) {
@@ -922,13 +932,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Suppress("DEPRECATION")
+    /**
+     * The file another app shares. What the sender put there is checked to be an address on every Android version,
+     * and an extra that cannot be read is no file: before, any app could take ToolMap down with one (P36 audit).
+     */
     private fun Intent.streamExtra(): Uri? =
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-        } else {
-            getParcelableExtra(Intent.EXTRA_STREAM)
-        }
+        catchExpected("import.intent.extra", BadParcelableException::class) {
+            IntentCompat.getParcelableExtra(this, Intent.EXTRA_STREAM, Uri::class.java)
+        }.getOrNull()
+}
+
+/** What an intent given to [MainActivity] says about its own delivery. */
+internal object IncomingIntent {
+    /** Whether an intent with these [flags] is one Android gives back from the recent apps, already handled once. */
+    fun isReplay(flags: Int): Boolean = flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
 }
 
 /** The back stack is saved by the names of its screens. */

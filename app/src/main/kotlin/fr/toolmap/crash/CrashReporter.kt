@@ -163,8 +163,6 @@ object CrashReporter {
         val checked = prefs.getLong(KEY_EXITS_CHECKED_UP_TO, 0L)
         val installed = context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
         val crash = ExitSelection.nativeCrashToReport(exits, context.packageName, installed, checked)
-        // Written at once: the start-up that follows may crash again before an asynchronous write.
-        prefs.edit(commit = true) { putLong(KEY_EXITS_CHECKED_UP_TO, ExitSelection.checkedUpTo(exits, checked)) }
         // A trace can be read once: each new one is read here, for GitHub and for the report screen.
         val fresh =
             records.filter {
@@ -172,6 +170,13 @@ object CrashReporter {
                     it.timestamp > maxOf(installed, checked) &&
                     it.reason in QUEUED_REASONS
             }
+        // With something to report, written at once: the start-up that follows may crash again before an asynchronous
+        // write, and the same crash would be reported twice. With nothing to report (nearly every start), a write
+        // that is lost changes nothing, and the main thread does not wait for the disk before the first screen
+        // (P36 audit).
+        prefs.edit(commit = crash != null || fresh.isNotEmpty()) {
+            putLong(KEY_EXITS_CHECKED_UP_TO, ExitSelection.checkedUpTo(exits, checked))
+        }
         val traces = fresh.associateWith { readTrace(it) }
         for (record in fresh) queueForGitHub(record, traces[record])
         val info = crash?.source ?: return

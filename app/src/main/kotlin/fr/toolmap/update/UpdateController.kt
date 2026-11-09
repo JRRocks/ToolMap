@@ -79,12 +79,15 @@ class UpdateController(
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-    private val client =
+
+    // Built at the first look for an update, off the main thread, not with the activity (P36 audit).
+    private val client by lazy {
         OkHttpClient
             .Builder()
             .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .build()
+    }
     private val mutableUi =
         MutableStateFlow(
             UpdateUi(

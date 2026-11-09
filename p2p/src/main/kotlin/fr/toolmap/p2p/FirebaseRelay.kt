@@ -1128,9 +1128,12 @@ class FileAuthStore(
 
 class FirebaseRelayFactory(
     private val authStore: AuthStore,
-    private val http: OkHttpClient = OkHttpClient(),
+    http: OkHttpClient? = null,
     private val endpoints: FirebaseEndpoints = FirebaseEndpoints(),
 ) : RelayTransportFactory {
+    // Built for the first group joined, not with the screen of every user, in a group or not (P36 audit).
+    private val http: OkHttpClient by lazy { http ?: OkHttpClient() }
+
     override fun create(
         config: RelayConfig,
         groupId: ByteArray,

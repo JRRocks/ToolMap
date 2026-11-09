@@ -1,10 +1,15 @@
 package fr.toolmap
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
+import dagger.hilt.android.EntryPointAccessors
 import fr.toolmap.crash.CrashActivity
 import fr.toolmap.crash.CrashReporter
+import fr.toolmap.share.ShareEntryPoint
+import fr.toolmap.share.ShareProblem
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,6 +67,38 @@ class AppStartupTest {
         assertEquals(CrashActivity::class.java.name, next.component?.className)
         assertNull(activity.window.decorView.findMapView(), "the map, which may be what crashed, is not built")
         controller.pause().stop().destroy()
+    }
+
+    @Test
+    fun `an extra that is no file does not take the app down`() {
+        // What any app can send: a share whose stream is not an address.
+        val intent =
+            Intent(Intent.ACTION_SEND).setType("application/octet-stream").putExtra(Intent.EXTRA_STREAM, Intent())
+        val controller = Robolectric.buildActivity(MainActivity::class.java, intent).setup()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
+        assertNotNull(controller.get().window.decorView.findMapView(), "the map screen was not composed")
+        controller.pause().stop().destroy()
+        shadowOf(Looper.getMainLooper()).idle()
+    }
+
+    @Test
+    fun `a link given back from the recent apps is not handled a second time`() {
+        fun problemAfter(flags: Int): ShareProblem? {
+            val link = Intent(Intent.ACTION_VIEW, Uri.parse("toolmap://join?d=AAAA")).addFlags(flags)
+            val controller = Robolectric.buildActivity(MainActivity::class.java, link).setup()
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
+            val share = EntryPointAccessors.fromApplication(app, ShareEntryPoint::class.java).controller()
+            return share.state.value.problem.also {
+                controller.pause().stop().destroy()
+                shadowOf(Looper.getMainLooper()).idle()
+            }
+        }
+        assertTrue(IncomingIntent.isReplay(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY or Intent.FLAG_ACTIVITY_NEW_TASK))
+        assertFalse(IncomingIntent.isReplay(Intent.FLAG_ACTIVITY_NEW_TASK))
+        // Reopened from the recent apps: the link of the first launch comes again, and is left alone.
+        assertNull(problemAfter(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY))
+        // The same link when it is really opened is read (this one is no invitation: the sharing says so).
+        assertEquals(ShareProblem.BAD_CODE, problemAfter(0))
     }
 
     private fun View.findMapView(): MapView? {

@@ -8,11 +8,15 @@ import fr.toolmap.core.source.ClearColor
 import fr.toolmap.core.source.LevelDef
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.source.ZoomSet
+import fr.toolmap.core.xml.XmlNesting
+import org.w3c.dom.DOMException
 import org.w3c.dom.Element
 import org.w3c.dom.Node
 import org.xml.sax.InputSource
 import org.xml.sax.SAXException
+import java.io.IOException
 import java.io.StringReader
+import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.parsers.ParserConfigurationException
 
@@ -24,6 +28,9 @@ import javax.xml.parsers.ParserConfigurationException
  */
 object AqxParser {
     const val MAX_FILE_CHARS = 5_000_000
+
+    /** Elements inside one another, at most: far more than the five of an AQX file, far fewer than a stack holds. */
+    private const val MAX_NESTING = 64
 
     /** Simultaneous downloads a file may ask for per source (the wizard offers the same range, ADR-058). */
     const val MAX_THREADS = 16
@@ -53,20 +60,39 @@ object AqxParser {
     private val BYTE_ORDER_MARK = 0xFEFF.toChar().toString()
 
     @Throws(AqxParseException::class)
-    fun parse(text: String): AqxParseResult {
+    fun parse(text: String): AqxParseResult = parse(text) { newDocumentBuilderFactory().newDocumentBuilder() }
+
+    /** [parse] with the DOM builder given by [newBuilder]: Android's is not the JDK's, and fails in other ways. */
+    @Throws(AqxParseException::class)
+    internal fun parse(
+        text: String,
+        newBuilder: () -> DocumentBuilder,
+    ): AqxParseResult {
         if (text.length > MAX_FILE_CHARS) throw AqxParseException("AQX file too large (${text.length} characters)")
         // Entities and DOCTYPEs are never needed by AQX: refuse them outright rather than rely on parser flags
         // (not every Android XML parser supports every hardening feature).
         if (text.contains("<!DOCTYPE", ignoreCase = true) || text.contains("<!ENTITY", ignoreCase = true)) {
             throw AqxParseException("DOCTYPE and entity declarations are not allowed in AQX files")
         }
+        // An AQX file nests five elements; Android's DOM builder calls itself once per level (see XmlNesting).
+        if (XmlNesting.exceeds(text, MAX_NESTING)) throw AqxParseException("Invalid XML: elements nested too deep")
         val root =
             try {
-                newDocumentBuilderFactory().newDocumentBuilder()
+                newBuilder()
                     .parse(InputSource(StringReader(text.removePrefix(BYTE_ORDER_MARK))))
                     .documentElement
             } catch (e: SAXException) {
                 throw AqxParseException("Invalid XML: ${e.message}", e)
+            } catch (e: DOMException) {
+                // Android's DOM builder refuses with this unchecked exception names that its own reader, and the
+                // JDK, accept (`<a::b/>`): no caller caught it, and any file opened with or shared to ToolMap that
+                // was neither favorites nor a track reached this parser (P36 audit: a 7-byte file took the app down).
+                throw AqxParseException("Invalid XML: ${e.message}", e)
+            } catch (e: IOException) {
+                throw AqxParseException("Invalid XML: ${e.message}", e)
+            } catch (e: StackOverflowError) {
+                // The last net under the nesting check above, should a text deceive it.
+                throw AqxParseException("Invalid XML: elements nested too deep", e)
             }
         if (!root.tagName.equals("aqx", ignoreCase = true)) {
             throw AqxParseException("Root element is <${root.tagName}>, expected <aqx>")

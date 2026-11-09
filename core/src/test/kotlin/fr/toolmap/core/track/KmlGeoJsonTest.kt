@@ -118,6 +118,27 @@ class KmlGeoJsonTest {
     }
 
     @Test
+    fun `a KMZ cut short or damaged is a file that cannot be read`() {
+        val zip = ByteArrayOutputStream()
+        ZipOutputStream(zip).use {
+            it.putNextEntry(ZipEntry("doc.kml"))
+            // Text that does not compress to nothing: the archive is a few kilobytes.
+            it.write(("<kml>" + (0 until 4_000).joinToString("") { n -> "<a>$n</a>" } + "</kml>").toByteArray())
+            it.closeEntry()
+        }
+        val whole = zip.toByteArray()
+        // A download that stopped half-way.
+        assertFailsWith<TrackFormatException> { TrackImporter.read(whole.copyOf(whole.size / 2), "x.kmz") }
+        // Bytes changed in the middle of the data.
+        val damaged = whole.copyOf().also { for (i in 60 until 90) it[i] = (it[i] + 1).toByte() }
+        assertFailsWith<TrackFormatException> { TrackImporter.read(damaged, "x.kmz") }
+        // The signature of a ZIP, and nothing of one after it.
+        assertFailsWith<TrackFormatException> {
+            TrackImporter.read(byteArrayOf(0x50, 0x4B, 3, 4, 9, 9, 9, 9, 9, 9), "x.kmz")
+        }
+    }
+
+    @Test
     fun `a KMZ unzipping to more than a KML file may hold is refused while it streams`() {
         // About 100 KB of ZIP that unzips to 65 MB: read as a stream, refused past the 64 MB of a KML file.
         val bomb =

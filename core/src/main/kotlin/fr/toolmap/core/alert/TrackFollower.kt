@@ -60,20 +60,29 @@ class TrackFollower(
         hintAlongMeters: Double? = null,
     ): Projection? {
         if (!usable) return null
-        var best: Candidate? = null
+        // Each fix of a followed track comes here, every second or two for hours, screen off: the distance to each
+        // segment is a plain number, and a candidate is only built for the segments that may be chosen. One object
+        // per segment and per pass was megabytes of garbage per fix on a long line (P36 audit). Same arithmetic.
+        val kx = cos(Math.toRadians(lat)) * METERS_PER_DEGREE
+        var bestIndex = -1
+        var bestOff = 0.0
         for (i in 0 until line.size - 1) {
-            val c = candidate(i, lat, lon)
-            if (best == null || c.off < best.off) best = c
+            val off = offAt(i, lat, lon, kx)
+            if (bestIndex < 0 || off < bestOff) {
+                bestIndex = i
+                bestOff = off
+            }
         }
-        val nearest = best ?: return null
+        if (bestIndex < 0) return null
+        val nearest = candidate(bestIndex, lat, lon, kx)
         var chosen = nearest
         if (hintAlongMeters != null) {
             // Another branch of the line (not the next segment of the same stretch) about as near as the best one.
             val branchGap = 2 * (nearest.off + AMBIGUITY_METERS) + BRANCH_MARGIN_METERS
             for (i in 0 until line.size - 1) {
-                val c = candidate(i, lat, lon)
-                if (c.off <= nearest.off + AMBIGUITY_METERS &&
-                    abs(c.along - nearest.along) > branchGap &&
+                if (!(offAt(i, lat, lon, kx) <= nearest.off + AMBIGUITY_METERS)) continue
+                val c = candidate(i, lat, lon, kx)
+                if (abs(c.along - nearest.along) > branchGap &&
                     abs(c.along - hintAlongMeters) < abs(chosen.along - hintAlongMeters)
                 ) {
                     chosen = c
@@ -91,14 +100,34 @@ class TrackFollower(
         val lon: Double,
     )
 
+    /** The distance from the position to the segment [index], as [candidate] computes it. */
+    private fun offAt(
+        index: Int,
+        lat: Double,
+        lon: Double,
+        kx: Double,
+    ): Double {
+        val a = line[index]
+        val b = line[index + 1]
+        val ax = (a.lon - lon) * kx
+        val ay = (a.lat - lat) * METERS_PER_DEGREE
+        val bx = (b.lon - lon) * kx
+        val by = (b.lat - lat) * METERS_PER_DEGREE
+        val dx = bx - ax
+        val dy = by - ay
+        val lengthSquared = dx * dx + dy * dy
+        val t = if (lengthSquared <= 0.0) 0.0 else ((-ax * dx - ay * dy) / lengthSquared).coerceIn(0.0, 1.0)
+        return hypot(ax + t * dx, ay + t * dy)
+    }
+
     private fun candidate(
         index: Int,
         lat: Double,
         lon: Double,
+        kx: Double,
     ): Candidate {
         val a = line[index]
         val b = line[index + 1]
-        val kx = cos(Math.toRadians(lat)) * METERS_PER_DEGREE
         val ax = (a.lon - lon) * kx
         val ay = (a.lat - lat) * METERS_PER_DEGREE
         val bx = (b.lon - lon) * kx

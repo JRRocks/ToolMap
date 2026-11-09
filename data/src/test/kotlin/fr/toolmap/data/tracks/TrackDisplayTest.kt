@@ -75,6 +75,21 @@ class TrackDisplayTest {
     }
 
     @Test
+    fun `the cache keeps the position of each point and nothing else of it`() =
+        runBlocking {
+            // The points of the test carry a time; those appended by the recorder too.
+            val id = importTrack(500)
+            val before = display.data.first().linesGeoJson
+            repo.appendPoints(id, List(30) { pt(500 + it).copy(ele = 1_200.0) })
+            display.data.first()
+            val kept = display.cachedPointsOf(id)
+            assertTrue(kept.size > 10)
+            assertTrue(kept.all { it.ele == null && it.timeMillis == null && it.extras.isEmpty() })
+            // What the map shows is the same line as with whole points.
+            assertTrue(before.contains("\"LineString\""))
+        }
+
+    @Test
     fun `a batch appended to a shown track does not simplify the whole track again`() =
         runBlocking {
             val id = importTrack(2_000)

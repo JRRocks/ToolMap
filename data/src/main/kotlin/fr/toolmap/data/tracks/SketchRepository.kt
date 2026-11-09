@@ -7,7 +7,9 @@ import fr.toolmap.core.sketch.SketchPath
 import fr.toolmap.core.sketch.SketchShape
 import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.core.sketch.SketchStyle
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 /** A saved sketch as the screens use it: its strokes decoded, in drawing order. */
@@ -26,8 +28,12 @@ class SketchRepository(
 ) {
     private val dao get() = db.sketchDao()
 
-    /** Every sketch, most recently changed first. */
-    val sketches: Flow<List<SavedSketch>> = dao.observeSketches().map { list -> list.map(::decode) }
+    /**
+     * Every sketch, most recently changed first. Decoded off the thread that collects them: every stroke of every
+     * sketch is read again at each change of one of them, and the screen collects on the main thread (P36 audit).
+     */
+    val sketches: Flow<List<SavedSketch>> =
+        dao.observeSketches().map { list -> list.map(::decode) }.flowOn(Dispatchers.Default)
 
     suspend fun load(id: Long): SavedSketch? = dao.sketch(id)?.let(::decode)
 

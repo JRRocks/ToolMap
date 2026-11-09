@@ -43,9 +43,11 @@ object CoverageHost {
 class CoverageInterceptor(
     private val store: MbTilesStore,
 ) : Interceptor {
-    private val full = SolidPng.create(TILE_SIZE, FULL_FILL, FULL_FRAME, frameWidth = 2)
-    private val partial = SolidPng.create(TILE_SIZE, PARTIAL_FILL)
-    private val missing = SolidPng.create(TILE_SIZE, MISSING_FILL)
+    // Drawn when the coverage is first shown, not when the app starts: this interceptor is built with the tile client,
+    // on the main thread, before the first screen (P36 audit).
+    private val full by lazy { SolidPng.create(TILE_SIZE, FULL_FILL, FULL_FRAME, frameWidth = 2) }
+    private val partial by lazy { SolidPng.create(TILE_SIZE, PARTIAL_FILL) }
+    private val missing by lazy { SolidPng.create(TILE_SIZE, MISSING_FILL) }
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()

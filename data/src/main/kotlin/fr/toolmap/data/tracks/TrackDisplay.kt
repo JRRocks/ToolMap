@@ -63,11 +63,23 @@ class TrackDisplay(
         val points: Int = segments.sumOf { it.size }
     }
 
+    /**
+     * A point as the cache keeps it: its position alone, all the map and the page read. With the elevation, the time
+     * and the XML extensions of each point of a file (heart rate, satellites...), the cache weighed up to four times
+     * more: over 100 MB for a large library of imported tracks (P36 audit).
+     */
+    private fun bare(p: TrackPoint): TrackPoint =
+        if (p.ele == null && p.timeMillis == null && p.extras.isEmpty()) p else TrackPoint(p.lat, p.lon)
+
     private val cache = LinkedHashMap<Long, Cached>(16, 0.75f, true)
     private var cachedPoints = 0
 
     /** How many times a whole track was read and simplified (for the tests). */
     internal val fullLoads = AtomicInteger()
+
+    /** The points the cache holds for [trackId] (for the tests). */
+    internal fun cachedPointsOf(trackId: Long): List<TrackPoint> =
+        synchronized(cache) { cache[trackId]?.segments.orEmpty().flatten() }
 
     val data: Flow<DisplayData> =
         repository.library
@@ -145,7 +157,7 @@ class TrackDisplay(
         if (extended != null) return store(trackId, extended).segments
         fullLoads.incrementAndGet()
         val track = repository.loadTrack(trackId) ?: return emptyList()
-        val simplified = track.segments.map { PathSimplifier.simplify(it, toleranceMeters) }
+        val simplified = track.segments.map { PathSimplifier.simplify(it, toleranceMeters).map(::bare) }
         val loaded =
             Cached(
                 revision = revision,
@@ -194,9 +206,9 @@ class TrackDisplay(
                 val closed = settle(frozen, tail)
                 if (closed.isNotEmpty()) done = done + listOf(closed)
                 frozen = emptyList()
-                tail = batch.points
+                tail = batch.points.map(::bare)
             } else {
-                tail = tail + batch.points
+                tail = tail + batch.points.map(::bare)
             }
             raw = batch.endCount
             if (tail.size >= TAIL_POINTS) {
