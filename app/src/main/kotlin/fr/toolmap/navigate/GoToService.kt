@@ -14,6 +14,9 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import fr.toolmap.R
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.service.BackgroundNotification
 import fr.toolmap.service.ServiceWakeLock
@@ -72,6 +75,7 @@ class GoToService : Service() {
             )
         } catch (e: SecurityException) {
             // No location permission: the navigation stays on screen only.
+            Problems.expected("goto.service.foreground", e)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -146,12 +150,17 @@ class GoToService : Service() {
 class AndroidGoToPlatform(
     private val context: Context,
 ) : GoToPlatform {
+    /** A refusal (the app is not in the foreground) keeps the navigation on screen only. */
     override fun startService() {
-        runCatching { ContextCompat.startForegroundService(context, Intent(context, GoToService::class.java)) }
+        // ForegroundServiceStartNotAllowedException (Android 12+) is an IllegalStateException.
+        catchExpected("goto.service.start", IllegalStateException::class, SecurityException::class) {
+            ContextCompat.startForegroundService(context, Intent(context, GoToService::class.java))
+        }
     }
 
     override fun stopService() {
-        runCatching { context.stopService(Intent(context, GoToService::class.java)) }
+        // Stopping the app's own service is not refused: a failure is a bug.
+        catchReported("goto.service.stop") { context.stopService(Intent(context, GoToService::class.java)) }
     }
 
     override fun vibrate() {
@@ -162,7 +171,10 @@ class AndroidGoToPlatform(
                 ContextCompat.getSystemService(context, Vibrator::class.java)
             }
         if (vibrator?.hasVibrator() == true) {
-            runCatching { vibrator.vibrate(VibrationEffect.createWaveform(OFF_ROUTE_PATTERN, NO_REPEAT)) }
+            // The permission is in the manifest and the pattern fixed: a failure is a bug.
+            catchReported("goto.vibrate") {
+                vibrator.vibrate(VibrationEffect.createWaveform(OFF_ROUTE_PATTERN, NO_REPEAT))
+            }
         }
     }
 

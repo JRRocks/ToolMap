@@ -1,5 +1,6 @@
 package fr.toolmap.core.print
 
+import fr.toolmap.core.problem.Problems
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -105,9 +106,12 @@ object PrintTemplateCodec {
     fun decode(text: String): PrintTemplate? =
         try {
             json.decodeFromString(PrintTemplate.serializer(), text).sanitized()
-        } catch (_: SerializationException) {
+        } catch (e: SerializationException) {
+            // The app wrote this file itself (maybe another version of it): unreadable, it is a bug or a damaged disk.
+            Problems.report("print.template.decode", e)
             null
-        } catch (_: IllegalArgumentException) {
+        } catch (e: IllegalArgumentException) {
+            Problems.report("print.template.decode", e)
             null
         }
 }

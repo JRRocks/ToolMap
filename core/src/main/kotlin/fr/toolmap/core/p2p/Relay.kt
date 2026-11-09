@@ -1,5 +1,6 @@
 package fr.toolmap.core.p2p
 
+import fr.toolmap.core.problem.Problems
 import kotlinx.serialization.Serializable
 import java.util.Base64
 
@@ -54,7 +55,8 @@ object RelayPaths {
 
     fun memberOf(key: String): Long? =
         if (key.length in 2..MEMBER_KEY_MAX && key[0] == 'm') {
-            runCatching { java.lang.Long.parseUnsignedLong(key.substring(1), HEX_RADIX) }.getOrNull()
+            // A key that is not hexadecimal is not a member's: read as parseUnsignedLong did, without an exception.
+            key.substring(1).toULongOrNull(HEX_RADIX)?.toLong()
         } else {
             null
         }
@@ -141,8 +143,11 @@ object RoomInviteCodec {
                     Base45.decode(t)
                 }
             } catch (e: IllegalArgumentException) {
+                // Text scanned or pasted by the user: never in the context, it may hold a group key.
+                Problems.expected("relay.invite.decode", e, "chars" to t.length)
                 return null
             } catch (e: WireException) {
+                Problems.expected("relay.invite.decode", e, "chars" to t.length)
                 return null
             }
         if (bytes.size < 3 || (bytes[2].toInt() and 0xFF) != VERSION) return null

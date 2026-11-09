@@ -6,6 +6,8 @@ import fr.toolmap.core.backup.BackupManifest
 import fr.toolmap.core.backup.BackupManifestCodec
 import fr.toolmap.core.backup.RestoreReport
 import fr.toolmap.core.backup.RestoreReportCodec
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.data.tiles.MbTilesFile
 import java.io.File
 import java.io.IOException
@@ -69,8 +71,12 @@ object PendingRestore {
     ): RestoreReport? {
         val marker = File(locations.stagingDir, BackupLocations.MARKER)
         if (!locations.stagingDir.exists()) return null
+        // No marker is expected (an unpacking killed half-way); a marker that does not decode is not: the app wrote it
+        // whole (atomicWrite) from a checked manifest.
         val manifest =
-            runCatching { BackupManifestCodec.decode(marker.readText(Charsets.UTF_8)) }.getOrNull()
+            catchExpected("backup.restore.marker", IOException::class) {
+                BackupManifestCodec.decode(marker.readText(Charsets.UTF_8))
+            }.getOrNull()
         if (manifest == null) {
             // An unpacking that never finished (killed half-way): not usable, not to be kept.
             locations.stagingDir.deleteRecursively()
@@ -86,6 +92,7 @@ object PendingRestore {
                     files = manifest.entries.size,
                 )
             } catch (e: IOException) {
+                Problems.expected("backup.restore.apply", e, "files" to manifest.entries.size)
                 RestoreReport(
                     ok = false,
                     atMillis = clock(),
@@ -93,6 +100,7 @@ object PendingRestore {
                     error = e.message,
                 )
             } catch (e: SecurityException) {
+                Problems.expected("backup.restore.apply_denied", e, "files" to manifest.entries.size)
                 RestoreReport(
                     ok = false,
                     atMillis = clock(),
@@ -102,7 +110,9 @@ object PendingRestore {
             }
         locations.stagingDir.deleteRecursively()
         locations.undoDir.deleteRecursively()
-        runCatching { atomicWrite(locations.reportFile, RestoreReportCodec.encode(report)) }
+        catchExpected("backup.restore.report", IOException::class) {
+            atomicWrite(locations.reportFile, RestoreReportCodec.encode(report))
+        }
         return report
     }
 
@@ -180,7 +190,9 @@ object PendingRestore {
         for (file in placed.asReversed()) file.deleteRecursively()
         for (moved in aside.asReversed()) {
             moved.live.deleteRecursively()
-            runCatching { RealRestoreFileOps.move(moved.undo, moved.live) }
+            catchExpected("backup.restore.rollback", IOException::class, SecurityException::class) {
+                RealRestoreFileOps.move(moved.undo, moved.live)
+            }
         }
     }
 }

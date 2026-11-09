@@ -59,6 +59,10 @@ jobs:
             echo "::warning::No publication key in the secrets: the debug APK is signed with the public debug key."
           fi
 
+      # The import of the problem reports into issues (ADR-116), checked without network.
+      - name: Problem import tests
+        run: node --test tools/problems/reports.test.mjs
+
       - name: Style, lint, unit tests, debug APK
         env:
           # Optional: the coordination server built into the APK (repository secrets; empty = none built in).

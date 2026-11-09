@@ -1,6 +1,7 @@
 package fr.toolmap.share
 
 import android.content.Context
+import android.database.sqlite.SQLiteFullException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,6 +15,7 @@ import fr.toolmap.core.p2p.MemberView
 import fr.toolmap.core.p2p.PointDuration
 import fr.toolmap.core.p2p.ShareGeoJson
 import fr.toolmap.core.p2p.ShareSettings
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.core.track.PathStyle
 import fr.toolmap.core.track.TrackPoint
@@ -115,8 +117,14 @@ class ShareViewModel
             openChannel.trySend(Unit)
         }
 
-        /** The GeoJSON of the members for the map, from the current state. */
-        fun mapData(state: ShareUi): ShareMapData {
+        /**
+         * The GeoJSON of the members for the map, from the current state. [itemsGeoJson] is the shared items, kept by
+         * the map while they do not change (`ShareGeoJson.items` decodes every shared track).
+         */
+        fun mapData(
+            state: ShareUi,
+            itemsGeoJson: String = ShareGeoJson.items(state.points, state.members),
+        ): ShareMapData {
             val now = System.currentTimeMillis()
             val sos = state.sos.map { it.memberId }.toSet()
             return ShareMapData(
@@ -129,7 +137,7 @@ class ShareViewModel
                         MemberMarker(MemberLook.imageKey(it.color, it.name, it.picture), it.color, it.name, it.picture)
                     }
                     .distinctBy { it.key },
-                ShareGeoJson.items(state.points, state.members),
+                itemsGeoJson,
             )
         }
 
@@ -201,7 +209,8 @@ class ShareViewModel
                 return
             }
             viewModelScope.launch {
-                runCatching {
+                // A full storage refuses the write; any other failure of the library is a bug.
+                catchExpected("share.trail.save", SQLiteFullException::class) {
                     tracks.createTrack(member.name, listOf(points), PathStyle(colorArgb = member.argb))
                 }.onSuccess {
                     mutableMessages.tryEmit(UiMessage(R.string.share_trail_saved, listOf(member.name)))
@@ -328,8 +337,9 @@ class ShareViewModel
                 var failed = 0
                 for (item in items) {
                     val label = if (items.size == 1) name else item.name
+                    // A waypoint deleted since the list was shown is not found; any other failure is a bug.
                     val sent =
-                        runCatching {
+                        catchExpected("share.mine.send", NoSuchElementException::class) {
                             when (item.kind) {
                                 GroupItemKind.WAYPOINT -> {
                                     val w = tracks.library.first().waypoints.first { it.id == item.id }
@@ -367,7 +377,8 @@ class ShareViewModel
         /** « Garder dans mes waypoints / traces / croquis »: a copy of the share that stays after the group. */
         fun keepShare(point: GroupPoint) {
             viewModelScope.launch {
-                runCatching {
+                // A full storage refuses the write; any other failure of the library is a bug.
+                catchExpected("share.item.keep", SQLiteFullException::class) {
                     when (point.kind) {
                         GroupItemKind.WAYPOINT -> {
                             tracks.createWaypoint(

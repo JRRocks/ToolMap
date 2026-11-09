@@ -3,6 +3,7 @@ package fr.toolmap.multizoom
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.source.DraftIssue
 import fr.toolmap.core.source.MultiZoomDraft
 import fr.toolmap.core.source.TileSource
@@ -189,12 +190,18 @@ class MultiZoomViewModel
                 editor.value = null
                 id
             } catch (e: IOException) {
+                Problems.expected("multizoom.save", e)
                 editor.update { it?.copy(error = e.message ?: e.javaClass.simpleName) }
                 null
             } catch (e: IllegalStateException) {
+                // The file of the map could not be put in place (`SourceRepository.store`).
+                Problems.expected("multizoom.save", e)
                 editor.update { it?.copy(error = e.message ?: e.javaClass.simpleName) }
                 null
             } catch (e: IllegalArgumentException) {
+                // A built-in map refused by the repository, or a band the draft's checks let through (`canSave`): the
+                // editor only saves valid drafts of new or imported maps, so either is a bug.
+                Problems.report("multizoom.save", e, "map" to id, "editing" to (current.editingId != null))
                 editor.update { it?.copy(error = e.message ?: e.javaClass.simpleName) }
                 null
             }

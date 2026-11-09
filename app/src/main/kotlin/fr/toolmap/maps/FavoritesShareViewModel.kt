@@ -10,6 +10,7 @@ import fr.toolmap.R
 import fr.toolmap.core.layers.FavoritesExport
 import fr.toolmap.core.layers.FavoritesFileCodec
 import fr.toolmap.core.layers.Workspace
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.data.sources.SourceRepository
 import fr.toolmap.data.workspaces.WorkspaceStore
@@ -111,6 +112,7 @@ class FavoritesShareViewModel
                         }
                     TrackSharing.share(context, written, title, MIME)
                 } catch (e: IOException) {
+                    Problems.expected("favorites.share.write", e)
                     mutableMessages.tryEmit(UiMessage(R.string.fav_share_failed, listOf(e.message.orEmpty())))
                 }
             }

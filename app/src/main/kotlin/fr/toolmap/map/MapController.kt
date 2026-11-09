@@ -5,7 +5,6 @@ import android.content.Context
 import android.graphics.RectF
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -19,6 +18,8 @@ import fr.toolmap.core.layers.CoverageSpan
 import fr.toolmap.core.layers.StyleDiff
 import fr.toolmap.core.layers.StyleOp
 import fr.toolmap.core.layers.StyleSources
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.core.settings.CourseDisplay
 import fr.toolmap.core.settings.HeadingDisplay
 import fr.toolmap.core.settings.MapCanvasSettings
@@ -259,18 +260,18 @@ class MapController(
                 return
             } catch (e: RuntimeException) {
                 // A half-applied update would leave `applied` wrong: rebuild everything from scratch.
-                Log.e(TAG, "Layer update failed, rebuilding the style", e)
+                Problems.report("map.style.update", e, "layers" to desired.size, "ops" to ops.size)
             }
         }
         StyleApplier.clear(s)
         ghosts.clear()
         applied = emptyList()
         appliedSignatures = emptyMap()
-        runCatching {
+        catchReported("map.style.rebuild") {
             StyleApplier.apply(s, StyleDiff.compute(emptyList(), desired), find, scaling, mapping)
             applied = desired
             appliedSignatures = signatures
-        }.onFailure { Log.e(TAG, "Layer rebuild failed", it) }
+        }
         showCoverage(coverage)
     }
 
@@ -316,18 +317,19 @@ class MapController(
     fun showTracks(data: DisplayData) {
         tracks = data
         val s = style ?: return
-        runCatching {
+        catchReported("map.overlay.tracks") {
             TrackOverlay.setLines(s, data.linesGeoJson)
             TrackOverlay.setPoints(s, data.pointsGeoJson, data.pointIcons) { WaypointGlyphs.render(appContext, it) }
-        }.onFailure { Log.e(TAG, "Track overlay failed", it) }
+        }
     }
 
     /** The marker that follows the elevation profile cursor; `null` removes it. */
     fun showCursor(point: TrackPoint?) {
         cursor = point
         val s = style ?: return
-        runCatching { TrackOverlay.setCursor(s, point?.let { TrackGeoJson.point(it.lat, it.lon) }) }
-            .onFailure { Log.e(TAG, "Cursor overlay failed", it) }
+        catchReported("map.overlay.cursor") {
+            TrackOverlay.setCursor(s, point?.let { TrackGeoJson.point(it.lat, it.lon) })
+        }
     }
 
     /**
@@ -352,7 +354,7 @@ class MapController(
         edit = next
         val s = style ?: return
         if (next == null) {
-            runCatching { EditLayers.show(s, null, null) }.onFailure { Log.e(TAG, "Edit overlay failed", it) }
+            catchReported("map.overlay.edit_clear") { EditLayers.show(s, null, null) }
         } else {
             drawEdit(s, next, keepLine = next.line === before?.line)
         }
@@ -363,10 +365,10 @@ class MapController(
         e: EditShown,
         keepLine: Boolean,
     ) {
-        runCatching {
+        catchReported("map.overlay.edit") {
             TrackOverlay.addGlyphs(s, e.icons) { WaypointGlyphs.render(appContext, it) }
             EditLayers.show(s, e.line, e.handles, e.elastic, keepLine, e.zones)
-        }.onFailure { Log.e(TAG, "Edit overlay failed", it) }
+        }
     }
 
     private class EditShown(
@@ -389,16 +391,16 @@ class MapController(
     ) {
         nav = NavShown(from, target, way, pale)
         val s = style ?: return
-        runCatching { NavLayers.show(s, from, target, placemarks.targetColor, way, pale) }
-            .onFailure { Log.e(TAG, "Target overlay failed", it) }
+        catchReported("map.overlay.target") {
+            NavLayers.show(s, from, target, placemarks.targetColor, way, pale)
+        }
     }
 
     /** The other members of the sharing group and their trails, as GeoJSON; applied as soon as the style exists. */
     fun showShare(data: ShareMapData) {
         share = data
         val s = style ?: return
-        runCatching { ShareLayers.show(appContext, s, data) }
-            .onFailure { Log.e(TAG, "Share overlay failed", it) }
+        catchReported("map.overlay.share") { ShareLayers.show(appContext, s, data) }
     }
 
     /** The measure tool's line, fill and vertices; `null` clears them. */
@@ -414,22 +416,23 @@ class MapController(
                 null
             }
         val s = style ?: return
-        runCatching { MeasureLayers.show(s, lineGeoJson, fillGeoJson, verticesGeoJson) }
-            .onFailure { Log.e(TAG, "Measure overlay failed", it) }
+        catchReported("map.overlay.measure") {
+            MeasureLayers.show(s, lineGeoJson, fillGeoJson, verticesGeoJson)
+        }
     }
 
     /** The saved sketches (P28), as GeoJSON from [fr.toolmap.sketch.SketchLayers.geoJson]. */
     fun showSketches(geoJson: String) {
         sketches = geoJson
         val s = style ?: return
-        runCatching { SketchLayers.show(s, geoJson) }.onFailure { Log.e(TAG, "Sketch overlay failed", it) }
+        catchReported("map.overlay.sketches") { SketchLayers.show(s, geoJson) }
     }
 
     /** The radius circles of the watched waypoints, as GeoJSON; applied as soon as the style exists. */
     fun showWatches(geoJson: String) {
         watches = geoJson
         val s = style ?: return
-        runCatching { AlertLayers.show(s, geoJson) }.onFailure { Log.e(TAG, "Watch overlay failed", it) }
+        catchReported("map.overlay.watches") { AlertLayers.show(s, geoJson) }
     }
 
     /** The coordinate grid as GeoJSON lines, and its names as points; applied as soon as the style exists. */
@@ -439,7 +442,7 @@ class MapController(
     ) {
         grid = geoJson to labelsGeoJson
         val s = style ?: return
-        runCatching { GridLayers.show(s, geoJson, labelsGeoJson) }.onFailure { Log.e(TAG, "Grid overlay failed", it) }
+        catchReported("map.overlay.grid") { GridLayers.show(s, geoJson, labelsGeoJson) }
     }
 
     /** Position under a screen point (pixels in the map view), or `null` before the map is ready. */
@@ -526,17 +529,17 @@ class MapController(
         m: MapLibreMap,
         s: Style,
     ) {
-        runCatching { TrackOverlay.install(s) }.onFailure { Log.e(TAG, "Track overlay install failed", it) }
+        catchReported("map.install.tracks") { TrackOverlay.install(s) }
         TrackOverlay.applyStyle(s, placemarks)
-        runCatching { EditLayers.install(s) }.onFailure { Log.e(TAG, "Edit overlay install failed", it) }
-        runCatching { NavLayers.install(s) }.onFailure { Log.e(TAG, "Target overlay install failed", it) }
-        runCatching { ShareLayers.install(s) }.onFailure { Log.e(TAG, "Share overlay install failed", it) }
+        catchReported("map.install.edit") { EditLayers.install(s) }
+        catchReported("map.install.target") { NavLayers.install(s) }
+        catchReported("map.install.share") { ShareLayers.install(s) }
         ShareLayers.showLabels(s, placemarks.labels)
-        runCatching { SketchLayers.install(s) }.onFailure { Log.e(TAG, "Sketch overlay install failed", it) }
+        catchReported("map.install.sketches") { SketchLayers.install(s) }
         sketches?.let { SketchLayers.show(s, it) }
-        runCatching { MeasureLayers.install(s) }.onFailure { Log.e(TAG, "Measure overlay install failed", it) }
-        runCatching { GridLayers.install(s) }.onFailure { Log.e(TAG, "Grid overlay install failed", it) }
-        runCatching { AlertLayers.install(s) }.onFailure { Log.e(TAG, "Watch overlay install failed", it) }
+        catchReported("map.install.measure") { MeasureLayers.install(s) }
+        catchReported("map.install.grid") { GridLayers.install(s) }
+        catchReported("map.install.watches") { AlertLayers.install(s) }
         tracks?.let(::showTracks)
         showCursor(cursor)
         edit?.let { drawEdit(s, it, keepLine = false) }
@@ -630,9 +633,9 @@ class MapController(
     fun showCoverage(spans: List<CoverageSpan>) {
         coverage = spans
         val s = style ?: return
-        runCatching {
+        catchReported("map.overlay.coverage") {
             StyleApplier.setCoverage(s, spans, findSource, mapping, System.currentTimeMillis())
-        }.onFailure { Log.e(TAG, "Coverage overlay failed", it) }
+        }
     }
 
     fun moveTo(camera: CameraState) {
@@ -894,7 +897,6 @@ class MapController(
             .build()
 
     private companion object {
-        const val TAG = "ToolMap.Map"
         const val MAX_CAMERA_ZOOM = 22.0
         const val MIN_FIT_SPAN = 1e-4
         const val POINT_ZOOM = 15.0

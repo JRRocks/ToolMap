@@ -1,7 +1,9 @@
 package fr.toolmap.core.update
 
+import fr.toolmap.core.problem.catchExpected
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 /*
@@ -56,7 +58,12 @@ object GitHubReleases {
 
     /** The highest Android APK of [body], or `null` when there is none or the text is not a list of releases. */
     fun latestApk(body: String): PublishedApk? {
-        val releases = runCatching { json.decodeFromString<List<Release>>(body) }.getOrNull() ?: return null
+        val releases =
+            catchExpected(
+                "update.releases.decode",
+                SerializationException::class,
+                IllegalArgumentException::class,
+            ) { json.decodeFromString<List<Release>>(body) }.getOrNull() ?: return null
         return releases
             .asSequence()
             .filter { release -> !release.draft && APK_TAGS.any { release.tag.startsWith(it) } }

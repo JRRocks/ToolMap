@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The debug build type is the APK handed to users (CI, ADR-047). Two activities that tooling libraries add to debug
+    builds are exported there, so any app could start them (P36 review):
+    - Compose's PreviewActivity runs any composable named in its extras: removed (previews render in Robolectric).
+    - The empty ComponentActivity of compose-ui-test-manifest hosts the Robolectric Compose tests: kept, not exported.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <activity
+            android:name="androidx.compose.ui.tooling.PreviewActivity"
+            tools:node="remove" />
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:exported="false"
+            tools:replace="android:exported" />
+    </application>
+</manifest>

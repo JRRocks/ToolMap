@@ -1,5 +1,6 @@
 package fr.toolmap.core.layers
 
+import fr.toolmap.core.problem.catchReported
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -258,8 +259,9 @@ object WorkspaceCodec {
 
     fun encode(workspace: Workspace): String = json.encodeToString(Workspace.serializer(), workspace)
 
+    /** `null` for a damaged file: the app wrote it itself, so that is a bug or a damaged disk. */
     fun decodeOrNull(text: String): Workspace? =
-        runCatching {
+        catchReported("layers.workspace.decode") {
             json.decodeFromString(Workspace.serializer(), text)
         }.getOrNull()
 }

@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Looper
 import android.os.SystemClock
 import fr.toolmap.core.eventlog.EventLog
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.record.Fix
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +24,12 @@ interface LocationSource {
         minDistanceMeters: Float,
     ): Flow<Fix>
 }
+
+/**
+ * True for the ways [LocationSource.fixes] is expected to fail: the location permission missing or withdrawn
+ * ([SecurityException]), no GPS receiver on the device ([IllegalArgumentException]). Anything else is a bug.
+ */
+internal fun Throwable.isGpsRefusal(): Boolean = this is SecurityException || this is IllegalArgumentException
 
 /** The platform `LocationManager`, GPS provider only (no Google Play Services, no network positions). */
 class AndroidLocationSource(
@@ -64,12 +71,17 @@ class AndroidLocationSource(
                     override fun onProviderDisabled(provider: String) =
                         EventLog.event("gps.provider", "client" to client, "enabled" to false)
                 }
+            // A missing permission is a refusal of the system; anything else is a bug.
+            val enabled =
+                catchExpected("gps.request.enabled", SecurityException::class) {
+                    manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                }.getOrNull()
             EventLog.event(
                 "gps.request",
                 "client" to client,
                 "intervalMs" to minIntervalMillis,
                 "minM" to minDistanceMeters,
-                "enabled" to runCatching { manager.isProviderEnabled(LocationManager.GPS_PROVIDER) }.getOrNull(),
+                "enabled" to enabled,
             )
             try {
                 manager.requestLocationUpdates(

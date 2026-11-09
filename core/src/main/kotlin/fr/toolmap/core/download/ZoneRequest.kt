@@ -2,6 +2,7 @@ package fr.toolmap.core.download
 
 import fr.toolmap.core.geo.Bounds
 import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.core.tiles.DownloadArea
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -136,7 +137,7 @@ object ZoneJobCodec {
 
     fun encode(job: ZoneJob): String = json.encodeToString(ZoneJob.serializer(), job)
 
-    /** `null` for a damaged file. */
+    /** `null` for a damaged file: the app wrote it itself, so that is a bug or a damaged disk. */
     fun decodeOrNull(text: String): ZoneJob? =
-        runCatching { json.decodeFromString(ZoneJob.serializer(), text) }.getOrNull()
+        catchReported("download.zone_job.decode") { json.decodeFromString(ZoneJob.serializer(), text) }.getOrNull()
 }

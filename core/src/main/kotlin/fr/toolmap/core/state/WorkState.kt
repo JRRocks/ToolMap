@@ -1,6 +1,7 @@
 package fr.toolmap.core.state
 
 import fr.toolmap.core.layers.LayerStack
+import fr.toolmap.core.problem.catchReported
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -57,6 +58,9 @@ object WorkStateCodec {
         if (text.isNullOrBlank()) {
             WorkState()
         } else {
-            runCatching { json.decodeFromString(WorkState.serializer(), text) }.getOrDefault(WorkState())
+            // The app wrote this file itself: a file it cannot read back is a bug or a damaged disk.
+            catchReported("state.work.decode") {
+                json.decodeFromString(WorkState.serializer(), text)
+            }.getOrDefault(WorkState())
         }
 }

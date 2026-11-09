@@ -2,9 +2,11 @@ package fr.toolmap.p2p
 
 import fr.toolmap.core.p2p.GroupPoint
 import fr.toolmap.core.p2p.ShareState
+import fr.toolmap.core.problem.catchExpected
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.IOException
 
 /**
  * The one file keeping the sharing settings and the group key between launches. Written atomically so that a kill in
@@ -14,35 +16,48 @@ class ShareStore(
     private val file: File,
 ) {
     fun read(): ShareState =
-        runCatching { file.takeIf { it.isFile }?.readText(Charsets.UTF_8) }
+        catchExpected("share.store.read", IOException::class) { file.takeIf { it.isFile }?.readText(Charsets.UTF_8) }
             .getOrNull()
             ?.let(ShareState::fromJson)
             ?: ShareState()
 
     private val seqFile = File(file.parentFile, file.name.substringBeforeLast('.') + ".seq")
 
-    /** The last message number kept by [writeSeq], or `null` (P21.5 m). */
-    fun readSeq(): Long? = runCatching { seqFile.readText().trim().toLong() }.getOrNull()
+    /**
+     * The last message number kept by [writeSeq], or `null` (P21.5 m). A missing file is the usual case before the
+     * first [writeSeq]; a file that does not hold a number is damaged, which is reported.
+     */
+    fun readSeq(): Long? =
+        catchExpected("share.store.read_seq", IOException::class) {
+            seqFile.takeIf { it.isFile }?.readText()?.trim()?.toLong()
+        }.getOrNull()
 
     /** Keeps the last message number used, so that the next process starts above it (P21.5 m). */
     fun writeSeq(seq: Long) {
-        runCatching {
-            seqFile.parentFile?.mkdirs()
-            seqFile.writeText(seq.toString())
+        catchExpected("share.store.write_seq", IOException::class) {
+            // Atomic like the others: a process killed while writing must not leave an empty number behind.
+            writeAtomically(seqFile, seq.toString())
         }
     }
 
     private val pointsFile = File(file.parentFile, file.name.substringBeforeLast('.') + ".points.json")
 
-    /** The points of the group kept by [writePoints] (P27.2); none when the file is missing or damaged. */
+    /**
+     * The points of the group kept by [writePoints] (P27.2); none when the file is missing (no point kept) or damaged
+     * (reported).
+     */
     fun readPoints(): List<GroupPoint> =
-        runCatching {
-            POINTS_JSON.decodeFromString(POINTS, pointsFile.readText(Charsets.UTF_8))
+        catchExpected("share.store.read_points", IOException::class) {
+            if (pointsFile.isFile) {
+                POINTS_JSON.decodeFromString(POINTS, pointsFile.readText(Charsets.UTF_8))
+            } else {
+                emptyList()
+            }
         }.getOrDefault(emptyList())
 
     /** Keeps the points of the group, tombstones included, so that a new process gives them to the next links. */
     fun writePoints(points: List<GroupPoint>) {
-        runCatching {
+        catchExpected("share.store.write_points", IOException::class) {
             if (points.isEmpty()) {
                 pointsFile.delete()
             } else {
@@ -55,16 +70,26 @@ class ShareStore(
         writeAtomically(file, state.toJson())
     }
 
+    /**
+     * Writes [target] whole or not at all. Each write has its own temporary file: the controller writes the points from
+     * several threads, and with one shared temporary name a write could rename the other's file or delete the target
+     * (P36 review).
+     */
     private fun writeAtomically(
         target: File,
         text: String,
     ) {
-        target.parentFile?.mkdirs()
-        val temp = File(target.parentFile, target.name + ".tmp")
-        temp.writeText(text, Charsets.UTF_8)
-        if (!temp.renameTo(target)) {
-            target.delete()
-            check(temp.renameTo(target)) { "Cannot write ${target.name}" }
+        val dir = checkNotNull(target.parentFile) { "no folder for ${target.name}" }
+        dir.mkdirs()
+        val temp = File.createTempFile(target.name, ".tmp", dir)
+        try {
+            temp.writeText(text, Charsets.UTF_8)
+            if (!temp.renameTo(target)) {
+                target.delete()
+                check(temp.renameTo(target)) { "Cannot write ${target.name}" }
+            }
+        } finally {
+            if (temp.exists()) temp.delete()
         }
     }
 

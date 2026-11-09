@@ -41,7 +41,8 @@ class ZoomSetTest {
 
     @Test
     fun `rejects invalid specs`() {
-        for (spec in listOf("", "  ", "a", "5-3", "1-2-3", "-1", "31", "1-40")) {
+        // « 0-2000000000 » is refused before its range is built (it used to fill the memory).
+        for (spec in listOf("", "  ", "a", "5-3", "1-2-3", "-1", "31", "1-40", "0-2000000000")) {
             assertFailsWith<IllegalArgumentException>("spec '$spec'") { ZoomSet.parse(spec) }
         }
     }

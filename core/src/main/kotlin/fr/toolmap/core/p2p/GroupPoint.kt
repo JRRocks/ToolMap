@@ -1,6 +1,7 @@
 package fr.toolmap.core.p2p
 
 import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.sketch.SketchStroke
 import kotlinx.serialization.Serializable
 import java.util.Base64
@@ -49,7 +50,10 @@ data class GroupPoint(
         if (kind ==
             GroupItemKind.TRACK
         ) {
-            runCatching { GroupShape.unpackTrack(shapeBytes()) }.getOrDefault(emptyList())
+            // A shape that does not read came from a member: a bad format, or bad Base64 (expected, logged).
+            catchExpected("group.point.track", WireException::class, IllegalArgumentException::class) {
+                GroupShape.unpackTrack(shapeBytes())
+            }.getOrDefault(emptyList())
         } else {
             emptyList()
         }
@@ -59,7 +63,9 @@ data class GroupPoint(
         if (kind ==
             GroupItemKind.SKETCH
         ) {
-            runCatching { GroupShape.unpackSketch(shapeBytes()) }.getOrDefault(emptyList())
+            catchExpected("group.point.sketch", WireException::class, IllegalArgumentException::class) {
+                GroupShape.unpackSketch(shapeBytes())
+            }.getOrDefault(emptyList())
         } else {
             emptyList()
         }
@@ -67,7 +73,9 @@ data class GroupPoint(
     /** The text of the `.toolmap` file of shared favorites (P25.4); `null` for another kind or unreadable bytes. */
     fun favoritesText(): String? =
         if (kind == GroupItemKind.FAVORITES) {
-            runCatching { GroupShape.unpackText(shapeBytes()) }.getOrNull()
+            catchExpected("group.point.favorites", WireException::class, IllegalArgumentException::class) {
+                GroupShape.unpackText(shapeBytes())
+            }.getOrNull()
         } else {
             null
         }

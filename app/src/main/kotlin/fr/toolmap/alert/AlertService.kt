@@ -11,6 +11,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import fr.toolmap.R
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.service.BackgroundNotification
 import fr.toolmap.service.ServiceWakeLock
@@ -65,6 +66,7 @@ class AlertService : Service() {
             )
         } catch (e: SecurityException) {
             // No location permission (revoked, or never granted): no position, so no alert.
+            Problems.expected("alert.service.foreground", e)
             stopSelf()
             return START_NOT_STICKY
         }

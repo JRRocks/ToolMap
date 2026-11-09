@@ -2,10 +2,12 @@ package fr.toolmap.data.download
 
 import fr.toolmap.core.download.ZoneJob
 import fr.toolmap.core.download.ZoneJobCodec
+import fr.toolmap.core.problem.catchExpected
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import java.io.IOException
 
 /** Zone download jobs, one JSON file each in [dir]; survives app restarts so a download can be resumed. */
 class ZoneJobStore(
@@ -52,7 +54,11 @@ class ZoneJobStore(
         dir
             .listFiles { f -> f.isFile && f.name.endsWith(SUFFIX) }
             .orEmpty()
-            .mapNotNull { runCatching { ZoneJobCodec.decodeOrNull(it.readText(Charsets.UTF_8)) }.getOrNull() }
+            .mapNotNull { file ->
+                catchExpected("download.jobs.read", IOException::class) {
+                    ZoneJobCodec.decodeOrNull(file.readText(Charsets.UTF_8))
+                }.getOrNull()
+            }
             .sortedByDescending { order(it) }
 
     private fun order(job: ZoneJob) = job.request.createdAtMillis

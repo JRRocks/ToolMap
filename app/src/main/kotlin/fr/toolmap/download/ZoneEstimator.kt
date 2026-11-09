@@ -1,6 +1,7 @@
 package fr.toolmap.download
 
 import fr.toolmap.core.download.ZoneRequest
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.tiles.TilePlanner
 import fr.toolmap.core.tiles.TooManyTilesException
 import fr.toolmap.data.download.ZoneDownloader
@@ -69,6 +70,8 @@ class ZoneEstimator
                     try {
                         downloader.plan(request, withStored = true)
                     } catch (e: TooManyTilesException) {
+                        // The zone the user drew holds more tiles than a download may ask: the form says so.
+                        Problems.expected("download.estimate.too_many", e)
                         return@withContext ZoneEstimate.TooMany
                     }
                 // The limits apply to the servers really asked (the maps a multi-zoom map shows).

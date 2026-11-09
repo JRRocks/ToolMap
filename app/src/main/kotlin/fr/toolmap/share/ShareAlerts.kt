@@ -1,6 +1,7 @@
 package fr.toolmap.share
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.location.LocationManager
@@ -33,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.location.LocationManagerCompat
 import fr.toolmap.R
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.Button
 import fr.toolmap.ui.theme.TextButton
@@ -158,8 +160,13 @@ fun ShareAlertCards(
                     Text(stringResource(alert.text), style = MaterialTheme.typography.bodySmall)
                     Button(
                         onClick = {
+                            // A phone may lack a settings screen: the next, more general one is tried.
                             settingsFor(alert, context).firstOrNull { intent ->
-                                runCatching { launcher.launch(intent) }.isSuccess
+                                catchExpected(
+                                    "share.alert.settings",
+                                    ActivityNotFoundException::class,
+                                    SecurityException::class,
+                                ) { launcher.launch(intent) }.isSuccess
                             }
                         },
                         colors =

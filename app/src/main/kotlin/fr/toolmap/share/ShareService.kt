@@ -1,6 +1,7 @@
 package fr.toolmap.share
 
 import android.Manifest
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -19,6 +20,8 @@ import fr.toolmap.MainActivity
 import fr.toolmap.R
 import fr.toolmap.core.eventlog.EventLog
 import fr.toolmap.core.p2p.MemberStatus
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.service.BackgroundNotification
 import fr.toolmap.service.ServiceWakeLock
 import kotlinx.coroutines.CoroutineScope
@@ -135,6 +138,7 @@ class ShareService : Service() {
                 "error" to "SecurityException",
                 "why" to e.message,
             )
+            Problems.expected("share.service.foreground", e, "share" to share)
             false
         } catch (e: IllegalStateException) {
             EventLog.event(
@@ -143,6 +147,13 @@ class ShareService : Service() {
                 "error" to e.javaClass.simpleName,
                 "why" to e.message,
             )
+            // ForegroundServiceStartNotAllowedException (Android 12+) is a refusal of the system; any other one (a
+            // foreground type missing from the manifest) is a bug.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e is ForegroundServiceStartNotAllowedException) {
+                Problems.expected("share.service.foreground_refused", e, "share" to share)
+            } else {
+                Problems.report("share.service.foreground_state", e, "share" to share)
+            }
             false
         }
     }
@@ -334,7 +345,7 @@ class ShareService : Service() {
          * was updated. Returns whether Android let the service start.
          */
         fun listen(context: Context): Boolean =
-            runCatching {
+            catchExpected("share.listen", IllegalStateException::class, SecurityException::class) {
                 ContextCompat.startForegroundService(
                     context,
                     Intent(context, ShareService::class.java).setAction(ACTION_LISTEN),
@@ -379,14 +390,15 @@ class ShareService : Service() {
                     PackageManager.PERMISSION_GRANTED
             EventLog.event("share.resume", "permitted" to permitted)
             if (!permitted) return false
-            return runCatching { start(context) }
-                .onFailure {
-                    EventLog.event(
-                        "share.resume.refused",
-                        "error" to it.javaClass.simpleName,
-                        "why" to it.message,
-                    )
-                }
+            return catchExpected("share.resume", IllegalStateException::class, SecurityException::class) {
+                start(context)
+            }.onFailure {
+                EventLog.event(
+                    "share.resume.refused",
+                    "error" to it.javaClass.simpleName,
+                    "why" to it.message,
+                )
+            }
                 .isSuccess
         }
 

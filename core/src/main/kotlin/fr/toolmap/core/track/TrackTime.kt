@@ -1,5 +1,6 @@
 package fr.toolmap.core.track
 
+import fr.toolmap.core.problem.Problems
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
@@ -14,18 +15,26 @@ object TrackTime {
         if (value.isEmpty()) return null
         return try {
             Instant.parse(value).toEpochMilli()
-        } catch (_: DateTimeParseException) {
-            parseWithOffset(value)
+        } catch (e: DateTimeParseException) {
+            // Not an instant in UTC: the next forms are tried, and this failure is kept in case none fits.
+            parseWithOffset(value, e)
         }
     }
 
-    private fun parseWithOffset(value: String): Long? =
+    private fun parseWithOffset(
+        value: String,
+        notInstant: DateTimeParseException,
+    ): Long? =
         try {
             OffsetDateTime.parse(value).toInstant().toEpochMilli()
-        } catch (_: DateTimeParseException) {
+        } catch (e: DateTimeParseException) {
             try {
                 LocalDateTime.parse(value).toInstant(ZoneOffset.UTC).toEpochMilli()
-            } catch (_: DateTimeParseException) {
+            } catch (notLocal: DateTimeParseException) {
+                // The file's time is no date-time at all: the point keeps no time. The log says why each form failed.
+                notLocal.addSuppressed(notInstant)
+                notLocal.addSuppressed(e)
+                Problems.expected("track.time.parse", notLocal)
                 null
             }
         }

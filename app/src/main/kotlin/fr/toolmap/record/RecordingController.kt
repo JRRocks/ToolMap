@@ -1,5 +1,8 @@
 package fr.toolmap.record
 
+import android.database.sqlite.SQLiteFullException
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.record.Fix
 import fr.toolmap.core.record.FixDecision
 import fr.toolmap.core.record.LiveStats
@@ -27,6 +30,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.IOException
 
 /** What the recording panel and the notification show. */
 data class RecordingUi(
@@ -250,7 +254,15 @@ class RecordingController(
             scope.launch {
                 location
                     .fixes(settings.minIntervalMillis, 0f)
-                    .catch { mutableState.value = mutableState.value.copy(gpsUnavailable = true) }
+                    .catch { e ->
+                        // No permission or no GPS receiver: expected; anything else is a bug.
+                        if (e.isGpsRefusal()) {
+                            Problems.expected("record.gps", e)
+                        } else {
+                            Problems.report("record.gps", e)
+                        }
+                        mutableState.value = mutableState.value.copy(gpsUnavailable = true)
+                    }
                     .collect { fix -> mutex.withLock { handle(fix) } }
             }
         ticker =
@@ -311,7 +323,12 @@ class RecordingController(
             if (mutableState.value.saveFailing) mutableState.value = mutableState.value.copy(saveFailing = false)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: SQLiteFullException) {
+            // The phone's storage is full: the points wait in memory until there is room.
+            Problems.expected("record.points.write", e, "points" to batch.size, "newSegment" to newSegment)
+            mutableState.value = mutableState.value.copy(saveFailing = true)
         } catch (e: Exception) {
+            Problems.report("record.points.write", e, "points" to batch.size, "newSegment" to newSegment)
             mutableState.value = mutableState.value.copy(saveFailing = true)
         }
     }
@@ -339,7 +356,8 @@ class RecordingController(
     private fun writeSession() {
         val id = trackId ?: return
         val now = clock()
-        runCatching {
+        // A full or failing storage is expected; anything else (the rename refused) is a bug.
+        catchExpected("record.session.write", IOException::class) {
             store.write(
                 RecordingSession(
                     trackId = id,

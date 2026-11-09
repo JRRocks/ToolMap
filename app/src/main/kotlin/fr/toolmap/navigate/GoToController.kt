@@ -3,6 +3,7 @@ package fr.toolmap.navigate
 import fr.toolmap.core.geo.Guidance
 import fr.toolmap.core.geo.NavTarget
 import fr.toolmap.core.geo.Navigation
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.record.Fix
 import fr.toolmap.core.route.GoTo
 import fr.toolmap.core.route.GoToProgress
@@ -16,6 +17,7 @@ import fr.toolmap.core.route.RoutingProfiles
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.record.LocationSource
+import fr.toolmap.record.isGpsRefusal
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -210,7 +212,11 @@ class GoToController(
                 scope.launch {
                     location
                         .fixes(UPDATE_MILLIS, 0f)
-                        .catch { mutableUi.update { it.copy(gpsFailed = true) } }
+                        .catch { e ->
+                            // No permission or no GPS receiver: expected; anything else is a bug.
+                            if (e.isGpsRefusal()) Problems.expected("goto.gps", e) else Problems.report("goto.gps", e)
+                            mutableUi.update { it.copy(gpsFailed = true) }
+                        }
                         .collect { onFix(it) }
                 }
         } else {
@@ -274,6 +280,8 @@ class GoToController(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
+                        // The engine gives its expected failures as LegResult.Failed: what it throws is a bug.
+                        Problems.report("goto.route", e, "profile" to profile)
                         LegResult.Failed(RoutingError.OTHER, e.toString())
                     }
                 val done = clock()

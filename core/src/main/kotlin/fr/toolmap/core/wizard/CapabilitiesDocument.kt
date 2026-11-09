@@ -1,5 +1,6 @@
 package fr.toolmap.core.wizard
 
+import fr.toolmap.core.problem.catchExpected
 import org.xml.sax.Attributes
 
 /** Which OGC tile service a capabilities document describes. */
@@ -64,7 +65,8 @@ object CapabilitiesReader {
                     if ((name == "ExceptionText" || name == "ServiceException") && text.isNotEmpty()) texts += text
                 }
             }
-        runCatching { OgcXml.parse(bytes, handler) }
+        // The texts read before a broken part of the report are kept: they are all the user will be told.
+        catchExpected("wizard.capabilities.error_report", CapabilitiesException::class) { OgcXml.parse(bytes, handler) }
         return texts.joinToString(" / ").ifEmpty { "The server answered with an error report" }.take(MAX_ERROR_TEXT)
     }
 

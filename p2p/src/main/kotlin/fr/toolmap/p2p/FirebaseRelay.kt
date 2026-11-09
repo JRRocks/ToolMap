@@ -13,6 +13,9 @@ import fr.toolmap.core.p2p.RelayTransportFactory
 import fr.toolmap.core.p2p.ServerState
 import fr.toolmap.core.p2p.TransportIdentity
 import fr.toolmap.core.p2p.Wire
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
+import fr.toolmap.core.problem.catchReported
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -29,6 +32,7 @@ import java.io.File
 import java.io.IOException
 import java.util.Base64
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -325,11 +329,19 @@ class FirebaseRelay(
         val stream = streamThread
         val me = identity?.memberId
         Thread({
-            runCatching { response?.close() }
+            catchExpected("relay.close.stream", IOException::class) { response?.close() }
             stream?.interrupt()
-            writer.execute { if (me != null) runCatching { db.delete("rooms/$room/b/${RelayPaths.member(me)}") } }
+            writer.execute {
+                if (me != null) {
+                    // Offline, the node stays: the others drop the member when its heartbeat stops.
+                    catchExpected("relay.close.delete", IOException::class) {
+                        db.delete("rooms/$room/b/${RelayPaths.member(me)}")
+                    }
+                }
+            }
             writer.shutdown()
-            runCatching { writer.awaitTermination(CLOSE_WAIT_S, TimeUnit.SECONDS) }
+            // Nothing else knows this thread: an interrupt here would be a bug.
+            catchReported("relay.close.wait") { writer.awaitTermination(CLOSE_WAIT_S, TimeUnit.SECONDS) }
             // The pools are the relay's own: nothing else will use these connections.
             clients.pool.evictAll()
             retiredPool?.evictAll()
@@ -390,6 +402,7 @@ class FirebaseRelay(
         try {
             write()
         } catch (e: FirebaseRefused) {
+            Problems.expected("relay.kept.refused", e)
             EventLog.event("relay.kept.refused", "why" to e.message)
         }
     }
@@ -403,6 +416,8 @@ class FirebaseRelay(
             try {
                 waitWhileOff()
             } catch (e: InterruptedException) {
+                // close() interrupts this thread to stop it: the normal end. Any other interrupt is not expected.
+                if (!closed.get()) Problems.report("relay.connect.wait", e)
                 return
             }
             if (closed.get()) return
@@ -430,9 +445,17 @@ class FirebaseRelay(
                 planned = reopening.getAndSet(false)
                 if (!planned) writesOk = false
             } catch (e: InterruptedException) {
+                if (!closed.get()) Problems.report("relay.connect.stream", e)
                 return
+            } catch (e: BadEvent) {
+                if (closed.get()) return
+                Problems.expected("relay.stream.event", e.error)
+                ended = e.error
+                writesOk = false
             } catch (e: RuntimeException) {
                 if (closed.get()) return
+                // Anything else comes from the code that handles the events (room, presence, group): a bug.
+                Problems.report("relay.stream.fail", e)
                 ended = e
                 writesOk = false
             }
@@ -450,6 +473,7 @@ class FirebaseRelay(
                 try {
                     pause(backoffS * MS_PER_S)
                 } catch (e: InterruptedException) {
+                    if (!closed.get()) Problems.report("relay.connect.pause", e)
                     return
                 }
             EventLog.event("relay.retry", "waitedS" to backoffS, "kicked" to kicked)
@@ -625,9 +649,15 @@ class FirebaseRelay(
         EventLog.detail("relay.sse", "event" to event, "bytes" to data.length)
         when (event) {
             "put", "patch" -> {
-                val body = Json.parseToJsonElement(data).jsonObject
-                val path = body["path"]?.jsonPrimitive?.content ?: return
-                val payload = body["data"] ?: JsonNull
+                val (path, payload) =
+                    try {
+                        val body = Json.parseToJsonElement(data).jsonObject
+                        body["path"]?.jsonPrimitive?.content to (body["data"] ?: JsonNull)
+                    } catch (e: IllegalArgumentException) {
+                        // Not JSON (a SerializationException) or not the object expected: the server's data, not a bug.
+                        throw BadEvent(e)
+                    }
+                if (path == null) return
                 if (event == "put") {
                     state.put(path, payload)
                 } else if (payload is JsonObject) {
@@ -647,6 +677,14 @@ class FirebaseRelay(
             }
         }
     }
+
+    /**
+     * An event of the stream that is not the `{path, data}` object expected; [error] is the parser's. Kept apart from
+     * the other failures of the stream, which come from the code that handles the events.
+     */
+    private class BadEvent(
+        val error: IllegalArgumentException,
+    ) : RuntimeException(error)
 
     private fun publishState() {
         val next =
@@ -881,8 +919,9 @@ class FirebaseRelay(
     ) {
         if (closed.get()) return
         queuedWrites.incrementAndGet()
+        // Refused when close() has just shut the writer down: the write is dropped, as every write after it.
         val queued =
-            runCatching {
+            catchExpected("relay.write.queue", RejectedExecutionException::class) {
                 writer.execute {
                     queuedWrites.decrementAndGet()
                     try {
@@ -895,13 +934,21 @@ class FirebaseRelay(
                         }
                         reopenIfTokenRenewed()
                     } catch (e: FirebaseRefused) {
+                        Problems.expected("relay.write.refused", e)
                         refused = true
                         publishState()
                     } catch (e: IOException) {
+                        Problems.expected("relay.write.io", e)
+                        writesOk = false
+                        publishState()
+                    } catch (e: IllegalArgumentException) {
+                        // A malformed answer (not JSON, not the object expected) must not stop the writer.
+                        Problems.expected("relay.write.answer", e)
                         writesOk = false
                         publishState()
                     } catch (e: RuntimeException) {
-                        // A malformed answer must not stop the writer.
+                        // Anything else is a bug, which must not stop the writer either.
+                        Problems.report("relay.write.task", e)
                         writesOk = false
                         publishState()
                     }
@@ -962,7 +1009,8 @@ class FirebaseRelay(
         try {
             block()
         } catch (e: RuntimeException) {
-            // A failing periodic task must not stop the others.
+            // A failing periodic task is a bug, and must not stop the others.
+            Problems.report("relay.timer.task", e)
         }
     }
 
@@ -1037,12 +1085,12 @@ class FileAuthStore(
     private val file: File,
 ) : AuthStore {
     override fun read(): String? =
-        runCatching {
+        catchExpected("fb.auth.store.read", IOException::class) {
             file.takeIf { it.isFile }?.readText()?.trim()?.ifEmpty { null }
         }.getOrNull()
 
     override fun write(refreshToken: String?) {
-        runCatching {
+        catchExpected("fb.auth.store.write", IOException::class) {
             if (refreshToken == null) {
                 file.delete()
             } else {

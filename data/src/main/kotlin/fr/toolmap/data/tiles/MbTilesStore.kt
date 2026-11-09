@@ -1,6 +1,7 @@
 package fr.toolmap.data.tiles
 
 import android.database.sqlite.SQLiteException
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.source.LevelDef
 import fr.toolmap.core.source.StorageKeys
 import fr.toolmap.core.source.TileSource
@@ -165,7 +166,9 @@ class MbTilesStore(
 
     // The real id is in the metadata (file names are sanitized); the plain file name is the fallback.
     private fun sourceIdOf(file: File): String =
-        runCatching { MbTilesFile.open(file).use { it.metadata()["toolmap-source-id"] } }.getOrNull()
+        catchExpected("tiles.store.source_id", SQLiteException::class) {
+            MbTilesFile.open(file).use { it.metadata()["toolmap-source-id"] }
+        }.getOrNull()
             ?: file.name.removeSuffix(EXTENSION)
 
     private fun metadataOf(

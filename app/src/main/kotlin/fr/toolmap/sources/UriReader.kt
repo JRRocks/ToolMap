@@ -3,6 +3,7 @@ package fr.toolmap.sources
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import fr.toolmap.core.problem.catchExpected
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 
@@ -62,7 +63,13 @@ object UriReader {
         uri: Uri,
     ): Boolean {
         if (displayName(context, uri)?.endsWith(MBTILES_EXTENSION, ignoreCase = true) == true) return true
-        return runCatching {
+        // A document the user picked: it may be gone or refused by its provider, then it is not taken as MBTiles.
+        return catchExpected(
+            "sources.uri.header",
+            IOException::class,
+            SecurityException::class,
+            IllegalArgumentException::class,
+        ) {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 val head = ByteArray(SQLITE_HEADER.size)
                 var filled = 0
@@ -76,11 +83,17 @@ object UriReader {
         }.getOrNull() == true
     }
 
+    // The provider of a document the user picked may refuse the query or not know the column: the path stands in.
     private fun displayName(
         context: Context,
         uri: Uri,
     ): String? =
-        runCatching {
+        catchExpected(
+            "sources.uri.name",
+            SecurityException::class,
+            IllegalArgumentException::class,
+            UnsupportedOperationException::class,
+        ) {
             context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) cursor.getString(0) else null
             }

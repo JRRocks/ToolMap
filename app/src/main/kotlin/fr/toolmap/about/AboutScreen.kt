@@ -52,6 +52,7 @@ import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.core.AppInfo
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.map.MenuIcons
 import fr.toolmap.maps.MapsIcons
 import fr.toolmap.settings.SettingsIcons
@@ -352,6 +353,8 @@ private fun Paragraphs(vararg resIds: Int) {
 private fun versionName(context: Context): String =
     try {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
-    } catch (_: PackageManager.NameNotFoundException) {
+    } catch (e: PackageManager.NameNotFoundException) {
+        // The app's own package always exists: not finding it is a bug.
+        Problems.report("about.version", e)
         "?"
     }

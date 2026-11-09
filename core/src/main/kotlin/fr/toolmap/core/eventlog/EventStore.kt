@@ -1,5 +1,7 @@
 package fr.toolmap.core.eventlog
 
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import java.io.BufferedWriter
 import java.io.Closeable
 import java.io.File
@@ -106,6 +108,7 @@ class EventStore(
                 }
             } catch (e: IOException) {
                 // A file being rotated: what was read is still good.
+                Problems.expected("eventlog.store.read", e, "file" to file.name)
             }
         }
         if (fromFiles.isNotEmpty()) return fromFiles.map { it.second }
@@ -155,11 +158,11 @@ class EventStore(
                     STOP -> stop = true
                 }
             }
-            runCatching { out?.flush() }
+            catchExpected("eventlog.store.flush", IOException::class) { out?.flush() }
             latches.forEach { it.countDown() }
             if (stop) break
         }
-        runCatching { out?.close() }
+        catchExpected("eventlog.store.close", IOException::class) { out?.close() }
         out = null
     }
 
@@ -175,7 +178,8 @@ class EventStore(
             written += bytes
         } catch (e: IOException) {
             // Disk full or folder gone: the line stays in memory only.
-            runCatching { out?.close() }
+            Problems.expected("eventlog.store.write", e)
+            catchExpected("eventlog.store.write_close", IOException::class) { out?.close() }
             out = null
         }
     }
@@ -187,7 +191,7 @@ class EventStore(
     }
 
     private fun rotate() {
-        runCatching { out?.close() }
+        catchExpected("eventlog.store.rotate_close", IOException::class) { out?.close() }
         out = null
         previous.delete()
         if (!current.renameTo(previous)) current.delete()
@@ -196,11 +200,17 @@ class EventStore(
 
     private fun readOrMakeEpoch(): String {
         val file = File(dir, EPOCH)
-        val known = runCatching { file.readText().trim() }.getOrNull()
+        // No file yet is the first launch, not a failure: only a file that cannot be read is one.
+        val known =
+            if (file.isFile) {
+                catchExpected("eventlog.epoch.read", IOException::class) { file.readText().trim() }.getOrNull()
+            } else {
+                null
+            }
         if (!known.isNullOrEmpty()) return known
         val bytes = ByteArray(EPOCH_BYTES).also { SecureRandom().nextBytes(it) }
         val made = bytes.joinToString("") { "%02x".format(it.toInt() and 0xFF) }
-        runCatching { file.writeText(made) }
+        catchExpected("eventlog.epoch.write", IOException::class) { file.writeText(made) }
         return made
     }
 
@@ -209,7 +219,7 @@ class EventStore(
         for (file in listOf(current, previous)) {
             if (!file.isFile || file.length() == 0L) continue
             val tail =
-                runCatching {
+                catchExpected("eventlog.store.tail", IOException::class) {
                     RandomAccessFile(file, "r").use { raf ->
                         val size = raf.length()
                         val from = (size - TAIL_BYTES).coerceAtLeast(0)

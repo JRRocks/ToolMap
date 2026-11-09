@@ -4,6 +4,7 @@ import fr.toolmap.core.aqx.AqxParseException
 import fr.toolmap.core.aqx.AqxParser
 import fr.toolmap.core.aqx.AqxWarning
 import fr.toolmap.core.aqx.AqxWriter
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.source.BuiltinSources
 import fr.toolmap.core.source.DuplicateInfo
 import fr.toolmap.core.source.SourceDuplicates
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.io.File
+import java.io.IOException
 
 /** What to do when an imported source has the id of one already present. */
 enum class DuplicatePolicy {
@@ -86,7 +88,10 @@ class SourceRepository(
 
     fun isImported(id: String): Boolean = state.value.imported.any { it.id == id }
 
-    /** Reads the files of the storage directory (damaged files are skipped, never fatal). */
+    /**
+     * Reads the files of the storage directory (damaged files are skipped, never fatal). The app wrote them with
+     * [AqxWriter] from sources it had parsed: one it cannot parse back is a bug (or a damaged file) and is reported.
+     */
     fun reload() {
         val loaded =
             dir
@@ -94,7 +99,7 @@ class SourceRepository(
                 .orEmpty()
                 .sortedBy { it.name }
                 .flatMap { file ->
-                    runCatching {
+                    catchExpected("sources.store.read", IOException::class) {
                         AqxParser.parse(file.readText(Charsets.UTF_8)).file.sources
                     }.getOrDefault(emptyList())
                 }.filter { it.id !in builtinIds }

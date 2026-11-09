@@ -1,6 +1,7 @@
 package fr.toolmap.di
 
 import android.content.Context
+import android.database.sqlite.SQLiteFullException
 import android.util.Log
 import dagger.Module
 import dagger.Provides
@@ -8,6 +9,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import fr.toolmap.BuildConfig
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.data.sources.SourceRepository
 import fr.toolmap.data.state.WorkStateStore
@@ -58,7 +60,14 @@ object TileModule {
         return MbTilesStore(
             directory,
             sources,
-            onError = { e -> Log.w("MbTilesStore", "Tile storage failed", e) },
+            // A full disk, or a file released while a tile was asked: expected. Any other storage failure is a bug.
+            onError = { e ->
+                if (e is SQLiteFullException || e is IllegalStateException) {
+                    Problems.expected("tiles.store", e)
+                } else {
+                    Problems.report("tiles.store", e)
+                }
+            },
             available = { TileStorages.isUsable(context, directory) },
         )
     }

@@ -2,6 +2,17 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "reports": {
+      ".read": "auth != null && auth.token.email === 'reports@toolmap.invalid' && auth.token.firebase.sign_in_provider === 'password'",
+      "$id": {
+        ".write": "auth != null && ((!data.exists() && newData.exists()) || (!newData.exists() && auth.token.email === 'reports@toolmap.invalid' && auth.token.firebase.sign_in_provider === 'password'))",
+        ".validate": "$id.matches(/^[0-9a-f]{16}-[0-9a-z]{10}$/) && newData.hasChildren(['v', 'j', 't'])",
+        "v": { ".validate": "newData.isNumber() && newData.val() === 1" },
+        "j": { ".validate": "newData.isString() && newData.val().length <= 16000" },
+        "t": { ".validate": "newData.isNumber() && newData.val() === now" },
+        "$x": { ".validate": false }
+      }
+    },
     "rooms": {
       "$room": {
         ".read": "auth != null && $room.matches(/^[0-9a-f]{32}$/)",

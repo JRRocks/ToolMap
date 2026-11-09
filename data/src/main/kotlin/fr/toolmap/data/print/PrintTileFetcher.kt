@@ -1,5 +1,6 @@
 package fr.toolmap.data.print
 
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.tiles.ScalingPolicy
 import fr.toolmap.core.tiles.TileId
@@ -130,7 +131,8 @@ class HttpPrintTileFetcher(
                     }
                 }
             }
-        } catch (_: IOException) {
+        } catch (e: IOException) {
+            Problems.expected("print.tile.fetch", e, "source" to source.id, "z" to tile.z, "x" to tile.x, "y" to tile.y)
             TileFetch.Unavailable
         }
     }

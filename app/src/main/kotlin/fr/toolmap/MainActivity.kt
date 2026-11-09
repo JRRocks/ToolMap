@@ -54,6 +54,7 @@ import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.layers.FavoritesExport
 import fr.toolmap.core.layers.FavoritesFileCodec
 import fr.toolmap.core.maps.OnlineCatalog
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.settings.ThemeMode
 import fr.toolmap.core.track.NameDates
 import fr.toolmap.core.track.TrackImporter
@@ -785,8 +786,11 @@ class MainActivity : ComponentActivity() {
 
     /** "Open with" / "Share" of an `.aqx` map definition or of a GPX, KML, KMZ or GeoJSON file from another app. */
     private fun handleIntent(intent: Intent?) {
-        // The fixed starting points of the measure scripts (tools/perf): debug and benchmark builds only.
-        if (BuildConfig.PERF_LOG) PerfIntent.handle(intent, viewModel, zoneQueue)
+        // The fixed starting points of the measure scripts (tools/perf): benchmark build only, and only from an explicit
+        // launch (`am start -n … --es`), never from a link a browser or a message opens.
+        if (BuildConfig.PERF_INTENT && intent?.hasCategory(Intent.CATEGORY_BROWSABLE) != true && intent?.data == null) {
+            PerfIntent.handle(intent, viewModel, zoneQueue)
+        }
         val data = intent?.data
         EventLog.event("app.intent", "action" to intent?.action, "scheme" to data?.scheme)
         if (intent?.action == Intent.ACTION_VIEW && data?.scheme == PAIR_SCHEME) {
@@ -814,8 +818,28 @@ class MainActivity : ComponentActivity() {
         uri: Uri,
         tracksOnly: Boolean,
     ) {
+        val read =
+            try {
+                UriReader.readBytes(this, uri, TrackImporter.MAX_BYTES)
+            } catch (e: java.io.IOException) {
+                Problems.expected("import.uri.read", e)
+                return reportReadError(e, tracksOnly)
+            } catch (e: SecurityException) {
+                Problems.expected("import.uri.read", e)
+                return reportReadError(e, tracksOnly)
+            } catch (e: IllegalArgumentException) {
+                // Another app's provider may refuse its own address in other ways than an IOException: before P36,
+                // any app could stop ToolMap this way by sending it a file. Now the usual read error.
+                Problems.expected("import.uri.read", e)
+                return reportReadError(e, tracksOnly)
+            } catch (e: IllegalStateException) {
+                Problems.expected("import.uri.read", e)
+                return reportReadError(e, tracksOnly)
+            } catch (e: UnsupportedOperationException) {
+                Problems.expected("import.uri.read", e)
+                return reportReadError(e, tracksOnly)
+            }
         try {
-            val read = UriReader.readBytes(this, uri, TrackImporter.MAX_BYTES)
             // Before the tracks: a `.toolmap` file is JSON, which they would take for GeoJSON.
             val favorites =
                 read.bytes
@@ -840,8 +864,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } catch (e: java.io.IOException) {
+            Problems.expected("import.read", e)
             reportReadError(e, tracksOnly)
         } catch (e: SecurityException) {
+            Problems.expected("import.read", e)
             reportReadError(e, tracksOnly)
         }
     }

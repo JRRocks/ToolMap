@@ -1,5 +1,6 @@
 package fr.toolmap.core.backup
 
+import fr.toolmap.core.problem.Problems
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -280,11 +281,14 @@ object RestoreReportCodec {
         if (text.isNullOrBlank()) {
             null
         } else {
+            // The app wrote this file itself: a file it cannot read back is a bug or a damaged disk.
             try {
                 json.decodeFromString(RestoreReport.serializer(), text)
-            } catch (_: SerializationException) {
+            } catch (e: SerializationException) {
+                Problems.report("backup.restore_report.decode", e)
                 null
-            } catch (_: IllegalArgumentException) {
+            } catch (e: IllegalArgumentException) {
+                Problems.report("backup.restore_report.decode", e)
                 null
             }
         }

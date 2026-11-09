@@ -2,6 +2,7 @@ package fr.toolmap.data.download
 
 import fr.toolmap.core.download.ZoneProgress
 import fr.toolmap.core.download.ZoneRequest
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.tiles.DownloadArea
 import fr.toolmap.core.tiles.ScalingPolicy
@@ -21,7 +22,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
@@ -168,7 +171,9 @@ class ZoneDownloader(
             try {
                 store.peek(storageId)
             } catch (e: IllegalStateException) {
-                null // the tile folder is not available: nothing can be counted as stored
+                // The tile folder is not available: nothing can be counted as stored.
+                Problems.expected("download.plan.stored", e, "storage" to storageId, "zoom" to zoom)
+                null
             } ?: return 0L
         return TilePlanner.countStored(
             area,
@@ -208,6 +213,7 @@ class ZoneDownloader(
                 // Counting the stored tiles costs reads: only done when a limited server could refuse the zone.
                 plan(request).let { counted -> if (restrictedIn(counted) == null) counted else plan(request, true) }
             } catch (e: TooManyTilesException) {
+                Problems.expected("download.zone.too_many", e, "sources" to request.sourceIds.size)
                 return ZoneResult.Refused(RefusalReason.TOO_MANY_TILES, e.message.orEmpty())
             }
         restrictedIn(plan)?.let {
@@ -227,6 +233,8 @@ class ZoneDownloader(
                 download(member, zooms, counters) { zooms.asSequence().flatMap { TilePlanner.tiles(area, it..it) } }
             }
         } catch (e: ZoneInterrupted) {
+            // Too many tiles failed in a row (network down, server refusing): the zone can be resumed later.
+            Problems.expected("download.zone.interrupted", e, "failed" to counters.failed.get())
             counters.report(force = true)
             return ZoneResult.Interrupted(counters.snapshot(), e.message.orEmpty())
         } catch (e: CancellationException) {
@@ -292,6 +300,7 @@ class ZoneDownloader(
                 download(resolved.getValue(id), tiles.map { it.z }.toSet(), counters) { tiles.asSequence() }
             }
         } catch (e: ZoneInterrupted) {
+            Problems.expected("download.tiles.interrupted", e, "failed" to counters.failed.get())
             counters.report(force = true)
             return ZoneResult.Interrupted(counters.snapshot(), e.message.orEmpty())
         } catch (e: CancellationException) {
@@ -397,6 +406,17 @@ class ZoneDownloader(
                 }
             } catch (e: IOException) {
                 if (call.isCanceled()) throw CancellationException("download cancelled")
+                // The network or the server failed this tile: tried again, then counted as failed. A pause interrupts
+                // the blocking call too, which is no failure to log.
+                if (currentCoroutineContext().isActive) {
+                    Problems.expected(
+                        "download.tile.fetch",
+                        e,
+                        "source" to source.id,
+                        "zoom" to tile.z,
+                        "attempt" to attempt,
+                    )
+                }
                 lastError = e.message ?: e.javaClass.simpleName
             }
         }

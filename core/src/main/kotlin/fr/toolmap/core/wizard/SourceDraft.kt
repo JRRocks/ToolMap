@@ -1,6 +1,7 @@
 package fr.toolmap.core.wizard
 
 import fr.toolmap.core.geo.LonLatZoom
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.source.LevelDef
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.source.ZoomSet
@@ -94,7 +95,12 @@ data class SourceDraft(
         return good to bad
     }
 
-    val zoomSet: ZoomSet? get() = runCatching { ZoomSet.parse(zoomSpec) }.getOrNull()
+    /** The zoom levels of [zoomSpec] (text the user types), or `null` while they are not a valid set. */
+    val zoomSet: ZoomSet?
+        get() =
+            catchExpected("wizard.draft.zoom", IllegalArgumentException::class) {
+                ZoomSet.parse(zoomSpec)
+            }.getOrNull()
 
     fun validate(): List<DraftIssue> {
         val issues = LinkedHashSet<DraftIssue>()

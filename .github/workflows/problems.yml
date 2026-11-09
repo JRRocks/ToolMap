@@ -1,0 +1,35 @@
+name: Problems
+
+# Turns the problem reports sent by the app (crashes, ANRs, unexpected errors) into GitHub issues, one per fingerprint
+# (ADR-116, docs/specs/problems.md). Scheduled workflows run from the default branch only.
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: problems
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the import
+        run: node --test tools/problems/reports.test.mjs
+
+      # Without the secrets (docs/specs/problems.md § 5), the script says so and stops without failing.
+      - name: Import the reports
+        env:
+          FIREBASE_DB_URL: ${{ secrets.TOOLMAP_FIREBASE_DB_URL }}
+          FIREBASE_API_KEY: ${{ secrets.TOOLMAP_FIREBASE_API_KEY }}
+          REPORTS_PASSWORD: ${{ secrets.TOOLMAP_REPORTS_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/problems/import-reports.mjs

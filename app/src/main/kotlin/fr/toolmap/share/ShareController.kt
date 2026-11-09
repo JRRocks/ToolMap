@@ -33,10 +33,13 @@ import fr.toolmap.core.p2p.ShareState
 import fr.toolmap.core.p2p.TransportFactory
 import fr.toolmap.core.p2p.TransportIdentity
 import fr.toolmap.core.p2p.WireException
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.record.Fix
 import fr.toolmap.core.sketch.SketchStroke
 import fr.toolmap.p2p.ShareStore
 import fr.toolmap.record.LocationSource
+import fr.toolmap.record.isGpsRefusal
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -49,6 +52,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.IOException
 import java.util.Base64
 
 /** What the user can be told went wrong with a code or a group. */
@@ -530,6 +534,8 @@ class ShareController(
             try {
                 RoomInviteCodec.parseOrNull(text)
             } catch (e: WireException) {
+                // Text scanned or pasted by the user: never put it in the context, it may hold a group key.
+                Problems.expected("share.code.room", e, "chars" to text.length)
                 return problem(ShareProblem.BAD_CODE)
             }
         EventLog.event("share.code", "room" to (room != null), "chars" to text.length)
@@ -538,6 +544,7 @@ class ShareController(
             try {
                 PairingCodec.parse(text)
             } catch (e: WireException) {
+                Problems.expected("share.code.pairing", e, "chars" to text.length)
                 return problem(ShareProblem.BAD_CODE)
             }
         val nowSec = clockMs() / MS_PER_S
@@ -678,6 +685,12 @@ class ShareController(
                     .fixes(settings.intervalSec * MS_PER_S, 0f)
                     .catch { e ->
                         EventLog.event("share.gps.error", "error" to e.javaClass.simpleName, "why" to e.message)
+                        // No GPS on the device or the permission withdrawn: expected; anything else is a bug.
+                        if (e.isGpsRefusal()) {
+                            Problems.expected("share.gps.fixes", e)
+                        } else {
+                            Problems.report("share.gps.fixes", e)
+                        }
                         gps = null
                         mutableState.update { s -> s.copy(sharing = false, gpsUnavailable = true) }
                         node?.setSharing(false)
@@ -962,7 +975,8 @@ class ShareController(
     private fun codeOf(p: PairingPayload) =
         ShareCode(PairingCodec.toQrText(p), PairingCodec.toLink(p), p.createdAtSec + PairingCodec.MAX_AGE_SEC)
 
-    private fun save() = runCatching { store.write(ShareState(settings, group)) }
+    private fun save() =
+        catchExpected("share.store.write", IOException::class) { store.write(ShareState(settings, group)) }
 
     private fun startNode(g: GroupRecord) {
         val server = g.server

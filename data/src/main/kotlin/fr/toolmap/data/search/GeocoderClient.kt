@@ -1,6 +1,7 @@
 package fr.toolmap.data.search
 
 import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.search.GeocodeParsers
 import fr.toolmap.core.search.SearchMerge
 import fr.toolmap.core.search.SearchResult
@@ -191,6 +192,8 @@ class GeocoderClient(
                 }
             }
         } catch (e: IOException) {
+            // The query stays out of the log: it is what the user typed.
+            Problems.expected("search.geocode.fetch", e, "source" to source)
             Answer(emptyList(), ProviderFailure(source, GeocodeFailure.NETWORK))
         }
     }

@@ -9,6 +9,8 @@ import fr.toolmap.core.backup.BackupManifestCodec
 import fr.toolmap.core.backup.BackupPaths
 import fr.toolmap.core.backup.RestoreReport
 import fr.toolmap.core.backup.RestoreReportCodec
+import fr.toolmap.core.backup.SqliteHeader
+import fr.toolmap.core.problem.catchExpected
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -162,6 +164,7 @@ class BackupService(
                     throw BackupException(BackupFailure.NO_SPACE, "Not enough free space")
                 }
                 unpack(zip, full, manifest, progress)
+                checkDatabase(manifest)
                 atomicWrite(File(locations.stagingDir, BackupLocations.MARKER), BackupManifestCodec.encode(manifest))
                 staged = true
                 manifest
@@ -173,22 +176,53 @@ class BackupService(
             }
         }
 
-    /** The restore waiting for the next start, if there is one. */
-    fun pending(): BackupManifest? =
-        runCatching {
-            BackupManifestCodec.decode(File(locations.stagingDir, BackupLocations.MARKER).readText(Charsets.UTF_8))
+    /**
+     * The restore waiting for the next start, if there is one. No marker is the usual case, not a failure; a marker
+     * that does not decode is a bug or a corruption: the app wrote it whole ([atomicWrite]) from a checked manifest.
+     */
+    fun pending(): BackupManifest? {
+        val marker = File(locations.stagingDir, BackupLocations.MARKER)
+        if (!marker.isFile) return null
+        return catchExpected("backup.pending.read", IOException::class) {
+            BackupManifestCodec.decode(marker.readText(Charsets.UTF_8))
         }.getOrNull()
+    }
 
     fun discardPending() {
         locations.stagingDir.deleteRecursively()
     }
 
     /** How the last restore went, until [clearReport]. */
-    fun report(): RestoreReport? =
-        RestoreReportCodec.decodeOrNull(runCatching { locations.reportFile.readText(Charsets.UTF_8) }.getOrNull())
+    fun report(): RestoreReport? {
+        val file = locations.reportFile
+        // No report is the usual case, not a failure.
+        if (!file.isFile) return null
+        val text = catchExpected("backup.report.read", IOException::class) { file.readText(Charsets.UTF_8) }
+        return RestoreReportCodec.decodeOrNull(text.getOrNull())
+    }
 
     fun clearReport() {
         locations.reportFile.delete()
+    }
+
+    /**
+     * The staged database must be one Room can open: an SQLite file of a schema this app knows (P36 review). A backup
+     * made by a later ToolMap, or a crafted one, would otherwise replace the phone's database and crash every start.
+     */
+    private fun checkDatabase(manifest: BackupManifest) {
+        if (manifest.entries.none { it.path == BackupPaths.DATABASE_FILE }) return
+        val file = File(File(locations.stagingDir, BackupLocations.PAYLOAD), BackupPaths.DATABASE_FILE)
+        val header = ByteArray(SqliteHeader.SIZE)
+        var read = 0
+        file.inputStream().use { input ->
+            while (read < header.size) {
+                val n = input.read(header, read, header.size - read)
+                if (n < 0) break
+                read += n
+            }
+        }
+        val refusal = hooks.databaseRefusal(header.copyOf(read)) ?: return
+        throw BackupException(refusal, "${BackupPaths.DATABASE_FILE} cannot be opened by this version")
     }
 
     /** Without its card the folder is empty: an archive would then silently leave the offline maps out. */

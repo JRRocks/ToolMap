@@ -1,5 +1,6 @@
 package fr.toolmap.print
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -79,6 +80,7 @@ import fr.toolmap.core.print.PrintPlan
 import fr.toolmap.core.print.PrintTemplate
 import fr.toolmap.core.print.PrintTexts
 import fr.toolmap.core.print.PrintWarning
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.download.formatBytes
 import fr.toolmap.draw.RouteIcons
 import fr.toolmap.map.ToolPanel
@@ -1039,7 +1041,8 @@ private fun openPdf(
         Intent(Intent.ACTION_VIEW)
             .setDataAndType(uri, "application/pdf")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-    runCatching { context.startActivity(intent) }
+    // No PDF reader on the phone: nothing opens, the PDF is saved all the same.
+    catchExpected("print.pdf.open", ActivityNotFoundException::class) { context.startActivity(intent) }
 }
 
 private fun sharePdf(
@@ -1051,7 +1054,7 @@ private fun sharePdf(
             .setType("application/pdf")
             .putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    runCatching {
+    catchExpected("print.pdf.share", ActivityNotFoundException::class) {
         context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }

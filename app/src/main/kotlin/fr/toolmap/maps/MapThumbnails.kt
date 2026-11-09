@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import fr.toolmap.core.geo.LonLatZoom
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.tiles.TileMath
 import fr.toolmap.data.sources.SourceRepository
@@ -14,6 +15,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -43,7 +45,10 @@ class MapThumbnails
             val failed = failedAt[sourceId]
             if (failed != null && System.currentTimeMillis() - failed < RETRY_AFTER_MS) return null
             val source = repository.find(sourceId) ?: return null
-            val bitmap = withContext(Dispatchers.IO) { runCatching { fetch(source) }.getOrNull() }
+            val bitmap =
+                withContext(Dispatchers.IO) {
+                    catchExpected("maps.thumbnail.fetch", IOException::class) { fetch(source) }.getOrNull()
+                }
             if (bitmap == null) {
                 failedAt[sourceId] = System.currentTimeMillis()
             } else {
@@ -73,7 +78,11 @@ class MapThumbnails
             val place = around ?: return null
             val source = repository.find(sourceId)?.takeIf { it.isSupported } ?: return null
             val zoom = place.zoom.coerceIn(source.minZoom, source.maxZoom)
-            return withContext(Dispatchers.IO) { runCatching { tile(source, place.lon, place.lat, zoom) }.getOrNull() }
+            return withContext(Dispatchers.IO) {
+                catchExpected("maps.thumbnail.here", IOException::class) {
+                    tile(source, place.lon, place.lat, zoom)
+                }.getOrNull()
+            }
         }
 
         private fun tile(

@@ -1,6 +1,7 @@
 package fr.toolmap.crash
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -21,6 +22,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import fr.toolmap.MainActivity
 import fr.toolmap.R
+import fr.toolmap.core.problem.catchExpected
 
 /**
  * The crash report screen. It runs in its own process (`:crash`, see the manifest) because the app's process is dead
@@ -113,7 +115,10 @@ class CrashActivity : Activity() {
                 .setType("text/plain")
                 .putExtra(Intent.EXTRA_SUBJECT, getString(R.string.crash_subject))
                 .putExtra(Intent.EXTRA_TEXT, report)
-        runCatching { startActivity(Intent.createChooser(send, getString(R.string.crash_share))) }
+        // The report screen's process has no sink of its own: a failure is printed to logcat (« System.err »).
+        catchExpected("crash.share", ActivityNotFoundException::class) {
+            startActivity(Intent.createChooser(send, getString(R.string.crash_share)))
+        }
     }
 
     private fun restart() {

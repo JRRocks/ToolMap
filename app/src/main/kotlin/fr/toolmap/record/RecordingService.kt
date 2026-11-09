@@ -5,12 +5,15 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.database.sqlite.SQLiteFullException
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import fr.toolmap.R
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.record.RecorderProfile
 import fr.toolmap.core.record.RecorderState
 import fr.toolmap.core.track.TrackFormat
@@ -65,6 +68,7 @@ class RecordingService : Service() {
             )
         } catch (e: SecurityException) {
             // No location permission (revoked, or never granted): nothing can be recorded.
+            Problems.expected("record.service.foreground", e)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -74,7 +78,8 @@ class RecordingService : Service() {
                 ACTION_START -> {
                     val name = intent.getStringExtra(EXTRA_NAME)
                     val profile = RecorderProfile.fromName(intent.getStringExtra(EXTRA_PROFILE))
-                    runCatching { controller.start(name, profile) }
+                    // A full storage is expected; anything else (a start while recording) is a bug.
+                    catchExpected("record.start", SQLiteFullException::class) { controller.start(name, profile) }
                 }
 
                 ACTION_PAUSE -> {

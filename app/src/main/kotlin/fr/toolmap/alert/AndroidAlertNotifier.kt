@@ -15,6 +15,8 @@ import androidx.core.content.ContextCompat
 import fr.toolmap.MainActivity
 import fr.toolmap.R
 import fr.toolmap.core.alert.AlertEvent
+import fr.toolmap.core.problem.catchExpected
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.ui.Formats
 
@@ -81,8 +83,9 @@ class AndroidAlertNotifier(
         }
     }
 
+    /** A sound the app may not read (a file on the phone's storage) is a refusal of the system; else a bug. */
     private fun sound() {
-        runCatching {
+        catchExpected("alert.sound", SecurityException::class) {
             RingtoneManager.getRingtone(
                 context,
                 RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
@@ -134,10 +137,14 @@ class AndroidAlertServiceControl(
     private val context: Context,
 ) : AlertServiceControl {
     override fun start() {
-        runCatching { AlertService.start(context) }
+        // ForegroundServiceStartNotAllowedException (Android 12+) is an IllegalStateException.
+        catchExpected("alert.service.start", IllegalStateException::class, SecurityException::class) {
+            AlertService.start(context)
+        }
     }
 
     override fun stop() {
-        runCatching { context.stopService(Intent(context, AlertService::class.java)) }
+        // Stopping the app's own service is not refused: a failure is a bug.
+        catchReported("alert.service.stop") { context.stopService(Intent(context, AlertService::class.java)) }
     }
 }

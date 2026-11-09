@@ -1,6 +1,7 @@
 package fr.toolmap.p2p
 
 import fr.toolmap.core.p2p.RelayPaths
+import fr.toolmap.core.problem.catchExpected
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -192,5 +193,8 @@ internal class RoomState(
         }
     }
 
-    private fun decode(f: String): ByteArray? = runCatching { Base64.getDecoder().decode(f) }.getOrNull()
+    /** The frame [f] carries in Base64; another device wrote it, so a bad one is that device's data, not a bug here. */
+    private fun decode(f: String): ByteArray? =
+        catchExpected("relay.room.decode", IllegalArgumentException::class) { Base64.getDecoder().decode(f) }
+            .getOrNull()
 }

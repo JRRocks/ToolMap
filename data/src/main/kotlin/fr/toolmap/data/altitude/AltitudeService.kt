@@ -7,6 +7,7 @@ import fr.toolmap.core.altitude.BaroConfig
 import fr.toolmap.core.altitude.BarometricAltimeter
 import fr.toolmap.core.altitude.ReferenceResult
 import fr.toolmap.core.altitude.ReferenceSource
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.record.Fix
 import fr.toolmap.core.settings.AltitudeMode
 import fr.toolmap.core.settings.AppSettings
@@ -252,7 +253,9 @@ class AltitudeService(
                 terrain.at(lat, lon)
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                // The tile source and the decoder already answer null for what they expect (offline, bad tile).
+                Problems.report("altitude.terrain.lookup", e)
                 null
             }
         val now = clock()

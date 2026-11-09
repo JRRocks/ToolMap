@@ -1,6 +1,7 @@
 package fr.toolmap.core.p2p
 
 import fr.toolmap.core.eventlog.EventLog
+import fr.toolmap.core.problem.Problems
 import java.security.SecureRandom
 
 /** One open connection to a neighbour; the WebRTC one in the app, a simulated one in the tests. */
@@ -284,7 +285,7 @@ class MeshNode(
             negotiating.remove(peer)
         }
 
-    /** A frame came in from the neighbour [peer]. Frames that do not decrypt or parse are dropped silently. */
+    /** A frame came in from the neighbour [peer]. Frames that do not decrypt or parse are dropped and logged. */
     fun onFrame(
         peer: Long,
         bytes: ByteArray,
@@ -302,6 +303,7 @@ class MeshNode(
                     "fid" to Wire.frameId(bytes),
                     "why" to e.message,
                 )
+                Problems.expected("mesh.frame.decode", e, "peer" to hex(peer), "bytes" to bytes.size)
                 return@locked
             }
         EventLog.detail(
@@ -659,6 +661,7 @@ class MeshNode(
             try {
                 PairingCodec.decodeBytes(msg.payload)
             } catch (e: WireException) {
+                Problems.expected("mesh.signal.decode", e, "from" to hex(msg.from))
                 return
             }
         if (!payload.groupId.contentEquals(groupId) || payload.memberId != msg.from) return
@@ -807,6 +810,7 @@ class MeshNode(
                 Wire.decode(bytes, crypto).msg
             } catch (e: WireException) {
                 EventLog.event("mesh.kept.bad", "bytes" to bytes.size, "why" to e.message)
+                Problems.expected("mesh.kept.decode", e, "bytes" to bytes.size)
                 return@locked
             }
         if (msg !is Msg.Point || msg.memberId in removed) return@locked

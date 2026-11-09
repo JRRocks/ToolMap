@@ -13,6 +13,9 @@ import fr.toolmap.core.p2p.Sdp
 import fr.toolmap.core.p2p.TransportFactory
 import fr.toolmap.core.p2p.TransportIdentity
 import fr.toolmap.core.p2p.WireException
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
+import fr.toolmap.core.problem.catchReported
 import org.webrtc.DataChannel
 import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
@@ -23,6 +26,7 @@ import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -154,7 +158,7 @@ class WebRtcLinks(
         val all = synchronized(lock) { (negotiating.values + open.values).toList() }
         all.forEach { closeLink(it) }
         exec.execute {
-            runCatching { factory.dispose() }
+            catchReported("rtc.dispose.factory") { factory.dispose() }
             exec.shutdown()
         }
     }
@@ -219,6 +223,8 @@ class WebRtcLinks(
             try {
                 Sdp.parse(description)
             } catch (e: WireException) {
+                // Our own description, written by libwebrtc: a field our parser does not find is a bug on our side.
+                Problems.report("rtc.sdp.parse", e, "kind" to kind)
                 return null
             }
         if (info.candidates.isEmpty()) return null
@@ -326,6 +332,7 @@ class WebRtcLinks(
             try {
                 factory.createPeerConnection(config, peerObserver(link))
             } catch (e: Exception) {
+                Problems.report("rtc.link.create", e)
                 null
             } ?: return null
         link.pc = pc
@@ -370,17 +377,18 @@ class WebRtcLinks(
                 }
             }
         if (notify && link.opened && wasRegistered) listener.onLinkClosed(link.peer)
-        // Disposing from a WebRTC callback thread can deadlock: always do it on our own thread.
-        runCatching {
+        // Disposing from a WebRTC callback thread can deadlock: always do it on our own thread. A link that closes
+        // after [close] finds that thread shut down, which refuses the work.
+        catchExpected("rtc.dispose.queue", RejectedExecutionException::class) {
             exec.execute {
-                runCatching { link.ctrl?.unregisterObserver() }
-                runCatching { link.pos?.unregisterObserver() }
-                runCatching { link.ctrl?.close() }
-                runCatching { link.pos?.close() }
-                runCatching { link.pc?.close() }
-                runCatching { link.ctrl?.dispose() }
-                runCatching { link.pos?.dispose() }
-                runCatching { link.pc?.dispose() }
+                catchReported("rtc.dispose.ctrl_observer") { link.ctrl?.unregisterObserver() }
+                catchReported("rtc.dispose.pos_observer") { link.pos?.unregisterObserver() }
+                catchReported("rtc.dispose.ctrl_close") { link.ctrl?.close() }
+                catchReported("rtc.dispose.pos_close") { link.pos?.close() }
+                catchReported("rtc.dispose.pc_close") { link.pc?.close() }
+                catchReported("rtc.dispose.ctrl") { link.ctrl?.dispose() }
+                catchReported("rtc.dispose.pos") { link.pos?.dispose() }
+                catchReported("rtc.dispose.pc") { link.pc?.dispose() }
             }
         }
     }

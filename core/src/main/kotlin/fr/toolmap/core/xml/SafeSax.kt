@@ -1,5 +1,6 @@
 package fr.toolmap.core.xml
 
+import fr.toolmap.core.problem.catchExpected
 import org.xml.sax.InputSource
 import org.xml.sax.SAXException
 import org.xml.sax.helpers.DefaultHandler
@@ -8,6 +9,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.SequenceInputStream
 import java.io.StringReader
+import javax.xml.parsers.ParserConfigurationException
 import javax.xml.parsers.SAXParserFactory
 
 /** The document is not usable XML, or is one we refuse to read. */
@@ -46,9 +48,29 @@ object SafeSax {
             val stream = SequenceInputStream(ByteArrayInputStream(prepared), input)
             val factory = SAXParserFactory.newInstance()
             factory.isNamespaceAware = true
-            runCatching { factory.setFeature("http://xml.org/sax/features/external-general-entities", false) }
-            runCatching { factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
-            runCatching { factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false) }
+            // Not every parser knows every feature (Android's does not know the Apache one): the DOCTYPE check
+            // above and the entity resolver below guard the read without them.
+            catchExpected(
+                "xml.sax.feature_general_entities",
+                SAXException::class,
+                ParserConfigurationException::class,
+            ) {
+                factory.setFeature("http://xml.org/sax/features/external-general-entities", false)
+            }
+            catchExpected(
+                "xml.sax.feature_parameter_entities",
+                SAXException::class,
+                ParserConfigurationException::class,
+            ) {
+                factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+            }
+            catchExpected(
+                "xml.sax.feature_external_dtd",
+                SAXException::class,
+                ParserConfigurationException::class,
+            ) {
+                factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            }
             val reader = factory.newSAXParser().xmlReader
             reader.contentHandler = handler
             // Never fetch anything the document points at.

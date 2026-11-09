@@ -2,6 +2,7 @@ package fr.toolmap.ui
 
 import android.Manifest
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -24,6 +25,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import fr.toolmap.R
 import fr.toolmap.core.eventlog.EventLog
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.service.BackgroundNotification
 import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.TextButton
@@ -118,7 +120,8 @@ private fun openSettings(
         } else {
             Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
         }
-    runCatching {
+    // Some phones have no such settings screen: nothing opens.
+    catchExpected("notification.settings.open", ActivityNotFoundException::class) {
         context.startActivity(
             intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )

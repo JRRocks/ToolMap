@@ -55,6 +55,7 @@ import fr.toolmap.core.p2p.MemberPalette
 import fr.toolmap.core.p2p.MemberStatus
 import fr.toolmap.core.p2p.MemberView
 import fr.toolmap.core.p2p.PeerState
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.core.track.TrackFormat
 import fr.toolmap.map.ActionTile
 import fr.toolmap.map.ActionTiles
@@ -73,7 +74,8 @@ fun QrImage(
     text: String,
     modifier: Modifier = Modifier,
 ) {
-    val matrix: QrMatrix? = remember(text) { runCatching { QrCodes.encode(text) }.getOrNull() }
+    // The text is a code of the app, sized for a QR code: failing to encode it is a bug.
+    val matrix: QrMatrix? = remember(text) { catchReported("share.qr.encode") { QrCodes.encode(text) }.getOrNull() }
     if (matrix == null) {
         Text(stringResource(R.string.share_qr_failed), color = MaterialTheme.colorScheme.error, modifier = modifier)
         return

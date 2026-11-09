@@ -2,10 +2,12 @@ package fr.toolmap.data.alert
 
 import fr.toolmap.core.alert.AlertState
 import fr.toolmap.core.alert.AlertStateCodec
+import fr.toolmap.core.problem.catchExpected
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import java.io.IOException
 
 /**
  * What the alerts watch (followed line, watched waypoints) in one JSON file, replaced atomically. A missing or damaged
@@ -32,7 +34,10 @@ class AlertStateStore(
         flow.value = AlertStateCodec.decodeOrEmpty(readOrNull())
     }
 
-    private fun readOrNull(): String? = runCatching { file.readText(Charsets.UTF_8) }.getOrNull()
+    /** The file's text; `null` when there is none yet (nothing watched) or it cannot be read (logged). */
+    private fun readOrNull(): String? =
+        catchExpected("alert.store.read", IOException::class) { file.takeIf { it.isFile }?.readText(Charsets.UTF_8) }
+            .getOrNull()
 
     private fun write(state: AlertState) {
         file.parentFile?.mkdirs()

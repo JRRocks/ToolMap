@@ -21,7 +21,12 @@ import fr.toolmap.core.crash.ExitSelection
 import fr.toolmap.core.crash.NativeCrash
 import fr.toolmap.core.crash.ProcessExit
 import fr.toolmap.core.eventlog.EventLog
+import fr.toolmap.core.problem.ProblemReport
+import fr.toolmap.core.problem.catchExpected
+import fr.toolmap.core.problem.catchReported
+import fr.toolmap.problem.AppProblems
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.concurrent.thread
@@ -55,6 +60,9 @@ object CrashReporter {
     private const val MAX_CAUSES = 32
     private const val EVENT_FLUSH_MS = 500L
 
+    /** The past exits sent to GitHub at the next start; Java crashes are queued as they happen. */
+    private val QUEUED_REASONS = setOf(ApplicationExitInfo.REASON_CRASH_NATIVE, ApplicationExitInfo.REASON_ANR)
+
     /** True in the process of the report screen, which must not set up (nor report) anything itself. */
     fun isCrashProcess(context: Context): Boolean = processName(context).endsWith(CRASH_PROCESS_SUFFIX)
 
@@ -82,7 +90,7 @@ object CrashReporter {
             thread: Thread,
             error: Throwable,
         ) {
-            runCatching {
+            catchReported("crash.eventlog") {
                 EventLog.event(
                     "app.crash",
                     "thread" to thread.name,
@@ -91,19 +99,21 @@ object CrashReporter {
                 )
                 EventLog.flush(EVENT_FLUSH_MS)
             }
-            val saved = runCatching { recordJavaCrash(context, thread, error) }.isSuccess
+            // The report for GitHub (ADR-116), written at once: the report screen below may fail to start.
+            catchReported("crash.queue") { AppProblems.recordCrash(thread, error, System.currentTimeMillis()) }
+            val saved = catchReported("crash.save") { recordJavaCrash(context, thread, error) }.isSuccess
             if (!saved) {
                 // Nothing to show: let the platform do what it usually does.
                 previous?.uncaughtException(thread, error)
                 return
             }
-            runCatching {
+            catchReported("crash.screen") {
                 context.startActivity(
                     CrashActivity
                         .intent(context)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
                 )
-            }.onFailure { Log.e(TAG, "Could not open the crash report", it) }
+            }
             exit()
         }
     }
@@ -132,17 +142,21 @@ object CrashReporter {
         )
     }
 
-    /** Looks for a native crash of the previous runs (Android 11+) and turns the latest new one into a report. */
+    /**
+     * Looks for native crashes and ANRs of the previous runs (Android 11+): each new one is queued for GitHub
+     * (ADR-116), and the latest new native crash becomes the report shown at start-up.
+     */
     fun collectNativeCrash(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
-        runCatching { collectNativeCrashSince30(context) }.onFailure { Log.w(TAG, "Could not read the past exits", it) }
+        catchReported("crash.exits") { collectNativeCrashSince30(context) }
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
     private fun collectNativeCrashSince30(context: Context) {
         val manager = context.getSystemService(ActivityManager::class.java)
+        val records = manager.getHistoricalProcessExitReasons(context.packageName, 0, MAX_EXITS)
         val exits =
-            manager.getHistoricalProcessExitReasons(context.packageName, 0, MAX_EXITS).map {
+            records.map {
                 ProcessExit(it.timestamp, it.reason == ApplicationExitInfo.REASON_CRASH_NATIVE, it.processName, it)
             }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -151,8 +165,17 @@ object CrashReporter {
         val crash = ExitSelection.nativeCrashToReport(exits, context.packageName, installed, checked)
         // Written at once: the start-up that follows may crash again before an asynchronous write.
         prefs.edit(commit = true) { putLong(KEY_EXITS_CHECKED_UP_TO, ExitSelection.checkedUpTo(exits, checked)) }
+        // A trace can be read once: each new one is read here, for GitHub and for the report screen.
+        val fresh =
+            records.filter {
+                it.processName == context.packageName &&
+                    it.timestamp > maxOf(installed, checked) &&
+                    it.reason in QUEUED_REASONS
+            }
+        val traces = fresh.associateWith { readTrace(it) }
+        for (record in fresh) queueForGitHub(record, traces[record])
         val info = crash?.source ?: return
-        val tombstone = runCatching { info.traceInputStream?.use { it.readAtMost(MAX_TRACE_BYTES) } }.getOrNull()
+        val tombstone = traces[info] ?: readTrace(info)
         save(
             context,
             CrashReport(
@@ -196,22 +219,25 @@ object CrashReporter {
         val last =
             listOf(File(directory, PENDING), File(directory, LAST))
                 .firstOrNull { it.exists() }
-                ?.let { runCatching { it.readText() }.getOrNull() }
+                ?.let { catchExpected("crash.report.read", IOException::class) { it.readText() }.getOrNull() }
         return ErrorReport.text(device(context), System.currentTimeMillis(), last, logTail())
     }
 
     fun device(context: Context): CrashDevice {
         val packageManager = context.packageManager
-        val info = runCatching { packageManager.getPackageInfo(context.packageName, 0) }.getOrNull()
+        val info =
+            catchExpected("crash.device.package", PackageManager.NameNotFoundException::class) {
+                packageManager.getPackageInfo(context.packageName, 0)
+            }.getOrNull()
         val version = info?.let { "${it.versionName} (${PackageInfoCompat.getLongVersionCode(it)})" } ?: "?"
         val glEs =
-            runCatching {
+            catchReported("crash.device.gles") {
                 NativeCrash.glEsVersion(
                     context.getSystemService(ActivityManager::class.java).deviceConfigurationInfo.reqGlEsVersion,
                 )
             }.getOrDefault("?")
         val vulkan =
-            runCatching {
+            catchReported("crash.device.vulkan") {
                 packageManager.systemAvailableFeatures
                     .firstOrNull { it.name == PackageManager.FEATURE_VULKAN_HARDWARE_VERSION }
                     ?.let { NativeCrash.vulkanVersion(it.version) }
@@ -226,6 +252,39 @@ object CrashReporter {
             glEsVersion = glEs,
             vulkanVersion = vulkan,
         )
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun readTrace(info: ApplicationExitInfo): ByteArray? =
+        catchExpected("crash.trace.read", IOException::class) {
+            info.traceInputStream?.use { it.readAtMost(MAX_TRACE_BYTES) }
+        }.getOrNull()
+
+    /** Queues a native crash or an ANR of a previous run for GitHub (ADR-116). */
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun queueForGitHub(
+        info: ApplicationExitInfo,
+        trace: ByteArray?,
+    ) {
+        when (info.reason) {
+            ApplicationExitInfo.REASON_CRASH_NATIVE -> {
+                AppProblems.record { device ->
+                    ProblemReport.nativeCrash(
+                        headline = NativeCrash.signal(info.status) + (info.description?.let { " - $it" } ?: ""),
+                        tombstone = trace?.let { NativeCrash.printableStrings(it) },
+                        process = info.processName,
+                        device = device,
+                        atMs = info.timestamp,
+                    )
+                }
+            }
+
+            ApplicationExitInfo.REASON_ANR -> {
+                AppProblems.record { device ->
+                    ProblemReport.anr(trace?.toString(Charsets.UTF_8), info.description, device, info.timestamp)
+                }
+            }
+        }
     }
 
     private fun pendingFile(context: Context) = File(File(context.filesDir, DIR), PENDING)
@@ -249,7 +308,7 @@ object CrashReporter {
      * before the crash, including the lines of the previous process after a native crash.
      */
     private fun logTail(): String? =
-        runCatching {
+        catchExpected("crash.logcat", IOException::class, SecurityException::class) {
             val process =
                 ProcessBuilder("logcat", "-d", "-v", "threadtime", "-t", LOG_LINES.toString())
                     .redirectErrorStream(true)
@@ -257,7 +316,9 @@ object CrashReporter {
             val lines = ConcurrentLinkedQueue<String>()
             val reader =
                 thread(isDaemon = true, name = "crash-log") {
-                    runCatching { process.inputStream.bufferedReader().useLines { all -> all.forEach(lines::add) } }
+                    catchExpected("crash.logcat.read", IOException::class) {
+                        process.inputStream.bufferedReader().useLines { all -> all.forEach(lines::add) }
+                    }
                 }
             reader.join(LOG_TIMEOUT_MS)
             process.destroy()
@@ -269,7 +330,9 @@ object CrashReporter {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 Application.getProcessName()
             } else {
-                runCatching { File("/proc/self/cmdline").readText().substringBefore('\u0000').trim() }.getOrNull()
+                catchExpected("crash.process.name", IOException::class) {
+                    File("/proc/self/cmdline").readText().substringBefore('\u0000').trim()
+                }.getOrNull()
             }
         return name?.takeIf { it.isNotEmpty() } ?: context.packageName
     }

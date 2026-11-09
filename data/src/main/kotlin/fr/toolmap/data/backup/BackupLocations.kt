@@ -1,7 +1,10 @@
 package fr.toolmap.data.backup
 
 import fr.toolmap.core.backup.BackupArea
+import fr.toolmap.core.backup.BackupFailure
 import fr.toolmap.core.backup.BackupPaths
+import fr.toolmap.core.backup.SqliteHeader
+import fr.toolmap.data.tracks.TrackDatabase
 import java.io.File
 
 /**
@@ -117,4 +120,9 @@ class BackupHooks(
     val freezeDatabase: (copy: () -> Unit) -> Unit,
     /** Folds the write-ahead log of every offline map into its file so that the file can be copied alone. */
     val checkpointTiles: () -> Unit,
+    /**
+     * Why a staged database must not be restored, from its first [SqliteHeader.SIZE] bytes (`null`: it may be): by
+     * default, not SQLite or a schema newer than this app's (P36 review). Tests with fake contents pass `{ null }`.
+     */
+    val databaseRefusal: (header: ByteArray) -> BackupFailure? = { SqliteHeader.refusal(it, TrackDatabase.VERSION) },
 )

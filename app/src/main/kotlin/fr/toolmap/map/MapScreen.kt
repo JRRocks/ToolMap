@@ -2,6 +2,7 @@ package fr.toolmap.map
 
 import android.Manifest
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -14,6 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -100,6 +102,7 @@ import fr.toolmap.core.alert.AlertGeoJson
 import fr.toolmap.core.altitude.AltitudeSource
 import fr.toolmap.core.download.ZoneShape
 import fr.toolmap.core.geo.Bounds
+import fr.toolmap.core.geo.GridFigureLine
 import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.geo.LonLatZoom
 import fr.toolmap.core.geo.NavTarget
@@ -109,15 +112,20 @@ import fr.toolmap.core.geo.ScreenGrid
 import fr.toolmap.core.geo.ScreenGridPlan
 import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.layers.CoverageSpans
+import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.layers.StackToStyle
 import fr.toolmap.core.p2p.GroupItemKind
 import fr.toolmap.core.p2p.MemberStatus
 import fr.toolmap.core.p2p.PeerState
+import fr.toolmap.core.p2p.ShareGeoJson
 import fr.toolmap.core.print.CameraFit
 import fr.toolmap.core.print.PrintViewport
+import fr.toolmap.core.problem.catchExpected
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.core.record.PositionTrail
 import fr.toolmap.core.record.RecorderProfile
 import fr.toolmap.core.record.RecorderState
+import fr.toolmap.core.route.AvoidZone
 import fr.toolmap.core.settings.BearingFormat
 import fr.toolmap.core.settings.GridStyle
 import fr.toolmap.core.settings.HeadingDisplay
@@ -436,6 +444,11 @@ fun MapScreen(
         remember(density.density, tileMagnification) {
             ZoomMapping.forScreen(density.density.toDouble(), tileMagnification)
         }
+    // The tile zoom under the camera, for the panels that show it: read here, the camera itself would recompose the
+    // whole screen at every frame of a pan (P15.7); this changes only when the zoom does (P36 review).
+    val liveTileZoom by remember(controller, mapping) {
+        derivedStateOf { mapping.toTileZoom(controller.liveCamera.zoom) }
+    }
 
     // The style is rebuilt incrementally from the layer stack whenever the stack or the catalogue changes.
     // The night mode darkens the maps alone (F14): the tracks, the waypoints and the menus keep their colours.
@@ -632,8 +645,13 @@ fun MapScreen(
     val legByHand = stringResource(R.string.route_leg_by_hand)
     LaunchedEffect(draw, legComputing, legByHand) { draw.setLegLabels(legComputing, legByHand) }
     // The other members of the sharing group: keyed on the documents so that an unchanged second changes nothing.
+    // The members come anew every second; the shared items (tracks to decode) only when they or the colours change.
+    val shareColors = remember(shareUi.members) { shareUi.members.associate { it.id to it.color } }
+    val shareItems = remember(shareUi.points, shareColors) { ShareGeoJson.items(shareUi.points, shareColors) }
     val shareData =
-        remember(shareUi.members, shareUi.sos, shareUi.settings.showTrails, shareUi.points) { share.mapData(shareUi) }
+        remember(shareUi.members, shareUi.sos, shareUi.settings.showTrails, shareItems) {
+            share.mapData(shareUi, shareItems)
+        }
     LaunchedEffect(controller.isReady, shareData.membersGeoJson, shareData.trailsGeoJson, shareData.itemsGeoJson) {
         if (controller.isReady) controller.showShare(shareData)
     }
@@ -1177,7 +1195,7 @@ fun MapScreen(
         when (action) {
             MenuAction.WHATS_NEW -> {
                 whatsNew =
-                    runCatching {
+                    catchReported("map.whats_new.read") {
                         context.assets.open("whats-new.txt").bufferedReader(Charsets.UTF_8).use { it.readText() }
                     }.getOrDefault("")
             }
@@ -1344,7 +1362,9 @@ fun MapScreen(
     }
     LaunchedEffect(updateUi.confirm) {
         val confirm = updateUi.confirm ?: return@LaunchedEffect
-        runCatching { context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        catchExpected("map.update.confirm", ActivityNotFoundException::class) {
+            context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
         updates.confirmStarted()
     }
     if (updatesShown) {
@@ -1410,7 +1430,9 @@ fun MapScreen(
                                     .setType("text/plain")
                                     .putExtra(Intent.EXTRA_SUBJECT, subject)
                                     .putExtra(Intent.EXTRA_TEXT, text)
-                            runCatching { context.startActivity(Intent.createChooser(send, chooser)) }
+                            catchExpected("map.report.share", ActivityNotFoundException::class) {
+                                context.startActivity(Intent.createChooser(send, chooser))
+                            }
                         }
                     },
                 ) { Text(stringResource(R.string.report_share)) }
@@ -1611,12 +1633,7 @@ fun MapScreen(
                             ),
                     )
                 }
-            GridFigures(
-                camera = controller.liveCamera,
-                lines = figureLines,
-                project = controller::latLonToScreen,
-                frame = frame,
-            )
+            LiveGridFigures(controller = controller, lines = figureLines, frame = frame)
         }
         if (printUi.active) PrintFrameLayer(controller, printUi, print)
         if (!framing) {
@@ -1681,11 +1698,9 @@ fun MapScreen(
         val sized = hoveredZone
         val sizedZone = sized?.let { routePlan?.zones?.getOrNull(it) }
         if (sized != null && sizedZone != null) {
-            ZoneSizeHandle(
+            LiveZoneSizeHandle(
+                controller = controller,
                 zone = sizedZone,
-                camera = controller.liveCamera,
-                project = controller::latLonToScreen,
-                unproject = controller::screenToLatLon,
                 onPreview = { r -> draw.previewZoneSize(sized, r) },
                 onResize = { r -> draw.resizeZone(sized, r) },
             )
@@ -2073,7 +2088,7 @@ fun MapScreen(
                     maps = maps,
                     vm = vm,
                     actions = rootActions,
-                    currentZoom = mapping.toTileZoom(controller.liveCamera.zoom),
+                    currentZoom = liveTileZoom,
                     maxHeight = menuMaxHeight,
                     modifier =
                         Modifier
@@ -2086,7 +2101,7 @@ fun MapScreen(
         saveArea?.takeIf { mapsPage == MapsPage.SAVE_AREA }?.let { area ->
             SaveAreaPanel(
                 ui = area,
-                currentTileZoom = mapping.toTileZoom(controller.liveCamera.zoom),
+                currentTileZoom = liveTileZoom,
                 maps = maps,
                 onSave = {
                     val name =
@@ -2123,29 +2138,14 @@ fun MapScreen(
             )
         }
         conditionsLayer?.let { layer ->
-            val sources by maps.sources.collectAsStateWithLifecycle()
-            val camera = controller.liveCamera
-            // The ground under the centre of the map, marked on the elevation bar once the map stops moving.
-            val centerElevation by produceState<Double?>(null, camera.lat, camera.lon) {
-                delay(CENTER_ELEVATION_DELAY_MS)
-                value = tracks.terrainElevation(camera.lat, camera.lon)
-            }
-            DisplayConditionsPanel(
+            ConditionsPanelLayer(
+                controller = controller,
                 layer = layer,
-                name =
-                    sources.firstOrNull { it.id == layer.sourceId }?.name
-                        ?: stringResource(R.string.layers_missing_source, layer.sourceId),
-                currentZoom = mapping.toTileZoom(camera.zoom),
-                centerElevation = centerElevation,
-                onZoomRange = { min, max -> vm.setZoomRange(layer.id, min, max) },
-                onElevationRange = { min, max, logic -> vm.setElevationRange(layer.id, min, max, logic) },
-                onClose = maps::closeConditions,
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsPadding(
-                            WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
-                        ).onSizeChanged { conditionsPanelHeight = it.height },
+                mapping = mapping,
+                maps = maps,
+                vm = vm,
+                tracks = tracks,
+                onHeight = { conditionsPanelHeight = it },
             )
         }
         if (sketchUi.active) {
@@ -2521,6 +2521,74 @@ fun MapScreen(
             ImportDialog(preview = preview, onConfirm = vm::confirmImport, onDismiss = vm::dismissImport)
         }
     }
+}
+
+/** The figures of the screen grid, projected at each camera move: it reads the camera itself (P15.7, P36 review). */
+@Composable
+private fun LiveGridFigures(
+    controller: MapController,
+    lines: List<GridFigureLine>,
+    frame: GridFigureFrame,
+) {
+    GridFigures(camera = controller.liveCamera, lines = lines, project = controller::latLonToScreen, frame = frame)
+}
+
+/** The size handle of the zone under the crosshair (P30.4): it reads the camera itself (P15.7, P36 review). */
+@Composable
+private fun LiveZoneSizeHandle(
+    controller: MapController,
+    zone: AvoidZone,
+    onPreview: (Int) -> Unit,
+    onResize: (Int) -> Unit,
+) {
+    ZoneSizeHandle(
+        zone = zone,
+        camera = controller.liveCamera,
+        project = controller::latLonToScreen,
+        unproject = controller::screenToLatLon,
+        onPreview = onPreview,
+        onResize = onResize,
+    )
+}
+
+/**
+ * « Conditions d'affichage » of [layer] (P20): the zoom and the ground under the centre follow the camera, read here so
+ * that a pan recomposes the panel alone (P15.7, P36 review).
+ */
+@Composable
+private fun BoxScope.ConditionsPanelLayer(
+    controller: MapController,
+    layer: LayerConfig,
+    mapping: ZoomMapping,
+    maps: MapsViewModel,
+    vm: MapViewModel,
+    tracks: TracksViewModel,
+    onHeight: (Int) -> Unit,
+) {
+    val sources by maps.sources.collectAsStateWithLifecycle()
+    val camera = controller.liveCamera
+    // The ground under the centre of the map, marked on the elevation bar once the map stops moving.
+    val centerElevation by produceState<Double?>(null, camera.lat, camera.lon) {
+        delay(CENTER_ELEVATION_DELAY_MS)
+        value = tracks.terrainElevation(camera.lat, camera.lon)
+    }
+    DisplayConditionsPanel(
+        layer = layer,
+        name =
+            sources.firstOrNull { it.id == layer.sourceId }?.name
+                ?: stringResource(R.string.layers_missing_source, layer.sourceId),
+        currentZoom = mapping.toTileZoom(camera.zoom),
+        centerElevation = centerElevation,
+        onZoomRange = { min, max -> vm.setZoomRange(layer.id, min, max) },
+        onElevationRange = { min, max, logic -> vm.setElevationRange(layer.id, min, max, logic) },
+        onClose = maps::closeConditions,
+        modifier =
+            Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
+                ).onSizeChanged { onHeight(it.height) },
+    )
 }
 
 /**

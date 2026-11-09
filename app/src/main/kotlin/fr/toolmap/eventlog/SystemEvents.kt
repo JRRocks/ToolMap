@@ -28,6 +28,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import fr.toolmap.BuildConfig
 import fr.toolmap.core.eventlog.EventLog
+import fr.toolmap.core.problem.catchExpected
+import fr.toolmap.core.problem.catchReported
 
 /**
  * What happens to the app from outside, written in the event log (P21): how the process started and how the previous
@@ -73,7 +75,8 @@ class SystemEvents(
             "bootS" to SystemClock.elapsedRealtime() / MS_PER_S,
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            runCatching {
+            // The app asks about itself: nothing should refuse it.
+            catchReported("sys.start_reason") {
                 val am = app.getSystemService(ActivityManager::class.java)
                 am?.getHistoricalProcessStartReasons(1)?.firstOrNull()?.let {
                     EventLog.event(
@@ -92,7 +95,8 @@ class SystemEvents(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
         val am = app.getSystemService(ActivityManager::class.java) ?: return
         val since = prefs.getLong(KEY_EXITS_UP_TO, 0L)
-        val exits = runCatching { am.getHistoricalProcessExitReasons(app.packageName, 0, MAX_EXITS) }.getOrNull()
+        val exits =
+            catchReported("sys.exits") { am.getHistoricalProcessExitReasons(app.packageName, 0, MAX_EXITS) }.getOrNull()
         val fresh = exits.orEmpty().filter { it.timestamp > since }.sortedBy { it.timestamp }
         for (e in fresh) {
             EventLog.event(
@@ -233,7 +237,10 @@ class SystemEvents(
                 addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
                 addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
             }
-        runCatching { ContextCompat.registerReceiver(app, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED) }
+        // Registered once for the process: a failure (too many receivers: a leak) is a bug.
+        catchReported("sys.receiver") {
+            ContextCompat.registerReceiver(app, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        }
     }
 
     private val receiver =
@@ -282,7 +289,11 @@ class SystemEvents(
     private fun logLocationSwitch() {
         val lm = app.getSystemService(LocationManager::class.java) ?: return
         val on = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) lm.isLocationEnabled else null
-        val gps = runCatching { lm.isProviderEnabled(LocationManager.GPS_PROVIDER) }.getOrNull()
+        // A missing permission is a refusal of the system; anything else is a bug.
+        val gps =
+            catchExpected("sys.location.gps", SecurityException::class) {
+                lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+            }.getOrNull()
         val key = "$on:$gps"
         if (key == lastLocation) return
         lastLocation = key
@@ -296,7 +307,9 @@ class SystemEvents(
         val restricted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) am?.isBackgroundRestricted else null
         val bucket =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                runCatching { app.getSystemService(UsageStatsManager::class.java)?.appStandbyBucket }.getOrNull()
+                catchReported("sys.power.bucket") {
+                    app.getSystemService(UsageStatsManager::class.java)?.appStandbyBucket
+                }.getOrNull()
             } else {
                 null
             }
@@ -376,7 +389,8 @@ class SystemEvents(
                     blocked: Boolean,
                 ) = EventLog.event("net.blocked", "net" to network, "blocked" to blocked)
             }
-        runCatching { cm.registerDefaultNetworkCallback(callback) }
+        // A missing permission is a refusal of the system; anything else (too many callbacks: a leak) is a bug.
+        catchExpected("sys.network", SecurityException::class) { cm.registerDefaultNetworkCallback(callback) }
     }
 
     private companion object {

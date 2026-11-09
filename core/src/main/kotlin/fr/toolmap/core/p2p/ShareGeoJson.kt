@@ -2,6 +2,7 @@ package fr.toolmap.core.p2p
 
 import fr.toolmap.core.xml.JsonText
 import java.util.Locale
+import kotlin.math.abs
 
 /**
  * The members of the group as map features. The member id is a 64-bit number, which GeoJSON consumers read as a
@@ -76,8 +77,16 @@ object ShareGeoJson {
     fun items(
         points: List<GroupPoint>,
         members: List<MemberView>,
+    ): String = items(points, members.associate { it.id to it.color })
+
+    /**
+     * The shared items with their authors' [colors] (member id → colour). The map keeps the result while the items and
+     * the colours stay the same: decoding the shared tracks every second was the cost (P36 review).
+     */
+    fun items(
+        points: List<GroupPoint>,
+        colors: Map<Long, Int>,
     ): String {
-        val colors = members.associate { it.id to it.color }
         val out = StringBuilder(points.size * 200 + 64)
         out.append("{\"type\":\"FeatureCollection\",\"features\":[")
         var first = true
@@ -115,5 +124,23 @@ object ShareGeoJson {
 
     private fun hex(argb: Int) = String.format(Locale.ROOT, "#%06X", argb and RGB_MASK)
 
-    private fun coordinate(v: Double) = String.format(Locale.ROOT, "%.7f", v)
+    /**
+     * [v] with 7 decimals (1 cm), written by hand: `String.format` builds a formatter per number, thousands of times a
+     * second for the trails and the shared tracks (P36 review).
+     */
+    private fun coordinate(v: Double): String {
+        val scaled = Math.round(v * COORDINATE_SCALE)
+        val abs = abs(scaled)
+        val fraction = (abs % COORDINATE_SCALE.toLong()).toString()
+        return buildString(COORDINATE_CHARS) {
+            if (scaled < 0) append('-')
+            append(abs / COORDINATE_SCALE.toLong()).append('.')
+            repeat(COORDINATE_DECIMALS - fraction.length) { append('0') }
+            append(fraction)
+        }
+    }
+
+    private const val COORDINATE_SCALE = 1e7
+    private const val COORDINATE_DECIMALS = 7
+    private const val COORDINATE_CHARS = 13
 }

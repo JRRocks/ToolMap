@@ -1,5 +1,6 @@
 package fr.toolmap.core.record
 
+import fr.toolmap.core.problem.catchReported
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -29,6 +30,9 @@ object RecordingSessionCodec {
 
     fun encode(session: RecordingSession): String = json.encodeToString(RecordingSession.serializer(), session)
 
+    /** `null` for a damaged file: the app wrote it itself, so that is a bug or a damaged disk. */
     fun decodeOrNull(text: String): RecordingSession? =
-        runCatching { json.decodeFromString(RecordingSession.serializer(), text) }.getOrNull()
+        catchReported("record.session.decode") {
+            json.decodeFromString(RecordingSession.serializer(), text)
+        }.getOrNull()
 }

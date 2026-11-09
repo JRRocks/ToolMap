@@ -2,16 +2,15 @@ package fr.toolmap.p2p
 
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
-import com.google.zxing.ChecksumException
 import com.google.zxing.DecodeHintType
 import com.google.zxing.EncodeHintType
-import com.google.zxing.FormatException
-import com.google.zxing.NotFoundException
 import com.google.zxing.PlanarYUVLuminanceSource
+import com.google.zxing.ReaderException
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import fr.toolmap.core.problem.Problems
 
 /** A QR code as a grid of modules, without its quiet zone. */
 class QrMatrix(
@@ -68,12 +67,11 @@ object QrCodes {
         for (candidate in listOf(source, source.invert())) {
             try {
                 return QRCodeReader().decode(BinaryBitmap(HybridBinarizer(candidate)), hints).text
-            } catch (e: NotFoundException) {
-                continue
-            } catch (e: ChecksumException) {
-                continue
-            } catch (e: FormatException) {
-                continue
+            } catch (e: ReaderException) {
+                // No code in this image (NotFoundException, the usual case) or one too damaged to read (checksum,
+                // format): the inverted image, then the next frame, may do better. Most frames end here: the app's
+                // problem sink writes one line per exception type every 10 s at most, with the count of the others.
+                Problems.expected("qr.decode", e)
             }
         }
         return null

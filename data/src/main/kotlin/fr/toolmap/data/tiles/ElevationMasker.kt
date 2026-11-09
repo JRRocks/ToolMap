@@ -8,6 +8,7 @@ import fr.toolmap.core.elevation.DemWindow
 import fr.toolmap.core.elevation.ElevationMask
 import fr.toolmap.core.elevation.MaskRaster
 import fr.toolmap.core.elevation.TerrariumTile
+import fr.toolmap.core.problem.Problems
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
@@ -69,8 +70,10 @@ class BitmapElevationMasker(
             }
             try {
                 return running.get()
-            } catch (_: ExecutionException) {
-                // The request that was loading it failed (cancelled by MapLibre): load it for this one.
+            } catch (e: ExecutionException) {
+                // The request that was loading it failed (cancelled by MapLibre): load it for this one. That request
+                // got the failure itself (thrown again by result()), and its caller deals with it.
+                Problems.expected("tiles.mask.shared_load", e, "key" to key)
                 continue
             }
         }

@@ -1,5 +1,6 @@
 package fr.toolmap.core.p2p
 
+import fr.toolmap.core.problem.Problems
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -35,6 +36,8 @@ data class ShareSettings(
                         b.size <= MemberLook.MAX_PICTURE_BYTES
                 }
             } catch (e: IllegalArgumentException) {
+                // Only [withPicture] sets it, in valid Base64: a damaged settings file, or a bug.
+                Problems.report("share.settings.picture", e, "chars" to it.length)
                 null
             }
         }
@@ -157,8 +160,12 @@ class ShareState(
                     }
                 ShareState(raw.settings.sanitized(), group)
             } catch (e: kotlinx.serialization.SerializationException) {
+                // The app's own file (or its own JSON, read back): damaged, or a bug. Never the text in the context:
+                // it holds the group key.
+                Problems.report("share.state.decode", e, "chars" to json.length)
                 ShareState()
             } catch (e: IllegalArgumentException) {
+                Problems.report("share.state.group", e, "chars" to json.length)
                 ShareState()
             }
 

@@ -1,6 +1,7 @@
 package fr.toolmap.maps
 
 import android.content.Context
+import android.database.sqlite.SQLiteException
 import android.net.Uri
 import android.os.StatFs
 import androidx.lifecycle.ViewModel
@@ -24,6 +25,8 @@ import fr.toolmap.core.maps.MapCatalog
 import fr.toolmap.core.maps.MapGroup
 import fr.toolmap.core.maps.OnlineCatalog
 import fr.toolmap.core.maps.ZoneStrips
+import fr.toolmap.core.problem.catchExpected
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.core.wizard.SourceIds
@@ -230,7 +233,14 @@ class MapsViewModel
 
         /** « Vider les tuiles stockées » of a map of the catalogue (F4): its tile file emptied, then the figures read again. */
         suspend fun clearTiles(sourceId: String): Boolean {
-            val done = withContext(Dispatchers.IO) { runCatching { storage.purge(sourceId) }.isSuccess }
+            val done =
+                withContext(Dispatchers.IO) {
+                    catchExpected(
+                        "maps.tiles.clear",
+                        SQLiteException::class,
+                        IllegalStateException::class,
+                    ) { storage.purge(sourceId) }.isSuccess
+                }
             refreshStorage()
             return done
         }
@@ -247,7 +257,7 @@ class MapsViewModel
             uri: Uri,
         ): Result<Unit> =
             withContext(Dispatchers.IO) {
-                runCatching {
+                catchExpected("maps.aqx.export", IOException::class, SecurityException::class) {
                     val source = repository.find(sourceId) ?: throw IOException("Unknown map $sourceId")
                     val text =
                         AqxWriter.write(
@@ -374,14 +384,25 @@ class MapsViewModel
             viewModelScope.launch {
                 mutableStorage.value =
                     withContext(Dispatchers.IO) {
-                        val usages = runCatching { storage.usage() }.getOrDefault(emptyList())
-                        val stat = runCatching { StatFs(context.filesDir.path) }.getOrNull()
+                        val usages =
+                            catchExpected(
+                                "maps.storage.usage",
+                                SQLiteException::class,
+                                IllegalStateException::class,
+                            ) { storage.usage() }.getOrDefault(emptyList())
+                        val stat =
+                            catchExpected("maps.storage.space", IllegalArgumentException::class) {
+                                StatFs(context.filesDir.path)
+                            }.getOrNull()
                         StorageFigures(
                             tilesBytes = usages.sumOf { it.diskBytes },
                             freeBytes = stat?.availableBytes ?: 0L,
                             totalBytes = stat?.totalBytes ?: 0L,
                             // A tile set shown by several maps (ADR-031) counts for each of them.
-                            perSource = runCatching { storage.usageBySource(usages) }.getOrDefault(emptyMap()),
+                            perSource =
+                                catchReported("maps.storage.by_source") {
+                                    storage.usageBySource(usages)
+                                }.getOrDefault(emptyMap()),
                         )
                     }
             }

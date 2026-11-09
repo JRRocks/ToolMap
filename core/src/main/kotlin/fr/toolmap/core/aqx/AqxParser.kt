@@ -2,6 +2,8 @@ package fr.toolmap.core.aqx
 
 import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.geo.LonLatZoom
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.source.ClearColor
 import fr.toolmap.core.source.LevelDef
 import fr.toolmap.core.source.TileSource
@@ -12,6 +14,7 @@ import org.xml.sax.InputSource
 import org.xml.sax.SAXException
 import java.io.StringReader
 import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.ParserConfigurationException
 
 /**
  * Parser for AlpineQuest `.aqx` map definition files (see `docs/specs/aqx-format.md`).
@@ -77,8 +80,13 @@ object AqxParser {
         factory.isExpandEntityReferences = false
         factory.isCoalescing = true // CDATA and text are merged
         factory.isIgnoringComments = true
-        runCatching { factory.setFeature("http://xml.org/sax/features/external-general-entities", false) }
-        runCatching { factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
+        // Not every parser knows these features (Android's does not): DOCTYPEs and entities are refused above anyway.
+        catchExpected("aqx.parse.feature_general_entities", ParserConfigurationException::class) {
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false)
+        }
+        catchExpected("aqx.parse.feature_parameter_entities", ParserConfigurationException::class) {
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+        }
         return factory
     }
 
@@ -303,6 +311,8 @@ object AqxParser {
                 try {
                     ZoomSet.parse(zoomSpec ?: throw IllegalArgumentException("missing zoom levels"))
                 } catch (e: IllegalArgumentException) {
+                    // The imported file is wrong, not the app: the user sees the warning.
+                    Problems.expected("aqx.parse.level_zooms", e, "source" to context)
                     warn(context, "level ignored: ${e.message}")
                     return null
                 }

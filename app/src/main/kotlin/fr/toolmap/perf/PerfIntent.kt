@@ -12,7 +12,7 @@ import fr.toolmap.map.MapViewModel
 
 /**
  * The fixed starting points of the measure scripts (tools/perf, docs/specs/performance.md §7), read from the extras
- * of the launch intent; only called when `BuildConfig.PERF_LOG` (debug and benchmark builds). Values are strings
+ * of the launch intent; only called when `BuildConfig.PERF_INTENT` (benchmark build), for an explicit launch. Values are strings
  * (`am start --es`) so the shell passes them exactly:
  * - `perf.source`: the only map shown (its source id, e.g. `ign-maps`);
  * - `perf.lat`, `perf.lon`, `perf.zoom`: the camera the map opens at;

@@ -25,7 +25,7 @@ class BackupTilesCardTest {
     ) = BackupService(
         locations,
         appVersion = "0.1.0",
-        hooks = BackupHooks(freezeDatabase = { copy -> copy() }, checkpointTiles = {}),
+        hooks = BackupHooks(freezeDatabase = { copy -> copy() }, checkpointTiles = {}, databaseRefusal = { null }),
         workDir = workDir,
     )
 

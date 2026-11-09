@@ -1,12 +1,15 @@
 package fr.toolmap.storage
 
 import android.content.Context
+import android.database.sqlite.SQLiteException
 import android.net.Uri
 import android.os.StatFs
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.data.sources.SourceRepository
 import fr.toolmap.data.storage.ImportTarget
@@ -179,19 +182,30 @@ class StorageViewModel
                     try {
                         withContext(Dispatchers.IO) { work() }
                     } catch (e: PackageException) {
+                        Problems.expected("storage.task.refused", e, "reason" to e.reason)
                         StorageMessage.Refused(e.reason, e.message.orEmpty())
                     } catch (e: IOException) {
+                        Problems.expected("storage.task.io", e)
                         StorageMessage.Failed(e.message ?: e.javaClass.simpleName)
                     } catch (e: SecurityException) {
+                        Problems.expected("storage.task.denied", e)
                         StorageMessage.Failed(e.message ?: e.javaClass.simpleName)
-                    } catch (e: android.database.sqlite.SQLiteException) {
+                    } catch (e: SQLiteException) {
+                        Problems.expected("storage.task.sqlite", e)
                         StorageMessage.Failed(e.message ?: e.javaClass.simpleName)
                     }
-                val usages = withContext(Dispatchers.IO) { runCatching { manager.usage() }.getOrDefault(emptyList()) }
+                val usages =
+                    withContext(Dispatchers.IO) {
+                        catchExpected(
+                            "storage.usage",
+                            SQLiteException::class,
+                            IllegalStateException::class,
+                        ) { manager.usage() }.getOrDefault(emptyList())
+                    }
                 val stat =
                     withContext(Dispatchers.IO) {
                         val dir = TileLocation(context.filesDir).active().takeIf { it.exists() } ?: context.filesDir
-                        runCatching { StatFs(dir.path) }.getOrNull()
+                        catchExpected("storage.space", IllegalArgumentException::class) { StatFs(dir.path) }.getOrNull()
                     }
                 mutableState.update {
                     it.copy(

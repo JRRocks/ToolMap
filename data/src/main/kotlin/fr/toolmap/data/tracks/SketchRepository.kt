@@ -1,5 +1,6 @@
 package fr.toolmap.data.tracks
 
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.core.sketch.Sketch
 import fr.toolmap.core.sketch.SketchFill
 import fr.toolmap.core.sketch.SketchPath
@@ -86,8 +87,9 @@ class SketchRepository(
                 Sketch(
                     row.sketch.name,
                     row.strokes.sortedBy { it.ord }.mapNotNull { s ->
-                        // A path that cannot be read is left out rather than losing the whole sketch.
-                        runCatching { SketchPath.parse(s.path) }.getOrNull()?.let { path ->
+                        // A path that cannot be read is left out rather than losing the whole sketch. The app wrote
+                        // it with toSvg(): one it cannot parse back is a bug (or a damaged database), reported.
+                        catchReported("sketch.path.decode") { SketchPath.parse(s.path) }.getOrNull()?.let { path ->
                             SketchStroke(SketchStyle(s.colorArgb, s.widthMeters, s.smoothingMeters), path, shapeOf(s))
                         }
                     },

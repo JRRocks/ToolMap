@@ -1,11 +1,13 @@
 package fr.toolmap.data.settings
 
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.settings.AppSettings
 import fr.toolmap.core.settings.AppSettingsCodec
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import java.io.IOException
 
 /**
  * The user's settings in one JSON file, replaced atomically so that a crash never leaves half a file. A missing or
@@ -33,7 +35,10 @@ class SettingsStore(
         state.value = AppSettingsCodec.decodeOrDefault(readOrNull())
     }
 
-    private fun readOrNull(): String? = runCatching { file.readText(Charsets.UTF_8) }.getOrNull()
+    /** The file's text; `null` when there is none yet (first launch) or it cannot be read (logged). */
+    private fun readOrNull(): String? =
+        catchExpected("settings.store.read", IOException::class) { file.takeIf { it.isFile }?.readText(Charsets.UTF_8) }
+            .getOrNull()
 
     private fun write(settings: AppSettings) {
         file.parentFile?.mkdirs()

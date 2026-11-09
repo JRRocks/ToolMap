@@ -7,7 +7,9 @@ import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
 import fr.toolmap.core.p2p.MemberLook
+import fr.toolmap.core.problem.catchExpected
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 
 /**
  * The member's own picture: any image the user picks is cut to its centre square, reduced to
@@ -24,7 +26,13 @@ internal object MemberPicture {
         context: Context,
         uri: Uri,
     ): ByteArray? =
-        runCatching {
+        catchExpected(
+            "share.picture.read",
+            IOException::class,
+            SecurityException::class,
+            IllegalArgumentException::class,
+        ) {
+            // An image the user picked: it may be gone, refused by its provider or not an image.
             val resolver = context.contentResolver
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
@@ -77,5 +85,15 @@ internal object MemberPicture {
 
     /** The picture received from a member; `null` when the bytes are not an image. */
     fun decode(bytes: ByteArray): Bitmap? =
-        runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull()
+        catchExpected("share.picture.decode", IllegalArgumentException::class) {
+            // Bytes sent by another member: not an image gives null, not a failure. The app sends a square of
+            // PICTURE_PX: a few kilobytes of PNG can claim 20 000 × 20 000 pixels (P36 review), so the size is read
+            // first and a bigger picture is decoded reduced.
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            var sample = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / sample > MemberLook.PICTURE_PX * 2) sample *= 2
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+        }.getOrNull()
 }

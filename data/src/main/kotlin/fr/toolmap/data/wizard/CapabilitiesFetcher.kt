@@ -1,5 +1,6 @@
 package fr.toolmap.data.wizard
 
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.wizard.CapabilitiesDocument
 import fr.toolmap.core.wizard.CapabilitiesException
 import fr.toolmap.core.wizard.CapabilitiesReader
@@ -105,7 +106,10 @@ class CapabilitiesFetcher(
         try {
             call.execute().use { r ->
                 if (!r.isSuccessful) {
-                    val excerpt = runCatching { r.peekBody(ERROR_EXCERPT).string() }.getOrDefault("")
+                    val excerpt =
+                        catchExpected("wizard.capabilities.error_body", IOException::class) {
+                            r.peekBody(ERROR_EXCERPT).string()
+                        }.getOrDefault("")
                     throw CapabilitiesFetchException(
                         FetchFailure.HTTP,
                         "HTTP ${r.code} ${r.message} $excerpt".trim(),

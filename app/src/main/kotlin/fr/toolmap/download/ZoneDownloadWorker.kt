@@ -19,6 +19,7 @@ import fr.toolmap.R
 import fr.toolmap.core.download.ZoneJob
 import fr.toolmap.core.download.ZoneProgress
 import fr.toolmap.core.download.ZoneStatus
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.data.download.RefusalReason
 import fr.toolmap.data.download.ZoneDownloader
 import fr.toolmap.data.download.ZoneJobStore
@@ -73,7 +74,7 @@ class ZoneDownloadWorker(
             setForeground(foregroundInfo(notificationId, notification(job.progress)))
         } catch (e: IllegalStateException) {
             // Android refused to start the foreground service (app in the background on API 31+): carry on without.
-            Log.w(TAG, "Running without a foreground notification", e)
+            Problems.expected("download.zone.foreground", e)
         }
         var current =
             job.copy(
@@ -187,6 +188,5 @@ class ZoneDownloadWorker(
     companion object {
         const val KEY_JOB_ID = "job-id"
         private const val MAX_ATTEMPTS = 6
-        private const val TAG = "ZoneDownloadWorker"
     }
 }

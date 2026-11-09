@@ -6,17 +6,22 @@ import android.util.Log
 import dagger.Lazy
 import dagger.hilt.android.HiltAndroidApp
 import fr.toolmap.core.eventlog.AppExtension
+import fr.toolmap.core.problem.catchExpected
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.crash.CrashReporter
 import fr.toolmap.data.backup.PendingRestore
 import fr.toolmap.data.storage.StorageManager
 import fr.toolmap.data.tiles.TileLocation
 import fr.toolmap.eventlog.AppEventLog
 import fr.toolmap.eventlog.SystemEvents
+import fr.toolmap.problem.AppProblems
+import fr.toolmap.problem.ProblemUpload
 import fr.toolmap.storage.TileStorages
 import okhttp3.OkHttpClient
 import org.maplibre.android.MapLibre
 import org.maplibre.android.module.http.HttpRequestUtil
 import org.maplibre.android.offline.OfflineManager
+import java.io.IOException
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -39,16 +44,25 @@ class ToolMapApp : Application() {
         if (CrashReporter.isCrashProcess(this)) return
         // First of all: from here on, an exception ends on the report screen instead of a silent exit.
         CrashReporter.install(this)
+        // Then every problem the code catches is logged, and the unexpected ones are queued for GitHub (ADR-116).
+        // In every process but the report screen's (the storage move runs in its own, ADR-042); only the main process
+        // sends the reports (ProblemUpload), the others leave them in the queue for its next start.
+        AppProblems.install(this) { CrashReporter.device(this) }
         // A restore chosen in the backup screen is put in place now, before anything opens the database or reads a file.
-        runCatching { PendingRestore.apply(TileStorages.backupLocations(this)) }
+        catchReported("app.restore.pending") { PendingRestore.apply(TileStorages.backupLocations(this)) }
     }
 
     override fun onCreate() {
         super.onCreate() // Hilt injects the fields here
         if (CrashReporter.isCrashProcess(this)) return
         // Before anything else, so that the log also tells about the starts that stop at a crash report.
-        if (CrashReporter.isMainProcess(this)) startEventLog()
+        if (CrashReporter.isMainProcess(this)) {
+            startEventLog()
+            // Reports wait in files/problems/queue: sent when there is a network (ProblemUpload).
+            AppProblems.onQueued { ProblemUpload.schedule(this) }
+        }
         CrashReporter.collectNativeCrash(this)
+        if (CrashReporter.isMainProcess(this) && AppProblems.queue()?.isEmpty() == false) ProblemUpload.schedule(this)
         // A crash not yet seen: MainActivity opens its report, nothing that may crash again runs before.
         if (CrashReporter.hasPending(this)) return
         // A move of the offline maps is waiting: it runs in its own process first, so nothing here may open a tile file.
@@ -62,7 +76,7 @@ class ToolMapApp : Application() {
         AppEventLog.store(this)
         SystemEvents(this).start()
         for (extension in extensions.get()) {
-            runCatching { extension.start() }.onFailure { Log.w(TAG, "Extension not started", it) }
+            catchReported("app.extension.start") { extension.start() }
         }
     }
 
@@ -72,9 +86,8 @@ class ToolMapApp : Application() {
      */
     private fun migrateTileStorage() {
         Thread({
-            runCatching { storageManager.get().migrateLegacyFiles() }
+            catchExpected("app.tiles.migrate", IOException::class) { storageManager.get().migrateLegacyFiles() }
                 .onSuccess { if (it > 0) Log.i(TAG, "$it tile files moved to shared storage") }
-                .onFailure { Log.w(TAG, "Tile storage migration failed", it) }
         }, "tile-storage-migration").apply { priority = Thread.MIN_PRIORITY }.start()
     }
 

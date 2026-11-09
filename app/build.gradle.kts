@@ -172,6 +172,9 @@ android {
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             // The map timing lines in logcat (fr.toolmap.perf.PerfLog): debug and benchmark only, never a release.
             buildConfigField("boolean", "PERF_LOG", "true")
+            // The launch hooks of the measure scripts (PerfIntent) start downloads from any intent: never in the APK
+            // handed to users, which is this build type (P36, ADR-116 review).
+            buildConfigField("boolean", "PERF_INTENT", "false")
         }
         release {
             // Off unless asked (-Ptoolmap.minify=true): R8 has never run the app on a phone yet (ADR-027).
@@ -182,6 +185,7 @@ android {
             // Unsigned when no keystore is configured: the build still works and Play can sign an uploaded bundle.
             signingConfigs.findByName("release")?.let { signingConfig = it }
             buildConfigField("boolean", "PERF_LOG", "false")
+            buildConfigField("boolean", "PERF_INTENT", "false")
         }
         // What the measures of P15 run on (ADR-057): a release with R8, still installable over the debug APK.
         create("benchmark") {
@@ -193,6 +197,7 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += "release"
             buildConfigField("boolean", "PERF_LOG", "true")
+            buildConfigField("boolean", "PERF_INTENT", "true")
         }
     }
 

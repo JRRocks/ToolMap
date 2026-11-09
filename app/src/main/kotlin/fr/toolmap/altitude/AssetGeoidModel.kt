@@ -2,6 +2,7 @@ package fr.toolmap.altitude
 
 import android.content.Context
 import fr.toolmap.core.geo.EgmGeoid
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.data.altitude.GeoidModel
 
 /**
@@ -12,7 +13,10 @@ class AssetGeoidModel(
     context: Context,
 ) : GeoidModel {
     private val grid: EgmGeoid? by lazy {
-        runCatching { context.assets.open(ASSET).use { EgmGeoid.parse(it.readBytes()) } }.getOrNull()
+        // The file ships with the app: missing or damaged, it is a bug of the build.
+        catchReported("altitude.geoid.load") {
+            context.assets.open(ASSET).use { EgmGeoid.parse(it.readBytes()) }
+        }.getOrNull()
     }
 
     override fun undulation(

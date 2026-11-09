@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.p2p.QrCodes
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
@@ -64,10 +65,15 @@ fun QrScanner(
                 cameras.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
             } catch (e: IllegalArgumentException) {
                 // No back camera, or the use cases cannot be combined on this device.
+                Problems.expected("share.qr.camera", e)
                 currentOnUnavailable()
             } catch (e: IllegalStateException) {
+                // A use case bound to another lifecycle, or a call off the main thread: a bug of this screen.
+                Problems.report("share.qr.bind", e)
                 currentOnUnavailable()
             } catch (e: java.util.concurrent.ExecutionException) {
+                // CameraX could not start: no camera it can use on this device.
+                Problems.expected("share.qr.provider", e)
                 currentOnUnavailable()
             }
         }, mainExecutor)
@@ -96,6 +102,14 @@ private fun read(
             try {
                 QrCodes.decode(data, plane.rowStride, image.width, image.height)
             } catch (e: IllegalArgumentException) {
+                // The frame does not fit its plane: a bug of this reading, which then fails on every frame.
+                Problems.report(
+                    "share.qr.decode",
+                    e,
+                    "width" to image.width,
+                    "height" to image.height,
+                    "stride" to plane.rowStride,
+                )
                 null
             }
         if (text != null && found.compareAndSet(false, true)) {

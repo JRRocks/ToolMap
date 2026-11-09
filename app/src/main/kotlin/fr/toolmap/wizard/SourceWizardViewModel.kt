@@ -8,6 +8,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.toolmap.core.aqx.AqxWriter
 import fr.toolmap.core.geo.LonLatZoom
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.source.LevelDef
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.wizard.ApiKeyExtractor
@@ -436,12 +438,18 @@ class SourceWizardViewModel
                 update { it.copy(savedId = id, draft = it.draft.copy(id = id), error = null) }
                 id
             } catch (e: IOException) {
+                // The map file could not be written (storage full or failing).
+                Problems.expected("wizard.save.write", e, "source" to id)
                 update { it.copy(error = e.message ?: e.javaClass.simpleName) }
                 null
             } catch (e: IllegalStateException) {
+                // A valid draft that does not convert, or a file of the app's own folder that cannot be renamed.
+                Problems.report("wizard.save.state", e, "source" to id)
                 update { it.copy(error = e.message ?: e.javaClass.simpleName) }
                 null
             } catch (e: IllegalArgumentException) {
+                // A built-in id or a zoom list the draft's checks let through: the wizard should not allow either.
+                Problems.report("wizard.save.argument", e, "source" to id)
                 update { it.copy(error = e.message ?: e.javaClass.simpleName) }
                 null
             }
@@ -470,7 +478,13 @@ class SourceWizardViewModel
             viewModelScope.launch {
                 val outcome =
                     withContext(Dispatchers.IO) {
-                        runCatching {
+                        // A document the user chose: it may be gone or refused by its provider.
+                        catchExpected(
+                            "wizard.export.write",
+                            IOException::class,
+                            SecurityException::class,
+                            IllegalArgumentException::class,
+                        ) {
                             val out =
                                 context.contentResolver.openOutputStream(uri, "wt")
                                     ?: throw IOException("Cannot open $uri")

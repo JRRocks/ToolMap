@@ -1,7 +1,9 @@
 package fr.toolmap.core.maps
 
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.source.TileSource
 import java.net.URI
+import java.net.URISyntaxException
 import java.text.Normalizer
 
 /** The families of the "Available maps" catalogue, in the order the screen lists them. */
@@ -166,5 +168,8 @@ object MapCatalog {
 
     /** The host of a web address without `www.`, or `null` when it is not an address. */
     fun hostOf(address: String): String? =
-        runCatching { URI(address.trim()).host }.getOrNull()?.removePrefix("www.")?.takeIf { it.isNotEmpty() }
+        catchExpected("maps.catalog.host", URISyntaxException::class) { URI(address.trim()).host }
+            .getOrNull()
+            ?.removePrefix("www.")
+            ?.takeIf { it.isNotEmpty() }
 }

@@ -9,6 +9,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import fr.toolmap.MainActivity
 import fr.toolmap.R
+import fr.toolmap.core.problem.catchExpected
 import java.util.EnumMap
 
 /**
@@ -137,7 +138,11 @@ internal object BackgroundNotification {
             },
         )
         // Android refuses to delete a channel still used by a service's notification: none is, after an update.
-        for (old in OLD_CHANNELS) runCatching { manager.deleteNotificationChannel(old) }
+        for (old in OLD_CHANNELS) {
+            catchExpected("background.channel.delete", SecurityException::class) {
+                manager.deleteNotificationChannel(old)
+            }
+        }
     }
 
     private fun manager(context: Context) =

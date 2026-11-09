@@ -2,6 +2,9 @@ package fr.toolmap.p2p
 
 import fr.toolmap.core.eventlog.EventLog
 import fr.toolmap.core.p2p.RelayConfig
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -118,6 +121,7 @@ internal class FirebaseAuth(
                 ).also { EventLog.event("fb.auth", "via" to "refresh", "ms" to clockMs() - t0) }
             } catch (e: FirebaseRefused) {
                 // The saved identity is gone (account deleted, token revoked): start again as a new anonymous user.
+                Problems.expected("fb.auth.lost", e)
                 EventLog.event("fb.auth.lost", "why" to e.message)
                 refreshToken = null
                 store.write(null)
@@ -163,7 +167,10 @@ internal class FirebaseAuth(
         http().newCall(request).execute().use { r ->
             val text = r.body?.string().orEmpty()
             if (r.isSuccessful) {
-                runCatching { Json.parseToJsonElement(text).jsonObject }.getOrElse { throw IOException("bad answer") }
+                // Not JSON (a SerializationException, which is an IllegalArgumentException) or not an object.
+                catchExpected("fb.auth.answer", IllegalArgumentException::class) {
+                    Json.parseToJsonElement(text).jsonObject
+                }.getOrElse { throw IOException("bad answer", it) }
             } else if (r.code in REFUSED_CODES) {
                 throw FirebaseRefused(errorMessage(text) ?: "HTTP ${r.code}")
             } else {
@@ -171,8 +178,9 @@ internal class FirebaseAuth(
             }
         }
 
+    /** The reason in a refusal of the server; its body may be anything (not JSON, not the object expected). */
     private fun errorMessage(text: String): String? =
-        runCatching {
+        catchExpected("fb.auth.error", IllegalArgumentException::class) {
             Json.parseToJsonElement(text).jsonObject["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull
         }.getOrNull()
 
@@ -269,7 +277,8 @@ internal class FirebaseDb(
                 val shallow = url(path, it).newBuilder().addQueryParameter("shallow", "true").build()
                 Request.Builder().url(shallow).get().build()
             }) { it.body?.string().orEmpty() }
-        val json = runCatching { Json.parseToJsonElement(body) }.getOrNull()
+        val json =
+            catchExpected("fb.db.keys", SerializationException::class) { Json.parseToJsonElement(body) }.getOrNull()
         return (json as? JsonObject)?.keys?.toList().orEmpty()
     }
 

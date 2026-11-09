@@ -29,6 +29,9 @@ import fr.toolmap.core.print.PrintSketches
 import fr.toolmap.core.print.PrintTemplate
 import fr.toolmap.core.print.PrintTexts
 import fr.toolmap.core.print.PrintWaypoint
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.state.CameraState
 import fr.toolmap.data.download.RefusalReason
@@ -65,6 +68,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -455,9 +459,10 @@ class PrintViewModel
                             val content = buildContent(plan)
                             val result =
                                 withContext(Dispatchers.IO) {
+                                    // Null when the provider of the file fails: a failure of the outside, like I/O.
                                     val output =
                                         context.contentResolver.openOutputStream(uri, "w")
-                                            ?: error("cannot open the destination")
+                                            ?: throw IOException("cannot open the destination")
                                     written = true
                                     output.buffered().use { stream ->
                                         AndroidBandRenderer(fetcher).use { renderer ->
@@ -476,6 +481,12 @@ class PrintViewModel
                             mutableUi.value = mutableUi.value.copy(job = null)
                             throw e
                         } catch (e: Exception) {
+                            // The destination may fail (full, removed, permission withdrawn); anything else is a bug.
+                            if (e is IOException || e is SecurityException) {
+                                Problems.expected("print.export", e, "pages" to plan.pages.size)
+                            } else {
+                                Problems.report("print.export", e, "pages" to plan.pages.size)
+                            }
                             if (written) discard(uri)
                             PrintOutcome.Failed(e.message)
                         }
@@ -496,7 +507,16 @@ class PrintViewModel
             if (uri.scheme == "file") {
                 uri.path?.let { File(it).delete() }
             } else {
-                runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+                // Best effort: the provider may have lost the file, refuse to delete it (Android's own providers throw
+                // IllegalStateException « Failed to delete »), not support it, or be gone (unknown authority).
+                catchExpected(
+                    "print.export.discard",
+                    IOException::class,
+                    SecurityException::class,
+                    UnsupportedOperationException::class,
+                    IllegalStateException::class,
+                    IllegalArgumentException::class,
+                ) { DocumentsContract.deleteDocument(context.contentResolver, uri) }
             }
         }
 
@@ -506,9 +526,12 @@ class PrintViewModel
             val layers = plan.mapPages.firstOrNull()?.layers?.layers.orEmpty()
             val frame = plan.mapPages.firstOrNull()?.frame ?: plan.pages.first().frame
             val now = System.currentTimeMillis()
-            val declination = runCatching { PrintDeclination.at(frame.centerLat, frame.centerLon, now) }.getOrNull()
+            val declination =
+                catchReported("print.declination") {
+                    PrintDeclination.at(frame.centerLat, frame.centerLon, now)
+                }.getOrNull()
             val nextYear =
-                runCatching {
+                catchReported("print.declination.next_year") {
                     PrintDeclination.at(frame.centerLat, frame.centerLon, now + YEAR_MILLIS)
                 }.getOrNull()
             val waypoints = if (dressing.waypoints) loaded?.waypoints.orEmpty() else emptyList()

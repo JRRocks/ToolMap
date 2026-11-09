@@ -79,7 +79,7 @@ class BackupViewModelTest {
             BackupService(
                 locations,
                 appVersion = "0.1.0",
-                hooks = BackupHooks(freezeDatabase = { it() }, checkpointTiles = {}),
+                hooks = BackupHooks(freezeDatabase = { it() }, checkpointTiles = {}, databaseRefusal = { null }),
                 workDir = File(root, "cache"),
                 clock = { 1_700_000_000_000L },
             )

@@ -2,6 +2,7 @@ package fr.toolmap.data.altitude
 
 import fr.toolmap.core.elevation.PngException
 import fr.toolmap.core.elevation.TerrariumTile
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.tiles.TileMath
 import fr.toolmap.data.elevation.ElevationCompleter
 import fr.toolmap.data.elevation.ElevationTiles
@@ -50,7 +51,9 @@ class TerrariumElevation(
         val png = tiles.tile(zoom, key.x, key.y) ?: return null
         return try {
             TerrariumTile.fromPng(png)
-        } catch (_: PngException) {
+        } catch (e: PngException) {
+            // The tile came from the server (or was stored from it): its data, not a bug here.
+            Problems.expected("altitude.terrain.decode", e, "z" to zoom, "x" to key.x, "y" to key.y)
             null
         }
     }

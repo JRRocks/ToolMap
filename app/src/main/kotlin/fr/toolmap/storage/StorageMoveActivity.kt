@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.format.Formatter
-import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -16,7 +15,9 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import fr.toolmap.MainActivity
 import fr.toolmap.R
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.data.tiles.TileLocation
+import java.io.IOException
 
 /**
  * The screen of a move of the offline maps (ADR-042). The manifest gives it its own process, which opens no tile file: the
@@ -44,7 +45,12 @@ class StorageMoveActivity : Activity() {
             TileMover(this).execute { copied, total -> main.post { showProgress(copied, total) } }
             main.post { openApp() }
         } catch (e: Exception) {
-            Log.w(TAG, "The offline maps were not moved", e)
+            // A folder that went away (card out) or a copy that failed is expected; anything else is a bug.
+            if (e is IOException || e is IllegalStateException) {
+                Problems.expected("storage.move", e)
+            } else {
+                Problems.report("storage.move", e)
+            }
             main.post { failed() }
         }
     }
@@ -105,7 +111,6 @@ class StorageMoveActivity : Activity() {
     }
 
     private companion object {
-        const val TAG = "StorageMove"
         const val PADDING_DP = 24
         const val TEXT_SP = 17f
         const val PROGRESS_STEPS = 1000

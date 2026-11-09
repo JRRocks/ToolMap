@@ -5,6 +5,7 @@ import fr.toolmap.core.geo.TileSharpness
 import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.maps.CorridorWidth
 import fr.toolmap.core.print.GridKind
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.core.route.GoToRules
 import fr.toolmap.core.route.RoutingProfiles
 import fr.toolmap.core.tiles.ScalingPolicy
@@ -362,6 +363,9 @@ object AppSettingsCodec {
         if (text.isNullOrBlank()) {
             AppSettings()
         } else {
-            runCatching { json.decodeFromString(AppSettings.serializer(), text) }.getOrDefault(AppSettings())
+            // The app wrote this file itself: a file it cannot read back is a bug or a damaged disk.
+            catchReported("settings.decode") {
+                json.decodeFromString(AppSettings.serializer(), text)
+            }.getOrDefault(AppSettings())
         }
 }

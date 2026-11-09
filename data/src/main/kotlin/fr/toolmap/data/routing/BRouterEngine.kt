@@ -9,8 +9,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Base64
-import android.util.Log
 import btools.routingapp.IBRouterService
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.route.AvoidZone
 import fr.toolmap.core.route.BRouterErrors
 import fr.toolmap.core.route.BRouterJson
@@ -25,6 +26,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.IOException
 import java.util.Locale
 import java.util.zip.GZIPInputStream
 
@@ -42,8 +44,9 @@ class BRouterEngine(
     @Volatile private var service: IBRouterService? = null
     private var connection: ServiceConnection? = null
 
+    /** Whether BRouter is there; its absence is the usual answer of a phone without it, logged as expected. */
     fun isInstalled(): Boolean =
-        runCatching {
+        catchExpected("routing.brouter.installed", PackageManager.NameNotFoundException::class) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 app.packageManager.getPackageInfo(PACKAGE, PackageManager.PackageInfoFlags.of(0))
             } else {
@@ -81,11 +84,12 @@ class BRouterEngine(
                     try {
                         runInterruptible { s.getTrackFromParams(params) }
                     } catch (e: android.os.RemoteException) {
-                        Log.w(TAG, "BRouter call failed", e)
+                        // BRouter died or was killed during the call: an app apart, not a bug of ours.
+                        Problems.expected("routing.brouter.call", e, "profile" to profile, "zones" to zones.size)
                         release()
                         return@withLock LegResult.Failed(RoutingError.OTHER, e.toString())
                     } catch (e: SecurityException) {
-                        Log.w(TAG, "BRouter call refused", e)
+                        Problems.expected("routing.brouter.call_denied", e, "profile" to profile)
                         return@withLock LegResult.Failed(RoutingError.OTHER, e.toString())
                     }
                 answerOf(text)
@@ -94,7 +98,10 @@ class BRouterEngine(
 
     /** Unbinds the service (end of the edit). */
     fun release() {
-        connection?.let { runCatching { app.unbindService(it) } }
+        // Best effort: a connection the system no longer holds is refused with IllegalArgumentException.
+        connection?.let { c ->
+            catchExpected("routing.brouter.unbind", IllegalArgumentException::class) { app.unbindService(c) }
+        }
         connection = null
         service = null
     }
@@ -128,9 +135,13 @@ class BRouterEngine(
                 }
             }
         val intent = Intent().setComponent(ComponentName(PACKAGE, SERVICE))
-        val ok = runCatching { app.bindService(intent, c, Context.BIND_AUTO_CREATE) }.getOrDefault(false)
+        val ok =
+            catchExpected("routing.brouter.bind", SecurityException::class) {
+                app.bindService(intent, c, Context.BIND_AUTO_CREATE)
+            }.getOrDefault(false)
         if (!ok) {
-            runCatching { app.unbindService(c) }
+            // Released even when the bind failed (Android's advice); a connection never registered is refused.
+            catchExpected("routing.brouter.bind_cleanup", IllegalArgumentException::class) { app.unbindService(c) }
             return null
         }
         connection = c
@@ -140,7 +151,6 @@ class BRouterEngine(
     companion object {
         const val PACKAGE = "btools.routingapp"
         private const val SERVICE = "btools.routingapp.BRouterService"
-        private const val TAG = "BRouterEngine"
         private const val MAX_RUNNING_SECONDS = 30
         private const val BIND_TIMEOUT_MILLIS = 10_000L
 
@@ -161,8 +171,9 @@ class BRouterEngine(
 
         private const val MAX_MESSAGE = 200
 
+        /** The answer comes from another app: a bad Base64 or gzip is its failure, logged as expected. */
         private fun inflate(text: String): String? =
-            runCatching {
+            catchExpected("routing.brouter.inflate", IllegalArgumentException::class, IOException::class) {
                 val bytes = Base64.decode(text, Base64.DEFAULT)
                 GZIPInputStream(bytes.inputStream(MARKER, bytes.size - MARKER)).use {
                     it.readBytes().toString(Charsets.UTF_8)

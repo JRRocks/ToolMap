@@ -1,5 +1,6 @@
 package fr.toolmap.core.eventlog
 
+import fr.toolmap.core.problem.Problems
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -68,7 +69,9 @@ object EventLog {
             try {
                 sink.write(e)
             } catch (ex: RuntimeException) {
-                // The log must never break what it observes.
+                // The log must never break what it observes. A place under `eventlog.`: the app's sink of problems
+                // does not write it back into this log, which would loop.
+                Problems.report("eventlog.sink", ex, "event" to name, "sink" to sink.javaClass.name)
             }
         }
     }
@@ -102,6 +105,7 @@ object EventLog {
                 try {
                     read()
                 } catch (e: RuntimeException) {
+                    Problems.report("eventlog.gauge", e, "gauge" to name)
                     mapOf("error" to e.javaClass.simpleName)
                 }
         }

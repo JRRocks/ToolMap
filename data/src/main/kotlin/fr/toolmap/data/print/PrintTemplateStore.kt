@@ -2,7 +2,9 @@ package fr.toolmap.data.print
 
 import fr.toolmap.core.print.PrintTemplate
 import fr.toolmap.core.print.PrintTemplateCodec
+import fr.toolmap.core.problem.catchExpected
 import java.io.File
+import java.io.IOException
 
 /**
  * The settings of the last print (format, scale, grid, style, options), in a small JSON file replaced atomically, so
@@ -17,10 +19,13 @@ class PrintTemplateStore(
     fun last(): PrintTemplate = lastOrNull() ?: PrintTemplate()
 
     /** The settings of the last print; `null` before the first one (or when the file is unreadable). */
-    fun lastOrNull(): PrintTemplate? =
-        runCatching { lastFile.readText(Charsets.UTF_8) }
-            .getOrNull()
-            ?.let(PrintTemplateCodec::decode)
+    fun lastOrNull(): PrintTemplate? {
+        val text =
+            catchExpected("print.template.read", IOException::class) {
+                lastFile.takeIf { it.isFile }?.readText(Charsets.UTF_8)
+            }.getOrNull()
+        return text?.let(PrintTemplateCodec::decode)
+    }
 
     fun remember(template: PrintTemplate) {
         dir.mkdirs()

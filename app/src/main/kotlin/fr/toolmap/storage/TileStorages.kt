@@ -2,6 +2,7 @@ package fr.toolmap.storage
 
 import android.content.Context
 import android.os.Environment
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.settings.StorageLocation
 import fr.toolmap.data.backup.BackupLocations
 import fr.toolmap.data.tiles.TileLocation
@@ -65,13 +66,16 @@ object TileStorages {
         )
     }
 
+    // Android refuses a folder on no storage it knows (a card taken out meanwhile) with an IllegalArgumentException.
     private fun removable(dir: File): Boolean =
-        runCatching {
+        catchExpected("storage.card.removable", IllegalArgumentException::class) {
             Environment.isExternalStorageRemovable(dir)
         }.getOrDefault(false)
 
     private fun mounted(dir: File): Boolean =
-        runCatching { Environment.getExternalStorageState(dir) == Environment.MEDIA_MOUNTED }.getOrDefault(false)
+        catchExpected("storage.card.mounted", IllegalArgumentException::class) {
+            Environment.getExternalStorageState(dir) == Environment.MEDIA_MOUNTED
+        }.getOrDefault(false)
 }
 
 /** What the settings show about the offline maps: where they are, and where they could move. */

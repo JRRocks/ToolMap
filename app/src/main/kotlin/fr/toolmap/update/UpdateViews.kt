@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.update.PublishedApk
 import fr.toolmap.core.update.UpdateDecision
 import fr.toolmap.map.MenuIcons
@@ -46,6 +47,7 @@ import fr.toolmap.ui.theme.toolMap
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.Date
 import java.util.Locale
 
@@ -281,7 +283,8 @@ private fun labelled(
 /** The day a version was published, « 29 oct. »; empty when GitHub did not give it. */
 private fun day(apk: PublishedApk): String? =
     apk.publishedAt?.let { text ->
-        runCatching {
+        // The date comes from GitHub: one it would give in another form is left out.
+        catchExpected("update.published_day", DateTimeParseException::class) {
             Instant
                 .parse(text)
                 .atZone(ZoneId.systemDefault())

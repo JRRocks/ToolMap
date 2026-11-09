@@ -5,10 +5,12 @@ import fr.toolmap.core.layers.Favorites
 import fr.toolmap.core.layers.Workspace
 import fr.toolmap.core.layers.WorkspaceCodec
 import fr.toolmap.core.layers.Workspaces
+import fr.toolmap.core.problem.catchExpected
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import java.io.IOException
 import java.util.UUID
 
 /**
@@ -111,12 +113,17 @@ class WorkspaceStore(
         hidden.value = ids
     }
 
-    private fun loadHidden(): Set<String> =
-        runCatching { File(dir, HIDDEN_FILE).readLines(Charsets.UTF_8) }
-            .getOrDefault(emptyList())
+    /** The built-in presets the user deleted; none when the file is missing (none deleted) or unreadable (logged). */
+    private fun loadHidden(): Set<String> {
+        val lines =
+            catchExpected("workspaces.store.read_hidden", IOException::class) {
+                File(dir, HIDDEN_FILE).takeIf { it.isFile }?.readLines(Charsets.UTF_8).orEmpty()
+            }.getOrDefault(emptyList())
+        return lines
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .toSet()
+    }
 
     private fun load(): List<Workspace> =
         dir
@@ -124,7 +131,9 @@ class WorkspaceStore(
             .orEmpty()
             .sortedBy { it.lastModified() }
             .mapNotNull { file ->
-                runCatching { file.readText(Charsets.UTF_8) }.getOrNull()?.let(WorkspaceCodec::decodeOrNull)
+                catchExpected("workspaces.store.read", IOException::class) { file.readText(Charsets.UTF_8) }
+                    .getOrNull()
+                    ?.let(WorkspaceCodec::decodeOrNull)
             }
 
     private fun fileFor(id: String): File =

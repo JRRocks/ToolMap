@@ -11,6 +11,7 @@ import fr.toolmap.core.layers.FavoritesFileException
 import fr.toolmap.core.layers.FavoritesFileFailure
 import fr.toolmap.core.layers.FavoritesImport
 import fr.toolmap.core.layers.FavoritesImportPlan
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.data.sources.SourceRepository
@@ -74,6 +75,7 @@ class FavoritesImportViewModel
                 try {
                     FavoritesFileCodec.decode(text)
                 } catch (e: FavoritesFileException) {
+                    Problems.expected("favorites.import.decode", e, "failure" to e.failure)
                     mutableMessages.tryEmit(UiMessage(failureOf(e.failure)))
                     return
                 }
@@ -81,6 +83,7 @@ class FavoritesImportViewModel
                 try {
                     file.aqx?.let { AqxParser.parse(it).file.sources }.orEmpty()
                 } catch (e: AqxParseException) {
+                    Problems.expected("favorites.import.aqx", e)
                     mutableMessages.tryEmit(UiMessage(R.string.fav_import_unreadable))
                     return
                 }

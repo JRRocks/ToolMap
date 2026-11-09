@@ -11,6 +11,7 @@ import fr.toolmap.core.alert.TrackFollower
 import fr.toolmap.core.alert.WatchEntry
 import fr.toolmap.core.alert.WatchedPlace
 import fr.toolmap.core.geo.LonLat
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.data.alert.AlertStateStore
 import fr.toolmap.data.settings.SettingsStore
 import fr.toolmap.data.tracks.ItemKind
@@ -19,6 +20,7 @@ import fr.toolmap.data.tracks.TrackLibrary
 import fr.toolmap.data.tracks.TrackRepository
 import fr.toolmap.map.UiMessage
 import fr.toolmap.record.LocationSource
+import fr.toolmap.record.isGpsRefusal
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -207,7 +209,11 @@ class AlertController(
         mutableUi.update { it.copy(gpsFailed = false) }
         location
             .fixes(UPDATE_MILLIS, 0f)
-            .catch { mutableUi.update { ui -> ui.copy(gpsFailed = true) } }
+            .catch { e ->
+                // No permission or no GPS receiver: expected; anything else is a bug.
+                if (e.isGpsRefusal()) Problems.expected("alert.gps", e) else Problems.report("alert.gps", e)
+                mutableUi.update { ui -> ui.copy(gpsFailed = true) }
+            }
             .collect { fix ->
                 val update = synchronized(engine) { engine.onFix(fix) }
                 for (event in update.events) raise(event)

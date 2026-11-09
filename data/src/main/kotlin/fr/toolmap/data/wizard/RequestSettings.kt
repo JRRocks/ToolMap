@@ -1,5 +1,6 @@
 package fr.toolmap.data.wizard
 
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.source.LevelDef
 import okhttp3.Request
 
@@ -22,6 +23,9 @@ data class RequestSettings(
             cookie?.let { builder.header("Cookie", it) }
             builder
         } catch (e: IllegalArgumentException) {
+            // Typed by the user in the wizard, or read from the map's definition: not a bug. OkHttp's message ends
+            // with the value itself (a key, maybe): only the part before it is logged.
+            Problems.expected("wizard.request.headers", IllegalArgumentException(e.message?.substringBefore(": ")))
             null
         }
 

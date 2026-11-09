@@ -9,6 +9,8 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import androidx.core.content.ContextCompat
 import fr.toolmap.core.eventlog.EventLog
+import fr.toolmap.core.problem.catchExpected
+import fr.toolmap.core.problem.catchReported
 
 /**
  * Follows the phone's default network and clock for the server connection of a group (P21.5 f, h, n, p), as long as
@@ -88,7 +90,11 @@ class AndroidNetworkWatch(
                     listener.onBlocked(blocked)
                 }
             }
-        val registered = runCatching { connectivity.registerDefaultNetworkCallback(callback) }.isSuccess
+        // A missing permission is a refusal of the system; anything else (too many callbacks: a leak) is a bug.
+        val registered =
+            catchExpected("share.net.register", SecurityException::class) {
+                connectivity.registerDefaultNetworkCallback(callback)
+            }.isSuccess
         val clock =
             object : BroadcastReceiver() {
                 override fun onReceive(
@@ -97,7 +103,7 @@ class AndroidNetworkWatch(
                 ) = listener.onClockChanged()
             }
         val watchesClock =
-            runCatching {
+            catchReported("share.clock.register") {
                 ContextCompat.registerReceiver(
                     context,
                     clock,
@@ -105,9 +111,10 @@ class AndroidNetworkWatch(
                     ContextCompat.RECEIVER_NOT_EXPORTED,
                 )
             }.isSuccess
+        // Both were registered above and are closed once: a failure to unregister them is a bug.
         return AutoCloseable {
-            if (registered) runCatching { connectivity.unregisterNetworkCallback(callback) }
-            if (watchesClock) runCatching { context.unregisterReceiver(clock) }
+            if (registered) catchReported("share.net.unregister") { connectivity.unregisterNetworkCallback(callback) }
+            if (watchesClock) catchReported("share.clock.unregister") { context.unregisterReceiver(clock) }
         }
     }
 }

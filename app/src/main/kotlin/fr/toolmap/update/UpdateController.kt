@@ -9,6 +9,8 @@ import android.os.storage.StorageManager
 import androidx.core.content.edit
 import fr.toolmap.BuildConfig
 import fr.toolmap.core.eventlog.EventLog
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.update.GitHubReleases
 import fr.toolmap.core.update.PublishedApk
 import fr.toolmap.core.update.UpdateDecision
@@ -170,6 +172,7 @@ class UpdateController(
                     // Read once the session is dropped, so that its own room does not count: a cut connection stays one.
                     val noSpace = withContext(Dispatchers.IO) { lacksRoomFor(apk.sizeBytes) }
                     EventLog.event("update.failed", "version" to version, "error" to e.toString(), "noSpace" to noSpace)
+                    Problems.expected("update.download", e, "version" to version, "noSpace" to noSpace)
                     UpdateNotifications.cancel(context)
                     mutableUi.update {
                         it.copy(download = it.download?.copy(shown = true), failed = true, noSpace = noSpace)
@@ -256,6 +259,7 @@ class UpdateController(
             }
         } catch (e: IOException) {
             EventLog.event("update.unreachable", "error" to e.toString())
+            Problems.expected("update.latest.fetch", e)
             null
         }
 
@@ -340,7 +344,9 @@ class UpdateController(
     private fun lacksRoomFor(bytes: Long): Boolean {
         if (bytes <= 0) return false
         val storage = context.getSystemService(StorageManager::class.java) ?: return false
-        return runCatching { storage.getAllocatableBytes(StorageManager.UUID_DEFAULT) < bytes }.getOrDefault(false)
+        return catchExpected("update.room", IOException::class) {
+            storage.getAllocatableBytes(StorageManager.UUID_DEFAULT) < bytes
+        }.getOrDefault(false)
     }
 
     /** Drops a session that was not handed to Android (cancelled, or the download failed). */
@@ -349,7 +355,8 @@ class UpdateController(
         id: Int,
     ) {
         if (id == NO_SESSION) return
-        runCatching { installer.abandonSession(id) }
+        // Best effort: Android refuses a session that is already gone.
+        catchExpected("update.session.abandon", SecurityException::class) { installer.abandonSession(id) }
     }
 
     /** This APK's version; a debug build reads the one a test wrote in its preferences (`installed_override`). */

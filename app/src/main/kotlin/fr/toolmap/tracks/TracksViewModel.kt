@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.toolmap.R
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.settings.LibraryViewSettings
 import fr.toolmap.core.track.ElevationProfile
 import fr.toolmap.core.track.GpxWriter
@@ -200,6 +201,8 @@ class TracksViewModel
                     }
                     mutableImported.tryEmit(summary)
                 } catch (e: TrackFormatException) {
+                    // A file the user picked that is not a track ToolMap reads.
+                    Problems.expected("tracks.import.parse", e, "bytes" to bytes.size)
                     mutableMessages.tryEmit(UiMessage(R.string.tracks_import_failed, listOf(e.message.orEmpty())))
                 } finally {
                     mutableBusy.value = false
@@ -220,12 +223,16 @@ class TracksViewModel
             viewModelScope.launch {
                 try {
                     withContext(Dispatchers.IO) {
-                        val bytes = GpxWriter.toBytes(repository.document(selection), CREATOR)
-                        resolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
-                            ?: throw IOException("Cannot open $uri")
+                        val document = repository.document(selection)
+                        // Streamed: a whole library as one string and then one byte array ran out of memory (P36).
+                        resolver.openOutputStream(uri, "wt")?.bufferedWriter(Charsets.UTF_8)?.use {
+                            GpxWriter.write(document, it, CREATOR)
+                        } ?: throw IOException("Cannot open $uri")
                     }
                     mutableMessages.tryEmit(UiMessage(R.string.tracks_exported))
                 } catch (e: IOException) {
+                    // The document the user chose could not be written.
+                    Problems.expected("tracks.export.write", e)
                     mutableMessages.tryEmit(UiMessage(R.string.tracks_export_failed, listOf(e.message.orEmpty())))
                 }
             }
@@ -240,10 +247,13 @@ class TracksViewModel
             withContext(Dispatchers.IO) {
                 try {
                     dir.mkdirs()
-                    File(dir, fileName).also {
-                        it.writeBytes(GpxWriter.toBytes(repository.document(selection), CREATOR))
+                    val document = repository.document(selection)
+                    File(dir, fileName).also { file ->
+                        file.bufferedWriter(Charsets.UTF_8).use { GpxWriter.write(document, it, CREATOR) }
                     }
                 } catch (e: IOException) {
+                    // The cache folder could not be written (storage full).
+                    Problems.expected("tracks.export.cache", e)
                     mutableMessages.tryEmit(UiMessage(R.string.tracks_export_failed, listOf(e.message.orEmpty())))
                     null
                 }

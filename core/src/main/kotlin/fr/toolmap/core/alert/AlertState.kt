@@ -1,5 +1,6 @@
 package fr.toolmap.core.alert
 
+import fr.toolmap.core.problem.catchReported
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -95,6 +96,9 @@ object AlertStateCodec {
         if (text.isNullOrBlank()) {
             AlertState()
         } else {
-            runCatching { json.decodeFromString(AlertState.serializer(), text) }.getOrDefault(AlertState())
+            // The app wrote this file itself: a file it cannot read back is a bug or a damaged disk.
+            catchReported("alert.state.decode") {
+                json.decodeFromString(AlertState.serializer(), text)
+            }.getOrDefault(AlertState())
         }
 }

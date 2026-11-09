@@ -56,10 +56,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.layers.FavoritesFileCodec
+import fr.toolmap.core.layers.FavoritesFileException
 import fr.toolmap.core.measure.Measure
 import fr.toolmap.core.p2p.GroupItemKind
 import fr.toolmap.core.p2p.GroupPoint
 import fr.toolmap.core.p2p.PointDuration
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.track.NameDates
 import fr.toolmap.draw.RouteIcons
 import fr.toolmap.map.MenuIcons
@@ -143,7 +145,10 @@ private fun kindLabel(kind: GroupItemKind): String =
 /** How many maps the favorites of a share show (P25.4), `null` for another share or an unreadable file. */
 internal fun favoritesMaps(point: GroupPoint): Int? =
     point.favoritesText()?.let { text ->
-        runCatching { FavoritesFileCodec.decode(text).favorites.sumOf { it.layers.size } }.getOrNull()
+        // A file sent by another member: it may not be one this version reads.
+        catchExpected("share.favorites.maps", FavoritesFileException::class) {
+            FavoritesFileCodec.decode(text).favorites.sumOf { it.layers.size }
+        }.getOrNull()
     }
 
 /** The colour of the author of [point], `null` when it is not in the group any more. */

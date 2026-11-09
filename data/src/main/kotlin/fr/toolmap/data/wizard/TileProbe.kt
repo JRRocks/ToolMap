@@ -1,5 +1,7 @@
 package fr.toolmap.data.wizard
 
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.tiles.ScalingPolicy
 import fr.toolmap.core.wizard.ImageSniffer
@@ -119,11 +121,15 @@ class TileProbe(
             val started = System.nanoTime()
             try {
                 call.execute().use { response ->
-                    val bytes = runCatching { response.body?.bytes() }.getOrNull() ?: ByteArray(0)
+                    val bytes =
+                        catchExpected("wizard.probe.body", IOException::class) { response.body?.bytes() }
+                            .getOrNull()
+                            ?: ByteArray(0)
                     val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
                     interpret(source, tile, response.code, response.header("Content-Type"), bytes, elapsed, stats)
                 }
             } catch (e: IOException) {
+                Problems.expected("wizard.probe.fetch", e, "source" to source.id)
                 val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
                 val message = "${e.javaClass.simpleName}: ${e.message}"
                 ProbeResult(

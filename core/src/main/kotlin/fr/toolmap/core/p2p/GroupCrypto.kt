@@ -1,7 +1,9 @@
 package fr.toolmap.core.p2p
 
+import fr.toolmap.core.problem.Problems
 import java.security.GeneralSecurityException
 import java.security.SecureRandom
+import javax.crypto.BadPaddingException
 import javax.crypto.Cipher
 import javax.crypto.Mac
 import javax.crypto.spec.GCMParameterSpec
@@ -51,6 +53,7 @@ class GroupCrypto(
     ): ByteArray {
         if (sealed.size < NONCE_BYTES + TAG_BITS / 8) throw WireException("message too short")
         val nonce = sealed.copyOfRange(0, NONCE_BYTES)
+        var refused: GeneralSecurityException? = null
         for (key in keys) {
             try {
                 val cipher = Cipher.getInstance(TRANSFORM)
@@ -58,10 +61,17 @@ class GroupCrypto(
                 cipher.updateAAD(aad)
                 return cipher.doFinal(sealed, NONCE_BYTES, sealed.size - NONCE_BYTES)
             } catch (e: GeneralSecurityException) {
-                continue
+                // A tag that does not match: sealed with another key (the one before a re-key, or another group's),
+                // the next key may open it. Any other refusal (no AES-GCM, a key or nonce the cipher does not take)
+                // is a bug of ours or of the platform, never the fault of the message.
+                if (e !is BadPaddingException) Problems.report("group.crypto.open", e, "keys" to keys.size)
+                refused = e
             }
         }
-        throw WireException("message does not belong to this group")
+        // The last refusal goes on as the cause, for whoever logs the dropped message.
+        val error = WireException("message does not belong to this group")
+        refused?.let { error.initCause(it) }
+        throw error
     }
 
     companion object {

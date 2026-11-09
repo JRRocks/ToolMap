@@ -9,6 +9,8 @@ import fr.toolmap.core.backup.BackupException
 import fr.toolmap.core.backup.BackupFailure
 import fr.toolmap.core.backup.BackupManifest
 import fr.toolmap.core.backup.RestoreReport
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.data.backup.BackupService
 import fr.toolmap.download.formatBytes
 import fr.toolmap.map.UiMessage
@@ -119,7 +121,8 @@ class BackupViewModel
             viewModelScope.launch {
                 val disk =
                     withContext(Dispatchers.IO) {
-                        val names = runCatching { labels.byFile() }.getOrDefault(emptyMap())
+                        // Names read from the catalogue in memory: a failure is a bug, the bare file names stand in.
+                        val names = catchReported("backup.labels") { labels.byFile() }.getOrDefault(emptyMap())
                         val maps =
                             service
                                 .tileFiles()
@@ -174,13 +177,16 @@ class BackupViewModel
                         try {
                             service.create(out, wanted.areas, wanted.tiles) { done, total -> progress(done, total) }
                         } catch (e: Throwable) {
-                            withContext(Dispatchers.IO) { runCatching { discard() } }
+                            // The screen's discard handles the failures it expects: anything else is a bug.
+                            withContext(Dispatchers.IO) { catchReported("backup.create.discard") { discard() } }
                             throw e
                         }
                     say(R.string.backup_created, manifest.entries.size, formatBytes(manifest.totalBytes))
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: BackupException) {
+                    // The document could not be written, or a file changed while it was saved: the user is told why.
+                    Problems.expected("backup.create.write", e, "failure" to e.failure)
                     sayFailure(e)
                 } finally {
                     mutableUi.update { it.copy(busy = null, progress = null) }
@@ -206,6 +212,8 @@ class BackupViewModel
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: BackupException) {
+                    // The document the user picked is not a backup ToolMap reads: the user is told why.
+                    Problems.expected("backup.restore.inspect", e, "failure" to e.failure)
                     sayFailure(e)
                 } finally {
                     mutableUi.update { it.copy(busy = null) }
@@ -237,6 +245,8 @@ class BackupViewModel
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: BackupException) {
+                    // The backup could not be unpacked (damaged, unsafe, no space): the user is told why.
+                    Problems.expected("backup.restore.stage", e, "failure" to e.failure)
                     sayFailure(e)
                 } finally {
                     chosen = null

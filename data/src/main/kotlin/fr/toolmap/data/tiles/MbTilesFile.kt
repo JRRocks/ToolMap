@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import fr.toolmap.core.geo.Bounds
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.tiles.TileMath
 import java.io.Closeable
 import java.io.File
@@ -357,6 +358,11 @@ class MbTilesFile private constructor(
     fun mergeFrom(other: File): Int {
         db.execSQL("ATTACH DATABASE ? AS incoming", arrayOf(other.path))
         try {
+            // The app's own files have a table `tiles`. A crafted backup could put a view there (a recursive one runs
+            // without end at every start, P36 review): only a real table is read.
+            val tilesTable =
+                scalar("SELECT COUNT(*) FROM incoming.sqlite_master WHERE type = 'table' AND name = 'tiles'") ?: 0L
+            if (tilesTable == 0L) throw SQLiteException("no tiles table in ${other.name}")
             val dated =
                 (
                     scalar("SELECT COUNT(*) FROM incoming.sqlite_master WHERE type = 'table' AND name = 'tm_tile_info'")
@@ -461,6 +467,8 @@ class MbTilesFile private constructor(
                 try {
                     openDatabase(file)
                 } catch (e: SQLiteException) {
+                    // The tiles it held are lost for the map: a damaged store file is worth knowing about.
+                    Problems.report("tiles.file.open", e, "file" to file.name)
                     val aside = File(file.path + ".corrupt")
                     aside.delete()
                     file.renameTo(aside)

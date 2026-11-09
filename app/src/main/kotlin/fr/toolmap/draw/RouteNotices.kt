@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.route.RoutingError
 import fr.toolmap.data.routing.BRouterEngine
 import fr.toolmap.ui.theme.TextButton
@@ -143,8 +144,9 @@ fun installBRouter(context: Context) {
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(page)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             return
-        } catch (_: ActivityNotFoundException) {
-            // Try the next page.
+        } catch (e: ActivityNotFoundException) {
+            // No app opens this page (no F-Droid, no store): try the next one.
+            Problems.expected("route.brouter.install", e, "page" to page)
         }
     }
 }

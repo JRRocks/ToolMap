@@ -1,9 +1,11 @@
 package fr.toolmap.altitude
 
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.record.Fix
 import fr.toolmap.data.altitude.AltitudeService
 import fr.toolmap.data.altitude.AltitudeStatus
 import fr.toolmap.record.LocationSource
+import fr.toolmap.record.isGpsRefusal
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,11 +48,22 @@ class AltitudeController(
      */
     suspend fun watch() {
         try {
-            location.fixes(WATCH_INTERVAL_MILLIS, 0f).catch { }.collect { }
+            location
+                .fixes(WATCH_INTERVAL_MILLIS, 0f)
+                .catch { e ->
+                    // No permission or no GPS: the chip simply stays empty. Anything else is a bug.
+                    if (e.isGpsRefusal()) {
+                        Problems.expected("altitude.watch.gps", e)
+                    } else {
+                        Problems.report("altitude.watch.gps", e)
+                    }
+                }
+                .collect { }
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
-            // No permission or no GPS: the chip simply stays empty.
+        } catch (e: Exception) {
+            // The failures of the flow are caught above: one that still comes here is a bug.
+            Problems.report("altitude.watch", e)
         }
     }
 

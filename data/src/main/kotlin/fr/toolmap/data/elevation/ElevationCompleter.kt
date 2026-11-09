@@ -2,6 +2,7 @@ package fr.toolmap.data.elevation
 
 import fr.toolmap.core.elevation.PngException
 import fr.toolmap.core.elevation.TerrariumTile
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.tiles.TileMath
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.data.tiles.TileHost
@@ -52,7 +53,8 @@ class SourceElevationTiles(
             currentCoroutineContext().job.invokeOnCompletion { if (it != null) call.cancel() }
             try {
                 call.execute().use { response -> if (response.isSuccessful) response.body?.bytes() else null }
-            } catch (_: IOException) {
+            } catch (e: IOException) {
+                Problems.expected("elevation.tile.fetch", e, "z" to z, "x" to x, "y" to y)
                 null
             }
         }
@@ -100,7 +102,9 @@ class ElevationCompleter(
                 tiles.tile(zoom, coord.x, coord.y)?.let {
                     try {
                         TerrariumTile.fromPng(it)
-                    } catch (_: PngException) {
+                    } catch (e: PngException) {
+                        // The tile came from the server (or was stored from it): its data, not a bug here.
+                        Problems.expected("elevation.tile.decode", e, "z" to zoom, "x" to coord.x, "y" to coord.y)
                         null
                     }
                 }

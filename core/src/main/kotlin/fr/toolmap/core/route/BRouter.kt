@@ -1,13 +1,14 @@
 package fr.toolmap.core.route
 
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.track.TrackPoint
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.roundToLong
 
@@ -20,13 +21,16 @@ object BRouterJson {
 
     /** The way and its time, or `null` when the text is not such a document. */
     fun parse(text: String): LegResult.Ok? {
-        val root = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull() ?: return null
+        val root =
+            catchExpected("route.brouter.json", SerializationException::class) {
+                json.parseToJsonElement(text)
+            }.getOrNull() as? JsonObject ?: return null
         val feature = (root["features"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return null
         val geometry = feature["geometry"] as? JsonObject ?: return null
         val coordinates = geometry["coordinates"] as? JsonArray ?: return null
         val points =
             coordinates.mapNotNull { c ->
-                val v = runCatching { c.jsonArray }.getOrNull() ?: return@mapNotNull null
+                val v = c as? JsonArray ?: return@mapNotNull null
                 val lon = v.getOrNull(0)?.jsonPrimitive?.doubleOrNull ?: return@mapNotNull null
                 val lat = v.getOrNull(1)?.jsonPrimitive?.doubleOrNull ?: return@mapNotNull null
                 TrackPoint(lat, lon, v.getOrNull(2)?.jsonPrimitive?.doubleOrNull)
@@ -36,7 +40,7 @@ object BRouterJson {
         val seconds =
             properties
                 ?.get("total-time")
-                ?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
+                ?.let { (it as? JsonPrimitive)?.contentOrNull }
                 ?.trim()
                 ?.toDoubleOrNull()
         return LegResult.Ok(points, seconds?.let { (it * MILLIS_PER_SECOND).roundToLong() })

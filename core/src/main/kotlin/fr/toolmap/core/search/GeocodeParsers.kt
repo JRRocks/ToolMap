@@ -1,6 +1,8 @@
 package fr.toolmap.core.search
 
 import fr.toolmap.core.geo.Bounds
+import fr.toolmap.core.problem.catchExpected
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -34,7 +36,10 @@ object GeocodeParsers {
         return places.mapNotNull { nominatimResult(it as? JsonObject) }
     }
 
-    private fun parse(text: String): JsonElement? = runCatching { Json.parseToJsonElement(text) }.getOrNull()
+    private fun parse(text: String): JsonElement? =
+        catchExpected("search.geocode.parse", SerializationException::class) {
+            Json.parseToJsonElement(text)
+        }.getOrNull()
 
     private fun ignResult(feature: JsonObject?): SearchResult? {
         feature ?: return null

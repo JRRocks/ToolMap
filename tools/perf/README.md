@@ -31,7 +31,7 @@ Variables : `RUNS` (nombre de passages), `DURATION` (secondes du scénario A), `
   (`TileStats`). L'ouverture ajoute `since_process_ms` pour la première carte du processus.
 - `zone completed ms=<…> total=<n> downloaded=<n> stored=<n> missing=<n> failed=<n> bytes=<n>` à la fin d'un
   téléchargement de zone.
-- Point de départ fixe par les extras de l'intent de lancement (`fr.toolmap.perf.PerfIntent`) : `perf.source`,
+- Point de départ fixe par les extras de l'intent de lancement (`fr.toolmap.perf.PerfIntent`, APK benchmark seulement depuis P36) : `perf.source`,
   `perf.lat`, `perf.lon`, `perf.zoom`, et `perf.zone` (`ouest,sud,est,nord`) avec `perf.zmin`, `perf.zmax` ; pour les
   cartes selon l'altitude (P20) : `perf.overlay` (carte ajoutée au-dessus), `perf.altmin`, `perf.altmax` (mètres, vide =
   sans limite) et `perf.logic` (`and` / `or`). Pour les modes de fusion (P26) : `perf.overlay` accepte plusieurs cartes (`a,b`, la dernière au-dessus) et `perf.blend` donne le mode de la dernière (`multiply`, `soft-light`…). La caméra n'est appliquée qu'à un démarrage à froid (`am force-stop` avant).

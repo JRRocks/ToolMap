@@ -1,5 +1,6 @@
 package fr.toolmap.core.p2p
 
+import fr.toolmap.core.problem.Problems
 import java.net.InetAddress
 
 /** The few fields of a real SDP that a pairing code carries. */
@@ -122,6 +123,8 @@ object Sdp {
             try {
                 InetAddress.getByName(host)
             } catch (e: java.net.UnknownHostException) {
+                // Not a valid literal address after all: the candidate is skipped.
+                Problems.expected("sdp.candidate.address", e, "type" to type)
                 return null
             }
         if (address.isLinkLocalAddress || address.isMulticastAddress || address.isAnyLocalAddress) return null

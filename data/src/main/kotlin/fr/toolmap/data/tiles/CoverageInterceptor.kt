@@ -1,5 +1,6 @@
 package fr.toolmap.data.tiles
 
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.tiles.SolidPng
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
@@ -63,6 +64,8 @@ class CoverageInterceptor(
                 // The coverage of the map is that of the storage its tiles live in at this zoom (ADR-031).
                 store.storageIdOf(TileKey(segments[0], z, x, y))?.let(store::peek)?.coverage(z, x, y) ?: Coverage.NONE
             } catch (e: android.database.sqlite.SQLiteException) {
+                // The store's own file failed to read after opening (a damaged file is moved aside on opening).
+                Problems.report("tiles.coverage.read", e, "source" to segments[0], "z" to z)
                 Coverage.NONE
             }
         return when (coverage) {

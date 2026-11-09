@@ -5,6 +5,7 @@ import fr.toolmap.core.elevation.ElevationMask
 import fr.toolmap.core.elevation.MaskRaster
 import fr.toolmap.core.layers.BlendRecipe
 import fr.toolmap.core.layers.LayerElevation
+import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.source.LevelDef
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.source.UpdateDelay
@@ -292,6 +293,8 @@ class TileInterceptor(
             try {
                 TileUrlBuilder(source).build(level, key.z, key.x, key.y, index)
             } catch (e: TileUrlException) {
+                // The URL template comes from the map's definition (an imported or typed AQX): its fault, not a bug.
+                Problems.expected("tiles.url.build", e, "source" to source.id, "z" to key.z)
                 stats.record(TileOutcome.REJECTED, key.z, error = e.message)
                 return reply(request, 502, "bad url template")
             }
@@ -300,7 +303,7 @@ class TileInterceptor(
                 stats.record(TileOutcome.REJECTED, key.z, url = realUrl, error = "invalid request for $realUrl")
                 return reply(request, 502, "invalid tile request")
             }
-        val response = download(chain, request, outgoing, key, source.id, level, bulk)
+        val response = download(chain, request, outgoing, key, source.id, level, bulk, stored)
         if (stored != null && !response.isSuccessful) {
             response.close()
             stats.record(TileOutcome.STORE_HIT, key.z)
@@ -317,6 +320,7 @@ class TileInterceptor(
         sourceId: String,
         level: LevelDef,
         bulk: BulkFetch?,
+        stored: StoredTile?,
     ): Response {
         val url = outgoing.url.toString()
         // AQX <max-threads>: at most N simultaneous downloads per source (tile servers' usage policies). The newest
@@ -337,6 +341,16 @@ class TileInterceptor(
             }
         }
         try {
+            // Several displayed tiles may share one real tile (a forced or completed zoom, ADR-031): one of them may
+            // have stored it while this one waited for its turn. Read the store again before asking the server
+            // (P36 review: a z18 screen of a z16 map asked the same tile up to 16 times).
+            if (bulk == null) {
+                val fresh = store.get(key)
+                if (fresh != null && (stored == null || fresh.storedAtMillis > stored.storedAtMillis)) {
+                    stats.record(TileOutcome.STORE_HIT, key.z)
+                    return ok(original, fresh.bytes, fresh.contentType)
+                }
+            }
             val response =
                 try {
                     chain.proceed(outgoing)
@@ -409,7 +423,10 @@ class TileInterceptor(
                     level.cookie?.let { header("Cookie", it) }
                 }.build()
         } catch (e: IllegalArgumentException) {
-            null // illegal character in a configured header name or value
+            // An illegal character in a header name or value of the map's definition (imported or typed). OkHttp's
+            // message ends with the value itself (a key, maybe): only the part before it is logged.
+            Problems.expected("tiles.request.headers", IllegalArgumentException(e.message?.substringBefore(": ")))
+            null
         }
     }
 

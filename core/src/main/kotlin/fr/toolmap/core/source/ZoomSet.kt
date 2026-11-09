@@ -67,6 +67,8 @@ class ZoomSet private constructor(
                 require(bounds.size <= 2 && from != null && to != null && from <= to) {
                     "Invalid zoom specification '$part' in '$spec'"
                 }
+                // Before the range is built: « 0-2000000000 » in an imported file would fill the memory (P36 review).
+                require(from >= 0 && to <= MAX_ZOOM) { "Zoom levels must be within 0..$MAX_ZOOM: $part" }
                 zooms += from..to
             }
             return create(zooms)

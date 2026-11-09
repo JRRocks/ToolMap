@@ -76,6 +76,7 @@ import fr.toolmap.R
 import fr.toolmap.core.backup.BackupArea
 import fr.toolmap.core.backup.BackupManifest
 import fr.toolmap.core.backup.RestoreReport
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.download.formatBytes
 import fr.toolmap.map.MenuIcons
 import fr.toolmap.maps.MapThumbnail
@@ -92,6 +93,7 @@ import fr.toolmap.ui.theme.FilledTonalButton
 import fr.toolmap.ui.theme.OutlinedButton
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
+import java.io.IOException
 import java.time.LocalDate
 
 private const val MIME_ZIP = "application/zip"
@@ -149,7 +151,16 @@ fun BackupScreen(
             if (uri != null) {
                 vm.create(
                     open = { context.contentResolver.openOutputStream(uri) },
-                    discard = { runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) } },
+                    discard = {
+                        // Best effort: the provider of the document may refuse to delete it or not support it.
+                        catchExpected(
+                            "backup.create.delete",
+                            IOException::class,
+                            SecurityException::class,
+                            UnsupportedOperationException::class,
+                            IllegalArgumentException::class,
+                        ) { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+                    },
                 )
             }
         }

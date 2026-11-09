@@ -43,10 +43,15 @@ class BackupServiceTest {
                 locations,
                 appVersion = "0.1.0",
                 hooks =
-                    BackupHooks(freezeDatabase = { copy ->
-                        frozen++
-                        copy()
-                    }, checkpointTiles = { tilesCheckpointed++ }),
+                    BackupHooks(
+                        freezeDatabase = { copy ->
+                            frozen++
+                            copy()
+                        },
+                        checkpointTiles = { tilesCheckpointed++ },
+                        // The database of these tests is a few bytes of text, not SQLite.
+                        databaseRefusal = { null },
+                    ),
                 workDir = workDir,
                 clock = clock,
             )

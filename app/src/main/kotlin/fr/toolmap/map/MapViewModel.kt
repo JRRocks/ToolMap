@@ -14,6 +14,8 @@ import fr.toolmap.core.layers.RangeLogic
 import fr.toolmap.core.layers.Workspace
 import fr.toolmap.core.layers.Workspaces
 import fr.toolmap.core.maps.MapCatalog
+import fr.toolmap.core.problem.Problems
+import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.settings.AppSettings
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.state.CameraState
@@ -47,6 +49,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import javax.inject.Inject
 
 /** A short message for the snackbar: a string resource and its arguments. */
@@ -115,7 +118,9 @@ class MapViewModel
             offlineMode.set(mutableState.value.offline)
             viewModelScope.launch {
                 mutableState.debounce(SAVE_DELAY_MS).collect { value ->
-                    withContext(Dispatchers.IO) { runCatching { store.save(value) } }
+                    withContext(Dispatchers.IO) {
+                        catchExpected("map.state.save", IOException::class) { store.save(value) }
+                    }
                 }
             }
             viewModelScope.launch {
@@ -341,6 +346,7 @@ class MapViewModel
             try {
                 mutablePreview.value = repository.preview(text, fileName)
             } catch (e: SourceImportException) {
+                Problems.expected("map.import.preview", e, "file" to fileName)
                 mutableMessages.tryEmit(UiMessage(R.string.import_failed, listOf(e.message.orEmpty())))
             }
         }
