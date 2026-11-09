@@ -33,6 +33,7 @@ import fr.toolmap.data.tracks.TrackLibrary
 import fr.toolmap.data.tracks.TrackRepository
 import fr.toolmap.data.tracks.TrackSelection
 import fr.toolmap.map.UiMessage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -209,6 +210,17 @@ class TracksViewModel
                     // A file the user picked that is not a track ToolMap reads.
                     Problems.expected("tracks.import.parse", e, "bytes" to bytes.size)
                     mutableMessages.tryEmit(UiMessage(R.string.tracks_import_failed, listOf(e.message.orEmpty())))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: OutOfMemoryError) {
+                    // Within the limits of size and of points, and still more than this phone holds in memory.
+                    Problems.expected("tracks.import.memory", e, "bytes" to bytes.size)
+                    mutableMessages.tryEmit(UiMessage(R.string.tracks_import_failed, listOf("File too large")))
+                } catch (e: RuntimeException) {
+                    // A reader failing in a way it does not say: a bug to report, never a reason for a file opened
+                    // with ToolMap to stop the app and what it records or shares (P36 audit).
+                    Problems.report("tracks.import.bug", e, "bytes" to bytes.size)
+                    mutableMessages.tryEmit(UiMessage(R.string.tracks_import_failed, listOf(e.javaClass.simpleName)))
                 } finally {
                     mutableBusy.value = false
                 }

@@ -14,6 +14,16 @@ object TrackImporter {
     const val MAX_BYTES = 64 * 1024 * 1024
 
     private const val MAX_UNZIPPED = 128 * 1024 * 1024
+
+    /**
+     * Points one file may hold, all tracks, routes and waypoints together: twelve days recorded every second. The size
+     * of the file does not bound them (a few kilobytes of KMZ unzip to millions of points), and each is an object:
+     * without this, the import ran out of memory and the app stopped (P36 audit).
+     */
+    const val MAX_POINTS = 1_000_000
+
+    /** The arrays of a GeoJSON file, so about its positions: its reader builds a tree of the whole text first. */
+    const val MAX_GEOJSON_ARRAYS = 300_000
     private const val SNIFF_BYTES = 4096
 
     fun read(

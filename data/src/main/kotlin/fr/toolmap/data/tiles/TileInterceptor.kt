@@ -59,6 +59,8 @@ class TileInterceptor(
     private val blender: TileBlender = BitmapTileBlender(),
     private val demSourceId: String = DEM_SOURCE_ID,
     private val log: ((String) -> Unit)? = null,
+    /** The size an image announces ([ImageBounds.of] in the app); by default nothing is known of it. */
+    private val imageSize: (ByteArray) -> Pair<Int, Int>? = { null },
 ) : Interceptor {
     private val rotation = ConcurrentHashMap<String, AtomicInteger>()
     private val gates = ConcurrentHashMap<String, RecentFirstGate>()
@@ -67,6 +69,20 @@ class TileInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         if (request.url.host != TileHost.HOST) return chain.proceed(request)
+        return try {
+            tile(chain, request)
+        } catch (e: RuntimeException) {
+            // MapLibre asks for its tiles on OkHttp's own threads, where anything that is not an IOException stops
+            // the app: what a server answers must never do that (P36 audit). The tile fails, the bug is reported.
+            Problems.report("tiles.intercept", e)
+            reply(request, HTTP_BAD_GATEWAY, "tile error")
+        }
+    }
+
+    private fun tile(
+        chain: Interceptor.Chain,
+        request: Request,
+    ): Response {
         // MapLibre cancels the tiles it no longer needs: a cancelled call waiting in the dispatcher costs nothing.
         chain.throwIfCanceled()
 
@@ -375,28 +391,44 @@ class TileInterceptor(
                 stats.record(TileOutcome.HTTP_ERROR, key.z, url, httpCode = response.code)
                 return response
             }
-            val bytes =
+            val read =
                 try {
-                    response.body?.bytes() ?: ByteArray(0)
+                    // Read up to a size no tile has: the answer may be compressed, and a megabyte sent by the server
+                    // can be a gigabyte once OkHttp has inflated it (P36 audit).
+                    val source = response.body?.source()
+                    when {
+                        source == null -> ByteArray(0)
+                        source.request(MAX_TILE_BYTES + 1) -> null
+                        else -> source.readByteArray()
+                    }
                 } catch (e: IOException) {
                     if (chain.call().isCanceled()) throw e
                     return networkFailure(original, key, url, e)
                 } finally {
                     response.close()
                 }
-            val contentType = response.header("Content-Type")
+            val declared = response.header("Content-Type")
+            val bytes = read ?: ByteArray(0)
             return when {
+                read == null || isHugeImage(bytes) -> {
+                    stats.record(TileOutcome.REJECTED, key.z, url, response.code, "tile too large")
+                    reply(original, HTTP_BAD_GATEWAY, "server answer is not an image")
+                }
+
                 bytes.isEmpty() -> {
                     stats.record(TileOutcome.HTTP_ERROR, key.z, url, httpCode = response.code, error = "empty tile")
                     reply(original, 404, "empty tile")
                 }
 
-                !isTileContentType(contentType) -> {
-                    stats.record(TileOutcome.REJECTED, key.z, url, response.code, "not an image: $contentType")
-                    reply(original, 502, "server answer is not an image")
+                !isTileContentType(declared) -> {
+                    stats.record(TileOutcome.REJECTED, key.z, url, response.code, "not an image: $declared")
+                    reply(original, HTTP_BAD_GATEWAY, "server answer is not an image")
                 }
 
                 else -> {
+                    // Kept and given back with a plain media type: the header of the server, with its parameters and
+                    // whatever characters it holds, is not one OkHttp accepts in an answer.
+                    val contentType = plainMediaType(declared) ?: MbTilesFile.contentTypeOf(bytes)
                     val tile = StoredTile(bytes, contentType ?: DEFAULT_CONTENT_TYPE)
                     if (bulk != null) bulk.sink(key, tile) else store.put(key, tile)
                     stats.record(TileOutcome.NETWORK_OK, key.z, url, httpCode = response.code)
@@ -453,6 +485,14 @@ class TileInterceptor(
         return TileKey(segments[0], z, x, y)
     }
 
+    /** `type/subtype` in plain characters, without the parameters; `null` when the header is not that. */
+    private fun plainMediaType(header: String?): String? =
+        header?.substringBefore(';')?.trim()?.lowercase(java.util.Locale.ROOT)?.takeIf(MEDIA_TYPE::matches)
+
+    /** An image whose sides, read from its first bytes, are far beyond a tile's: decoding it would take gigabytes. */
+    private fun isHugeImage(bytes: ByteArray): Boolean =
+        imageSize(bytes)?.let { (width, height) -> width > MAX_TILE_SIDE || height > MAX_TILE_SIDE } ?: false
+
     private fun isTileContentType(contentType: String?): Boolean {
         val type = contentType?.substringBefore(';')?.trim()?.lowercase() ?: return true
         return type.startsWith("image/") || type == "application/octet-stream"
@@ -469,8 +509,9 @@ class TileInterceptor(
             .protocol(Protocol.HTTP_1_1)
             .code(200)
             .message("OK")
-            .header("Content-Type", contentType ?: DEFAULT_CONTENT_TYPE)
-            .body(bytes.toResponseBody((contentType ?: DEFAULT_CONTENT_TYPE).toMediaTypeOrNull()))
+            // Also for a tile stored with the header of its server as it came (before 0.4.219).
+            .header("Content-Type", plainMediaType(contentType) ?: DEFAULT_CONTENT_TYPE)
+            .body(bytes.toResponseBody((plainMediaType(contentType) ?: DEFAULT_CONTENT_TYPE).toMediaTypeOrNull()))
             .build()
 
     private fun reply(
@@ -494,6 +535,14 @@ class TileInterceptor(
         private const val MAX_ZOOM = 30
         private const val GATE_TIMEOUT_SECONDS = 30L
         private const val HTTP_NOT_FOUND = 404
+        private const val HTTP_BAD_GATEWAY = 502
+
+        /** More than any tile weighs (the largest ones, 512 px photos, are a few hundred kilobytes). */
+        private const val MAX_TILE_BYTES = 4L * 1024 * 1024
+
+        /** More than any tile measures (256 or 512 px, 1024 at most). */
+        private const val MAX_TILE_SIDE = 4096
+        private val MEDIA_TYPE = Regex("[a-z0-9!#&^_.+-]+/[a-z0-9!#&^_.+-]+")
         private const val COMPOSED_CONTENT_TYPE = "image/png"
 
         /** The elevation map the bands of the layers are read from (`builtin-sources.aqx`). */

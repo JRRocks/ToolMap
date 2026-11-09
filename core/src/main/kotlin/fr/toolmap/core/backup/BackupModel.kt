@@ -220,6 +220,9 @@ object BackupManifestCodec {
                 throw BackupException(BackupFailure.NOT_A_BACKUP, "Unreadable manifest", e)
             } catch (e: IllegalArgumentException) {
                 throw BackupException(BackupFailure.NOT_A_BACKUP, "Unreadable manifest", e)
+            } catch (e: IndexOutOfBoundsException) {
+                // What the JSON reader throws on a text cut in the middle of a string (P36 audit).
+                throw BackupException(BackupFailure.NOT_A_BACKUP, "Unreadable manifest", e)
             }
         validate(manifest)
         return manifest

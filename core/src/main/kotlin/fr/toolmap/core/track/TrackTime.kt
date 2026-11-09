@@ -1,11 +1,11 @@
 package fr.toolmap.core.track
 
 import fr.toolmap.core.problem.Problems
+import java.time.DateTimeException
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
-import java.time.format.DateTimeParseException
 
 /** Times in GPX, KML and GeoJSON files: ISO 8601, with or without offset, with up to nine fractional digits. */
 object TrackTime {
@@ -23,11 +23,15 @@ object TrackTime {
                 time >= 0 && value.indexOfAny(SIGNS, time) >= 0 -> OFFSET
                 else -> LOCAL
             }
-        val failures = ArrayList<DateTimeParseException>(FORMS.size)
+        val failures = ArrayList<RuntimeException>(FORMS.size)
         for (form in listOf(first) + FORMS.filter { it !== first }) {
             try {
                 return form(value)
-            } catch (e: DateTimeParseException) {
+            } catch (e: DateTimeException) {
+                failures += e
+            } catch (e: ArithmeticException) {
+                // A date-time that reads but does not fit in milliseconds (the year 300 000 000): no time either.
+                // Not caught, it stopped the app on opening the file (P36 audit).
                 failures += e
             }
         }

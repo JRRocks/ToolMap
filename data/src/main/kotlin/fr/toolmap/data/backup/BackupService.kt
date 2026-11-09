@@ -314,8 +314,19 @@ class BackupService(
 
     // ---- reading
 
+    /**
+     * The next entry of the archive. A name that is not UTF-8 (an archive made by another tool) is said by Java with
+     * an IllegalArgumentException, which no caller expects: it stopped the app in « Restaurer » (P36 audit).
+     */
+    private fun ZipInputStream.next(failure: BackupFailure) =
+        try {
+            nextEntry
+        } catch (e: IllegalArgumentException) {
+            throw BackupException(failure, "Unreadable entry name", e)
+        }
+
     private fun readManifest(zip: ZipInputStream): BackupManifest {
-        val first = zip.nextEntry
+        val first = zip.next(BackupFailure.NOT_A_BACKUP)
         if (first == null || first.name != BackupPaths.MANIFEST) {
             throw BackupException(BackupFailure.NOT_A_BACKUP, "No manifest at the start of the archive")
         }
@@ -354,7 +365,7 @@ class BackupService(
         var done = 0L
         while (true) {
             currentCoroutineContext().ensureActive()
-            val entry = zip.nextEntry ?: break
+            val entry = zip.next(BackupFailure.CORRUPT) ?: break
             if (entry.isDirectory) continue
             if (entry.name !in listed) throw BackupException(BackupFailure.CORRUPT, "Unlisted ${entry.name}")
             if (!seen.add(entry.name)) throw BackupException(BackupFailure.CORRUPT, "${entry.name} twice")

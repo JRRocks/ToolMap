@@ -18,6 +18,7 @@ import fr.toolmap.data.tiles.BitmapElevationMasker
 import fr.toolmap.data.tiles.BitmapTileBlender
 import fr.toolmap.data.tiles.CoverageInterceptor
 import fr.toolmap.data.tiles.ForcedRefresh
+import fr.toolmap.data.tiles.ImageBounds
 import fr.toolmap.data.tiles.MbTilesStore
 import fr.toolmap.data.tiles.OfflineMode
 import fr.toolmap.data.tiles.TileInterceptor
@@ -117,6 +118,7 @@ object TileModule {
                     masker = BitmapElevationMasker(log = perfLog()),
                     blender = BitmapTileBlender(log = perfLog()),
                     log = perfLog(),
+                    imageSize = ImageBounds::of,
                 ),
             )
             // All tile calls share the fake host: room for a whole screen of tiles (40 to 60) plus the stored ones, which must

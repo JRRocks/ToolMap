@@ -179,6 +179,9 @@ object GpxReader {
         private val tracks = ArrayList<Track>()
 
         private var point: PointBuilder? = null
+
+        /** Points read so far in the whole file, against [TrackImporter.MAX_POINTS]. */
+        private var pointCount = 0
         private var item: ItemBuilder? = null
         private var segment: ArrayList<TrackPoint>? = null
         private var linkHref: String? = null
@@ -490,6 +493,9 @@ object GpxReader {
             if (!p.isValid) {
                 issues.add(TrackIssue.Kind.INVALID_COORDINATE, "$kind lat=${p.lat} lon=${p.lon}")
                 return
+            }
+            if (++pointCount > TrackImporter.MAX_POINTS) {
+                throw TrackFormatException("File too large: more than ${TrackImporter.MAX_POINTS} points")
             }
             when (kind) {
                 "trkpt" -> segment?.add(TrackPoint(p.lat!!, p.lon!!, p.ele, p.time, p.extras))

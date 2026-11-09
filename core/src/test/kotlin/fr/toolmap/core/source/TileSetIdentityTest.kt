@@ -98,6 +98,26 @@ class TileSetIdentityTest {
     }
 
     @Test
+    fun `an address OkHttp reads otherwise is not taken for another map`() {
+        val osm = TileSetIdentity.normalizeServer("https://tile.openstreetmap.org/{\$z}/{\$x}/{\$y}.png")
+        // For OkHttp the host of these is evil.example (a backslash ends it, what precedes « @ » is not the host).
+        for (template in listOf(
+            "https://evil.example\\@tile.openstreetmap.org/{\$z}/{\$x}/{\$y}.png",
+            "http://evil.example\\@tile.openstreetmap.org/{\$z}/{\$x}/{\$y}.png",
+            "https://user:pass@tile.openstreetmap.org/{\$z}/{\$x}/{\$y}.png",
+            "https://evil.example\t@tile.openstreetmap.org/{\$z}/{\$x}/{\$y}.png",
+            "https://tile.openstreetmap.org\\.evil.example/{\$z}/{\$x}/{\$y}.png",
+        )) {
+            assertNotEquals(osm, TileSetIdentity.normalizeServer(template), template)
+        }
+        // An « @ » after the host is part of the path or of the query, as before.
+        assertEquals(
+            TileSetIdentity.normalizeServer("https://a.example.org/t/{\$z}/{\$x}/{\$y}.png?who=me@home"),
+            TileSetIdentity.normalizeServer("http://a.example.org/t/{\$z}/{\$x}/{\$y}.png?who=me@home"),
+        )
+    }
+
+    @Test
     fun `parameters are substituted before comparing`() {
         val viaParam =
             TileSource(

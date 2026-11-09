@@ -52,6 +52,9 @@ class ZoomSet private constructor(
             max: Int,
         ): ZoomSet {
             require(min <= max) { "Empty zoom range $min-$max" }
+            // Checked before the list is built: the bounds may come from a file (the zooms of an .mbtiles package),
+            // and « 0 to 2 000 000 000 » used up the memory before being refused (P36 audit).
+            require(min >= 0 && max <= MAX_ZOOM) { "Zoom range $min-$max out of 0-$MAX_ZOOM" }
             return create((min..max).toList())
         }
 

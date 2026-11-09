@@ -77,6 +77,9 @@ object FavoritesFileCodec {
                 throw FavoritesFileException(FavoritesFileFailure.NOT_FAVORITES, "Unreadable favorites file", e)
             } catch (e: IllegalArgumentException) {
                 throw FavoritesFileException(FavoritesFileFailure.NOT_FAVORITES, "Unreadable favorites file", e)
+            } catch (e: IndexOutOfBoundsException) {
+                // What the JSON reader throws on a text cut in the middle of a string (P36 audit: 31 bytes).
+                throw FavoritesFileException(FavoritesFileFailure.NOT_FAVORITES, "Unreadable favorites file", e)
             }
         if (file.app != FavoritesFile.APP || file.kind != FavoritesFile.KIND || file.format < 1) {
             throw FavoritesFileException(FavoritesFileFailure.NOT_FAVORITES, "Not a ToolMap favorites file")

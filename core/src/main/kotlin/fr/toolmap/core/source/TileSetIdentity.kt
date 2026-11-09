@@ -24,6 +24,9 @@ object TileSetIdentity {
         setOf("apikey", "api_key", "api-key", "key", "token", "access_token", "accesstoken", "appid", "app_id")
     private val PARAM_REF = Regex("\\{\\\$param:([^\\}]+)\\}")
     private val SCHEME = Regex("^[A-Za-z][A-Za-z0-9+.-]*://")
+
+    /** Before a template kept as written, not normalized: no normalized form starts this way. */
+    private const val UNUSUAL_PREFIX = "unusual:"
     private val ROTATING_LABEL = Regex("^([a-z]|[a-z]{0,4}[0-9]{1,2}|\\{\\$[a-z]+\\})$")
     private const val HASH_CHARS = 16
     private const val STORAGE_PREFIX = "t-"
@@ -60,7 +63,16 @@ object TileSetIdentity {
         val expanded = PARAM_REF.replace(template.trim()) { m -> params[m.groupValues[1]] ?: m.value }
         val noScheme = expanded.replaceFirst(SCHEME, "").substringBefore('#')
         val authorityEnd = noScheme.indexOfFirst { it == '/' || it == '?' }.let { if (it < 0) noScheme.length else it }
-        val authority = noScheme.substring(0, authorityEnd).substringAfterLast('@').lowercase()
+        // The request is read by OkHttp, not by this function: for OkHttp a backslash ends the host, and what stands
+        // before an « @ » is not the host. A template playing on it (`https://elsewhere\@tile.openstreetmap.org/…`)
+        // had the identity, so the storage, of another map, a built-in one too, while its tiles came from elsewhere
+        // and stayed there under the trusted name (P36 audit). Such a template is its own identity, as written.
+        if ('@' in noScheme.substring(0, authorityEnd) ||
+            expanded.any { it == '\\' || it.isWhitespace() || it.isISOControl() }
+        ) {
+            return UNUSUAL_PREFIX + expanded
+        }
+        val authority = noScheme.substring(0, authorityEnd).lowercase()
         val rest = noScheme.substring(authorityEnd)
         val path = rest.substringBefore('?')
         val query = rest.substringAfter('?', "")

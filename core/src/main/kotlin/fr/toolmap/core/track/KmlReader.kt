@@ -26,6 +26,9 @@ object KmlReader {
 
     private const val MAX_TEXT = 1_000_000
 
+    /** One `lon,lat,alt`: far more characters than any number needs. */
+    private const val MAX_TUPLE = 200
+
     private class StyleBuilder(
         val id: String?,
     ) {
@@ -75,6 +78,17 @@ object KmlReader {
         private var placemark: PlacemarkBuilder? = null
         private var gxTimes = ArrayList<Long?>()
         private var gxCoords = ArrayList<TrackPoint?>()
+
+        // The points of the <coordinates> being read, taken as its text arrives: kept whole, the text of a long line
+        // was cut at [MAX_TEXT] characters, and a track of more than about 25,000 points lost its end, without a
+        // word (P36 audit). `null` outside <coordinates>.
+        private var coordinates: ArrayList<TrackPoint>? = null
+        private val tuple = StringBuilder()
+        private var tupleTooLong = false
+        private var badTuples = 0
+
+        /** Points read so far in the whole file, against [TrackImporter.MAX_POINTS]. */
+        private var pointCount = 0
         private var rootSeen = false
 
         fun document(): TrackDocument {
@@ -111,6 +125,12 @@ object KmlReader {
             val parent = stack.lastOrNull()
             stack += local
             text.setLength(0)
+            if (local == "coordinates") {
+                coordinates = ArrayList()
+                tuple.setLength(0)
+                tupleTooLong = false
+                badTuples = 0
+            }
             when (local) {
                 "Folder" -> {
                     folders += ""
@@ -148,7 +168,36 @@ object KmlReader {
             start: Int,
             length: Int,
         ) {
-            if (text.length < MAX_TEXT) text.append(ch, start, length)
+            val points = coordinates
+            if (points == null) {
+                if (text.length < MAX_TEXT) text.append(ch, start, length)
+                return
+            }
+            for (i in start until start + length) {
+                val c = ch[i]
+                when {
+                    c.isWhitespace() -> endTuple(points)
+                    tuple.length < MAX_TUPLE -> tuple.append(c)
+                    else -> tupleTooLong = true
+                }
+            }
+        }
+
+        /** The tuple that just ended, if any, becomes a point of [points]. */
+        private fun endTuple(points: ArrayList<TrackPoint>) {
+            if (tuple.isEmpty()) return
+            val point = if (tupleTooLong) null else parseTuple(tuple.split(','))
+            tuple.setLength(0)
+            tupleTooLong = false
+            if (point == null) badTuples++ else points += counted(point)
+        }
+
+        /** [point], counted against what one file may hold. */
+        private fun counted(point: TrackPoint): TrackPoint {
+            if (++pointCount > TrackImporter.MAX_POINTS) {
+                throw TrackFormatException("File too large: more than ${TrackImporter.MAX_POINTS} points")
+            }
+            return point
         }
 
         override fun endElement(
@@ -211,11 +260,14 @@ object KmlReader {
                 }
 
                 "coord" -> {
-                    gxCoords += parseTuple(value.split(Regex("\\s+")))
+                    gxCoords += parseTuple(value.split(Regex("\\s+")))?.let(::counted)
                 }
 
                 "coordinates" -> {
-                    endCoordinates(parent, value)
+                    val points = coordinates ?: ArrayList()
+                    endTuple(points)
+                    coordinates = null
+                    endCoordinates(parent, points)
                 }
 
                 "Pair" -> {
@@ -271,13 +323,10 @@ object KmlReader {
 
         private fun endCoordinates(
             parent: String,
-            value: String,
+            points: List<TrackPoint>,
         ) {
             val pm = placemark ?: return
-            val points = value.split(Regex("\\s+")).filter { it.isNotEmpty() }.mapNotNull { parseTuple(it.split(',')) }
-            if (points.size != value.split(Regex("\\s+")).count { it.isNotEmpty() }) {
-                issues.add(TrackIssue.Kind.INVALID_COORDINATE, "coordinates")
-            }
+            if (badTuples > 0) issues.add(TrackIssue.Kind.INVALID_COORDINATE, "coordinates")
             when (parent) {
                 "Point" -> pm.points += points
                 "LineString" -> if (points.isNotEmpty()) pm.lines += points

@@ -74,6 +74,7 @@ class TileInterceptorTest {
         clock: () -> Long = System::currentTimeMillis,
         forced: ForcedRefresh = ForcedRefresh(),
         scaling: ScalingPolicy = ScalingPolicy(),
+        imageSize: (ByteArray) -> Pair<Int, Int>? = { null },
     ): OkHttpClient {
         val interceptor =
             TileInterceptor(
@@ -85,6 +86,7 @@ class TileInterceptorTest {
                 forcedRefresh = forced,
                 scaling = { scaling },
                 composer = composer,
+                imageSize = imageSize,
             )
         return OkHttpClient
             .Builder()
@@ -292,6 +294,38 @@ class TileInterceptorTest {
         assertNull(store.get(TileKey("s", 3, 4, 5)))
         assertEquals(1, stats.snapshot().count(TileOutcome.REJECTED))
         assertTrue(stats.snapshot().lastError.orEmpty().contains("text/xml"))
+    }
+
+    @Test
+    fun `a header no answer may carry, a body too large and a huge image never leave the interceptor as a crash`() {
+        val client = client(source())
+        // The media type with a parameter in characters OkHttp refuses in a header: kept and served as a plain type.
+        server.enqueue(
+            MockResponse().setBody(
+                Buffer().write(png),
+            ).addHeaderLenient("Content-Type", "image/png; name=tuil\u00e9.png"),
+        )
+        tile(client).use {
+            assertEquals(200, it.code)
+            assertEquals("image/png", it.header("Content-Type"))
+        }
+        assertEquals("image/png", store.get(TileKey("s", 3, 4, 5))?.contentType)
+        // The same tile again, from the store this time.
+        tile(client).use { assertEquals(200, it.code) }
+        // More bytes than any tile: refused, nothing kept.
+        server.enqueue(
+            MockResponse().setBody(Buffer().write(ByteArray(5 * 1024 * 1024))).addHeader("Content-Type", "image/png"),
+        )
+        tile(client, x = 6).use { assertEquals(502, it.code) }
+        assertNull(store.get(TileKey("s", 3, 6, 5)))
+        // A small file announcing an image of 16 384 pixels a side: refused before anything decodes it.
+        val probing = client(source(), imageSize = { 16_384 to 16_384 })
+        server.enqueue(pngResponse())
+        tile(probing, x = 7).use { assertEquals(502, it.code) }
+        assertNull(store.get(TileKey("s", 3, 7, 5)))
+        val ordinary = client(source(), imageSize = { 256 to 256 })
+        server.enqueue(pngResponse())
+        tile(ordinary, x = 7).use { assertEquals(200, it.code) }
     }
 
     @Test

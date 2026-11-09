@@ -55,6 +55,7 @@ object GeoJsonReader {
 
     private fun checkDepth(text: String) {
         var depth = 0
+        var arrays = 0
         var inString = false
         var escaped = false
         for (c in text) {
@@ -74,6 +75,12 @@ object GeoJsonReader {
                 '{', '[' -> {
                     if (++depth > MAX_DEPTH) {
                         throw TrackFormatException("Not a readable GeoJSON file: nested more than $MAX_DEPTH levels")
+                    }
+                    // A position is an array: counted here, before the whole text becomes a tree in memory.
+                    if (c == '[' && ++arrays > TrackImporter.MAX_GEOJSON_ARRAYS) {
+                        throw TrackFormatException(
+                            "File too large: more than ${TrackImporter.MAX_GEOJSON_ARRAYS} positions",
+                        )
                     }
                 }
 
@@ -206,7 +213,9 @@ object GeoJsonReader {
             val lon = a[0].number() ?: return null
             val lat = a[1].number() ?: return null
             if (!lat.isFinite() || !lon.isFinite() || lat !in -90.0..90.0 || lon !in -180.0..180.0) return null
-            return TrackPoint(lat, lon, a.getOrNull(2)?.number())
+            // An altitude that is no number (`1e999`) is no altitude, as in GPX and KML: kept, it stopped the import of
+            // a route, or stayed in a waypoint that no export could write any more (P36 audit).
+            return TrackPoint(lat, lon, a.getOrNull(2)?.number()?.takeIf { it.isFinite() })
         }
 
         private fun JsonElement.number(): Double? = (this as? JsonPrimitive)?.doubleOrNull

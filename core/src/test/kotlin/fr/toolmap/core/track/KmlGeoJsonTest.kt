@@ -118,6 +118,49 @@ class KmlGeoJsonTest {
     }
 
     @Test
+    fun `a long KML line keeps all its points, and a file of too many points is refused`() {
+        // 60 000 points with the digits Google Earth writes: over two million characters in one <coordinates>.
+        val n = 60_000
+        val line =
+            buildString {
+                append("<kml><Document><Placemark><LineString><coordinates>\n")
+                for (i in 0 until n) append("6.").append(100_000_000_000 + i).append(",45.123456789012345,1234.5\n")
+                append("</coordinates></LineString></Placemark></Document></kml>")
+            }
+        val doc = KmlReader.read(line.toByteArray())
+        val points = doc.tracks.single().segments.single()
+        assertEquals(n, points.size)
+        assertEquals("6.${100_000_000_000 + n - 1}".toDouble(), points.last().lon, 1e-12)
+        assertTrue(doc.issues.isEmpty(), doc.issues.toString())
+        // One bad tuple among good ones is said, the others are kept.
+        val mixed =
+            "<kml><Placemark><LineString><coordinates>6,45 nonsense 6.1,45.1</coordinates></LineString></Placemark></kml>"
+        val read = KmlReader.read(mixed.toByteArray())
+        assertEquals(2, read.tracks.single().segments.single().size)
+        assertEquals(1, read.issues.size)
+        // More points than one file may hold: refused, in KML, GPX and GeoJSON alike.
+        val many = TrackImporter.MAX_POINTS + 1
+        val kml =
+            "<kml><Placemark><LineString><coordinates>" + "1,1 ".repeat(many) +
+                "</coordinates></LineString></Placemark></kml>"
+        val tooManyKml = assertFailsWith<TrackFormatException> { KmlReader.read(kml.toByteArray()) }
+        assertContains(tooManyKml.message.orEmpty(), "too large")
+        val json =
+            "{\"type\":\"LineString\",\"coordinates\":[" +
+                "[1,1],".repeat(TrackImporter.MAX_GEOJSON_ARRAYS) + "[1,1]]}"
+        val tooManyJson = assertFailsWith<TrackFormatException> { GeoJsonReader.read(json) }
+        assertContains(tooManyJson.message.orEmpty(), "too large")
+        // A far year is no time, an altitude that is no number is no altitude.
+        val far = "+300000000-01-01T00:00:00Z"
+        val odd =
+            "{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[6,45,1e999]}," +
+                "\"properties\":{\"time\":\"$far\"}}"
+        val waypoint = GeoJsonReader.read(odd).waypoints.single()
+        assertNull(waypoint.ele)
+        assertNull(waypoint.timeMillis)
+    }
+
+    @Test
     fun `a KMZ cut short or damaged is a file that cannot be read`() {
         val zip = ByteArrayOutputStream()
         ZipOutputStream(zip).use {

@@ -95,6 +95,17 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # The system image of the emulator (1.5 GB) and the emulator itself are kept between runs. Downloaded at each run,
+      # the image once came cut short (« Failed to download package archive », run 42693133222 of 2026-11-09): the check
+      # could not run and nothing was published for that commit. With the cache the installer finds them in place.
+      - name: Keep the emulator and its system image
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/android-sdk/system-images/android-34
+            ~/android-sdk/emulator
+          key: emulator-api34-google_apis-x86_64-v1
+
       - name: Check the APK on an emulator
         id: emulator
         uses: reactivecircus/android-emulator-runner@v2

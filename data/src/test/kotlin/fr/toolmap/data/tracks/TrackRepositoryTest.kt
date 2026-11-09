@@ -16,8 +16,10 @@ import fr.toolmap.core.track.RawXml
 import fr.toolmap.core.track.Route
 import fr.toolmap.core.track.Track
 import fr.toolmap.core.track.TrackDocument
+import fr.toolmap.core.track.TrackFormatException
 import fr.toolmap.core.track.TrackPoint
 import fr.toolmap.core.track.TrackStatsCalculator
+import fr.toolmap.core.track.Waypoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -31,6 +33,7 @@ import java.io.File
 import kotlin.math.abs
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -134,6 +137,22 @@ class TrackRepositoryTest {
             assertEquals(expected.ascentMeters, entity.ascentMeters!!, 1.0)
             assertTrue(entity.minLat < entity.maxLat && entity.minLon < entity.maxLon)
             assertEquals(expected.startTimeMillis, entity.startTimeMillis)
+        }
+
+    @Test
+    fun `a route too large to be read back is refused at the import, and nothing of the file is kept`() =
+        runBlocking {
+            // The outline of a commune as one route: over a million characters in one row.
+            val outline = Route(name = "Limite", points = List(60_000) { Waypoint(lat = 45.0 + it * 1e-6, lon = 6.0) })
+            val document = TrackDocument(routes = listOf(outline), waypoints = listOf(Waypoint(lat = 45.0, lon = 6.0)))
+            val error = assertFailsWith<TrackFormatException> { repo.import(document, "commune.geojson") }
+            assertContains(error.message.orEmpty(), "too large")
+            val library = repo.library.first()
+            assertTrue(library.routes.isEmpty() && library.waypoints.isEmpty() && library.folders.isEmpty())
+            // A long route that fits is kept and read back.
+            val long = Route(name = "Long", points = List(10_000) { Waypoint(lat = 45.0 + it * 1e-6, lon = 6.0) })
+            repo.import(TrackDocument(routes = listOf(long)), "long.gpx")
+            assertEquals(1, repo.library.first().routes.size)
         }
 
     @Test

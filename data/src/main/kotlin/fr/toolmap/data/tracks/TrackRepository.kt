@@ -10,6 +10,7 @@ import fr.toolmap.core.track.RawXml
 import fr.toolmap.core.track.Route
 import fr.toolmap.core.track.Track
 import fr.toolmap.core.track.TrackDocument
+import fr.toolmap.core.track.TrackFormatException
 import fr.toolmap.core.track.TrackJson
 import fr.toolmap.core.track.TrackOps
 import fr.toolmap.core.track.TrackPoint
@@ -150,15 +151,23 @@ class TrackRepository(
             // the other apps, are not taken a second time.
             val waypoints = document.waypoints.filterNot { RoutePlanGpx.isPoiOf(it, document.routes) }
             for (w in waypoints) {
-                dao.insertWaypoint(waypointEntity(w, folderFor(w.folder), created, format))
+                val row = waypointEntity(w, folderFor(w.folder), created, format)
+                requireReadable(row.extrasJson?.length ?: 0)
+                dao.insertWaypoint(row)
             }
             document.routes.forEachIndexed { i, r ->
-                dao.insertRoute(routeEntity(r, folderFor(r.folder), created, format, i))
+                val row = routeEntity(r, folderFor(r.folder), created, format, i)
+                requireReadable(row.pointsJson.length + (row.extrasJson?.length ?: 0))
+                dao.insertRoute(row)
                 points += r.points.size
             }
             document.tracks.forEachIndexed { i, t ->
-                val id = dao.insertTrack(trackEntity(t, folderFor(t.folder), created, format, i))
-                dao.insertChunks(chunksOf(id, t))
+                val row = trackEntity(t, folderFor(t.folder), created, format, i)
+                requireReadable(row.extrasJson?.length ?: 0)
+                val id = dao.insertTrack(row)
+                val chunks = chunksOf(id, t)
+                chunks.forEach { requireReadable(it.data.size) }
+                dao.insertChunks(chunks)
                 points += t.pointCount
             }
             ImportSummary(
@@ -725,6 +734,16 @@ class TrackRepository(
         if (merged != own) dao.update(newRoot.copy(namespacesJson = TrackJson.encodeNamespaces(merged)))
     }
 
+    /**
+     * A row is read back through a window of two megabytes: a larger one is written without a word, then no reading of
+     * its table ever succeeds, and the app stops at each start with no way to delete it (P36 audit: the outline of a
+     * commune in GeoJSON, 100,000 points kept as one route). Refused here, inside the transaction of the import,
+     * which is undone: the file is said too large.
+     */
+    private fun requireReadable(size: Int) {
+        if (size > MAX_ROW_SIZE) throw TrackFormatException("File too large: an item of $size characters")
+    }
+
     private fun chunksOf(
         trackId: Long,
         track: Track,
@@ -875,6 +894,9 @@ class TrackRepository(
         /** Points kept in the append log of a track; a display that falls further behind loads the track again. */
         private const val APPEND_LOG_POINTS = 10_000
         const val DEFAULT_FOLDER_NAME = "Import"
+
+        /** Characters or bytes of the large columns of one row, at most: half the window they are read through. */
+        const val MAX_ROW_SIZE = 1_000_000
         const val FOLDER_SEPARATOR = " / "
     }
 }
