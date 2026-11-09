@@ -1114,87 +1114,9 @@ fun MapScreen(
     LaunchedEffect(pointMenuAllowed) {
         if (!pointMenuAllowed) pointMenu = false
     }
-    val positionState =
-        PositionMenuState(
-            realTime = controller.locationOn,
-            follow =
-                when {
-                    !controller.locationOn -> null
-                    controller.locationMode == LocationMode.FREE -> FollowChoice.FREE
-                    controller.locationMode == LocationMode.FOLLOW -> FollowChoice.FOLLOW
-                    controller.tilted -> FollowChoice.EXPLORER
-                    else -> FollowChoice.COMPASS
-                },
-            recording = recordingUi.phase != RecorderState.IDLE,
-            recordingPaused = recordingUi.phase == RecorderState.PAUSED,
-            recordedMeters = recordingUi.live.distanceMeters,
-            recordedMillis = recordingUi.live.elapsedMillis,
-            sharing = shareUi.sharing,
-            groupMembers = if (shareUi.inGroup) shareUi.members.size else 0,
-            barometerAvailable = altitudeStatus.barometerAvailable,
-            barometer = appSettings.altitude.barometerOn(),
-            accuracyMeters = altitudeStatus.accuracyMeters.takeIf { controller.locationOn },
-            altitudeMeters = altitudeStatus.altitude?.meters.takeIf { controller.locationOn },
-            altitudeFromBarometer = altitudeStatus.altitude?.source == AltitudeSource.BAROMETER,
-            satellitesSeen = satellites?.seen,
-            barometerCalibrated = altitudeStatus.calibrated,
-        )
     // Something that goes on in the background when the screen is left: a recording, a share, an alert (ADR-053).
-    val runningInBackground = positionState.recording || positionState.sharing || alertUi.active
-    // What the exit dialog names, with the figures and the stop button of ToolMap's notification (P29.2).
-    val runningServices =
-        buildList {
-            if (positionState.recording) {
-                val paused = positionState.recordingPaused
-                add(
-                    RunningService(
-                        if (paused) RunningService.Kind.RECORDING_PAUSED else RunningService.Kind.RECORDING,
-                        stringResource(if (paused) R.string.exit_recording_paused else R.string.exit_recording),
-                        TrackFormat.duration(positionState.recordedMillis) + " · " +
-                            formats.distance(positionState.recordedMeters),
-                        stringResource(R.string.background_stop_recording),
-                    ),
-                )
-            }
-            if (positionState.sharing) {
-                val linked = shareUi.others.count { it.status == MemberStatus.DIRECT }
-                add(
-                    RunningService(
-                        RunningService.Kind.SHARING,
-                        stringResource(R.string.exit_sharing),
-                        pluralStringResource(R.plurals.share_notification_members, linked, linked),
-                        stringResource(R.string.background_stop_sharing),
-                    ),
-                )
-            }
-            val follow = alertUi.follow
-            if (follow != null) {
-                val name = follow.name ?: stringResource(R.string.tracks_unnamed)
-                add(
-                    RunningService(
-                        RunningService.Kind.ALERTS,
-                        stringResource(R.string.exit_following),
-                        follow.status?.let {
-                            stringResource(R.string.exit_following_left, name, formats.distance(it.remainingMeters))
-                        } ?: name,
-                        stringResource(R.string.background_stop_following),
-                    ),
-                )
-            } else if (alertUi.watches.isNotEmpty()) {
-                add(
-                    RunningService(
-                        RunningService.Kind.ALERTS,
-                        stringResource(R.string.exit_alerts),
-                        pluralStringResource(
-                            R.plurals.alert_service_watching,
-                            alertUi.watches.size,
-                            alertUi.watches.size,
-                        ),
-                        stringResource(R.string.background_stop_alerts),
-                    ),
-                )
-            }
-        }
+    val recordingOn = recordingUi.phase != RecorderState.IDLE
+    val runningInBackground = recordingOn || shareUi.sharing || alertUi.active
     var exitAsked by remember { mutableStateOf(false) }
     // « Nouveautés » (the text, once read) and « Signaler une erreur » (asked, then built off the main thread) (P16.3).
     var whatsNew by remember { mutableStateOf<String?>(null) }
@@ -1360,6 +1282,61 @@ fun MapScreen(
     ) { exitAsked = true }
     if (exitAsked) {
         val activity = context as? Activity
+        // Built only while the dialog shows: its figures change with each fix of a recording (P36 review).
+        // What the exit dialog names, with the figures and the stop button of ToolMap's notification (P29.2).
+        val runningServices =
+            buildList {
+                if (recordingOn) {
+                    val paused = (recordingUi.phase == RecorderState.PAUSED)
+                    add(
+                        RunningService(
+                            if (paused) RunningService.Kind.RECORDING_PAUSED else RunningService.Kind.RECORDING,
+                            stringResource(if (paused) R.string.exit_recording_paused else R.string.exit_recording),
+                            TrackFormat.duration(recordingUi.live.elapsedMillis) + " · " +
+                                formats.distance(recordingUi.live.distanceMeters),
+                            stringResource(R.string.background_stop_recording),
+                        ),
+                    )
+                }
+                if (shareUi.sharing) {
+                    val linked = shareUi.others.count { it.status == MemberStatus.DIRECT }
+                    add(
+                        RunningService(
+                            RunningService.Kind.SHARING,
+                            stringResource(R.string.exit_sharing),
+                            pluralStringResource(R.plurals.share_notification_members, linked, linked),
+                            stringResource(R.string.background_stop_sharing),
+                        ),
+                    )
+                }
+                val follow = alertUi.follow
+                if (follow != null) {
+                    val name = follow.name ?: stringResource(R.string.tracks_unnamed)
+                    add(
+                        RunningService(
+                            RunningService.Kind.ALERTS,
+                            stringResource(R.string.exit_following),
+                            follow.status?.let {
+                                stringResource(R.string.exit_following_left, name, formats.distance(it.remainingMeters))
+                            } ?: name,
+                            stringResource(R.string.background_stop_following),
+                        ),
+                    )
+                } else if (alertUi.watches.isNotEmpty()) {
+                    add(
+                        RunningService(
+                            RunningService.Kind.ALERTS,
+                            stringResource(R.string.exit_alerts),
+                            pluralStringResource(
+                                R.plurals.alert_service_watching,
+                                alertUi.watches.size,
+                                alertUi.watches.size,
+                            ),
+                            stringResource(R.string.background_stop_alerts),
+                        ),
+                    )
+                }
+            }
         ExitDialog(running = runningServices, onExit = { activity?.finish() }, onDismiss = { exitAsked = false })
     }
 
@@ -2052,6 +2029,33 @@ fun MapScreen(
             }
         }
         if (showPositioning) {
+            // Read only while the panel is open: the satellites and the barometer change several times a second,
+            // and each change recomposed the whole screen for a panel that was closed (P36 review).
+            val positionState =
+                PositionMenuState(
+                    realTime = controller.locationOn,
+                    follow =
+                        when {
+                            !controller.locationOn -> null
+                            controller.locationMode == LocationMode.FREE -> FollowChoice.FREE
+                            controller.locationMode == LocationMode.FOLLOW -> FollowChoice.FOLLOW
+                            controller.tilted -> FollowChoice.EXPLORER
+                            else -> FollowChoice.COMPASS
+                        },
+                    recording = recordingUi.phase != RecorderState.IDLE,
+                    recordingPaused = recordingUi.phase == RecorderState.PAUSED,
+                    recordedMeters = recordingUi.live.distanceMeters,
+                    recordedMillis = recordingUi.live.elapsedMillis,
+                    sharing = shareUi.sharing,
+                    groupMembers = if (shareUi.inGroup) shareUi.members.size else 0,
+                    barometerAvailable = altitudeStatus.barometerAvailable,
+                    barometer = appSettings.altitude.barometerOn(),
+                    accuracyMeters = altitudeStatus.accuracyMeters.takeIf { controller.locationOn },
+                    altitudeMeters = altitudeStatus.altitude?.meters.takeIf { controller.locationOn },
+                    altitudeFromBarometer = altitudeStatus.altitude?.source == AltitudeSource.BAROMETER,
+                    satellitesSeen = satellites?.seen,
+                    barometerCalibrated = altitudeStatus.calibrated,
+                )
             Box(
                 modifier =
                     Modifier.fillMaxSize().clickable(

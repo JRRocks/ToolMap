@@ -484,11 +484,17 @@ class TrackRepository(
         val waypointIds = lib.waypoints.filter { it.folderId in folderIds }.mapTo(sortedSetOf()) { it.id }
         waypointIds += selection.waypointIds
 
+        // The folder of each item, looked up in a table: searching the whole library for every item made a large
+        // export quadratic, and an item deleted meanwhile stopped it with an exception (P36 review).
+        val trackFolders = lib.tracks.associate { it.id to it.folderId }
+        val routeFolders = lib.routes.associate { it.id to it.folderId }
+        val waypointFolders = lib.waypoints.associate { it.id to it.folderId }
         val namespaces = NamespaceMerger(lib)
         val tracks =
             trackIds.mapNotNull { id ->
+                if (id !in trackFolders) return@mapNotNull null
                 val track = loadTrack(id) ?: return@mapNotNull null
-                val folderId = lib.tracks.first { it.id == id }.folderId
+                val folderId = trackFolders[id]
                 namespaces.adopt(folderId) { f ->
                     track.copy(
                         extras = f(track.extras),
@@ -498,8 +504,9 @@ class TrackRepository(
             }
         val routes =
             routeIds.mapNotNull { id ->
+                if (id !in routeFolders) return@mapNotNull null
                 val route = loadRoute(id) ?: return@mapNotNull null
-                val folderId = lib.routes.first { it.id == id }.folderId
+                val folderId = routeFolders[id]
                 namespaces.adopt(folderId) { f ->
                     route.copy(
                         extras = f(route.extras),
@@ -512,8 +519,9 @@ class TrackRepository(
             }
         val waypoints =
             waypointIds.mapNotNull { id ->
+                if (id !in waypointFolders) return@mapNotNull null
                 val waypoint = loadWaypoint(id) ?: return@mapNotNull null
-                val folderId = lib.waypoints.first { it.id == id }.folderId
+                val folderId = waypointFolders[id]
                 namespaces.adopt(folderId) { f -> waypoint.copy(extras = f(waypoint.extras)) }
             }
         // The points of interest of the routes (P30.1) as waypoints too, for the apps that do not read the plan.

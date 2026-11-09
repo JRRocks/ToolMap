@@ -89,6 +89,8 @@ class TracksViewModelTest {
         dir = createTempDirectory("tracks-vm").toFile()
         vm = newViewModel()
         collector = scope.launch { vm.messages.collect { messages += it } }
+        // The map: its data is built only while something collects it.
+        scope.launch { vm.mapData.collect { } }
     }
 
     @After

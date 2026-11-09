@@ -1059,16 +1059,25 @@ class DrawViewModel
             edited(route?.outAndBack() == true)
         }
 
+        // The path of the geometry the cursor last ran on: building it (the distances of every point) again at each
+        // move of the finger made the cursor heavy on a long route (P36 review). A plan never changes its geometry.
+        private var cursorGeometry: List<TrackPoint>? = null
+        private var cursorPath: TrackPath? = null
+
         /** The cursor of the elevation profile, as a distance from the start; `null` hides it. */
         fun setCursor(distanceMeters: Double?) {
-            val plan = route?.plan
+            val geometry = route?.plan?.geometry
             mutableCursor.value =
-                if (plan == null ||
-                    distanceMeters == null
-                ) {
+                if (geometry == null || distanceMeters == null) {
                     null
                 } else {
-                    TrackPath(listOf(plan.geometry)).interpolate(distanceMeters)
+                    val path =
+                        cursorPath?.takeIf { cursorGeometry === geometry }
+                            ?: TrackPath(listOf(geometry)).also {
+                                cursorPath = it
+                                cursorGeometry = geometry
+                            }
+                    path.interpolate(distanceMeters)
                 }
         }
 

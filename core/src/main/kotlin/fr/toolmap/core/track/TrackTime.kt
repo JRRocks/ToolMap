@@ -13,31 +13,36 @@ object TrackTime {
     fun parse(text: String?): Long? {
         val value = text?.trim().orEmpty()
         if (value.isEmpty()) return null
-        return try {
-            Instant.parse(value).toEpochMilli()
-        } catch (e: DateTimeParseException) {
-            // Not an instant in UTC: the next forms are tried, and this failure is kept in case none fits.
-            parseWithOffset(value, e)
-        }
-    }
-
-    private fun parseWithOffset(
-        value: String,
-        notInstant: DateTimeParseException,
-    ): Long? =
-        try {
-            OffsetDateTime.parse(value).toInstant().toEpochMilli()
-        } catch (e: DateTimeParseException) {
+        // The form that fits is tried first, read from the shape of the text: on Android an offset is not an instant,
+        // and trying the forms in the same order for every text threw and caught one exception for each point of a
+        // file written with offsets (P36 review). The other forms still follow: the same texts are read as before.
+        val time = value.indexOfFirst { it == 'T' || it == 't' }
+        val first =
+            when {
+                value.endsWith('Z', ignoreCase = true) -> INSTANT
+                time >= 0 && value.indexOfAny(SIGNS, time) >= 0 -> OFFSET
+                else -> LOCAL
+            }
+        val failures = ArrayList<DateTimeParseException>(FORMS.size)
+        for (form in listOf(first) + FORMS.filter { it !== first }) {
             try {
-                LocalDateTime.parse(value).toInstant(ZoneOffset.UTC).toEpochMilli()
-            } catch (notLocal: DateTimeParseException) {
-                // The file's time is no date-time at all: the point keeps no time. The log says why each form failed.
-                notLocal.addSuppressed(notInstant)
-                notLocal.addSuppressed(e)
-                Problems.expected("track.time.parse", notLocal)
-                null
+                return form(value)
+            } catch (e: DateTimeParseException) {
+                failures += e
             }
         }
+        // The file's time is no date-time at all: the point keeps no time. The log says why each form failed.
+        val last = failures.last()
+        failures.dropLast(1).forEach(last::addSuppressed)
+        Problems.expected("track.time.parse", last)
+        return null
+    }
+
+    private val INSTANT: (String) -> Long = { Instant.parse(it).toEpochMilli() }
+    private val OFFSET: (String) -> Long = { OffsetDateTime.parse(it).toInstant().toEpochMilli() }
+    private val LOCAL: (String) -> Long = { LocalDateTime.parse(it).toInstant(ZoneOffset.UTC).toEpochMilli() }
+    private val FORMS = listOf(INSTANT, OFFSET, LOCAL)
+    private val SIGNS = charArrayOf('+', '-')
 
     /** ISO 8601 in UTC, e.g. `2012-10-24T23:29:40Z` (fraction only when there is one). */
     fun format(millis: Long): String = Instant.ofEpochMilli(millis).toString()

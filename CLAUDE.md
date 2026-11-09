@@ -23,6 +23,12 @@ Aucune version n'est mise à disposition (artefact `toolmap-debug-apk`, pré-rel
 - **Session locale (poste Windows)** : avant le push, `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` sur l'émulateur, puis parcourir à la main les écrans touchés par la session (captures) ; le consigner au journal.
 - Un contrôle sur émulateur rouge ne se contourne pas : on corrige, on revérifie, puis on repousse.
 
+## ⚠️ Rappels à faire à l'utilisateur à chaque session (demande de l'utilisateur, 2026-11-09)
+
+Tant qu'une ligne ci-dessous n'est pas faite, la rappeler à l'utilisateur **à chaque session, dans le premier et dans le dernier message**, même quand la session porte sur autre chose. Le jour où c'est fait : le consigner au journal et retirer la ligne d'ici.
+
+- **Test du PDF géoréférencé dans QGIS** (P37.3, `docs/specs/print-pdf.md` § 9.4) : à faire avec l'utilisateur en session locale (émulateur + QGIS du poste Windows). Attend son choix sur l'aperçu `docs/previews/p37-pdf-georef.html` (P37.0 : emplacement A, B ou C ; au départ Non ou Oui), puis l'interrupteur (P37.2).
+
 ## ⚠️ Tâches de debug : pas d'aperçu, pas de question (demande de l'utilisateur, 2026-10-24)
 
 - Ce qui ne sert qu'au debug (module `:debugkit`, sorti du build depuis la clôture de P21 le 2026-10-24 (ADR-072), scripts `tools/livetest/`, mode test du journal d'événements, APK de debug) se décide et se fait **sans rendu visuel et sans questionner l'utilisateur**. Pas d'affichage de debug pour ce que l'utilisateur voit déjà (ex. : écran gardé allumé, sans notification).

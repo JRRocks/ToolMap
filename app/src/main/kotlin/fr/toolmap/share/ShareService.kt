@@ -211,6 +211,9 @@ class ShareService : Service() {
      * while notified is replaced by « Alerte levée par … », without sound, gone after [LIFTED_NOTIFICATION_MS] (P22).
      */
     private fun notifySos(ui: ShareUi) {
+        // The state comes every second in a group: without an alert, shown or to show, there is nothing to do, and
+        // no call to the system to make (P36 review).
+        if (ui.sos.isEmpty() && notifiedSos.isEmpty()) return
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val open =
             PendingIntent.getActivity(

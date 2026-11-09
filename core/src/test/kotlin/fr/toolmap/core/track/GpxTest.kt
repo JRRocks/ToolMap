@@ -278,6 +278,50 @@ class GpxTest {
     }
 
     @Test
+    fun `an entity bomb hidden behind a long comment, another encoding or a second doctype is refused`() {
+        val body = "<gpx version=\"1.1\" creator=\"x\"><wpt lat=\"1\" lon=\"2\"><name>&a;</name></wpt></gpx>"
+        val doctype = "<!DOCTYPE gpx [<!ENTITY a \"aaaa\">]>"
+        // 9 KB of comment used to push the DOCTYPE out of the 8 KB that were looked at.
+        val padded = "<?xml version=\"1.0\"?><!-- <gpx ${"x".repeat(9_000)} -->$doctype$body"
+        assertFailsWith<TrackFormatException> { GpxReader.read(padded.toByteArray()) }
+        // The same after several comments and instructions.
+        val many = "<?xml version=\"1.0\"?>" + "<!-- c --><?pi x?>\n".repeat(600) + doctype + body
+        assertFailsWith<TrackFormatException> { GpxReader.read(many.toByteArray()) }
+        // A prolog that never ends in what is scanned is refused too, whatever follows it.
+        val endless = "<?xml version=\"1.0\"?><!-- ${"x".repeat(70_000)} -->$doctype$body"
+        assertFailsWith<TrackFormatException> { GpxReader.read(endless.toByteArray()) }
+        // UTF-16 hid the DOCTYPE from a scan of ASCII bytes, with or without a byte order mark.
+        val wide = "<?xml version=\"1.0\" encoding=\"UTF-16\"?>$doctype$body"
+        for (charset in listOf(Charsets.UTF_16, Charsets.UTF_16LE, Charsets.UTF_16BE, Charsets.UTF_32LE)) {
+            assertFailsWith<TrackFormatException> { GpxReader.read(wide.toByteArray(charset)) }
+        }
+        // An encoding whose bytes are not those of ASCII, declared in an ASCII declaration.
+        val declared = "<?xml version=\"1.0\" encoding=\"ISO-2022-JP\"?>$body".replace("&a;", "a")
+        assertFailsWith<TrackFormatException> { GpxReader.read(declared.toByteArray()) }
+        // A plain external DOCTYPE is blanked out, but a second one is not let through.
+        val twice = "<?xml version=\"1.0\"?><!DOCTYPE gpx SYSTEM \"a.dtd\">$doctype$body"
+        assertFailsWith<TrackFormatException> { GpxReader.read(twice.toByteArray()) }
+    }
+
+    @Test
+    fun `ordinary prologs are still read`() {
+        val body = "<gpx version=\"1.1\" creator=\"x\"><wpt lat=\"1\" lon=\"2\"><name>é</name></wpt></gpx>"
+        val prologs =
+            listOf(
+                "",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n",
+                "\uFEFF<?xml version='1.0' encoding='utf-8'?>\r\n<!-- made by x -->\n<?xml-stylesheet href=\"a.xsl\"?>\n",
+                "<?xml version=\"1.0\"?>\n<!DOCTYPE gpx SYSTEM \"http://127.0.0.1:1/never.dtd\">\n",
+                "<?xml version=\"1.0\"?><!-- ${"x".repeat(20_000)} -->",
+            )
+        for (prolog in prologs) {
+            assertEquals("é", GpxReader.read((prolog + body).toByteArray()).waypoints.single().name, prolog.take(40))
+        }
+        val latin = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>$body".toByteArray(Charsets.ISO_8859_1)
+        assertEquals("é", GpxReader.read(latin).waypoints.single().name)
+    }
+
+    @Test
     fun `50000 points are written and read back in a few seconds`() {
         val points =
             (0 until 50_000).map {

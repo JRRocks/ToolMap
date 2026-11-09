@@ -125,6 +125,10 @@ class MapController(
     private var coverage: List<CoverageSpan> = emptyList()
     private var findSource: (String) -> TileSource? = { null }
     private var tracks: DisplayData? = null
+
+    /** What [showTracks] last sent to MapLibre, and the style it was sent to. */
+    private var tracksShown: DisplayData? = null
+    private var tracksShownOn: Style? = null
     private var cursor: TrackPoint? = null
     private var edit: EditShown? = null
     private var nav: NavShown? = null
@@ -317,9 +321,19 @@ class MapController(
     fun showTracks(data: DisplayData) {
         tracks = data
         val s = style ?: return
+        // The documents this style already shows are not sent again: MapLibre would parse them anew. The library is
+        // read again when the app comes back to the screen and at each write, also one that changes neither document,
+        // like a batch of the recorder (P36 review). A new style (another base map) has shown nothing yet.
+        val before = tracksShown?.takeIf { tracksShownOn === s }
         catchReported("map.overlay.tracks") {
-            TrackOverlay.setLines(s, data.linesGeoJson)
-            TrackOverlay.setPoints(s, data.pointsGeoJson, data.pointIcons) { WaypointGlyphs.render(appContext, it) }
+            if (data.linesGeoJson != before?.linesGeoJson) TrackOverlay.setLines(s, data.linesGeoJson)
+            if (data.pointsGeoJson != before?.pointsGeoJson || data.pointIcons != before?.pointIcons) {
+                TrackOverlay.setPoints(s, data.pointsGeoJson, data.pointIcons) {
+                    WaypointGlyphs.render(appContext, it)
+                }
+            }
+            tracksShown = data
+            tracksShownOn = s
         }
     }
 

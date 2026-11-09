@@ -6,6 +6,7 @@ import okio.Buffer
 import org.junit.Test
 import java.util.Base64
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class RoomStateTest {
@@ -133,5 +134,34 @@ class RoomStateTest {
             listOf("put" to "{\"path\":\"/\",\"data\":null}", "keep-alive" to "null", "patch" to "a\nb"),
             out,
         )
+    }
+
+    @Test
+    fun `an event larger than the limit is not read`() {
+        fun read(
+            text: String,
+            limit: Long,
+        ): List<String> {
+            val out = ArrayList<String>()
+            ServerSentEvents.read(Buffer().writeUtf8(text), limit) { _, d -> out += d }
+            return out
+        }
+        // Under the limit, with or without a last end of line.
+        assertEquals(listOf("x".repeat(40)), read("event: put\ndata: ${"x".repeat(40)}\n\n", 64))
+        assertEquals(listOf("ab"), read("data: ab\n\ndata: cut", 64))
+        // One line longer than the limit, ended or not.
+        assertFailsWith<EventTooLarge> { read("event: put\ndata: ${"x".repeat(100)}\n\n", 64) }
+        assertFailsWith<EventTooLarge> { read("event: put\ndata: ${"x".repeat(100)}", 64) }
+        // Several lines that pass it together.
+        assertFailsWith<EventTooLarge> { read("data: ${"x".repeat(40)}\n".repeat(3) + "\n", 64) }
+        // The events before it were handed over.
+        val seen = ArrayList<String>()
+        assertFailsWith<EventTooLarge> {
+            ServerSentEvents.read(Buffer().writeUtf8("data: ok\n\ndata: ${"x".repeat(100)}\n\n"), 64) { _, d ->
+                seen +=
+                    d
+            }
+        }
+        assertEquals(listOf("ok"), seen)
     }
 }

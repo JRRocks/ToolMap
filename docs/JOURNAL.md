@@ -20,6 +20,35 @@
 
 ---
 
+## 2026-11-09 — Session 92 (suite 2) — [P36.10] Audit : fichiers XML importés et serveur de partage durcis, 13 corrections sans effet visible
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après db27a55 (0.4.215, CI verte, émulateur compris) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies au début : GitHub (cette branche) = local = **0.4.215**, arbre propre (référence : GitHub) ; Drive non lisible depuis une session cloud ; autres branches plus anciennes (`claude/blissful-hopper-8kr9d6` 0.4.145, `main` 0.4.134, `claude/pensive-edison-cgzr8t` 0.4.102).
+- **Objectif** : demandes du 2026-11-09 (suite) : noter le test du PDF géoréférencé dans QGIS et le rappeler à chaque session tant qu'il n'est pas fait ; auditer l'application et améliorer ses performances et sa sécurité.
+- **Réalisé** :
+  - **Rappel du test QGIS** : nouvelle section ⚠️ de `CLAUDE.md` « Rappels à faire à l'utilisateur à chaque session » (premier et dernier message de chaque session, jusqu'à ce que ce soit fait), note sur P37.3 au plan, tâche dans la liste de la session.
+  - **Audit** : quatre relecteurs indépendants lancés sur des angles que la revue du 2026-11-08 n'avait pas ou peu couverts (surface Android : manifeste, intents, sauvegarde, mise à jour ; chiffrement et protocole du partage ; fichiers et serveurs non fiables ; démarrage, mémoire, base), avec consigne de ne rien rapporter de déjà connu ; chaque constat est revérifié dans le code avant toute correction. Leurs constats arrivent après ce commit (entrée suivante).
+  - **Corrections des constats déjà confirmés** (lignes ⬜ de `docs/revue-2026-11.md`, P36.10), toutes sans effet visible :
+    - **Sécurité** :
+      - `SafeSax` (GPX, KML, cartes WMS / WMTS) : tout le prologue est lu jusqu'à la balise racine avant que le parseur lise un octet (64 Ko au plus), UTF-16, UTF-32 et encodages déclarés non compatibles ASCII refusés, second DOCTYPE refusé, filet dans le parseur (`LexicalHandler`) : une bombe d'entités ne se cache plus derrière 9 Ko de commentaire ou de l'UTF-16 ;
+      - serveur de partage : un événement de plus de 8 Mo n'est pas lu (`EventTooLarge`), et une pièce trop grosse ou un serveur qui refuse ne sont redemandés qu'au bout d'une minute puis de plus en plus rarement (15 min au plus), le premier refus étant réessayé aussitôt avec un jeton neuf ;
+      - CI : le jeton du dépôt n'est plus laissé dans `.git/config` pendant la compilation et les tests (`persist-credentials: false`, les trois workflows).
+    - **Performance** :
+      - heures des traces : le lecteur est choisi d'après la forme du texte (plus d'exception par point pour `+02:00`) ;
+      - recherche locale : nom et note repliés une fois par élément, plus à chaque frappe ;
+      - stockage : un parcours d'index au lieu de deux par fichier hors ligne ;
+      - export : tables d'index (l'export n'est plus quadratique, un élément supprimé entre-temps est sauté au lieu d'arrêter l'export) ;
+      - curseur du profil : le tracé de la géométrie est gardé d'un mouvement à l'autre ;
+      - traces sur la carte : les documents ne sont construits que tant que la carte les lit (plus rien écran éteint pendant un enregistrement), un document inchangé n'est pas renvoyé à MapLibre ;
+      - écran de la carte : l'état du panneau de positionnement et la liste du dialogue de sortie ne sont construits que quand ils sont affichés (plus de recomposition de tout l'écran à chaque mise à jour des satellites ou du baromètre) ;
+      - service de partage : plus d'appel au système chaque seconde quand il n'y a aucune alerte.
+  - `docs/revue-2026-11.md` mis à jour : 37 lignes ✅, 12 ⬜, 4 ⚖️ (dont la notification reposée toutes les 5 à 10 s : ne plus la reposer changerait ce qui se passe quand l'utilisateur l'écarte sous Android 14, à décider).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - Nouveaux tests : prologues piégés et prologues ordinaires (`GpxTest`, 2 tests, 16 au total), événement trop gros (`RoomStateTest`), serveur qui refuse et pièce trop grosse (`FirebaseRelayReconnectTest`, 2 tests ; le faux serveur sait maintenant renouveler un jeton), formes d'heure (`TrackTimeTest`).
+  - Tests ciblés verts après chaque correction : `:core:test` (Gpx, OgcXml, WmsCapabilities, KmlGeoJson, AqxParser, TrackTime, LocalSearch, SilentFailure, RegexPortability), `:p2p` (RoomState 9, Reconnect 4, Fixes 10), `:app` (TracksViewModel 17, SearchViewModel 7, DrawViewModel 15), `:data` (TrackRepository 15, StorageManager 19). `TracksViewModelTest` collecte désormais les données de la carte, comme la carte.
+- **Problèmes / dette technique** :
+  - Laissés en ⬜ parce qu'ils changent le comportement du partage entre téléphones et demandent un test en direct : présence datée du futur (un téléphone dont l'horloge recule ne verrait plus personne jusqu'à la resynchronisation), règles Firebase par membre, rejeu de trames, PING doublant la présence.
+- **Prochaine étape recommandée** : **test du PDF géoréférencé dans QGIS (P37.3), à rappeler à chaque session** ; réponse sur l'aperçu P37 ; constats du nouvel audit (entrée suivante) ; P36.6 et P36.7 avec l'utilisateur ; P36.5 quand l'utilisateur le décide.
+
 ## 2026-11-09 — Session 92 (suite) — [P36.8][P36.9][P37.0][P37.1] Contrôle sur émulateur avant publication, PDF géoréférencé préparé, vérifications relancées
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après cba9bb8 (0.4.211, CI verte) ; deux commits poussés sur `JRRocks/ToolMap` (pas de PR) : f126db3 (0.4.213 : règle émulateur, PDF géoréférencé, plafond de version des rapports), puis les corrections de la revue (0.4.215). Copies au début : GitHub `claude/vibrant-galileo-q3s99n` = local = **0.4.211** (arbre propre, référence : GitHub), Drive non lisible depuis une session cloud ; autres branches plus anciennes (`claude/blissful-hopper-8kr9d6` 0.4.145, `main` 0.4.134, `claude/pensive-edison-cgzr8t` 0.4.102).
 - **Objectif** : demandes du 2026-11-09 : relancer les vérifications de la revue qui n'avaient pas abouti ; noter P36.5 comme à faire plus tard par l'utilisateur ; analyser le PDF géoréférencé (QGIS, Global Mapper), son coût, et préparer la session locale émulateur + QGIS ; règle commune : aucune version publiée sans passage sur un émulateur, en cloud comme en local.

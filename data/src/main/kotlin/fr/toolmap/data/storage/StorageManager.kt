@@ -83,7 +83,9 @@ class StorageManager(
         return store.storedSourceIds().map { id ->
             val file = store.fileFor(id)
             val (users, name) = usersAndName(id, catalogue)
-            SourceUsage(id, name, file.tileCount(), file.diskBytes(), file.tileCountByZoom(), users.map { it.id })
+            // One pass over the index of the file for both figures, not two (P36 review).
+            val perZoom = file.tileCountByZoom()
+            SourceUsage(id, name, perZoom.values.sum(), file.diskBytes(), perZoom, users.map { it.id })
         }
     }
 

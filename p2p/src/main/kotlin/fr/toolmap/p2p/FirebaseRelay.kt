@@ -411,6 +411,8 @@ class FirebaseRelay(
 
     private fun connectLoop() {
         var backoffS = 1L
+        var slowS = SLOW_RETRY_FIRST_S
+        var refusals = 0
         var attempt = 0
         while (!closed.get()) {
             try {
@@ -426,6 +428,8 @@ class FirebaseRelay(
             EventLog.event("relay.connect", "attempt" to attempt)
             var ended: Exception? = null
             var planned = false
+            var tooLarge = false
+            var wasRefused = false
             reopening.set(false)
             try {
                 syncClock()
@@ -438,6 +442,14 @@ class FirebaseRelay(
                 ended = e
                 auth.invalidate()
                 refused = true
+                wasRefused = true
+            } catch (e: EventTooLarge) {
+                if (closed.get()) return
+                // A room filled by someone who holds its id: not read, and not asked again every few seconds.
+                Problems.expected("relay.stream.too_large", e)
+                ended = e
+                writesOk = false
+                tooLarge = true
             } catch (e: IOException) {
                 if (closed.get()) return
                 ended = e
@@ -469,15 +481,22 @@ class FirebaseRelay(
             // A planned reopen takes a fraction of a second: the state does not flicker to "unreachable".
             if (!planned) publishState()
             if (clockMs() - startedAt > STABLE_MS) backoffS = 1L
+            // A server that keeps refusing, or a room too large to read, will answer the same in a few seconds: the
+            // next attempts are spaced out, to spare the battery and the data plan (P36 review). The first refusal
+            // is tried again at once, with the fresh token: an old token is the usual cause.
+            refusals = if (wasRefused) refusals + 1 else 0
+            val slow = tooLarge || refusals > 1
+            val waitS = if (slow) slowS else backoffS
             val kicked =
                 try {
-                    pause(backoffS * MS_PER_S)
+                    pause(waitS * MS_PER_S)
                 } catch (e: InterruptedException) {
                     if (!closed.get()) Problems.report("relay.connect.pause", e)
                     return
                 }
-            EventLog.event("relay.retry", "waitedS" to backoffS, "kicked" to kicked)
+            EventLog.event("relay.retry", "waitedS" to waitS, "kicked" to kicked, "slow" to slow)
             backoffS = if (kicked) 1L else (backoffS * 2).coerceAtMost(MAX_BACKOFF_S)
+            slowS = if (slow && !kicked) (slowS * 2).coerceAtMost(SLOW_RETRY_MAX_S) else SLOW_RETRY_FIRST_S
         }
     }
 
@@ -1062,6 +1081,10 @@ class FirebaseRelay(
 
         /** Short on purpose: in the field the network comes and goes, and a member must come back quickly. */
         private const val MAX_BACKOFF_S = 8L
+
+        /** Between two attempts while the server keeps refusing or the room is too large: one minute, up to fifteen. */
+        private const val SLOW_RETRY_FIRST_S = 60L
+        private const val SLOW_RETRY_MAX_S = 900L
 
         /** Without a network, an attempt all the same after this long, in case its return was not told (P21.5 p). */
         private const val OFFLINE_MAX_WAIT_MS = 300_000L

@@ -27,6 +27,10 @@ jobs:
       TOOLMAP_KEY_PASSWORD: ${{ secrets.TOOLMAP_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The token is not left in .git/config, where the build and the tests it runs could read it (P36 review):
+          # no step uses git after this one (gh and github-script get the token they need themselves).
+          persist-credentials: false
 
       - uses: actions/setup-java@v4
         with:

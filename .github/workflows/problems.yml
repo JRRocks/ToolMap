@@ -21,6 +21,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The token is not left in .git/config, where the build and the tests it runs could read it (P36 review):
+          # no step uses git after this one (gh and github-script get the token they need themselves).
+          persist-credentials: false
 
       - name: Check the import
         run: node --test tools/problems/reports.test.mjs

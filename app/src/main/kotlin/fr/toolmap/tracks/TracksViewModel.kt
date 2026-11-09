@@ -120,8 +120,13 @@ class TracksViewModel
         /** First visible row of the explorer's list and its offset in pixels, saved when the explorer is left. */
         var libraryScroll: Pair<Int, Int> = 0 to 0
 
-        /** GeoJSON of what the map shows; `null` until the library has been read once. */
-        val mapData: StateFlow<DisplayData?> = display.data.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        /**
+         * GeoJSON of what the map shows; `null` until the library has been read once. Built only while the map collects
+         * it (it does so with its lifecycle): with the screen off or the app in the background, each batch of the
+         * recorder rebuilt the documents of the whole library for nobody (P36 review).
+         */
+        val mapData: StateFlow<DisplayData?> =
+            display.data.stateIn(viewModelScope, SharingStarted.WhileSubscribed(MAP_DATA_STOP_MS), null)
 
         private val selectedId = MutableStateFlow<Long?>(null)
         val selected: StateFlow<Long?> = selectedId.asStateFlow()
@@ -512,5 +517,8 @@ class TracksViewModel
             /** How long « Waypoint ici » waits for the terrain before it records the waypoint without altitude. */
             const val QUICK_ELEVATION_MILLIS = 3_000L
             const val CORRIDOR_TOLERANCE_METERS = 25.0
+
+            /** The map data stops being built this long after the map stopped collecting it (a rotation is shorter). */
+            const val MAP_DATA_STOP_MS = 5_000L
         }
     }

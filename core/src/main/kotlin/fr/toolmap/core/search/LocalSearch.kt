@@ -17,7 +17,13 @@ data class LibraryItem(
     val lat: Double,
     val lon: Double,
     val bounds: Bounds? = null,
-)
+) {
+    // Folded once per item, at the first search that meets it: folding the name and the note of every item at each
+    // letter typed kept the main thread busy on a large library (P36 review). Safe from any thread.
+    internal val foldedName: String by lazy(LazyThreadSafetyMode.PUBLICATION) { SearchText.fold(name.orEmpty()) }
+    internal val foldedNote: String by lazy(LazyThreadSafetyMode.PUBLICATION) { SearchText.fold(note.orEmpty()) }
+    internal val nameWords: List<String> by lazy(LazyThreadSafetyMode.PUBLICATION) { SearchText.words(foldedName) }
+}
 
 /** Case- and accent-insensitive comparison of what the user typed with what is stored. */
 object SearchText {
@@ -60,8 +66,8 @@ object LocalSearch {
         return items
             .mapNotNull { item ->
                 val name = item.name?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                val foldedName = SearchText.fold(name)
-                val foldedNote = SearchText.fold(item.note.orEmpty())
+                val foldedName = item.foldedName
+                val foldedNote = item.foldedNote
                 val inName = tokens.all { foldedName.contains(it) }
                 val inEither = tokens.all { foldedName.contains(it) || foldedNote.contains(it) }
                 if (!inEither) return@mapNotNull null
@@ -69,7 +75,7 @@ object LocalSearch {
                     when {
                         foldedName == whole -> EXACT
                         foldedName.startsWith(whole) -> PREFIX
-                        inName && SearchText.words(foldedName).any { it.startsWith(tokens.first()) } -> WORD_PREFIX
+                        inName && item.nameWords.any { it.startsWith(tokens.first()) } -> WORD_PREFIX
                         inName -> IN_NAME
                         else -> IN_NOTE
                     }
