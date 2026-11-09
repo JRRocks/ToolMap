@@ -6,14 +6,17 @@ import android.util.Log
 import dagger.Lazy
 import dagger.hilt.android.HiltAndroidApp
 import fr.toolmap.core.eventlog.AppExtension
+import fr.toolmap.core.eventlog.EventLog
 import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.problem.catchReported
 import fr.toolmap.crash.CrashReporter
 import fr.toolmap.data.backup.PendingRestore
 import fr.toolmap.data.storage.StorageManager
 import fr.toolmap.data.tiles.TileLocation
+import fr.toolmap.engine.NativeEngine
 import fr.toolmap.eventlog.AppEventLog
 import fr.toolmap.eventlog.SystemEvents
+import fr.toolmap.perf.EngineBench
 import fr.toolmap.problem.AppProblems
 import fr.toolmap.problem.ProblemUpload
 import fr.toolmap.storage.TileStorages
@@ -71,6 +74,21 @@ class ToolMapApp : Application() {
         migrateTileStorage()
     }
 
+    /**
+     * The native compute engine (Rust, ADR-119): loaded and checked against the Kotlin code off the main thread, then
+     * in charge of the heavy pixel work of the tiles. Until it is, and whenever it cannot be, the Kotlin code works.
+     * A release keeps the Kotlin code in charge (`BuildConfig.NATIVE_ENGINE`) until the engine has been tried.
+     */
+    private fun startNativeEngine() {
+        Thread({
+            val state = NativeEngine.install(BuildConfig.NATIVE_ENGINE)
+            Log.i(EngineBench.TAG, "engine ${NativeEngine.describe()}")
+            EventLog.event("engine.state", "state" to state.name.lowercase(), "native" to NativeEngine.isActive)
+            // A measure of the engine against the Kotlin code, when adb asked for one (debug and benchmark builds).
+            if (BuildConfig.PERF_LOG) catchReported("engine.bench") { EngineBench.runIfAsked(this) }
+        }, "native-engine").start()
+    }
+
     /** The event log of the process (P21) and its sources outside the app's own code; then the test tools, if any. */
     private fun startEventLog() {
         AppEventLog.store(this)
@@ -108,6 +126,8 @@ class ToolMapApp : Application() {
         // always online for it, the TileInterceptor serves the store and reports what it cannot fetch.
         MapLibre.setConnected(true)
         disableAmbientCache()
+        // The tiles MapLibre asks for are drawn in this process: the engine that draws them starts with it.
+        if (CrashReporter.isMainProcess(this)) startNativeEngine()
     }
 
     // Tiles are stored by our own store (ADR-003): MapLibre's ambient cache would duplicate them.

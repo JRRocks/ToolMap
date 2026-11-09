@@ -1,0 +1,4 @@
+# cargo run by hand builds where Gradle does (engine/build/rust), never inside the sources: the version of the app is
+# computed from every file of engine/src (app/build.gradle.kts, appSourceFingerprint).
+[build]
+target-dir = "../../../build/rust"

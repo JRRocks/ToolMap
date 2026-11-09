@@ -1,11 +1,15 @@
 package fr.toolmap.core.track
 
+import fr.toolmap.core.compute.Compute
 import kotlin.math.cos
 import kotlin.math.sqrt
 
 /** Douglas-Peucker simplification, iterative so that a 100 000-point track cannot overflow the stack. */
 object PathSimplifier {
     private const val METERS_PER_DEGREE = Math.PI * Geodesy.EARTH_RADIUS_METERS / 180.0
+
+    /** Shorter paths stay in Kotlin: crossing to the accelerator would cost more than it saves. */
+    private const val ACCELERATED_FROM = 256
 
     /**
      * Keeps the first and last points and every point that sticks out of the line by more than [toleranceMeters]
@@ -23,8 +27,23 @@ object PathSimplifier {
         return points.filterIndexed { i, _ -> keep[i] }
     }
 
-    /** Douglas-Peucker on flat coordinates: true for the points to keep (always the first and the last). */
+    /**
+     * Douglas-Peucker on flat coordinates: true for the points to keep (always the first and the last). Long paths go
+     * to the [Compute.accelerator] when there is one (same points kept, ADR-119).
+     */
     fun keptIndices(
+        xs: DoubleArray,
+        ys: DoubleArray,
+        tolerance: Double,
+    ): BooleanArray {
+        if (xs.size >= ACCELERATED_FROM && xs.size == ys.size) {
+            Compute.accelerator?.keptIndices(xs, ys, tolerance)?.let { return it }
+        }
+        return keptIndicesReference(xs, ys, tolerance)
+    }
+
+    /** [keptIndices] in Kotlin: the reference the accelerator is checked against. */
+    fun keptIndicesReference(
         xs: DoubleArray,
         ys: DoubleArray,
         tolerance: Double,

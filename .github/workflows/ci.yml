@@ -41,6 +41,27 @@ jobs:
           key: robolectric-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: robolectric-
 
+      # The native compute engine (Rust, ADR-119) is built with the linker of the NDK, by the Rust and the Android
+      # targets pinned in engine/src/main/rust/rust-toolchain.toml (rustup installs them on first use). Kept between
+      # runs: the NDK (700 MB to download), the toolchain, the crates and what cargo has compiled.
+      - name: Keep the NDK
+        uses: actions/cache@v4
+        with:
+          path: ~/android-sdk/ndk
+          key: ndk-${{ hashFiles('scripts/install-android-sdk.sh') }}
+
+      - name: Keep Rust and its build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.rustup/toolchains/1.*
+            ~/.rustup/update-hashes/1.*
+            ~/.cargo/registry
+            engine/build/rust
+          key: rust-${{ hashFiles('engine/src/main/rust/rust-toolchain.toml', 'engine/src/main/rust/Cargo.lock') }}-${{ hashFiles('engine/src/main/rust/src/**') }}
+          restore-keys: |
+            rust-${{ hashFiles('engine/src/main/rust/rust-toolchain.toml', 'engine/src/main/rust/Cargo.lock') }}-
+
       - name: Install Android SDK
         run: |
           echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"

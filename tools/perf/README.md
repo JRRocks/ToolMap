@@ -18,8 +18,12 @@ bash tools/perf/run-all.sh app/build/outputs/apk/benchmark/ToolMap-benchmark-0.4
 | `Z-zone.sh` | Z. « IGN Cartes », carré de 5 km × 5 km autour de Chambéry, zooms 12 à 16, après `pm clear` | médiane de la durée et des tuiles par seconde ; 3 passages |
 | `B-blend.sh` | B. Trois calques (OpenTopoMap, IGN Pentes, IGN Plan en Produit), ouvertures à froid en ligne, depuis le stockage et en mode avion, sans `pm clear` (P26.0) | médiane de l'ouverture, Normal et fusionné ; par tuile composée : lecture, décodage, fusion, PNG (médiane et 90e centile) |
 
+| `E-engine.sh` | E. Moteur natif (Rust, ADR-119) contre le code Kotlin, sur des tuiles dessinées par l'application (ni réseau ni carte stockée) : chaque calcul d'une tuile dessinée, le PNG, puis des tuiles entières (`docs/specs/native-engine.md` § 4) | une ligne par calcul : `kotlin_ms`, `native_ms`, `gain` (médianes) |
+
 Variables : `RUNS` (nombre de passages), `DURATION` (secondes du scénario A), `OUT_DIR` (dossier des relevés,
-`tools/perf/out` par défaut, non versionné).
+`tools/perf/out` par défaut, non versionné), `ENGINE=kotlin` (APK benchmark : le moteur natif reste éteint pour ce
+lancement, pour mesurer le même scénario avec le code Kotlin, par exemple `ENGINE=kotlin bash tools/perf/B-blend.sh`
+puis `bash tools/perf/B-blend.sh`).
 
 ## Ce que l'application écrit (debug et benchmark seulement)
 

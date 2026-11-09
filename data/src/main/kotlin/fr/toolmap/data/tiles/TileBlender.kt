@@ -3,6 +3,7 @@ package fr.toolmap.data.tiles
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.SystemClock
+import fr.toolmap.core.compute.Compute
 import fr.toolmap.core.layers.Blend
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.layers.RasterAdjust
@@ -40,19 +41,26 @@ class BitmapTileBlender(
             blendNanos += SystemClock.elapsedRealtimeNanos() - t1
         }
         val drawn = SystemClock.elapsedRealtimeNanos()
-        val bitmap = Bitmap.createBitmap(canvas, size, size, Bitmap.Config.ARGB_8888)
+        // The tile is shown and never stored: written fast by the native engine when it is there (ADR-119).
+        val png = Compute.fastPng(canvas, size, size) ?: androidPng(canvas, size)
+        log?.invoke(
+            "blended size=$size parts=${layers.count { it.second != null }} decode_ms=${ms(decodeNanos)} " +
+                "blend_ms=${ms(blendNanos)} encode_ms=${ms(SystemClock.elapsedRealtimeNanos() - drawn)} " +
+                "total_ms=${ms(SystemClock.elapsedRealtimeNanos() - start)} bytes=${png.size}",
+        )
+        return png
+    }
+
+    private fun androidPng(
+        pixels: IntArray,
+        size: Int,
+    ): ByteArray {
+        val bitmap = Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
         try {
-            val png =
-                ByteArrayOutputStream(ENCODE_BUFFER).use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, out)
-                    out.toByteArray()
-                }
-            log?.invoke(
-                "blended size=$size parts=${layers.count { it.second != null }} decode_ms=${ms(decodeNanos)} " +
-                    "blend_ms=${ms(blendNanos)} encode_ms=${ms(SystemClock.elapsedRealtimeNanos() - drawn)} " +
-                    "total_ms=${ms(SystemClock.elapsedRealtimeNanos() - start)} bytes=${png.size}",
-            )
-            return png
+            return ByteArrayOutputStream(ENCODE_BUFFER).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, out)
+                out.toByteArray()
+            }
         } finally {
             bitmap.recycle()
         }

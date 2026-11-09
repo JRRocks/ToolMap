@@ -74,7 +74,8 @@ fun appSourceFingerprint(root: File): String {
         buildList {
             listOf("build.gradle.kts", "settings.gradle.kts", "gradle.properties", "gradle/libs.versions.toml")
                 .forEach { add(root.resolve(it)) }
-            for (module in listOf("app", "core", "data", "p2p")) {
+            // :engine holds the Rust sources of the native library too (engine/src/main/rust), part of the APK.
+            for (module in listOf("app", "core", "data", "p2p", "engine")) {
                 val dir = root.resolve(module)
                 addAll(dir.listFiles { f: File -> f.isFile }.orEmpty())
                 dir.resolve("src").listFiles { f: File ->
@@ -175,6 +176,8 @@ android {
             // The launch hooks of the measure scripts (PerfIntent) start downloads from any intent: never in the APK
             // handed to users, which is this build type (P36, ADR-116 review).
             buildConfigField("boolean", "PERF_INTENT", "false")
+            // The native compute engine (Rust, ADR-119) is in charge in the debug APK, the one tried on the emulator.
+            buildConfigField("boolean", "NATIVE_ENGINE", "true")
         }
         release {
             // Off unless asked (-Ptoolmap.minify=true): R8 has never run the app on a phone yet (ADR-027).
@@ -186,6 +189,9 @@ android {
             signingConfigs.findByName("release")?.let { signingConfig = it }
             buildConfigField("boolean", "PERF_LOG", "false")
             buildConfigField("boolean", "PERF_INTENT", "false")
+            // A release keeps the Kotlin code in charge until the user has tried the native engine on the emulator
+            // and said so (request of 2026-11-09, ADR-119): then this line becomes "true" (P38.6).
+            buildConfigField("boolean", "NATIVE_ENGINE", "false")
         }
         // What the measures of P15 run on (ADR-057): a release with R8, still installable over the debug APK.
         create("benchmark") {
@@ -198,6 +204,8 @@ android {
             matchingFallbacks += "release"
             buildConfigField("boolean", "PERF_LOG", "true")
             buildConfigField("boolean", "PERF_INTENT", "true")
+            // Measured with the native engine, and against the Kotlin code by `perf.engine=kotlin` (PerfIntent).
+            buildConfigField("boolean", "NATIVE_ENGINE", "true")
         }
     }
 
@@ -240,6 +248,8 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":data"))
     implementation(project(":p2p"))
+    // The native compute engine (Rust, ADR-119): its library goes into the APK, ToolMapApp puts it in charge.
+    implementation(project(":engine"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

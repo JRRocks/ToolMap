@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
+import fr.toolmap.core.compute.Compute
 import fr.toolmap.core.tiles.TileRecipe
 import java.io.ByteArrayOutputStream
 
@@ -36,13 +37,21 @@ class BitmapTileComposer(
     ): ByteArray? {
         val bitmap = render(recipe, tileSize, leaf) ?: return null
         return try {
-            ByteArrayOutputStream(ENCODE_BUFFER).use { out ->
+            // The tile is shown and never stored: written fast by the native engine when it is there (ADR-119).
+            fastPng(bitmap) ?: ByteArrayOutputStream(ENCODE_BUFFER).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, out)
                 out.toByteArray()
             }
         } finally {
             bitmap.recycle()
         }
+    }
+
+    private fun fastPng(bitmap: Bitmap): ByteArray? {
+        if (Compute.accelerator == null) return null
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        return Compute.fastPng(pixels, bitmap.width, bitmap.height)
     }
 
     /** [recipe] as a [size] × [size] bitmap, or `null` when nothing of it is available. */

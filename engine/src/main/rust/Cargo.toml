@@ -1,0 +1,32 @@
+# The native compute engine of ToolMap (ADR-119, docs/specs/native-engine.md): the per-pixel and geometry work that
+# the Kotlin code of :core does too slowly on a phone. Built for Android by engine/build.gradle.kts (cargo + the NDK
+# linker), and for the build machine itself so that the JVM tests compare it with the Kotlin code, bit for bit.
+[package]
+name = "toolmap-engine"
+version = "1.0.0"
+edition = "2021"
+publish = false
+description = "Blend modes, elevation masks, fast PNG and path simplification of ToolMap, called through JNI"
+
+[lib]
+name = "toolmap_engine"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The JNI types and the table of functions, nothing more: the original 0.3.0 has no dependency of its own.
+jni-sys = "=0.3.0"
+# PNG writer with a DEFLATE made for filtered image rows (fdeflate): the tiles drawn here are never stored.
+png = "0.18"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+# A panic is caught at the JNI door and becomes an error code (the Kotlin code then does the work itself).
+panic = "unwind"
+strip = "debuginfo"
+debug = false
+
+# The tests check results, not speed, but the PNG round trips are slow without optimisation.
+[profile.test]
+opt-level = 2

@@ -1,0 +1,3 @@
+# The line length of the Kotlin code of the project (.editorconfig).
+max_width = 120
+use_small_heuristics = "Max"

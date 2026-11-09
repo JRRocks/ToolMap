@@ -35,11 +35,13 @@ Recréer **AlpineQuest** (https://alpinequest.net) sous Android en Kotlin natif,
 - Tuiles stockées en **MBTiles, un fichier par jeu de tuiles** (ADR-003, ADR-031).
 - Partage de position : **WebRTC DataChannel** avec signalisation par QR code, sans TURN (ADR-004), puis **serveur de coordination Firebase** (REST + SSE, trames chiffrées de bout en bout, ADR-033).
 - **Web Mercator** (EPSG:3857) uniquement en v1 (ADR-005) ; projections d'affichage et d'impression (UTM, Lambert 93, MGRS) écrites à la main, sans proj4j (ADR-020).
+- **Un langage par domaine** (ADR-119) : Kotlin partout, sauf le moteur de calcul par pixel des tuiles dessinées par l'application, en **Rust** derrière une porte de `:core` (mêmes résultats au bit près, repli Kotlin automatique).
 
 ### 2.2 Modules Gradle
 | Module | Type | Contenu |
 |---|---|---|
 | `:core` | Kotlin JVM pur | Modèles ; maths tuiles, Mercator et échelle ; formats de coordonnées (DD, DDM, DMS, UTM, MGRS, Lambert 93) ; parseurs/écrivains AQX, GPX, KML, GeoJSON (API XmlPullParser, kxml2 en test JVM) ; statistiques de trace ; Douglas-Peucker ; écrivain PDF ; codec P2P et relais. **100 % testé en JVM.** |
+| `:engine` | Android library + crate Rust | Moteur de calcul natif (`libtoolmap_engine.so`, ADR-119) : fusion des calques, teinte, matrice de couleur, masque d'altitude, PNG rapide, Douglas-Peucker ; pont JNI (`NativeBridge`), chargement et contrôle (`NativeEngine`). Tests de parité avec `:core` en JVM. |
 | `:data` | Android library | Room (traces, waypoints, dossiers), `MbTilesStore`, client OkHttp + `TileInterceptor` + `TileResolver`, téléchargement WorkManager, sources, stockage, sauvegarde. |
 | `:p2p` | Android library | WebRTC (`stream-webrtc-android`), appairage QR (CameraX + ZXing, sans Google Play Services), maillage, transport `FirebaseRelay`, service de premier plan. |
 | `:app` | Android application | UI Compose par paquets de fonctionnalités : `map`, `maps`, `layers`, `sources`, `wizard`, `multizoom`, `download`, `storage`, `tracks`, `waypoints`, `draw`, `measure`, `record`, `navigate`, `alert`, `altitude`, `search`, `print`, `share`, `backup`, `settings`, `about`, `crash`, `debug`. |
@@ -453,8 +455,22 @@ Tuiles **Terrarium** (AWS open data `elevation-tiles-prod`) traitées comme une 
 | P37.2 | ⬜ | Interrupteur à l'écran selon l'aperçu validé : textes, résumé, index de l'interface, test Robolectric | Build vert, capture de l'émulateur à côté de l'aperçu |
 | P37.3 | ⬜ | Test en local, émulateur + QGIS (§ 9.4 de la spec) : PDF de l'émulateur ouvert dans QGIS en EPSG:3857, superposé à OpenStreetMap et à la trace GPX ; **à rappeler à l'utilisateur à chaque session tant que ce n'est pas fait** (demande du 2026-11-09, `CLAUDE.md` § « Rappels ») | Écart sous un pixel du PDF, captures et versions de QGIS / GDAL au journal |
 
+### P38 — Langage par domaine : moteur de calcul natif en Rust (demande du 2026-11-09) — spec : `docs/specs/native-engine.md` (ADR-119)
+> « Analyse mon projet, et dis-moi ce qui peut être amélioré en termes de performances si on utilise le langage de code le plus efficient par domaine. Exemple : mettre du Rust pour les moteurs de calcul. Fais-moi une version debug à tester sur émulateur avant de mettre en release avec les nouveaux langages de code. » Aucun changement d'interface.
+
+| ID | Statut | Tâche | Critères d'acceptation |
+|---|---|---|---|
+| P38.0 | ✅ | Analyse domaine par domaine (spec § 1) : ce qui est déjà natif (carte, images, stockage, compression, chiffrement, WebRTC), ce qui ne gagne rien à changer (interface, réseau), ce qui gagne (calcul par pixel, PNG des tuiles dessinées, simplification des tracés) ; mesures Kotlin contre prototype Rust | Tableau par domaine avec la décision de chacun ; mesures consignées (spec § 4.1) |
+| P38.1 | ✅ | Moteur Rust (`:engine`) : fusion (16 modes), teinte, matrice de couleur, masque d'altitude, PNG rapide, Douglas-Peucker ; porte `Compute.accelerator` dans `:core`, code Kotlin gardé en référence et en repli ; contrôle au chargement, problèmes signalés (ADR-116) | `cargo test` et `EngineParityTest` verts : mêmes résultats que le code Kotlin, au bit près |
+| P38.2 | ✅ | Branchement sans changer les appelants : tuiles fusionnées (`BitmapTileBlender`), bandes d'altitude (`BitmapElevationMasker`), tuiles complétées (`BitmapTileComposer`), fusion des bandes du PDF, vignettes de « Fusion », tracés | `NativeTilePipelineTest` vert (mêmes pixels, même image relue par Android) ; tests existants verts sans modification |
+| P38.3 | ✅ | Compilation : tâches Gradle `cargo` (3 architectures + machine de build), Rust 1.97.0 et NDK r28c figés, facultatifs sur un poste et obligatoires en CI, sources Rust comptées dans le numéro de version, caches de la CI, hook de session cloud | `./gradlew check assembleDebug` vert avec et sans Rust ; APK avec `libtoolmap_engine.so` pour `arm64-v8a`, `armeabi-v7a`, `x86_64`, pages de 16 Ko |
+| P38.4 | 🔄 | Version debug contrôlée sur l'émulateur de la CI : `smoke.sh` exige le moteur aux commandes (hors release) et relance l'application pour mesurer le moteur contre le code Kotlin (`EngineBench`), chiffres dans le journal du job | Run CI vert, ligne `engine native=1 state=active` et mesures lues dans le journal du job, reportées dans la spec § 4.3 |
+| P38.5 | ⬜ | Essai par l'utilisateur sur l'émulateur du poste (spec § 8) : fusion, teinte, bande d'altitude, tuiles complétées, PDF, long tracé ; `tools/perf/E-engine.sh` et `B-blend.sh` avec et sans `ENGINE=kotlin` sur l'APK benchmark | Retour de l'utilisateur consigné au journal, avec les chiffres |
+| P38.6 | ⬜ | Mise en release, quand l'utilisateur le dit après P38.5 : `NATIVE_ENGINE` à `true` pour le type `release` (`app/build.gradle.kts`) ; garder ou retirer le Douglas-Peucker natif selon la mesure | Validation explicite de l'utilisateur, date consignée ; contrôle sur émulateur du build release vert |
+
 ## 4. Stratégie de test
 - **JVM (`:core`)** : parseurs, URL de tuiles, maths d'échelle, statistiques, codec P2P. Rapides, exécutables partout.
+- **Moteur natif (`:engine`, ADR-119)** : `cargo test` pour le crate ; `EngineParityTest` compare, au bit près, la bibliothèque compilée pour la machine de build au code Kotlin de `:core` ; `NativeTilePipelineTest` (`:data`, Robolectric) dessine des tuiles avec le moteur. Sautés là où Rust n'est pas installé, obligatoires en CI.
 - **Robolectric + MockWebServer (`:data`, `:p2p`)** : Room, MbTilesStore, intercepteur (en-têtes, mode hors ligne, zooms complétés), relais Firebase (émulateur Firebase via `scripts/firebase-emulator-test.sh`).
 - **Démarrage et écrans (`:app`, Robolectric)** : `AppStartupTest` lance la vraie application jusqu'à l'écran carte, sur l'API 26 (minSdk) et l'API 35 ; les méthodes natives de MapLibre y sont neutralisées, donc le rendu lui-même n'est pas testé. Robolectric 4.17 échoue (`FileSystemAlreadyExistsException`) quand plus de deux SDK s'enchaînent dans une JVM. Tests de rendu Compose (`*RenderTest`, `*PanelTest`, `NavigationBackTest`, `MapChromeLayoutTest`).
 - **Rapport de plantage** : `CrashReportTest`, `CrashReporterTest`, `CrashActivityTest`.
@@ -476,3 +492,4 @@ Tuiles **Terrarium** (AWS open data `elevation-tiles-prod`) traitées comme une 
 | `org.maplibre.gl:android-sdk` 13.x est la version Vulkan seulement | **Réglé le 2026-10-03** : `android-sdk-opengl`, même API Java (ADR-028) |
 | Un plantage sur le téléphone de l'utilisateur ne laisse aucune trace lisible (pas de `logcat`) | Rapport de plantage affiché sur le téléphone, à copier ou partager (ADR-029) ; « Signaler une erreur » (P16.3) |
 | Les tests JVM et Robolectric utilisent le moteur d'expressions régulières du JDK, plus permissif que celui d'Android (ICU) | `RegexPortabilityTest` ; cas réel du 2026-10-03 : plantage aux premières tuiles |
+| Un plantage dans le moteur natif (Rust) fermerait l'application sans écran de rapport | Code `unsafe` limité aux appels JNI, tailles vérifiées avant toute écriture, paniques arrêtées à la porte ; contrôle au chargement contre le code Kotlin ; repli Kotlin ; contrôle sur émulateur avant publication ; release sans le moteur tant qu'il n'est pas validé (ADR-119) |

@@ -1,5 +1,6 @@
 package fr.toolmap.core.elevation
 
+import fr.toolmap.core.compute.Compute
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
@@ -204,6 +205,57 @@ object MaskRaster {
         return out
     }
 
+    /**
+     * The opacity (0..255) of each pixel of a [size] × [size] tile under [window] for [mask]: [alphas] of
+     * [elevations], done by the [Compute.accelerator] when there is one (same bytes, ADR-119).
+     */
+    fun tileAlphas(
+        dem: FloatArray,
+        demSize: Int,
+        window: DemWindow,
+        size: Int,
+        mask: ElevationMask,
+    ): ByteArray =
+        Compute.accelerator?.maskAlphas(
+            dem,
+            demSize,
+            window.depth,
+            window.col,
+            window.row,
+            size,
+            mask.min?.toFloat() ?: Float.NaN,
+            mask.max?.toFloat() ?: Float.NaN,
+        ) ?: alphas(elevations(dem, demSize, window, size), size, mask)
+
+    /**
+     * Scales the opacity of each pixel of [pixels] (ARGB, straight colours as `Bitmap.getPixels` gives them) by its
+     * mask value in [alphas], in place: the colours stay.
+     */
+    fun applyAlphas(
+        pixels: IntArray,
+        alphas: ByteArray,
+    ) {
+        require(pixels.size == alphas.size) { "a mask of another size than the pixels" }
+        if (Compute.accelerator?.applyAlphas(pixels, alphas) == true) return
+        applyAlphasReference(pixels, alphas)
+    }
+
+    /** [applyAlphas] in Kotlin: the reference the accelerator is checked against. */
+    fun applyAlphasReference(
+        pixels: IntArray,
+        alphas: ByteArray,
+    ) {
+        require(pixels.size == alphas.size) { "a mask of another size than the pixels" }
+        for (i in pixels.indices) {
+            val p = pixels[i]
+            val a = (p ushr ALPHA_SHIFT) * (alphas[i].toInt() and BYTE) / BYTE
+            pixels[i] = (p and RGB_MASK) or (a shl ALPHA_SHIFT)
+        }
+    }
+
     private const val MIN_STEP = 0.01f
     private const val OPAQUE = 255f
+    private const val ALPHA_SHIFT = 24
+    private const val BYTE = 0xFF
+    private const val RGB_MASK = 0x00FFFFFF
 }

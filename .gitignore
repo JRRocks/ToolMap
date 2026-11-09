@@ -31,3 +31,6 @@ firebase/*-debug.log
 hs_err_pid*.log
 replay_pid*.log
 *.hprof
+
+# cargo's build folder, should it be run without engine/src/main/rust/.cargo/config.toml (it builds in engine/build)
+engine/src/main/rust/target/

@@ -1,7 +1,7 @@
 # ToolMap
 Un logiciel basé sur AlpineQuest mais avec des fonctionnalités maison.
 
-Application Android native (Kotlin, Jetpack Compose, MapLibre) de cartographie et de randonnée hors ligne. Version actuelle : **0.4.0** (`app/build.gradle.kts`).
+Application Android native (Kotlin, Jetpack Compose, MapLibre ; moteur de calcul des tuiles en Rust, [`docs/specs/native-engine.md`](docs/specs/native-engine.md)) de cartographie et de randonnée hors ligne. Version actuelle : **0.4.0** (`app/build.gradle.kts`).
 
 ## Fonctionnalités
 

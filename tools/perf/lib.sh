@@ -38,11 +38,13 @@ log() { echo "[$(date +%H:%M:%S)] $*" >&2; }
 device_ms() { adb shell 'echo $EPOCHREALTIME' | tr -d '\r' | awk '{ printf "%d\n", $1 * 1000 }'; }
 
 # Stops the app, then starts it cold on the fixed view; prints the TotalTime of `am start -W` (ms).
-# Extra arguments are passed to `am start` (e.g. the zone of scenario Z).
+# Extra arguments are passed to `am start` (e.g. the zone of scenario Z). ENGINE=kotlin keeps the native engine off
+# for the start (ADR-119): the same scenario measured with the Kotlin code, to compare.
 launch_fixed() {
     adb shell am force-stop "$PKG"
     adb shell am start -W -n "$ACTIVITY" \
-        --es perf.source "$SOURCE" --es perf.lat "$LAT" --es perf.lon "$LON" --es perf.zoom "$ZOOM" "$@" |
+        --es perf.source "$SOURCE" --es perf.lat "$LAT" --es perf.lon "$LON" --es perf.zoom "$ZOOM" \
+        ${ENGINE:+--es perf.engine "$ENGINE"} "$@" |
         tr -d '\r' | awk -F': ' '/^TotalTime/ { print $2 }'
 }
 

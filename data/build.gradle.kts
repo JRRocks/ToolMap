@@ -68,4 +68,21 @@ dependencies {
     testImplementation(libs.okhttp.mockwebserver)
     // Real android.database.sqlite on the JVM, for the MBTiles store.
     testImplementation(libs.robolectric)
+    // The native engine (ADR-119) under the tile drawing of this module (NativeTilePipelineTest).
+    testImplementation(project(":engine"))
+}
+
+// The tests that draw tiles with the native engine load the library :engine builds for this machine; where Rust is
+// not installed they are skipped, unless the engine is required (CI).
+tasks.withType<Test>().configureEach {
+    dependsOn(":engine:cargoBuildHost")
+    val engineDir = rootProject.layout.projectDirectory.dir("engine/build/rust-host/host").asFile.absolutePath
+    val engineRequired =
+        providers.gradleProperty("toolmap.engine.required").map { it == "true" }.orNull
+            ?: (providers.environmentVariable("CI").orNull == "true")
+    val bench = providers.gradleProperty("toolmap.engine.bench").orNull.orEmpty()
+    systemProperty("toolmap.engine.dir", engineDir)
+    systemProperty("toolmap.engine.required", engineRequired.toString())
+    systemProperty("toolmap.engine.bench", bench)
+    systemProperty("toolmap.repo.dir", rootProject.rootDir.absolutePath)
 }

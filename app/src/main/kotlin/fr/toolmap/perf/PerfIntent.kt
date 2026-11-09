@@ -8,6 +8,7 @@ import fr.toolmap.core.layers.BlendMode
 import fr.toolmap.core.layers.RangeLogic
 import fr.toolmap.core.state.CameraState
 import fr.toolmap.download.ZoneQueue
+import fr.toolmap.engine.NativeEngine
 import fr.toolmap.map.MapViewModel
 
 /**
@@ -20,7 +21,9 @@ import fr.toolmap.map.MapViewModel
  * - `perf.overlay`: maps added on top of the others (source ids, `a,b`: the last on top);
  * - `perf.blend`: the blend mode of the top `perf.overlay` (`multiply`, `soft-light`…, P26);
  * - `perf.altmin`, `perf.altmax` (metres, an empty value = no limit), `perf.logic` (`and` / `or`): the elevation band
- *   of `perf.overlay`, or else of `perf.source` (P20).
+ *   of `perf.overlay`, or else of `perf.source` (P20);
+ * - `perf.engine`: `kotlin` keeps the native engine off for this start (the same scenario measured with the Kotlin
+ *   code, ADR-119), `bench` times each computation with both ([EngineBench]).
  */
 object PerfIntent {
     private const val SOURCE = "perf.source"
@@ -36,6 +39,7 @@ object PerfIntent {
     private const val ALT_MAX = "perf.altmax"
     private const val LOGIC = "perf.logic"
     private const val BLEND = "perf.blend"
+    private const val ENGINE = "perf.engine"
 
     fun handle(
         intent: Intent?,
@@ -43,6 +47,16 @@ object PerfIntent {
         zones: ZoneQueue,
     ) {
         val extras = intent?.extras ?: return
+        when (extras.getString(ENGINE)) {
+            "kotlin" -> {
+                NativeEngine.keepOff()
+                Log.i(EngineBench.TAG, "engine ${NativeEngine.describe()} (kept off by perf.engine)")
+            }
+
+            "bench" -> {
+                EngineBench.start()
+            }
+        }
         val source = extras.getString(SOURCE)
         if (source != null) {
             val existing = map.state.value.stack.layers.firstOrNull { it.sourceId == source }

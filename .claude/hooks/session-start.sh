@@ -15,8 +15,9 @@ export ANDROID_SDK_ROOT="$ANDROID_HOME"
 mkdir -p "$HOME/.gradle/init.d"
 cp ./scripts/gradle-init/cloud-mirror.init.gradle "$HOME/.gradle/init.d/cloud-mirror.init.gradle"
 
-# 1. Android SDK (cached by the container snapshot after the first run).
-./scripts/install-android-sdk.sh
+# 1. Android SDK (cached by the container snapshot after the first run). The NDK serves the native engine (Rust,
+#    ADR-119): without it, or without Rust, a local build leaves the engine out and the Kotlin code does the work.
+TOOLMAP_NDK=optional ./scripts/install-android-sdk.sh
 
 # 2. Tell Gradle where the SDK is (local.properties is git-ignored).
 echo "sdk.dir=$ANDROID_HOME" > local.properties
@@ -32,6 +33,13 @@ fi
 # 4. Warm the Gradle cache (wrapper distribution + dependencies) once the wrapper exists.
 if [ -x ./gradlew ]; then
   ./gradlew --version >/dev/null
+fi
+
+# 4b. The Rust of the native engine: rustup installs the pinned toolchain and the Android targets named in
+#     engine/src/main/rust/rust-toolchain.toml, cargo fetches the crates. Never fatal: the engine is optional here.
+if command -v cargo >/dev/null 2>&1 && [ -f engine/src/main/rust/Cargo.toml ]; then
+  (cd engine/src/main/rust && cargo fetch --locked >/dev/null 2>&1) ||
+    echo "[rust] The Rust toolchain of the native engine could not be prepared: local builds leave the engine out."
 fi
 
 # 5. Remind the model of the project protocol: show the latest journal entry.

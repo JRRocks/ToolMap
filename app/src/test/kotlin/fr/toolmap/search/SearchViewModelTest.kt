@@ -219,7 +219,8 @@ class SearchViewModelTest {
         assertEquals("Grand Veymont", waypoint.name)
         assertEquals("Isère", waypoint.desc)
         assertEquals(44.87, waypoint.lat, 1e-9)
-        assertTrue(messages.any { it.resId == R.string.waypoint_saved })
+        // The message follows the write: the library may show the waypoint before the view model has said so.
+        waitFor("message shown") { messages.any { it.resId == R.string.waypoint_saved } }
         assertNull(vm.ui.value.online.firstOrNull())
     }
 

@@ -11,7 +11,7 @@
 | Bundle de release (`bundleRelease`, `.aab`) | 42,5 MB | dépôt sur Google Play, qui livre à chaque téléphone sa seule architecture |
 | APK de release réduit par R8 (`-Ptoolmap.minify=true`) | 70,7 MB | **jamais lancé sur un téléphone** : à essayer avant de s'y fier |
 
-Les bibliothèques natives de MapLibre (≈ 13 MB par architecture) et de WebRTC (≈ 12 MB par architecture) font l'essentiel du poids. Le filtre `abiFilters` retire le x86 32 bits ; l'AAB supprime en plus les architectures inutiles pour chaque téléphone.
+Les bibliothèques natives de MapLibre (≈ 13 MB par architecture) et de WebRTC (≈ 12 MB par architecture) font l'essentiel du poids ; celle du moteur de calcul (Rust, ADR-119) pèse 0,4 à 0,6 MB par architecture. Le filtre `abiFilters` retire le x86 32 bits ; l'AAB supprime en plus les architectures inutiles pour chaque téléphone.
 
 ### Nom des fichiers APK
 

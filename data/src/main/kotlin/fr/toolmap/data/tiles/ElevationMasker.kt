@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.SystemClock
 import android.util.LruCache
+import fr.toolmap.core.compute.Compute
 import fr.toolmap.core.elevation.DemWindow
 import fr.toolmap.core.elevation.ElevationMask
 import fr.toolmap.core.elevation.MaskRaster
@@ -121,24 +122,23 @@ class BitmapElevationMasker(
         try {
             if (bitmap.width != bitmap.height) return null
             val size = bitmap.width
-            val alphas = MaskRaster.alphas(MaskRaster.elevations(dem.elevations, dem.size, window, size), size, mask)
+            val alphas = MaskRaster.tileAlphas(dem.elevations, dem.size, window, size, mask)
             val computed = SystemClock.elapsedRealtimeNanos()
             // Each pixel's own opacity scaled by the mask's (colours unpremultiplied, as getPixels gives them).
             val pixels = IntArray(size * size)
             bitmap.getPixels(pixels, 0, size, 0, 0, size, size)
-            for (i in pixels.indices) {
-                val p = pixels[i]
-                val a = (p ushr ALPHA) * (alphas[i].toInt() and BYTE) / BYTE
-                pixels[i] = (p and RGB) or (a shl ALPHA)
-            }
-            // A JPEG tile has no alpha channel: give it one before cutting it out.
-            bitmap.setHasAlpha(true)
-            bitmap.setPixels(pixels, 0, size, 0, 0, size, size)
+            MaskRaster.applyAlphas(pixels, alphas)
             val drawn = SystemClock.elapsedRealtimeNanos()
+            // The cut-out tile is shown and never stored: written fast by the native engine when it is there (ADR-119).
             val png =
-                ByteArrayOutputStream(ENCODE_BUFFER).use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, out)
-                    out.toByteArray()
+                Compute.fastPng(pixels, size, size) ?: run {
+                    // A JPEG tile has no alpha channel: give it one before cutting it out.
+                    bitmap.setHasAlpha(true)
+                    bitmap.setPixels(pixels, 0, size, 0, 0, size, size)
+                    ByteArrayOutputStream(ENCODE_BUFFER).use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, out)
+                        out.toByteArray()
+                    }
                 }
             log?.invoke(
                 "masked size=$size decode_ms=${ms(decoded - start)} mask_ms=${ms(computed - decoded)} " +
@@ -191,11 +191,9 @@ class BitmapElevationMasker(
         const val CACHED_DEM_TILES = 64
         const val PNG_QUALITY = 100
         const val ENCODE_BUFFER = 64 * 1024
-        const val ALPHA = 24
         const val RED = 16
         const val GREEN = 8
         const val BYTE = 0xFF
-        const val RGB = 0x00FFFFFF
         const val NANOS_PER_MILLI = 1_000_000.0
 
         /** A waiting request looks at its cancellation this often (a few wake-ups a second, nothing when loaded). */

@@ -1,0 +1,5 @@
+# The Rust that builds the engine, the same on every machine (rustup installs it and the Android targets on first use).
+[toolchain]
+channel = "1.97.0"
+profile = "minimal"
+targets = ["aarch64-linux-android", "armv7-linux-androideabi", "x86_64-linux-android"]

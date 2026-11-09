@@ -1,5 +1,6 @@
 package fr.toolmap.core.layers
 
+import fr.toolmap.core.compute.Compute
 import kotlinx.serialization.Serializable
 import kotlin.math.abs
 import kotlin.math.max
@@ -155,8 +156,21 @@ object Blend {
     /**
      * Draws [above] over [below] (same size), in place in [below]: [mode] blends the colours where both are present,
      * [opacity] (0..1) scales the alpha of [above], and the result is "source over" (W3C Compositing § 5.8).
+     * Done by the [Compute.accelerator] when there is one (same pixels, ADR-119), else by [compositeReference].
      */
     fun composite(
+        below: IntArray,
+        above: IntArray,
+        mode: BlendMode,
+        opacity: Float = 1f,
+    ) {
+        require(below.size == above.size) { "pixel arrays of different sizes" }
+        if (Compute.accelerator?.composite(below, above, mode.ordinal, opacity) == true) return
+        compositeReference(below, above, mode, opacity)
+    }
+
+    /** [composite] in Kotlin: the reference the accelerator is checked against. */
+    fun compositeReference(
         below: IntArray,
         above: IntArray,
         mode: BlendMode,
@@ -203,6 +217,16 @@ object Blend {
         tint: Int,
         intensity: Float,
     ) {
+        if (Compute.accelerator?.tint(pixels, tint, intensity) == true) return
+        tintReference(pixels, tint, intensity)
+    }
+
+    /** [tint] in Kotlin: the reference the accelerator is checked against. */
+    fun tintReference(
+        pixels: IntArray,
+        tint: Int,
+        intensity: Float,
+    ) {
         val k = intensity.coerceIn(0f, 1f)
         if (k <= 0f) return
         val ct = FloatArray(CHANNELS)
@@ -224,6 +248,16 @@ object Blend {
      * in place. Alpha stays.
      */
     fun adjust(
+        pixels: IntArray,
+        matrix: FloatArray,
+    ) {
+        require(matrix.size == MATRIX_SIZE) { "a colour matrix has $MATRIX_SIZE entries" }
+        if (Compute.accelerator?.adjust(pixels, matrix) == true) return
+        adjustReference(pixels, matrix)
+    }
+
+    /** [adjust] in Kotlin: the reference the accelerator is checked against. */
+    fun adjustReference(
         pixels: IntArray,
         matrix: FloatArray,
     ) {

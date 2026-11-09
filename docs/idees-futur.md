@@ -50,3 +50,5 @@
 - **Choix de la langue** et traduction anglaise de l'interface (reporté de P9.7, ancien « Bonus ») : interface en
   français seulement pour l'instant.
 - **Detekt** (reporté de P0.4, ADR-008) : à rouvrir quand detekt 2.0 sera stable.
+
+- (2026-11-09, P38, ADR-119) Un cœur Rust commun à Android et à iOS (la branche iPhone a réécrit en Swift ce que `:core` fait en Kotlin) ; lecteurs GPX / KML / GeoJSON en Rust (import de gros fichiers 3 à 5 fois plus rapide, extensions XML à conserver) ; champ de distance des glyphes en Rust ; `GetPrimitiveArrayCritical` ou accès direct aux pixels d’un `Bitmap` (`jnigraphics`) pour éviter les copies de tableaux.

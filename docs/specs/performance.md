@@ -232,3 +232,11 @@ Le taux d'images lentes ne bouge pas : sur l'émulateur, le rendu de la carte (O
 | Un lot de 10 points sur une trace de 20 000 points : construction des données d'affichage, médiane de 30 lots | **13 ms** | **5 ms** |
 
 Le reste (5 ms) est la fabrication du GeoJSON de toute la ligne, qui n'est pas incrémentale (le tronçon gelé est une liste déjà simplifiée ; MapLibre reçoit la ligne entière). **Le scénario G sur l'émulateur n'a pas été fait** : rejouer plusieurs heures d'enregistrement GPS par `adb emu geo fix` n'est pas praticable ici ; la mesure est un test JVM (Robolectric) qui ajoute 30 lots à une trace de 20 000 points et chronomètre `display.data.first()`. Tests ajoutés (`TrackDisplayTest`, 5) : aucun rechargement complet sur 40 lots ajoutés ; ligne prolongée dans la tolérance de 1 m (écart max. 2,5 m admis, la queue étant simplifiée par morceaux) ; nouveau segment ; inversion → relecture ; `appendedSince` contigu, puis `null` après une réécriture.
+
+## 10. Moteur de calcul natif (P38, 2026-11-09)
+
+Les tuiles dessinées par l'application (fusionnées P26, découpées par une bande d'altitude P20, complétées M5) passent
+depuis P38 par un moteur natif en Rust pour le calcul par pixel et l'écriture du PNG, les deux postes mesurés comme
+les plus lourds (`blend-modes.md` § 5, `elevation-maps.md` § 5). Analyse par domaine, mesures (machine de build et
+émulateur) et protocole d'essai : `docs/specs/native-engine.md`. Scénario de mesure : `tools/perf/E-engine.sh` ;
+`ENGINE=kotlin` devant un script de `tools/perf` mesure le même scénario avec le code Kotlin (APK benchmark).
