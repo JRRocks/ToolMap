@@ -12,8 +12,14 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -76,5 +82,36 @@ class BitmapElevationMaskerTest {
         assertEquals(1500f, assertNotNull(dem).elevations[1234])
         // Served from memory the second time.
         assertEquals(dem, masker.dem("13/0/0") { error("loaded twice") })
+    }
+
+    @Test
+    fun `a request cancelled while another one loads the same elevations stops waiting`() {
+        val loading = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        // The first request downloads the elevation tile, slowly (here: until the test releases it).
+        val first =
+            thread {
+                masker.dem("13/1/1") {
+                    loading.countDown()
+                    release.await(WAIT_S, TimeUnit.SECONDS)
+                    null
+                }
+            }
+        assertTrue(loading.await(WAIT_S, TimeUnit.SECONDS))
+        val start = System.nanoTime()
+        // MapLibre cancels the second one after 100 ms: it stops then, without loading the tile for itself.
+        assertFailsWith<IOException> {
+            masker.dem("13/1/1", isCancelled = { System.nanoTime() - start > CANCEL_AFTER_NS }) {
+                error("loaded by the cancelled request")
+            }
+        }
+        assertTrue(System.nanoTime() - start < TimeUnit.SECONDS.toNanos(WAIT_S), "stopped while the load went on")
+        release.countDown()
+        first.join()
+    }
+
+    private companion object {
+        const val WAIT_S = 10L
+        const val CANCEL_AFTER_NS = 100_000_000L
     }
 }

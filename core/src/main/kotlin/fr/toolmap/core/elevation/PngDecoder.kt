@@ -2,6 +2,7 @@ package fr.toolmap.core.elevation
 
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.EOFException
 import java.util.zip.InflaterInputStream
 import java.util.zip.ZipException
 import kotlin.math.abs
@@ -32,7 +33,10 @@ class PngException(
  */
 object PngDecoder {
     private val SIGNATURE = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
-    private const val MAX_PIXELS = 4096L * 4096L
+
+    // Elevation tiles are 256 px (512 px in some MBTiles): a tile announcing more is refused before any allocation
+    // (P36 review: 4096 × 4096 RGBA made a 6 KB tile cost about 200 MB of memory).
+    private const val MAX_PIXELS = 1024L * 1024L
     private const val MAX_CHUNK = 64L * 1024 * 1024
 
     fun decode(bytes: ByteArray): PngImage {
@@ -123,6 +127,9 @@ object PngDecoder {
             }
         } catch (e: ZipException) {
             throw PngException("Corrupt PNG data: ${e.message}")
+        } catch (e: EOFException) {
+            // Pixel data cut short (a truncated or made-up tile): the callers expect a PngException, not an IOException.
+            throw PngException("PNG pixel data is cut short: ${e.message}")
         }
         return out
     }

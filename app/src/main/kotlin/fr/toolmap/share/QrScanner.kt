@@ -45,8 +45,12 @@ fun QrScanner(
 
     DisposableEffect(lifecycleOwner) {
         var provider: ProcessCameraProvider? = null
+        // Closed before CameraX was ready: nothing is bound then, or the camera would stay bound to the activity
+        // until it is destroyed (P36 review). The listener and onDispose both run on the main thread.
+        var disposed = false
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
+            if (disposed) return@addListener
             try {
                 val cameras = future.get()
                 provider = cameras
@@ -78,6 +82,7 @@ fun QrScanner(
             }
         }, mainExecutor)
         onDispose {
+            disposed = true
             provider?.unbindAll()
             shutdown(executor)
         }

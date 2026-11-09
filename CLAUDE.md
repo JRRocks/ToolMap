@@ -19,7 +19,7 @@ Ne sont pas concernées : les modifications sans effet visible (logique, perform
 Aucune version n'est mise à disposition (artefact `toolmap-debug-apk`, pré-release `debug-<sha7>`, release `android-<version>` ou `v*`, lien donné à l'utilisateur) sans avoir tourné sur un émulateur Android, **en session cloud comme en session locale** (ADR-117) :
 
 - **CI (toutes les sessions)** : le job « CI » installe l'APK qu'il vient de compiler sur un émulateur (API 34, `tools/emulator/smoke.sh`) et le lance ; un plantage Java ou natif, un ANR, l'écran de rapport de plantage ou un écran de carte absent font échouer le job **avant** toute publication (capture, vue de la fenêtre et journal : artefact `emulator-check`). Même contrôle dans « Release ».
-- **Session cloud** (pas de KVM dans le conteneur, donc pas d'émulateur) : le lien n'est donné qu'après le run CI vert, contrôle sur émulateur compris ; quand la session a touché à l'écran, regarder la capture de `emulator-check` et le dire.
+- **Session cloud** (pas de KVM dans le conteneur, donc pas d'émulateur) : le lien n'est donné qu'après le run CI vert, contrôle sur émulateur compris ; quand la session a touché à l'écran, regarder la capture de `emulator-check` et le dire (le stockage des artefacts n'est pas joignable depuis le conteneur cloud : lire alors les « Texts on the screen » que `smoke.sh` écrit dans le journal du job, `get_job_logs`).
 - **Session locale (poste Windows)** : avant le push, `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` sur l'émulateur, puis parcourir à la main les écrans touchés par la session (captures) ; le consigner au journal.
 - Un contrôle sur émulateur rouge ne se contourne pas : on corrige, on revérifie, puis on repousse.
 

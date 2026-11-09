@@ -68,7 +68,7 @@ class TileInterceptor(
         val request = chain.request()
         if (request.url.host != TileHost.HOST) return chain.proceed(request)
         // MapLibre cancels the tiles it no longer needs: a cancelled call waiting in the dispatcher costs nothing.
-        if (chain.call().isCanceled()) throw IOException("Canceled")
+        chain.throwIfCanceled()
 
         val key =
             parse(request.url) ?: run {
@@ -113,6 +113,7 @@ class TileInterceptor(
         var failure: Response? = null
         val layers =
             recipe.partsAt(key.z).mapNotNull { part ->
+                chain.throwIfCanceled()
                 val source = sources.find(part.sourceId) ?: return@mapNotNull null
                 val bytes =
                     layerTile(chain, request, key.copy(sourceId = part.sourceId), source, LayerElevation.maskOf(part))
@@ -132,6 +133,7 @@ class TileInterceptor(
         if (layers.lastOrNull()?.first?.sourceId != key.sourceId || layers.last().second == null) {
             return failure ?: reply(request, HTTP_NOT_FOUND, "nothing to blend")
         }
+        chain.throwIfCanceled()
         val image = blender.blend(layers) ?: return reply(request, HTTP_NOT_FOUND, "undecodable tile")
         log?.invoke(
             "blend z=${key.z} parts=${layers.size} fetch_ms=${millis(fetched - start)} " +
@@ -181,7 +183,7 @@ class TileInterceptor(
         val window = DemWindow.of(key.z, key.x, key.y)
         var failure: Response? = null
         val dem =
-            masker.dem("${window.demZ}/${window.demX}/${window.demY}") {
+            masker.dem("${window.demZ}/${window.demX}/${window.demY}", isCancelled = { chain.call().isCanceled() }) {
                 val leaf = resolver.resolve(demSource, window.demZ, window.demX, window.demY, ScalingPolicy.OFF)
                 if (leaf !is TileRecipe.Direct) {
                     null
@@ -208,6 +210,7 @@ class TileInterceptor(
             log?.invoke("mask z=${key.z} coverage=none dem_ms=${millis(demReady - start)}")
             return reply(request, HTTP_NOT_FOUND, "outside the elevation band")
         }
+        chain.throwIfCanceled()
         val tile = plain(chain, request, key, source)
         if (coverage == ElevationMask.Coverage.ALL || !tile.isSuccessful) {
             log?.invoke(
@@ -217,6 +220,7 @@ class TileInterceptor(
         }
         val bytes = tile.use { it.body?.bytes() }?.takeIf { it.isNotEmpty() }
         val tileReady = System.nanoTime()
+        chain.throwIfCanceled()
         val image = bytes?.let { masker.mask(it, dem, window, mask) }
         val demMs = millis(demReady - start)
         val tileMs = millis(tileReady - demReady)
@@ -230,6 +234,14 @@ class TileInterceptor(
 
     private fun millis(nanos: Long): String = "%.1f".format(java.util.Locale.ROOT, nanos / 1_000_000.0)
 
+    /**
+     * A call MapLibre cancelled (its tile left the screen) stops here, before more tiles are read, decoded, cut out,
+     * blended or composed for nothing (P36 review); the store and the gate already stop a download, not this work.
+     */
+    private fun Interceptor.Chain.throwIfCanceled() {
+        if (call().isCanceled()) throw IOException("Canceled")
+    }
+
     /** A tile built from other tiles: each one is read like a tile of its own map, then they are drawn together. */
     private fun compose(
         chain: Interceptor.Chain,
@@ -240,6 +252,7 @@ class TileInterceptor(
         var failure: Response? = null
         val image =
             composer.compose(recipe) { leaf ->
+                chain.throwIfCanceled()
                 serve(chain, request, leaf).use { response ->
                     if (response.isSuccessful) {
                         response.body?.bytes()?.takeIf { it.isNotEmpty() }

@@ -327,8 +327,15 @@ fun MapScreen(
     // the reference north.
     val showHeadingNumber = appSettings.heading == HeadingDisplay.NUMBER || appSettings.heading == HeadingDisplay.BOTH
     val headingSensor = remember { HeadingSensor(context) }
-    val magneticHeading by produceState<Double?>(null, showHeadingNumber, covered) {
-        if (showHeadingNumber && !covered) headingSensor.magneticHeadings().collect { value = it }
+    // The sensors below are listened to only while the map is on screen, not with the app in the background or the
+    // screen off, where nothing shows them (P36 review: they ran for as long as the activity lived).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val magneticHeading by produceState<Double?>(null, showHeadingNumber, covered, lifecycleOwner) {
+        if (showHeadingNumber && !covered) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                headingSensor.magneticHeadings().collect { value = it }
+            }
+        }
     }
     val currentFormats by rememberUpdatedState(formats)
     val headingText by remember(controller) {
@@ -342,10 +349,14 @@ fun MapScreen(
             }
         }
     }
-    // The satellites seen and used by the GPS, listened to only while the location is on.
-    val satellites by produceState<SatelliteCount?>(null, controller.locationOn, covered) {
+    // The satellites seen and used by the GPS, listened to only while the location is on (and the map on screen).
+    val satellites by produceState<SatelliteCount?>(null, controller.locationOn, covered, lifecycleOwner) {
         value = null
-        if (controller.locationOn && !covered) vm.satellites().collect { value = it }
+        if (controller.locationOn && !covered) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                vm.satellites().collect { value = it }
+            }
+        }
     }
     // The zoom of the base map, the "/18" after the zoom shown in the top left corner.
     val baseMaxZoom =
@@ -555,7 +566,6 @@ fun MapScreen(
         }
     }
     // The altitude chip follows the position, but only while the screen is on: the sensor and the GPS stop with it.
-    val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(controller.locationOn, lifecycleOwner, appSettings.positioning.disableInBackground, covered) {
         if (controller.locationOn && !covered) {
             if (appSettings.positioning.disableInBackground) {

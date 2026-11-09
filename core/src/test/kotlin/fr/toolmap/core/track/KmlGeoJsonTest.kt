@@ -118,6 +118,25 @@ class KmlGeoJsonTest {
     }
 
     @Test
+    fun `a KMZ unzipping to more than a KML file may hold is refused while it streams`() {
+        // About 100 KB of ZIP that unzips to 65 MB: read as a stream, refused past the 64 MB of a KML file.
+        val bomb =
+            ByteArrayOutputStream().also { out ->
+                ZipOutputStream(out).use {
+                    it.putNextEntry(ZipEntry("doc.kml"))
+                    it.write("<kml>".toByteArray())
+                    val spaces = ByteArray(1 shl 20) { ' '.code.toByte() }
+                    repeat(65) { _ -> it.write(spaces) }
+                    it.write("</kml>".toByteArray())
+                    it.closeEntry()
+                }
+            }
+        assertTrue(bomb.size() < TrackImporter.MAX_BYTES / 64)
+        val e = assertFailsWith<TrackFormatException> { TrackImporter.read(bomb.toByteArray(), "bomb.kmz") }
+        assertContains(e.message.orEmpty(), "too large")
+    }
+
+    @Test
     fun `GeoJSON feature collection with every geometry type`() {
         val doc =
             GeoJsonReader.read(
@@ -162,6 +181,17 @@ class KmlGeoJsonTest {
         assertFailsWith<TrackFormatException> { GeoJsonReader.read("[1,2,3]") }
         assertFailsWith<TrackFormatException> { GeoJsonReader.read("{\"hello\":1}") }
         assertFailsWith<TrackFormatException> { GeoJsonReader.read("{broken") }
+        // Collections nested thousands of times: refused, not a stack overflow.
+        val deep = 5_000
+        val nested =
+            "{\"type\":\"GeometryCollection\",\"geometries\":[".repeat(deep) +
+                "{\"type\":\"Point\",\"coordinates\":[1,2]}" + "]}".repeat(deep)
+        assertFailsWith<TrackFormatException> { GeoJsonReader.read(nested) }
+        // A few levels are read as before.
+        val shallow =
+            "{\"type\":\"GeometryCollection\",\"geometries\":[".repeat(3) +
+                "{\"type\":\"Point\",\"coordinates\":[1,2]}" + "]}".repeat(3)
+        assertEquals(1, GeoJsonReader.read(shallow).waypoints.size)
     }
 
     @Test

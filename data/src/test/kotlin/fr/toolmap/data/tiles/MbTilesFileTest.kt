@@ -87,6 +87,9 @@ class MbTilesFileTest {
         assertEquals(5L, mb.tileCount())
         assertEquals(mapOf(5 to 4L, 6 to 1L), mb.tileCountByZoom())
         assertEquals(png.size * 4L + jpeg.size, mb.payloadBytes())
+        // The sample reads at most the tiles asked, and all of them when the file holds fewer.
+        assertEquals(5L to png.size * 4L + jpeg.size, mb.payloadSample(100))
+        assertEquals(2L, mb.payloadSample(2).first)
     }
 
     @Test

@@ -3,10 +3,13 @@ package fr.toolmap.core.elevation
 import fr.toolmap.core.tiles.TileMath
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.util.zip.CRC32
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 
 class TerrariumTest {
     private fun png(image: BufferedImage): ByteArray =
@@ -93,5 +96,30 @@ class TerrariumTest {
                 ImageIO.write(BufferedImage(4, 8, BufferedImage.TYPE_INT_RGB), "png", it)
             }
         assertFailsWith<PngException> { TerrariumTile.fromPng(tall.toByteArray()) }
+        // A few bytes announcing a huge image are refused at once, not decoded into hundreds of megabytes.
+        assertEquals("Bad size", assertFailsWith<PngException> { PngDecoder.decode(header(4096, 4096)) }.message)
+        assertEquals("Bad size", assertFailsWith<PngException> { PngDecoder.decode(header(2048, 1024)) }.message)
+        // 1024 px is still read (it fails later here, for want of image data, still as a PngException).
+        assertNotEquals("Bad size", assertFailsWith<PngException> { PngDecoder.decode(header(1024, 1024)) }.message)
+    }
+
+    /** The signature and an IHDR chunk announcing [width] × [height] 8-bit RGBA pixels, nothing more. */
+    private fun header(
+        width: Int,
+        height: Int,
+    ): ByteArray {
+        val data =
+            ByteBuffer.allocate(
+                IHDR_SIZE,
+            ).putInt(width).putInt(height).put(8).put(6).put(0).put(0).put(0).array()
+        val chunk = "IHDR".toByteArray(Charsets.ISO_8859_1) + data
+        val crc = CRC32().apply { update(chunk) }.value.toInt()
+        val signature = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+        return signature + ByteBuffer.allocate(4).putInt(data.size).array() + chunk +
+            ByteBuffer.allocate(4).putInt(crc).array()
+    }
+
+    private companion object {
+        const val IHDR_SIZE = 13
     }
 }

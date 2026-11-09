@@ -14,6 +14,8 @@ import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.FutureTask
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /** A decoded elevation tile: [size] × [size] metres, row after row. */
 class DemGrid(
@@ -28,10 +30,12 @@ class DemGrid(
 interface ElevationMasker {
     /**
      * The elevation tile [key] decoded, from memory or from the bytes [load] gives (`null`: not available). Requests
-     * for the same tile at the same time share one [load].
+     * for the same tile at the same time share one [load]; one that [isCancelled] while it waits for another's load
+     * (MapLibre no longer shows its tile) stops with an `IOException`, as a cancelled OkHttp call does.
      */
     fun dem(
         key: String,
+        isCancelled: () -> Boolean = { false },
         load: () -> ByteArray?,
     ): DemGrid?
 
@@ -54,6 +58,7 @@ class BitmapElevationMasker(
 
     override fun dem(
         key: String,
+        isCancelled: () -> Boolean,
         load: () -> ByteArray?,
     ): DemGrid? {
         cache.get(key)?.let { return it }
@@ -69,12 +74,32 @@ class BitmapElevationMasker(
                 }
             }
             try {
-                return running.get()
+                return await(running, isCancelled)
             } catch (e: ExecutionException) {
+                // A request cancelled meanwhile stops here: it does not load the elevations again for itself.
+                if (isCancelled()) throw IOException("Canceled", e)
                 // The request that was loading it failed (cancelled by MapLibre): load it for this one. That request
                 // got the failure itself (thrown again by result()), and its caller deals with it.
                 Problems.expected("tiles.mask.shared_load", e, "key" to key)
                 continue
+            }
+        }
+    }
+
+    /**
+     * Another request's load of the same tile, waited for step by step: a request MapLibre cancels meanwhile stops
+     * waiting at once (P36 review: it used to wait for the whole download of the elevations).
+     */
+    private fun await(
+        running: FutureTask<DemGrid?>,
+        isCancelled: () -> Boolean,
+    ): DemGrid? {
+        while (true) {
+            try {
+                return running.get(WAIT_STEP_MS, TimeUnit.MILLISECONDS)
+            } catch (e: TimeoutException) {
+                // Still loading: wait again, unless this request was cancelled.
+                if (isCancelled()) throw IOException("Canceled", e)
             }
         }
     }
@@ -172,5 +197,8 @@ class BitmapElevationMasker(
         const val BYTE = 0xFF
         const val RGB = 0x00FFFFFF
         const val NANOS_PER_MILLI = 1_000_000.0
+
+        /** A waiting request looks at its cancellation this often (a few wake-ups a second, nothing when loaded). */
+        const val WAIT_STEP_MS = 50L
     }
 }

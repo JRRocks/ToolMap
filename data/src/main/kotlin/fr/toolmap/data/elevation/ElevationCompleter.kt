@@ -99,13 +99,16 @@ class ElevationCompleter(
         for ((coord, positions) in needed) {
             currentCoroutineContext().ensureActive()
             val tile =
-                tiles.tile(zoom, coord.x, coord.y)?.let {
-                    try {
-                        TerrariumTile.fromPng(it)
-                    } catch (e: PngException) {
-                        // The tile came from the server (or was stored from it): its data, not a bug here.
-                        Problems.expected("elevation.tile.decode", e, "z" to zoom, "x" to coord.x, "y" to coord.y)
-                        null
+                tiles.tile(zoom, coord.x, coord.y)?.let { png ->
+                    // A whole PNG decoded per tile: off the caller's thread, often the main one (P36 review).
+                    withContext(Dispatchers.Default) {
+                        try {
+                            TerrariumTile.fromPng(png)
+                        } catch (e: PngException) {
+                            // The tile came from the server (or was stored from it): its data, not a bug here.
+                            Problems.expected("elevation.tile.decode", e, "z" to zoom, "x" to coord.x, "y" to coord.y)
+                            null
+                        }
                     }
                 }
             if (tile == null) {

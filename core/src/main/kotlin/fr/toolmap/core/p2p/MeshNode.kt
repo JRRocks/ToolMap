@@ -523,6 +523,7 @@ class MeshNode(
             if (p.memberId == selfId || p.memberId in removed) continue
             val known = members[p.memberId]
             if (known == null) {
+                if (members.size >= MAX_MEMBERS) continue
                 members[p.memberId] =
                     Member(p.memberId, p.name, p.color).also { it.lastHeardMs = now() - p.lastSeenAgoSec * MS_PER_S }
                 grew = true
@@ -1091,8 +1092,11 @@ class MeshNode(
 
     private fun memberOrNew(memberId: Long): Member? {
         if (memberId in removed) return null
-        // A member can be heard of through a relay before its name reaches us in a PEERS list.
-        return members.getOrPut(memberId) { Member(memberId, "?", 0) }
+        // A member can be heard of through a relay before its name reaches us in a PEERS list. The table is bounded:
+        // ids made up by someone holding the key must not grow it, and open a link each, for ever (P36 review).
+        members[memberId]?.let { return it }
+        if (members.size >= MAX_MEMBERS) return null
+        return Member(memberId, "?", 0).also { members[memberId] = it }
     }
 
     private fun touch(memberId: Long) {
@@ -1206,6 +1210,9 @@ class MeshNode(
         private const val SEEN_CAP = 4096
         private const val MAX_TRAIL = 200
         private const val MAX_MISSED = 60
+
+        /** Members kept in the table: a group is about ten phones (p2p-sharing.md § 4), PEERS lists at most 32. */
+        private const val MAX_MEMBERS = 64
         private const val MAX_BACKOFF_SHIFT = 4
 
         /** A member id as the event log and the server write it. */

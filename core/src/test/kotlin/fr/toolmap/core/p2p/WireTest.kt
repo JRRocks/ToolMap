@@ -85,6 +85,13 @@ class WireTest {
         assertEquals(listOf(1L, 2L), peers.peers.map { it.memberId })
         assertEquals("Éva", peers.peers[1].name)
         assertEquals(3600, peers.peers[1].lastSeenAgoSec)
+        // No sender lists more than 32 members: a longer list, sealed with the key, is refused.
+        val many = ByteWriter().u8(33)
+        repeat(33) { many.u64(it + 100L).str("x").i32(0).u32(1) }
+        val aad = byteArrayOf(MsgType.PEERS.code.toByte())
+        val forged = aad + byteArrayOf(1) + crypto.seal(many.toByteArray(), aad)
+        assertFailsWith<WireException> { Wire.decode(forged, crypto) }
+        assertEquals(32, (roundTrip(Msg.Peers(List(40) { PeerInfo(it + 1L, "p", 0, 1) })).msg as Msg.Peers).peers.size)
 
         // The whole packed look travels: icon and RGB colour, not just a palette byte.
         val look = MemberLook.pack(3, 0xFF12AB34.toInt())

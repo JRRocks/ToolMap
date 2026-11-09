@@ -91,23 +91,24 @@ class ZoneEstimator
                 if (plan.total == 0L) ZoneEstimate.Empty else ZoneEstimate.Ready(perSource)
             }
 
-        /** Average size of the tiles already stored for the map (in the files of the tile sets it shows). */
+        /**
+         * Average size of the tiles already stored for the map (in the files of the tile sets it shows), from a sample
+         * of each file: reading every tile of a big file took seconds (P36 review).
+         */
         private fun averageTileBytes(sourceId: String): Long =
             synchronized(averageBytes) {
                 averageBytes.getOrPut(sourceId) {
-                    val files = store.storageIdsOf(sourceId).mapNotNull(store::peek)
-                    val count = files.sumOf { it.tileCount() }
-                    if (count >=
-                        MIN_SAMPLE
-                    ) {
-                        files.sumOf { it.payloadBytes() } / count
-                    } else {
-                        TilePlanner.DEFAULT_TILE_BYTES
-                    }
+                    val samples =
+                        store.storageIdsOf(sourceId).mapNotNull(store::peek).map { it.payloadSample(SAMPLE_TILES) }
+                    val count = samples.sumOf { it.first }
+                    if (count >= MIN_SAMPLE) samples.sumOf { it.second } / count else TilePlanner.DEFAULT_TILE_BYTES
                 }
             }
 
         private companion object {
             const val MIN_SAMPLE = 20L
+
+            /** Tiles read per file: a few megabytes of pages at most, whatever the file holds. */
+            const val SAMPLE_TILES = 2_000
         }
     }

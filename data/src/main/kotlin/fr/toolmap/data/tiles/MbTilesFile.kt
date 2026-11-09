@@ -210,6 +210,19 @@ class MbTilesFile private constructor(
     /** Sum of the tile payload sizes in bytes (a full scan: use for storage screens, not per tile). */
     fun payloadBytes(): Long = scalar("SELECT COALESCE(SUM(LENGTH(tile_data)), 0) FROM tiles") ?: 0L
 
+    /**
+     * Number and payload bytes of the first [limit] tiles of the file (at most): a sample for an average tile size
+     * whose cost does not grow with the file, unlike [payloadBytes] (P36 review: the zone estimate read every row).
+     * `LENGTH` of a blob needs no read of its overflow pages.
+     */
+    fun payloadSample(limit: Int): Pair<Long, Long> {
+        require(limit > 0) { "limit $limit" }
+        return db.rawQuery(
+            "SELECT COUNT(*), COALESCE(SUM(l), 0) FROM (SELECT LENGTH(tile_data) AS l FROM tiles LIMIT $limit)",
+            null,
+        ).use { c -> if (c.moveToFirst()) c.getLong(0) to c.getLong(1) else 0L to 0L }
+    }
+
     /** Size of the files on disk, including the write-ahead log. */
     fun diskBytes(): Long = file.length() + sibling("-wal").length()
 

@@ -1,7 +1,9 @@
 package fr.toolmap.core.track
 
 import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
+import java.io.FilterInputStream
+import java.io.IOException
+import java.io.InputStream
 import java.util.zip.ZipInputStream
 
 /** Reads a track file whichever its format: the content decides, the file name is only a hint for the error. */
@@ -46,32 +48,65 @@ object TrackImporter {
     /** First element that is not a declaration, comment or DOCTYPE. */
     private val ROOT_ELEMENT = Regex("""<([A-Za-z_][\w.:-]*)""")
 
+    /**
+     * The main KML of a KMZ, streamed to the parser and never held whole, at most [MAX_BYTES] like a KML file (P36
+     * review: a small zip bomb made the import hold 128 MB of KML, then copy it, and the app ran out of memory).
+     */
     private fun readKmz(bytes: ByteArray): TrackDocument {
-        val kml = findKml(bytes) ?: throw TrackFormatException("KMZ archive without a .kml file")
-        return KmlReader.read(kml).copy(format = SourceFormat.KMZ)
+        val index = kmlEntryIndex(bytes) ?: throw TrackFormatException("KMZ archive without a .kml file")
+        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+            repeat(index + 1) { zip.nextEntry ?: throw TrackFormatException("KMZ archive without a .kml file") }
+            return KmlReader.read(Bounded(zip, MAX_BYTES.toLong())).copy(format = SourceFormat.KMZ)
+        }
     }
 
-    /** The main KML of a KMZ: `doc.kml` if present, else the first `.kml` entry. Reading stops at [MAX_UNZIPPED]. */
-    private fun findKml(bytes: ByteArray): ByteArray? {
-        var chosen: ByteArray? = null
+    /**
+     * The index of the main KML of a KMZ: `doc.kml` if present, else the first `.kml` entry. The entries before it are
+     * read through (how a ZIP is walked) with one small buffer, counted against [MAX_UNZIPPED], and kept nowhere.
+     */
+    private fun kmlEntryIndex(bytes: ByteArray): Int? {
+        var chosen: Int? = null
         var total = 0L
+        val buffer = ByteArray(UNZIP_BUFFER)
         ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+            var index = 0
             while (true) {
                 val entry = zip.nextEntry ?: break
-                if (entry.isDirectory || !entry.name.endsWith(".kml", ignoreCase = true)) continue
-                val out = ByteArrayOutputStream()
-                val buffer = ByteArray(16 * 1024)
+                val kml = !entry.isDirectory && entry.name.endsWith(".kml", ignoreCase = true)
+                if (kml && entry.name.equals("doc.kml", ignoreCase = true)) return index
+                if (kml && chosen == null) chosen = index
                 while (true) {
                     val n = zip.read(buffer)
                     if (n < 0) break
                     total += n
                     if (total > MAX_UNZIPPED) throw TrackFormatException("KMZ archive too large once unzipped")
-                    out.write(buffer, 0, n)
                 }
-                if (entry.name.equals("doc.kml", ignoreCase = true)) return out.toByteArray()
-                if (chosen == null) chosen = out.toByteArray()
+                index++
             }
         }
         return chosen
     }
+
+    /** The first [limit] bytes of [input]; reading past them fails, as for a KML file too large to import. */
+    private class Bounded(
+        input: InputStream,
+        private val limit: Long,
+    ) : FilterInputStream(input) {
+        private var count = 0L
+
+        override fun read(): Int = super.read().also { if (it >= 0) add(1) }
+
+        override fun read(
+            b: ByteArray,
+            off: Int,
+            len: Int,
+        ): Int = super.read(b, off, len).also { if (it > 0) add(it.toLong()) }
+
+        private fun add(n: Long) {
+            count += n
+            if (count > limit) throw IOException("KML too large once unzipped (more than $limit bytes)")
+        }
+    }
+
+    private const val UNZIP_BUFFER = 16 * 1024
 }

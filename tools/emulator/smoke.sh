@@ -55,6 +55,15 @@ adb exec-out screencap -p > "$out/screen.png" || true
 adb shell uiautomator dump /sdcard/toolmap-ui.xml > /dev/null 2>&1 && adb pull /sdcard/toolmap-ui.xml "$out/ui.xml" > /dev/null 2>&1 || true
 adb logcat -d > "$out/logcat.txt" || true
 
+# What the screen shows, in words: the job log can be read where the artifact cannot (a cloud session's network does
+# not reach GitHub's artifact storage). Under pipefail, `|| true`: head closing the pipe early is not a failure.
+if [ -s "$out/ui.xml" ]; then
+  echo "Texts on the screen:"
+  grep -oE '(text|content-desc)="[^"]+"' "$out/ui.xml" | sed -E 's/^[a-z-]+="//; s/"$//' | awk '!seen[$0]++' |
+    head -n 80 | sed 's/^/  /' || true
+fi
+echo "Screenshot: $(wc -c < "$out/screen.png" 2>/dev/null || echo 0) bytes"
+
 # No `grep -q` at the end of a pipe: under pipefail, the first grep killed by SIGPIPE would hide a match.
 if grep -A1 'FATAL EXCEPTION' "$out/logcat.txt" | grep "Process: $pkg" > /dev/null; then fail "Java crash of $pkg (see logcat.txt)"; fi
 if grep -q ">>> $pkg" "$out/logcat.txt"; then fail "native crash of $pkg (see logcat.txt)"; fi

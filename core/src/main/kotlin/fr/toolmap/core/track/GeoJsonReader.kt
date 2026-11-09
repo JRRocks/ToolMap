@@ -20,6 +20,7 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 object GeoJsonReader {
     fun read(text: String): TrackDocument {
+        checkDepth(text)
         val root =
             try {
                 Json.parseToJsonElement(text)
@@ -44,6 +45,44 @@ object GeoJsonReader {
     }
 
     private fun JsonElement?.string(): String? = (this as? JsonPrimitive)?.takeIf { it !is JsonNull }?.contentOrNull
+
+    /**
+     * Objects and arrays inside one another: a real file nests about ten (collection, feature, geometry, the rings of
+     * a polygon), far fewer than the stack holds. The parser and [Reader.visit] recurse once per level: a file nesting
+     * thousands of collections overflowed the stack and took the app down (P36 review), so it is refused first.
+     */
+    private const val MAX_DEPTH = 128
+
+    private fun checkDepth(text: String) {
+        var depth = 0
+        var inString = false
+        var escaped = false
+        for (c in text) {
+            if (inString) {
+                when {
+                    escaped -> escaped = false
+                    c == '\\' -> escaped = true
+                    c == '"' -> inString = false
+                }
+                continue
+            }
+            when (c) {
+                '"' -> {
+                    inString = true
+                }
+
+                '{', '[' -> {
+                    if (++depth > MAX_DEPTH) {
+                        throw TrackFormatException("Not a readable GeoJSON file: nested more than $MAX_DEPTH levels")
+                    }
+                }
+
+                '}', ']' -> {
+                    depth--
+                }
+            }
+        }
+    }
 
     private class Reader {
         val issues = IssueLog()

@@ -409,7 +409,10 @@ object Wire {
                 }
 
                 MsgType.PEERS -> {
-                    Msg.Peers(List(r.u8()) { PeerInfo(r.u64(), r.str(), r.i32(), r.u32()) })
+                    val count = r.u8()
+                    // No sender writes more than MAX_PEERS: a longer list is made up (P36 review).
+                    if (count > MAX_PEERS) throw WireException("too many peers")
+                    Msg.Peers(List(count) { PeerInfo(r.u64(), r.str(), r.i32(), r.u32()) })
                 }
 
                 MsgType.SIGNAL -> {
