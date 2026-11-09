@@ -73,6 +73,21 @@ export function compareVersions(a, b) {
   return 0;
 }
 
+/**
+ * Whether [version] may move an issue (reopen it, raise its marker): at most [ceiling], the newest version the CI
+ * published (`android-<version>` releases, read by import-reports.mjs), since no real build is above it. Anyone who has
+ * the app can write a report: a forged "999.0.0" must not reopen an issue nor raise its marker, or every real report of
+ * the bug would be dropped once it is closed again (P36 review). Without a ceiling (releases unreadable), none may.
+ */
+export function trusted(version, ceiling) {
+  return Boolean(ceiling) && compareVersions(version, ceiling) <= 0;
+}
+
+/** The highest version of the group [g] that may move an issue, `0.0.0` when none may. */
+export function trustedMax(g, ceiling) {
+  return g.versions.filter((v) => trusted(v, ceiling)).at(-1) ?? '0.0.0';
+}
+
 const SEVERITY = { ERROR: 0, ANR: 1, CRASH: 2, NATIVE_CRASH: 2 };
 
 /** The reports of one fingerprint as one: summed counts, time span, and the report of the newest build as sample. */
@@ -133,7 +148,7 @@ export function title(g) {
   return plain(t.length > 120 ? t.slice(0, 119) + '…' : t).replace(/\\/g, '');
 }
 
-export function body(g) {
+export function body(g, ceiling) {
   const s = g.sample;
   const d = s.device;
   const ctx = Object.entries(s.context);
@@ -151,7 +166,7 @@ export function body(g) {
   ];
   if (ctx.length) rows.push(['Contexte', ctx.map(([k, v]) => inline(`${k}=${v}`)).join(', ')]);
   return [
-    `<!-- toolmap-problem fp=${g.fp} max=${g.maxVersion} -->`,
+    `<!-- toolmap-problem fp=${g.fp} max=${trustedMax(g, ceiling)} -->`,
     "Rapport envoyé automatiquement par l'application (ADR-116, `docs/specs/problems.md`). Il ne contient aucune donnée personnelle : types d'erreur, pile d'appels, messages nettoyés, version et modèle du téléphone.",
     '',
     '| | |',
@@ -175,8 +190,8 @@ export function occurrences(g) {
   return `${n}, ${span} (UTC)`;
 }
 
-export function comment(g, reopened) {
-  const head = reopened ? `**Réapparu en ${plain(g.maxVersion)}** (ticket rouvert).` : 'Vu de nouveau.';
+export function comment(g, reopened, ceiling) {
+  const head = reopened ? `**Réapparu en ${plain(trustedMax(g, ceiling))}** (ticket rouvert).` : 'Vu de nouveau.';
   return [
     head,
     '',
@@ -187,19 +202,20 @@ export function comment(g, reopened) {
   ].join('\n');
 }
 
-/** The new marker of an issue body once [g] has been seen: the highest version met is kept. */
-export function updatedBody(issueBody, g) {
+/** The new marker of an issue body once [g] has been seen: the highest trusted version met is kept. */
+export function updatedBody(issueBody, g, ceiling) {
   const m = MARKER.exec(issueBody || '');
   if (!m) return null;
-  if (compareVersions(g.maxVersion, m[2]) <= 0) return null;
-  return issueBody.replace(MARKER, `<!-- toolmap-problem fp=${g.fp} max=${g.maxVersion} -->`);
+  const max = trustedMax(g, ceiling);
+  if (compareVersions(max, m[2]) <= 0) return null;
+  return issueBody.replace(MARKER, `<!-- toolmap-problem fp=${g.fp} max=${max} -->`);
 }
 
 /** What to do with a group, given its issue (or none). */
-export function decide(g, issue) {
+export function decide(g, issue, ceiling) {
   if (!issue) return 'create';
   if (issue.state === 'open') return 'comment';
   const m = MARKER.exec(issue.body || '');
-  if (m && compareVersions(g.maxVersion, m[2]) > 0) return 'reopen';
+  if (m && compareVersions(trustedMax(g, ceiling), m[2]) > 0) return 'reopen';
   return 'drop';
 }

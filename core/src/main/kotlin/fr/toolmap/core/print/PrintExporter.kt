@@ -106,6 +106,10 @@ class PrintExporter(
                 }
                 ensureActive()
                 composer.drawOverlay(page, pp, plan.mapPages.size, pageMissing)
+                // The frame's place on the ground, for a GIS (P37): every page has its own frame.
+                if (template.geoReferenced) {
+                    page.geoViewport(PrintGeo.viewport(setup, pp.frame, template.title.ifBlank { "Carte" }))
+                }
                 missing += pageMissing
                 writer.endPage()
             }

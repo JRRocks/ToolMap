@@ -16,7 +16,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The emulator check (below) adds a few minutes to the build.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -81,6 +82,37 @@ jobs:
           apksigner="$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
           "$apksigner" verify --print-certs app/build/outputs/apk/debug/ToolMap-debug-*.apk
 
+      # No version is published before it ran on an emulator (CLAUDE.md, ADR-117): the APK just built is installed and
+      # started; a crash, an ANR, the crash report screen or no map screen fails the job before any publication below
+      # (artifact, pre-release, release). Cloud sessions have no emulator of their own: this is their check.
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Check the APK on an emulator
+        id: emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: bash tools/emulator/smoke.sh app/build/outputs/apk/debug emulator-check
+
+      # The screenshot, window dump and log of the check, also when it failed (what to look at).
+      - name: Upload the emulator check
+        if: always() && steps.emulator.outcome != 'skipped'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-check
+          path: emulator-check/
+          if-no-files-found: ignore
+          retention-days: 14
+
       # The account has 0.5 GB of artifact storage for all its repositories (docs/specs/release.md §1). This run deletes the
       # older debug APK artifacts and the old failure reports before it uploads its own, so one APK is kept, not two.
       # Release artifacts are left alone. Push events only: Dependabot and pull requests from forks get a read-only token.
@@ -92,7 +124,9 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const all = await github.paginate(github.rest.actions.listArtifactsForRepo, { owner, repo, per_page: 100 });
-            const old = all.filter((a) => (a.name === "toolmap-debug-apk" || a.name === "reports") && !a.expired);
+            const kept = new Set(["toolmap-debug-apk", "reports", "emulator-check"]);
+            // This run's own emulator check was just uploaded: it stays.
+            const old = all.filter((a) => kept.has(a.name) && !a.expired && a.workflow_run?.id !== context.runId);
             let freed = 0;
             for (const a of old) {
               await github.rest.actions.deleteArtifact({ owner, repo, artifact_id: a.id });

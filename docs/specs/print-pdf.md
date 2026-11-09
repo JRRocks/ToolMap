@@ -126,3 +126,49 @@ Une page par impression. De l'extérieur vers la carte :
 **Place de la carte** : une A4 paysage (marge 8 mm) montre 263,8 × 148,2 mm de carte, soit 6,6 × 3,7 km au 1:25 000 et 13,2 × 7,4 km au 1:50 000. La déclinaison est celle du jour (`GeomagneticField`) ; sa variation annuelle est la différence avec la valeur dans un an.
 
 **Vérifié** : tests JVM de `:core` (mise en page, pas de grille, graticule décimal, chiffres principaux, trois angles des nords écrits ; encadré OTAN jusqu'au 2026-10-28), feuilles d'essai relues à l'écran, deux PDF A4 de contrôle faits sur l'émulateur (OTAN / MGRS / OpenTopoMap 1:50 000, TOP 25 / UTM / IGN SCAN 25 Touristique 1:25 000), relus et **validés par l'utilisateur** (2026-10-17). **Reste** : la mesure à la règle sur une feuille imprimée à 100 %.
+
+## 9. PDF géoréférencé : QGIS, Global Mapper, Avenza (P37, ADR-118)
+
+Demande du 2026-11-09 : à la création du PDF, choisir **oui ou non** pour qu'il porte sa géoréférence et s'ouvre **à sa place** dans QGIS ou Global Mapper. **Rien ne change sur le papier.**
+
+### 9.1 Format
+- Extension géospatiale ISO 32000 (Adobe, niveau 3), objet pour objet comme GDAL l'écrit (`GEO_ENCODING=ISO32000`) : dans chaque page, `/VP [n 0 R]` → `/Type /Viewport`, `/BBox` = le cadre de la carte en points (origine en bas à gauche de la page) → `/Measure /Subtype /GEO` : `/Bounds` et `/LPTS` = `[0 1 0 0 1 0 1 1]` (coins du carré unité : haut gauche, bas gauche, bas droite, haut droite), `/GPTS` = latitude puis longitude WGS84 de ces quatre coins (10 décimales) → `/GCS` = `/Type /PROJCS /EPSG 3857 /WKT (…)`.
+- **EPSG:3857 (Web Mercator)** : le cadre est un rectangle exact de ce plan (`FrameProjection`), donc quatre coins placent chaque pixel exactement.
+- Une géoréférence par page (atlas compris), ≈ 1 Ko par page. Bandeau, marges et étiquettes restent autour du cadre, à leur place ; GDAL donne le cadre comme `NEATLINE`.
+- Lu par : **QGIS** (pilote PDF de GDAL, présent dans les installateurs Windows de QGIS), **Global Mapper**, **Acrobat Reader** (outil de localisation géospatiale : coordonnées sous le pointeur), **Avenza Maps** (hors ligne, sur téléphone). Le contenu vectoriel (traces, grille, waypoints) arrive en image, pas en couches.
+
+### 9.2 Réalisé (session 92, sans effet à l'écran)
+| Où | Quoi |
+|---|---|
+| `core/.../pdf/PdfGeo.kt` | `PdfCrs` (EPSG + WKT, `WEB_MERCATOR`), `PdfGeoViewport` (rectangle de la page et ses quatre coins) |
+| `PdfPage.geoViewport(…)` | écrit le système, la mesure et le viewport à la fin de la page, et `/VP` dans le dictionnaire de la page |
+| `core/.../print/PrintGeo.kt` | le viewport d'une page d'impression : cadre de `PageSetup`, coins par `FrameProjection.toLonLat` |
+| `PrintTemplate.geoReferenced` | l'option, **désactivée** (gardée dans `last.json` comme les autres réglages) ; `PrintExporter` l'applique à chaque page |
+| Tests | `PdfGeoTest` (dictionnaires), `PrintGeoTest` : coins exacts dans le plan Web Mercator, option désactivée = fichier inchangé, une géoréférence par page d'atlas, et **de bout en bout avec GDAL** quand `gdalinfo` est installé : EPSG:3857 lu, origine et taille de pixel conformes au cadre, et aux coordonnées de 30 points de la trace `fixtures/gpx/korita-zbevnica.gpx` imprimée au 1:25 000, GDAL trouve 30 fois le rouge de la trace (0 sur 30 à 300 m de là). Le PDF d'essai reste dans `core/build/geopdf/korita-zbevnica-25k.pdf`. |
+
+### 9.3 Reste (P37.0, P37.2, P37.3)
+1. **Aperçu** `docs/previews/p37-pdf-georef.html` (images `docs/previews/p37/`) : emplacement de l'interrupteur (A « Feuille », B « Qualité et marges », C au-dessus de « Créer le PDF ») et valeur au départ ; **validation de l'utilisateur avant tout code d'écran**.
+2. **Écran** selon l'aperçu validé : interrupteur, textes (`strings.xml`), ligne de l'encadré d'état et de la fin de l'export si la variante le prévoit, `docs/specs/ui-index.md`, test Robolectric.
+3. **Test en local, émulateur + QGIS** (protocole ci-dessous).
+
+### 9.4 Protocole de test en local (poste Windows : émulateur + QGIS)
+1. Compiler, installer : `./gradlew assembleDebug`, `adb install -r -g app/build/outputs/apk/debug/ToolMap-debug-<version>.apk`, puis `bash tools/emulator/smoke.sh app/build/outputs/apk/debug`.
+2. Sur l'émulateur : afficher OpenStreetMap (ou IGN), importer la trace d'essai (`adb push fixtures/gpx/korita-zbevnica.gpx /sdcard/Download/`, puis Traces › Importer), cadrer la trace, imprimer au 1:25 000, A4 paysage, grille UTM, **PDF géoréférencé activé**, enregistrer dans Documents ; refaire une fois **désactivé** (témoin). Récupérer : `adb pull /sdcard/Documents/<nom>.pdf`.
+3. **QGIS** :
+   - *Couche › Ajouter une couche › Ajouter une couche raster…*, le PDF : la couche doit arriver en **EPSG:3857** (barre d'état, Propriétés › Information) ; le PDF témoin, lui, n'a pas de système (QGIS le place hors du monde ou demande).
+   - *Explorateur › XYZ Tiles › OpenStreetMap* : les routes et sentiers de la carte du PDF tombent sur ceux d'OSM.
+   - *Couche › Ajouter une couche › Ajouter une couche vecteur…*, `korita-zbevnica.gpx`, couche `tracks` : la trace vectorielle recouvre la trace rouge imprimée ; à 1:2 000, l'écart doit rester sous un pixel du PDF (≈ 4 m au 1:25 000 rendu à 150 dpi).
+   - Outil *Identifier* sur un coin du cadre : mêmes coordonnées que celles écrites aux coins de la feuille.
+   - Netteté : QGIS (GDAL) rend un PDF à 150 dpi ; pour 300 dpi, variable d'environnement `GDAL_PDF_DPI=300` (*Paramètres › Options › Système › Environnement*), puis rouvrir.
+4. Contrôle en ligne de commande (*OSGeo4W Shell* de QGIS) : `gdalinfo <nom>.pdf` → « Coordinate System » Pseudo-Mercator, « NEATLINE » ; et le test automatique sur le PC : ajouter le dossier `bin` de QGIS au `PATH` de Git Bash, puis `./gradlew :core:test --tests '*PrintGeoTest*'` (le test GDAL ne s'exécute que si `gdalinfo` répond).
+5. Facultatif : Global Mapper (*File › Open Data Files*), Acrobat Reader (*Outils › Mesure › Localisation géographique*), Avenza Maps sur le téléphone.
+6. Consigner au journal : versions de QGIS et GDAL, captures (PDF + OSM + GPX superposés), écart mesuré.
+
+### 9.5 Coût
+| Partie | État | Coût |
+|---|---|---|
+| Format, écriture dans le PDF, coins par page, option désactivée, tests JVM et GDAL | fait (session 92) | — |
+| Aperçu de l'interrupteur | fait, à valider | une réponse |
+| Écran : interrupteur, textes, résumé, index de l'interface, test Robolectric | après validation | ≈ 1 à 2 h, un build |
+| Test émulateur + QGIS (§ 9.4) | session locale | ≈ 1 h |
+| Couches vectorielles géospatiales dans le PDF (traces et waypoints en couches QGIS) | non prévu | plusieurs jours : structure logique du PDF, contenus optionnels ; à rediscuter si le besoin apparaît |

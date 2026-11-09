@@ -1,7 +1,7 @@
 // node --test tools/problems/  (run by the CI)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MARKER, block, body, comment, decide, group, inline, parseEntry, title, updatedBody } from './reports.mjs';
+import { MARKER, block, body, comment, decide, group, inline, parseEntry, title, trusted, updatedBody } from './reports.mjs';
 
 const FP = '0123456789abcdef';
 
@@ -71,13 +71,34 @@ test('issue text is inert: no mention, no fence break, marker kept', () => {
   assert.match(body(group([linked])[0]), /`https:\/\/evil\.example`/, 'free text is a code span, not a link');
 });
 
+const marker = (max) => `<!-- toolmap-problem fp=${FP} max=${max} -->`;
+// The newest android-<version> release: no real build is above it.
+const CEILING = '0.4.211';
+
 test('what to do with an issue', () => {
   const [g] = group([parseEntry(`${FP}-abcdefghij`, entry(report()))]);
-  const marker = (max) => `<!-- toolmap-problem fp=${FP} max=${max} -->`;
-  assert.equal(decide(g, undefined), 'create');
-  assert.equal(decide(g, { state: 'open', body: marker('0.4.200') }), 'comment');
-  assert.equal(decide(g, { state: 'closed', body: marker('0.4.210') }), 'drop');
-  assert.equal(decide(g, { state: 'closed', body: marker('0.4.209') }), 'reopen');
-  assert.equal(updatedBody(marker('0.4.209'), g), marker('0.4.210'));
-  assert.equal(updatedBody(marker('0.4.211'), g), null);
+  assert.equal(decide(g, undefined, CEILING), 'create');
+  assert.equal(decide(g, { state: 'open', body: marker('0.4.200') }, CEILING), 'comment');
+  assert.equal(decide(g, { state: 'closed', body: marker('0.4.210') }, CEILING), 'drop');
+  assert.equal(decide(g, { state: 'closed', body: marker('0.4.209') }, CEILING), 'reopen');
+  assert.equal(updatedBody(marker('0.4.209'), g, CEILING), marker('0.4.210'));
+  assert.equal(updatedBody(marker('0.4.211'), g, CEILING), null);
+  assert.ok(comment(g, true, CEILING).startsWith('**Réapparu en 0.4.210**'));
+});
+
+test('a version no build has cannot reopen an issue nor hide later reports', () => {
+  const forged = (id, app) => parseEntry(`${FP}-${id}`, entry(report({ device: { ...report().device, app } })));
+  const [fake] = group([forged('ffffffffff', '999.0.0')]);
+  assert.equal(trusted('999.0.0', CEILING), false);
+  assert.equal(trusted('0.4.211', CEILING), true);
+  assert.equal(trusted('0.4.200', null), false, 'releases unreadable: nothing is trusted');
+  assert.equal(decide(fake, { state: 'closed', body: marker('0.4.210') }, CEILING), 'drop');
+  assert.equal(updatedBody(marker('0.4.200'), fake, CEILING), null, 'marker not raised by an open issue either');
+  assert.match(body(fake, CEILING), /max=0\.0\.0 -->/, 'a new issue keeps no forged marker');
+  // A real report next to a forged one moves the issue up to the real version only.
+  const [mixed] = group([forged('ffffffffff', '999.0.0'), forged('aaaaaaaaaa', '0.4.211')]);
+  assert.equal(decide(mixed, { state: 'closed', body: marker('0.4.210') }, CEILING), 'reopen');
+  assert.equal(updatedBody(marker('0.4.210'), mixed, CEILING), marker('0.4.211'));
+  // Without a ceiling, a closed issue stays closed this run.
+  assert.equal(decide(mixed, { state: 'closed', body: marker('0.4.210') }, null), 'drop');
 });

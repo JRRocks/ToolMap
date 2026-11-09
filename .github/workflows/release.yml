@@ -58,6 +58,35 @@ jobs:
           -Ptoolmap.versionCode=${{ github.run_number }}
           -Ptoolmap.minify=${{ inputs.minify || 'false' }}
 
+      # No version is published before it ran on an emulator (CLAUDE.md, ADR-117); an unsigned APK does not install,
+      # so a release without its key is not published either.
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Check the APK on an emulator
+        id: emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: bash tools/emulator/smoke.sh app/build/outputs/apk/release emulator-check
+
+      - name: Upload the emulator check
+        if: always() && steps.emulator.outcome != 'skipped'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-check-release
+          path: emulator-check/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:

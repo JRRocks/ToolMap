@@ -89,7 +89,10 @@ téléphone, première ABI, compte, premier et dernier instant.
     et `plantage` / `plantage-natif` / `anr` / `erreur-inattendue` ;
   - ticket ouvert → **commentaire** « Vu de nouveau » (compte, versions, appareils ; au plus 20 par passage) ;
   - ticket fermé et version plus récente que toutes celles vues → **rouvert** avec « Réapparu en … » ; sinon le
-    rapport (version ancienne, déjà corrigée) est simplement retiré ;
+    rapport (version ancienne, déjà corrigée) est simplement retiré. Seule compte une version que la CI a publiée
+    (au plus la plus haute release `android-<version>`) : un faux rapport « 999.0.0 » ne rouvre rien et ne relève
+    pas la version notée dans le ticket (revue du 2026-11-09) ; un APK compilé en local et pas encore poussé ne
+    rouvre donc pas un ticket fermé ;
   - puis les rapports traités sont effacés du serveur.
   Tout le texte venu du téléphone est rendu inerte (blocs de code, pas de mention `@`, pas de lien).
 - **Limites assumées** : n'importe qui ayant la clé web du projet (publique par nature) peut déposer de faux rapports ;

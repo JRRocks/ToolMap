@@ -4,7 +4,19 @@
 // Environment: FIREBASE_DB_URL, FIREBASE_API_KEY, REPORTS_PASSWORD (the reader account reports@toolmap.invalid),
 // GH_TOKEN, GITHUB_REPOSITORY. Without the Firebase values or the password, it says so and stops (exit 0).
 // DRY_RUN=1 prints what it would do and changes nothing.
-import { LABEL, KINDS, MARKER, body, comment, decide, group, parseEntry, title, updatedBody } from './reports.mjs';
+import {
+  LABEL,
+  KINDS,
+  MARKER,
+  body,
+  comment,
+  compareVersions,
+  decide,
+  group,
+  parseEntry,
+  title,
+  updatedBody,
+} from './reports.mjs';
 
 const READER = 'reports@toolmap.invalid';
 const MAX_NEW_ISSUES = 10;
@@ -66,6 +78,21 @@ async function existingIssues(repo) {
   return byFp;
 }
 
+/**
+ * The newest version the CI published (highest `android-<version>` release): no real build is above it, so a report
+ * above it cannot reopen an issue (reports.mjs, trusted). Unreadable: null, and no report reopens anything this run.
+ */
+async function newestRelease(repo) {
+  try {
+    const releases = await gh('GET', `/repos/${repo}/releases?per_page=100`);
+    const versions = releases.map((r) => /^android-(\d+\.\d+\.\d+)$/.exec(r.tag_name)?.[1]).filter(Boolean);
+    return versions.sort(compareVersions).at(-1) ?? null;
+  } catch (e) {
+    warn(`releases not readable (${e.message}): no report may reopen an issue this run.`);
+    return null;
+  }
+}
+
 async function ensureLabels(repo) {
   const wanted = [
     [LABEL, '5319e7', "Ticket ouvert par l'application (ADR-116)"],
@@ -102,24 +129,26 @@ async function main() {
 
   await ensureLabels(repo);
   const issues = await existingIssues(repo);
+  const ceiling = await newestRelease(repo);
+  console.log(`Newest published version: ${ceiling ?? 'unknown'}.`);
   const done = [...invalid];
   let created = 0;
   let commented = 0;
   for (const g of group(reports).sort((a, b) => b.count - a.count)) {
     const issue = issues.get(g.fp);
-    const action = decide(g, issue);
+    const action = decide(g, issue, ceiling);
     if (action === 'create') {
       if (created >= MAX_NEW_ISSUES) continue; // Kept on the server for the next run.
       const labels = [LABEL, KINDS[g.sample.kind].tag];
       console.log(`create ${g.fp}: ${title(g)}`);
-      if (!dry) await gh('POST', `/repos/${repo}/issues`, { title: title(g), body: body(g), labels });
+      if (!dry) await gh('POST', `/repos/${repo}/issues`, { title: title(g), body: body(g, ceiling), labels });
       created++;
     } else if (action === 'comment' || action === 'reopen') {
       if (commented >= MAX_COMMENTS) continue;
       console.log(`${action} #${issue.number} (${g.fp}): ${g.count} more`);
       if (!dry) {
-        await gh('POST', `/repos/${repo}/issues/${issue.number}/comments`, { body: comment(g, action === 'reopen') });
-        const next = updatedBody(issue.body, g);
+        await gh('POST', `/repos/${repo}/issues/${issue.number}/comments`, { body: comment(g, action === 'reopen', ceiling) });
+        const next = updatedBody(issue.body, g, ceiling);
         const patch = {};
         if (next) patch.body = next;
         if (action === 'reopen') patch.state = 'open';
@@ -127,7 +156,7 @@ async function main() {
       }
       commented++;
     } else {
-      console.log(`drop ${g.fp}: issue #${issue.number} closed, no newer version (${g.maxVersion})`);
+      console.log(`drop ${g.fp}: issue #${issue.number} closed, no newer published version (${g.maxVersion})`);
     }
     done.push(...g.ids);
   }

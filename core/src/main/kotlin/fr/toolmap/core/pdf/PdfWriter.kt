@@ -265,12 +265,22 @@ class PdfPage internal constructor(
     private val ops = StringBuilder(INITIAL_CONTENT)
     private val images = LinkedHashMap<String, Int>()
     private val alphas = LinkedHashMap<String, String>()
+    private val viewports = ArrayList<PdfGeoViewport>()
     private var finished = false
 
     init {
         // User space becomes millimeters, y downwards.
         ops.append(exact(PT_PER_MM)).append(" 0 0 -").append(exact(PT_PER_MM)).append(" 0 ")
             .append(exact(heightMm * PT_PER_MM)).append(" cm\n")
+    }
+
+    /**
+     * Georeferences a rectangle of this page (P37): readers of geospatial PDF place it on the ground. It changes nothing
+     * that is drawn; a page may have several (one per map frame).
+     */
+    fun geoViewport(viewport: PdfGeoViewport) {
+        check(!finished) { "page already finished" }
+        viewports += viewport
     }
 
     fun save() {
@@ -534,10 +544,12 @@ class PdfPage internal constructor(
             "/Filter /FlateDecode",
             deflate(ops.toString().toByteArray(Charsets.ISO_8859_1)),
         )
+        val viewportNumbers = viewports.map(::writeViewport)
         writer.writeObject(pageNumber) {
             append("<< /Type /Page /Parent ${PdfWriter.PAGES_OBJECT} 0 R")
             append(" /MediaBox [0 0 ${num(widthMm * PT_PER_MM, MEDIABOX_DECIMALS)} ")
             append("${num(heightMm * PT_PER_MM, MEDIABOX_DECIMALS)}]")
+            if (viewportNumbers.isNotEmpty()) append(viewportNumbers.joinToString(" ", " /VP [", "]") { "$it 0 R" })
             append(" /Contents $contentNumber 0 R /Resources << /Font <<")
             PdfFont.entries.forEachIndexed { i, f -> append(" /${f.resource} ${PdfWriter.FONT_OBJECT + i} 0 R") }
             append(" >>")
@@ -556,6 +568,38 @@ class PdfPage internal constructor(
         writer.addPage(pageNumber)
     }
 
+    /**
+     * Writes [viewport] as GDAL writes its own geospatial PDF (ISO 32000, `GEO_ENCODING=ISO32000`): the coordinate
+     * system, the measure (corners on the ground, `GPTS` as latitude then longitude, against the corners of the unit
+     * square of the box, `LPTS`, y upwards) and the viewport (its box in default user space: points, origin at the
+     * bottom left of the page). Returns the number of the viewport object.
+     */
+    private fun writeViewport(viewport: PdfGeoViewport): Int {
+        val crsNumber = writer.allocate()
+        val measureNumber = writer.allocate()
+        val viewportNumber = writer.allocate()
+        writer.writeObject(crsNumber) {
+            append("<< /Type /PROJCS /EPSG ${viewport.crs.epsg} /WKT ${literal(viewport.crs.wkt)} >>")
+        }
+        writer.writeObject(measureNumber) {
+            append("<< /Type /Measure /Subtype /GEO /Bounds [$UNIT_CORNERS] /LPTS [$UNIT_CORNERS] /GPTS [")
+            // The same order as the unit corners: top left, bottom left, bottom right, top right.
+            val corners = listOf(viewport.topLeft, viewport.bottomLeft, viewport.bottomRight, viewport.topRight)
+            append(corners.joinToString(" ") { "${num(it.lat, GEO_DECIMALS)} ${num(it.lon, GEO_DECIMALS)}" })
+            append("] /GCS $crsNumber 0 R >>")
+        }
+        val left = viewport.leftMm * PT_PER_MM
+        val bottom = (heightMm - viewport.topMm - viewport.heightMm) * PT_PER_MM
+        val right = left + viewport.widthMm * PT_PER_MM
+        val top = (heightMm - viewport.topMm) * PT_PER_MM
+        writer.writeObject(viewportNumber) {
+            append("<< /Type /Viewport /BBox [")
+            append(listOf(left, bottom, right, top).joinToString(" ") { num(it, MEDIABOX_DECIMALS) })
+            append("] /Name ${PdfWriter.hexString(viewport.name)} /Measure $measureNumber 0 R >>")
+        }
+        return viewportNumber
+    }
+
     companion object {
         /** Points per millimeter: 72 / 25.4. */
         const val PT_PER_MM = 72.0 / 25.4
@@ -564,6 +608,17 @@ class PdfPage internal constructor(
         private const val KAPPA = 0.5522847498
         private const val TEXT_DECIMALS = 5
         private const val MEDIABOX_DECIMALS = 3
+
+        /** Degrees to 10 decimals: 0.01 mm on the ground, far below a pixel. */
+        private const val GEO_DECIMALS = 10
+
+        /** Top left, bottom left, bottom right, top right of the unit square, y upwards (GDAL's order). */
+        private const val UNIT_CORNERS = "0 1 0 0 1 0 1 1"
+
+        /** [text] as a PDF literal string, its backslashes and parentheses escaped. */
+        private fun literal(text: String): String =
+            "(" + text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)") + ")"
+
         private val HEX = "0123456789ABCDEF".toCharArray()
         private val WIN_ANSI: Charset = Charset.forName("windows-1252")
 
