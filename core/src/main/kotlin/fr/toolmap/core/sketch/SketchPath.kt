@@ -78,13 +78,21 @@ data class SketchPath(
         return sb.toString()
     }
 
-    /** The stroke as a polyline: each cubic split until it is within [tolerance] meters of its chord. */
-    fun sample(tolerance: Double): List<XY> {
+    /**
+     * The stroke as a polyline: each cubic split until it is within [tolerance] meters of its chord. At most about
+     * [maxPoints] points: past them the stroke is cut short. No drawing comes near that number, but a stroke made up
+     * for it (huge curves, a width of a centimeter) asked for 65,000 points a curve, without end (P36 audit).
+     */
+    fun sample(
+        tolerance: Double,
+        maxPoints: Int = MAX_SAMPLE_POINTS,
+    ): List<XY> {
         val out = ArrayList<XY>()
         out += start
         var from = start
         for (c in curves) {
-            flatten(from, c.c1, c.c2, c.end, tolerance, 0, out)
+            if (out.size >= maxPoints) break
+            flatten(from, c.c1, c.c2, c.end, tolerance, 0, out, maxPoints)
             from = c.end
         }
         return out
@@ -98,6 +106,9 @@ data class SketchPath(
 
     companion object {
         private const val MAX_FLATTEN_DEPTH = 16
+
+        /** The points of one stroke cut into lines, at most: ten times the longest stroke drawn by hand. */
+        const val MAX_SAMPLE_POINTS = 20_000
 
         /** Straight sides through [points] (a shape, P28.4), back to the first one when [closed]. */
         fun through(
@@ -128,8 +139,9 @@ data class SketchPath(
             tolerance: Double,
             depth: Int,
             out: MutableList<XY>,
+            maxPoints: Int,
         ) {
-            if (depth >= MAX_FLATTEN_DEPTH ||
+            if (depth >= MAX_FLATTEN_DEPTH || out.size >= maxPoints ||
                 maxOf(distanceToLine(p1, p0, p3), distanceToLine(p2, p0, p3)) <= tolerance
             ) {
                 out += p3
@@ -141,8 +153,8 @@ data class SketchPath(
             val a = (p01 + p12) * 0.5
             val b = (p12 + p23) * 0.5
             val mid = (a + b) * 0.5
-            flatten(p0, p01, a, mid, tolerance, depth + 1, out)
-            flatten(mid, b, p23, p3, tolerance, depth + 1, out)
+            flatten(p0, p01, a, mid, tolerance, depth + 1, out, maxPoints)
+            flatten(mid, b, p23, p3, tolerance, depth + 1, out, maxPoints)
         }
 
         private fun distanceToLine(

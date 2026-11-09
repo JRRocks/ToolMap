@@ -202,6 +202,9 @@ class MeshNode(
     private val alertSeq = HashMap<Long, Long>()
     private val liftSeq = HashMap<Long, Long>()
 
+    /** When the lift of [liftSeq] was heard: it stands in the way of the repeats of its alert for a while only. */
+    private val liftAtMs = HashMap<Long, Long>()
+
     /** The members whose alert was handed to the listener and not lifted since. */
     private val alerting = HashSet<Long>()
 
@@ -399,7 +402,12 @@ class MeshNode(
 
             is Msg.Sos -> {
                 if (msg.memberId == selfId || !firstTime(msg.memberId, msg.seq)) return
-                val lifted = msg.seq < (liftSeq[msg.memberId] ?: -1L)
+                // A lift stops the repeats of its alert that it overtook on the way, not the alerts to come: a lift
+                // numbered far ahead, sealed by any holder of the key in the name of a member, silenced every later
+                // alert of that member on every phone (P36 audit). Past the time a repeat may take, it counts no more.
+                val lifted =
+                    msg.seq < (liftSeq[msg.memberId] ?: -1L) &&
+                        now() - (liftAtMs[msg.memberId] ?: 0L) <= LIFT_GUARD_S * MS_PER_S
                 EventLog.event(
                     "mesh.sos.in",
                     "member" to hex(msg.memberId),
@@ -431,6 +439,7 @@ class MeshNode(
                 relay(raw, from)
                 if (stale) return
                 liftSeq[msg.memberId] = maxOf(msg.seq, liftSeq[msg.memberId] ?: 0L)
+                liftAtMs[msg.memberId] = now()
                 if (alerting.remove(msg.memberId)) events += { listener.onSosLifted(msg.memberId) }
             }
 
@@ -834,6 +843,12 @@ class MeshNode(
         if (p.isOver(nowSec())) return false
         val known = points[p.id]
         if (known != null && !p.replaces(known)) return false
+        // The items of the others are kept, shown, saved and sent again to every newcomer: their number is bounded,
+        // far above what a group shares, so that a phone sending new ones without end fills nothing (P36 audit).
+        if (known == null && points.size >= MAX_POINTS) {
+            EventLog.event("mesh.point.full", "point" to hex(p.id), "kept" to points.size)
+            return false
+        }
         points[p.id] = p
         EventLog.event(
             "mesh.point.in",
@@ -945,6 +960,7 @@ class MeshNode(
         members.remove(id)
         alertSeq.remove(id)
         liftSeq.remove(id)
+        liftAtMs.remove(id)
         alerting.remove(id)
     }
 
@@ -1213,6 +1229,12 @@ class MeshNode(
 
         /** Members kept in the table: a group is about ten phones (p2p-sharing.md § 4), PEERS lists at most 32. */
         private const val MAX_MEMBERS = 64
+
+        /** Shared items kept (waypoints, tracks, sketches, favorites, and those removed not long ago). */
+        const val MAX_POINTS = 500
+
+        /** How long a lift stands in the way of late repeats of its alert: they go on for [SOS_REPEAT_FOR_S]. */
+        const val LIFT_GUARD_S = 600L
         private const val MAX_BACKOFF_SHIFT = 4
 
         /** A member id as the event log and the server write it. */

@@ -27,6 +27,8 @@ internal fun samplePayload(
             IceCandidate(CandidateType.HOST, ip(10, 0, 0, 5), 52_000, 2),
         ),
     memberId: Long = 0x1122334455667788L,
+    iceUfrag: String = "aB3d",
+    icePwd: String = "x7Yq0pLm9Rt2VnB4cD6eF8gH",
 ) = PairingPayload(
     kind = kind,
     createdAtSec = createdAtSec,
@@ -35,8 +37,8 @@ internal fun samplePayload(
     memberId = memberId,
     name = name,
     color = 3,
-    iceUfrag = "aB3d",
-    icePwd = "x7Yq0pLm9Rt2VnB4cD6eF8gH",
+    iceUfrag = iceUfrag,
+    icePwd = icePwd,
     dtlsFingerprint = ByteArray(32) { (it * 7).toByte() },
     dtlsSetup = if (kind == PairingKind.ANSWER) DtlsSetup.ACTIVE else DtlsSetup.ACTPASS,
     candidates = candidates,
@@ -78,6 +80,15 @@ class PairingCodecTest {
             val p = samplePayload(kind)
             assertEquals(p, PairingCodec.decodeBytes(PairingCodec.encodeBytes(p)))
         }
+    }
+
+    @Test
+    fun `ICE texts that would add lines to the session description are refused`() {
+        val line = samplePayload(iceUfrag = "aB3d\r\na=candidate:1 1 udp 1 203.0.113.9 9 typ host")
+        assertFailsWith<WireException> { PairingCodec.decodeBytes(PairingCodec.encodeBytes(line)) }
+        val space = samplePayload(PairingKind.ANSWER, icePwd = "two words")
+        assertFailsWith<WireException> { PairingCodec.decodeBytes(PairingCodec.encodeBytes(space)) }
+        assertFailsWith<IllegalArgumentException> { Sdp.build(line) }
     }
 
     @Test

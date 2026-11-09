@@ -1,5 +1,6 @@
 package fr.toolmap.sketch
 
+import fr.toolmap.core.sketch.Sketch
 import fr.toolmap.core.sketch.SketchFill
 import fr.toolmap.core.sketch.SketchPalette
 import fr.toolmap.core.sketch.SketchScale
@@ -120,10 +121,14 @@ object SketchLayers {
             if (!saved.visible || saved.id == skipId) continue
             val minZoom = saved.sketch.minVisibleZoom() ?: continue
             if (minPixels <= 0.0 && cameraZoom < minZoom) continue
+            // What one sketch may cost to draw: no drawing comes near, a file made up for it stops there (P36 audit).
+            var left = Sketch.MAX_DRAWN_POINTS
             for (stroke in saved.sketch.strokes) {
+                if (left <= 0) break
                 val w0 = stroke.style.widthMeters / atZoom0
                 val color = String.format(Locale.ROOT, "#%06X", stroke.style.color and 0xFFFFFF)
-                val points = stroke.path.sample(stroke.style.widthMeters / 10)
+                val points = stroke.drawn(left)
+                left -= points.size
                 val fill = stroke.shape?.takeIf { it.closed && points.size > 3 }?.fill ?: SketchFill.NONE
                 if (fill != SketchFill.NONE) {
                     // The zone under its outline: a polygon with its fill, then the outline as for any stroke.

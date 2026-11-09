@@ -2,6 +2,7 @@ package fr.toolmap.core.p2p
 
 import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.sketch.Cubic
+import fr.toolmap.core.sketch.Sketch
 import fr.toolmap.core.sketch.SketchFill
 import fr.toolmap.core.sketch.SketchPath
 import fr.toolmap.core.sketch.SketchShape
@@ -45,6 +46,10 @@ object GroupShape {
     private const val DEG_STEP = 1e5
     private const val DM = 10.0
     private const val MAX_INFLATED = 256 * 1024
+
+    /** More than any sketch that fits [MAX_BYTES] once drawn by hand (a few thousand curves at most). */
+    private const val MAX_SKETCH_STROKES = 5_000
+    private const val MAX_SKETCH_CURVES = 20_000
     private const val FIRST_TOLERANCE_M = 2.0
     private const val TOLERANCE_GROWTH = 2.0
     private const val MAX_TOLERANCE_M = 2_000.0
@@ -149,8 +154,11 @@ object GroupShape {
             y += r.signed()
             return XY(x / DM, y / DM)
         }
+        val strokeCount = r.count()
+        if (strokeCount > MAX_SKETCH_STROKES) throw WireException("too many strokes")
+        var curveCount = 0
         val strokes =
-            List(r.count()) {
+            List(strokeCount) {
                 val style =
                     SketchStyle(
                         color = r.unsigned().toInt(),
@@ -158,9 +166,15 @@ object GroupShape {
                         smoothingMeters = r.unsigned() / CM,
                     )
                 val curves = r.count()
+                curveCount += curves
+                if (curveCount > MAX_SKETCH_CURVES) throw WireException("too many curves")
                 val start = point()
                 SketchStroke(style, SketchPath(start, List(curves) { Cubic(point(), point(), point()) }))
             }
+        // A sketch made up to cost millions of points once cut into lines (huge curves, a width of a centimeter) is
+        // refused here, before the map, a list or an editor meets it (P36 audit: every member's phone ran out of
+        // memory, at each start, since the sketch is kept by the group). Nothing drawn by hand comes near.
+        if (!Sketch.isDrawable(strokes)) throw WireException("sketch too heavy to draw")
         if (!r.hasMore()) return strokes
         return strokes.map { s ->
             when (val code = r.unsigned()) {

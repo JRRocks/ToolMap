@@ -509,6 +509,40 @@ class MeshNodeTest {
     }
 
     @Test
+    fun `a lift numbered far ahead does not silence the alerts that follow`() {
+        val (a, _, _) = threeMembers()
+        val crypto = GroupCrypto(key)
+
+        fun from2(msg: Msg) {
+            a.node.onFrame(2, Wire.encode(msg, crypto))
+            net.pump()
+        }
+        // Sealed by any holder of the key in the name of member 2, with the highest number there is.
+        from2(Msg.SosEnd(2, 0xFFFF_FFFFL))
+        // In the minutes that follow it still stands in the way, as the lift of an alert overtaken on the way does.
+        from2(Msg.Sos(2, 200, null, "tout de suite"))
+        assertTrue(a.sos.isEmpty())
+        // Past the time a repeat may take, the alerts of that member are heard again.
+        net.nowMs += (MeshNode.LIFT_GUARD_S + 1) * 1000
+        from2(Msg.Sos(2, 201, null, "plus tard"))
+        assertEquals(listOf(2L to "plus tard"), a.sos)
+    }
+
+    @Test
+    fun `the items of the others are kept up to a number`() {
+        val (a, _, _) = threeMembers()
+        val crypto = GroupCrypto(key)
+        val now = net.nowMs / 1000
+        repeat(MeshNode.MAX_POINTS + 50) { i ->
+            val point =
+                GroupPoint(id = 10_000L + i, author = 2, rev = 1, lat = 45.0, lon = 6.0, name = "p$i", createdSec = now)
+            a.node.onFrame(2, Wire.encode(Msg.Point(2, 5_000L + i, point), crypto))
+        }
+        net.pump()
+        assertEquals(MeshNode.MAX_POINTS, a.node.keptPoints().size)
+    }
+
+    @Test
     fun `whether a member shares or only listens reaches everyone, new links included, the latest winning`() {
         val (a, b, c) = threeMembers()
         // A member of a version without STATE is unknown, neither sharing nor listening.

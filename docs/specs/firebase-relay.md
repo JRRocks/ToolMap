@@ -48,6 +48,8 @@ Lecture et écriture réservées aux utilisateurs authentifiés (anonymes compri
 
 Depuis P36 (ADR-116), le nœud racine `reports` reçoit les rapports de problèmes des téléphones (création seule, lecture et effacement par le compte `reports@toolmap.invalid` du workflow GitHub `problems.yml`) : mise en place et règles dans `docs/specs/problems.md` § 5 ; **règles à republier**.
 
+Garde-fous du téléphone face à une pièce remplie par un porteur de son identifiant (audit du 2026-11-09) : un événement du flux de plus de 8 Mo n'est pas lu (`ServerSentEvents.MAX_EVENT_BYTES`, `EventTooLarge`) ; la pièce n'est alors redemandée qu'au bout d'une minute, puis de plus en plus rarement (15 min au plus). Un serveur qui refuse (règles, jeton) est réessayé une fois aussitôt avec un jeton neuf, puis au même rythme espacé ; un changement de réseau relance tout de suite. L'état affiché ne change pas (« injoignable », « refusé »).
+
 ## 7. Quotas du plan Spark (gratuit)
 100 connexions simultanées, 1 Go stocké, 10 Go/mois de téléchargement. Une position scellée ≈ 150 octets ; à 30 s d'intervalle, un membre consomme environ 15 Mo/mois en émission et autant par pair en lecture : un groupe de 5 tient très largement. Au-delà de 100 téléphones connectés ensemble, les nouvelles connexions sont refusées (`UNREACHABLE`).
 

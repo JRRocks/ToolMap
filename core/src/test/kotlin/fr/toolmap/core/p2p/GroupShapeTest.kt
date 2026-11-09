@@ -4,6 +4,7 @@ import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.layers.FavoritesFile
 import fr.toolmap.core.layers.FavoritesFileCodec
 import fr.toolmap.core.layers.Workspaces
+import fr.toolmap.core.sketch.Cubic
 import fr.toolmap.core.sketch.RawStroke
 import fr.toolmap.core.sketch.SketchFill
 import fr.toolmap.core.sketch.SketchPath
@@ -112,6 +113,34 @@ class GroupShapeTest {
         assertFailsWith<WireException> { GroupShape.unpackTrack(byteArrayOf(1, 2, 3)) }
         val packed = assertNotNullShape(GroupShape.packTrack(walk(50)))
         assertFailsWith<WireException> { GroupShape.unpackTrack(packed.copyOf(packed.size / 2)) }
+    }
+
+    @Test
+    fun `a sketch made up to cost millions of points to draw is refused, a drawing by hand is not`() {
+        val large = 1 shl 20
+        val thin = SketchStyle(color = 0xFF0000, widthMeters = 0.01, smoothingMeters = 0.01)
+
+        // Wiggles of 50 km, a centimeter thin: 65,000 points each once cut into lines finer than their width.
+        fun wiggle(i: Int) = Cubic(XY(i * 10.0, 50_000.0), XY(i * 10.0 + 5, -50_000.0), XY(i * 10.0 + 10, 0.0))
+        val heavy = List(40) { s -> SketchStroke(thin, SketchPath(XY(0.0, 0.0), List(50) { wiggle(s * 50 + it) })) }
+        val packed = assertNotNullShape(GroupShape.packSketch(heavy, large))
+        assertFailsWith<WireException> { GroupShape.unpackSketch(packed) }
+        // One stroke alone is cut short, wherever it is cut into lines.
+        assertTrue(heavy[0].path.sample(0.001).size <= SketchPath.MAX_SAMPLE_POINTS + 20)
+        assertTrue(heavy[0].drawn(100).size <= 120)
+        // More strokes than any drawing has.
+        val dot = SketchStroke(thin.copy(widthMeters = 1.0), SketchPath(XY(1.0, 1.0)))
+        val dots = assertNotNullShape(GroupShape.packSketch(List(5_001) { dot }, large))
+        assertFailsWith<WireException> { GroupShape.unpackSketch(dots) }
+        // A drawing by hand: sixty strokes of forty curves of ten meters, two meters wide.
+        val hand = SketchStyle(color = 0x00FF00, widthMeters = 2.0, smoothingMeters = 1.0)
+
+        fun bump(
+            x: Double,
+            i: Int,
+        ) = Cubic(XY(x + i * 10 + 3, 4.0), XY(x + i * 10 + 6, -4.0), XY(x + i * 10 + 10, 0.0))
+        val drawing = List(60) { s -> SketchStroke(hand, SketchPath(XY(s * 3.0, 0.0), List(40) { bump(s * 3.0, it) })) }
+        assertEquals(60, GroupShape.unpackSketch(assertNotNullShape(GroupShape.packSketch(drawing, large))).size)
     }
 
     @Test

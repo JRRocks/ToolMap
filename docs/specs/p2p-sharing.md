@@ -56,6 +56,12 @@ La SDP complète est **reconstruite** de chaque côté à partir d'un gabarit fi
 - Le QR d'invitation contient la **clé de groupe** : quiconque le photographie peut rejoindre le groupe. L'UI doit le rappeler (« Ne montrez ce code qu'aux participants »). Le QR expire au bout de 10 min.
 - Retrait d'un membre : nouvelle `groupKey` générée et diffusée aux membres restants (message `REKEY` chiffré avec l'ancienne clé, sauf pour le membre exclu, dont on ferme les liaisons).
 - Les empreintes DTLS des QR authentifient les deux extrémités. Les messages relayés sont chiffrés avec la clé de groupe : un membre intermédiaire ne peut ni forger ni lire un message s'il n'appartient pas au groupe.
+- **Ce qu'un porteur de la clé peut faire** (audit du 2026-11-09, `docs/revue-2026-11.md` § 3.1) : les trames ne sont pas signées par leur auteur, donc tout membre peut écrire au nom d'un autre (assumé pour le retrait, ADR-021, et pour les éléments partagés, ADR-112). Garde-fous de ce qui se lit sans confiance :
+  - l'identifiant et le mot de passe ICE d'un code d'appairage ne contiennent que de l'ASCII visible sans espace (`PairingPayload.isIceText`), sinon le code est refusé : ils sont recopiés dans la description de session ;
+  - un croquis partagé de plus de 5 000 traits, 20 000 courbes ou 100 000 points une fois découpé en lignes est refusé à la lecture (`GroupShape.unpackSketch`, `Sketch.isDrawable`) ; un trait ne se découpe jamais en plus de 20 000 points (`SketchPath.sample`) ;
+  - au plus 500 éléments partagés venus des autres sont gardés (`MeshNode.MAX_POINTS`) ;
+  - la levée d'une alerte ne fait écarter les répétitions de cette alerte que pendant 10 minutes (`MeshNode.LIFT_GUARD_S`) : une levée numérotée loin en avant ne fait plus taire les alertes suivantes du membre ;
+  - une trame `PEERS` liste au plus 32 membres, la table des membres en garde 64.
 
 ## 4. Groupe maillé
 - Un nouvel arrivant s'appaire avec **n'importe quel** membre, une seule fois.

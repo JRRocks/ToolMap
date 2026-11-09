@@ -123,6 +123,10 @@ class PairingPayload(
         const val GROUP_ID_BYTES = 16
         const val FINGERPRINT_BYTES = 32
         const val MAX_CANDIDATES = 8
+
+        /** An ICE user fragment or password: visible ASCII without a space, so one word on one line of an SDP. */
+        fun isIceText(text: String): Boolean = text.all { it in '!'..'~' }
+
         private val EMPTY = ByteArray(0)
     }
 }
@@ -179,6 +183,11 @@ object PairingCodec {
         val color = b.i32()
         val ufrag = b.str()
         val pwd = b.str()
+        // Both are written as they are in the session description handed to WebRTC: an end of line in them added
+        // lines of the sender's choice to it, such as addresses to probe (P36 audit).
+        if (!PairingPayload.isIceText(ufrag) || !PairingPayload.isIceText(pwd)) {
+            throw WireException("bad ICE credentials")
+        }
         val fingerprint = b.bytes(PairingPayload.FINGERPRINT_BYTES)
         val setup = DtlsSetup.of(b.u8()) ?: throw WireException("unknown DTLS setup")
         val count = b.u8()

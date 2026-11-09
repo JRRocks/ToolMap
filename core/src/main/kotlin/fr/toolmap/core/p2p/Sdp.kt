@@ -25,6 +25,8 @@ object Sdp {
         p: PairingPayload,
         sessionId: Long = 4_611_731_400_430_051_336L,
     ): String {
+        // The two texts of the peer go in as they are: never with an end of line (checked when a code is read too).
+        require(PairingPayload.isIceText(p.iceUfrag) && PairingPayload.isIceText(p.icePwd)) { "bad ICE credentials" }
         val lines = ArrayList<String>()
         lines += "v=0"
         lines += "o=- $sessionId 2 IN IP4 127.0.0.1"

@@ -50,6 +50,13 @@ data class SketchStroke(
     val path: SketchPath,
     val shape: SketchShape? = null,
 ) {
+    /**
+     * The stroke as the map draws it: lines finer than a tenth of its width, in [maxPoints] points at most
+     * ([SketchPath.sample]).
+     */
+    fun drawn(maxPoints: Int = SketchPath.MAX_SAMPLE_POINTS): List<XY> =
+        path.sample(style.widthMeters / DRAWN_TOLERANCE_DIVISOR, maxPoints)
+
     /** Back to points for editing (a reopened sketch); smoothing it again may move it very slightly. */
     fun toRaw(): RawStroke =
         if (shape != null) {
@@ -70,7 +77,27 @@ data class Sketch(
      */
     fun minVisibleZoom(): Double? =
         strokes.maxOfOrNull { it.style.widthMeters }?.let { SketchScale.zoomForWidth(it, pixels = 1.0) }
+
+    companion object {
+        /**
+         * The points of a whole sketch cut into lines, at most ([SketchStroke.drawn]): several times the heaviest
+         * sketch that fits what the group shares, and what a phone draws without trouble.
+         */
+        const val MAX_DRAWN_POINTS = 100_000
+
+        /** Whether [strokes] can be drawn within [MAX_DRAWN_POINTS]; measuring stops as soon as they cannot. */
+        fun isDrawable(strokes: List<SketchStroke>): Boolean {
+            var left = MAX_DRAWN_POINTS
+            for (stroke in strokes) {
+                left -= stroke.drawn(left + 1).size
+                if (left < 0) return false
+            }
+            return true
+        }
+    }
 }
+
+private const val DRAWN_TOLERANCE_DIVISOR = 10
 
 /** The smoothing levels offered before drawing, as a tolerance in screen pixels (dp). */
 enum class SketchSmoothing(
