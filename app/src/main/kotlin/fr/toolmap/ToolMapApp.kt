@@ -84,8 +84,6 @@ class ToolMapApp : Application() {
             val state = NativeEngine.install(BuildConfig.NATIVE_ENGINE)
             Log.i(EngineBench.TAG, "engine ${NativeEngine.describe()}")
             EventLog.event("engine.state", "state" to state.name.lowercase(), "native" to NativeEngine.isActive)
-            // A measure of the engine against the Kotlin code, when adb asked for one (debug and benchmark builds).
-            if (BuildConfig.PERF_LOG) catchReported("engine.bench") { EngineBench.runIfAsked(this) }
         }, "native-engine").start()
     }
 

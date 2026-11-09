@@ -10,8 +10,9 @@
 # a screenshot, the window dump and the log of the app, for the person who checks.
 #
 # An APK that carries the native compute engine (Rust, ADR-119) must also have it in charge, checked against the Kotlin
-# code by its self-test; a debug APK is then started a second time to time the engine against the Kotlin code on this
-# emulator (docs/specs/native-engine.md § 4), and a crash during that measure fails the check too.
+# code by its self-test; the app is then asked to time the engine against the Kotlin code on this emulator
+# (`dumpsys activity`, docs/specs/native-engine.md § 4), and a crash during that measure fails the check too.
+# The APK is not debuggable since P36.7 (ADR-120): nothing here needs `run-as`.
 set -euo pipefail
 
 apk="${1:?APK file or folder}"
@@ -100,26 +101,28 @@ fi
 
 echo "OK: ToolMap started, in front, no crash, no ANR (pid $pid)$engine_note." | tee "$out/result.txt"
 
-# The engine against the Kotlin code on this emulator: a second start, asked for by a marker file that only adb can
-# leave in a debuggable APK. A measure, not a check: only a crash while it runs fails.
-if [[ "$engine_note" == *"in charge"* ]] && adb shell run-as "$pkg" true > /dev/null 2>&1; then
-  adb shell am force-stop "$pkg" || true
-  adb shell "run-as $pkg sh -c 'mkdir -p files && touch files/engine-bench'" || true
+# The engine against the Kotlin code on this emulator, asked of the running app by `dumpsys` (only adb and the system
+# may make an activity dump; a release does not listen). A measure, not a check: only a crash while it runs fails.
+if [[ "$engine_note" == *"in charge"* ]]; then
   adb logcat -c || true
-  adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1 > /dev/null || true
-  for _ in $(seq 1 120); do
-    if adb logcat -d -s ToolMapEngine:I | grep -E 'bench (done|skipped)' > /dev/null; then break; fi
-    sleep 2
-  done
-  adb logcat -d > "$out/logcat-bench.txt" || true
-  echo "Native engine against the Kotlin code on this emulator (median times of one 256 px tile):"
-  grep -oE 'ToolMapEngine *: bench .*' "$out/logcat-bench.txt" | sed -E 's/^ToolMapEngine *: bench /  /' |
-    tee "$out/engine-bench.txt" || true
-  if grep -A1 'FATAL EXCEPTION' "$out/logcat-bench.txt" | grep "Process: $pkg" > /dev/null; then
-    fail "Java crash of $pkg during the engine measure (see logcat-bench.txt)"
+  adb shell dumpsys activity "$pkg/.MainActivity" engine-bench > "$out/engine-bench-ask.txt" 2>&1 || true
+  if grep 'engine-bench started' "$out/engine-bench-ask.txt" > /dev/null; then
+    for _ in $(seq 1 120); do
+      if adb logcat -d -s ToolMapEngine:I | grep -E 'bench (done|skipped)' > /dev/null; then break; fi
+      sleep 2
+    done
+    adb logcat -d > "$out/logcat-bench.txt" || true
+    echo "Native engine against the Kotlin code on this emulator (median times of one 256 px tile):"
+    grep -oE 'ToolMapEngine *: bench .*' "$out/logcat-bench.txt" | sed -E 's/^ToolMapEngine *: bench /  /' |
+      tee "$out/engine-bench.txt" || true
+    if grep -A1 'FATAL EXCEPTION' "$out/logcat-bench.txt" | grep "Process: $pkg" > /dev/null; then
+      fail "Java crash of $pkg during the engine measure (see logcat-bench.txt)"
+    fi
+    if grep ">>> $pkg" "$out/logcat-bench.txt" > /dev/null; then
+      fail "native crash of $pkg during the engine measure (see logcat-bench.txt)"
+    fi
+    grep 'bench done' "$out/logcat-bench.txt" > /dev/null || echo "::warning::the engine measure did not finish in time"
+  else
+    echo "The engine measure is not offered by this APK (no answer to dumpsys)."
   fi
-  if grep ">>> $pkg" "$out/logcat-bench.txt" > /dev/null; then
-    fail "native crash of $pkg during the engine measure (see logcat-bench.txt)"
-  fi
-  grep 'bench done' "$out/logcat-bench.txt" > /dev/null || echo "::warning::the engine measure did not finish in time"
 fi

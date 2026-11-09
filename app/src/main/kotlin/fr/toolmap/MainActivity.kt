@@ -89,6 +89,7 @@ import fr.toolmap.measure.MeasureViewModel
 import fr.toolmap.multizoom.MultiZoomScreen
 import fr.toolmap.multizoom.MultiZoomViewModel
 import fr.toolmap.navigate.NavigationViewModel
+import fr.toolmap.perf.EngineBench
 import fr.toolmap.perf.PerfIntent
 import fr.toolmap.print.PrintViewModel
 import fr.toolmap.record.RecordingViewModel
@@ -122,6 +123,8 @@ import fr.toolmap.wizard.SourceWizardViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.FileDescriptor
+import java.io.PrintWriter
 import javax.inject.Inject
 
 /** The app's screens; swapped in place over the map, kept in a back stack (no navigation library, RS1). */
@@ -779,6 +782,24 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (savedInstanceState == null) handleIntent(intent)
+    }
+
+    /**
+     * `adb shell dumpsys activity fr.toolmap/.MainActivity engine-bench` times the native engine against the Kotlin
+     * code on this device ([EngineBench], lines in logcat). Only `adb` and the system may ask an activity to dump,
+     * debuggable build or not; only the builds with the timing lines listen (debug and benchmark, never a release).
+     */
+    override fun dump(
+        prefix: String,
+        fd: FileDescriptor?,
+        writer: PrintWriter,
+        args: Array<out String>?,
+    ) {
+        super.dump(prefix, fd, writer, args)
+        if (BuildConfig.PERF_LOG && args?.contains(EngineBench.DUMP_ARGUMENT) == true) {
+            val started = EngineBench.start()
+            writer.println("$prefix${EngineBench.DUMP_ARGUMENT} ${if (started) "started" else "already running"}")
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -24,11 +24,11 @@ microseconde par appel, plus la copie des tableaux).
 | Chiffrement du partage (AES-256-GCM) | BoringSSL, C et assembleur (Conscrypt) | déjà en place | aucun | rien à faire |
 | Liaison directe du partage | libwebrtc, C++ | déjà en place | aucun | rien à faire |
 | Réseau (tuiles, serveur de coordination) | OkHttp, Kotlin et Java | le temps est celui du réseau, pas du processeur | aucun | rien à faire |
-| Interface | Jetpack Compose, Kotlin | Kotlin est le langage de la plateforme ; tout autre choix serait une réécriture plus lente à démarrer | aucun par le langage. **Le levier est ailleurs** : l'APK distribué est un build debuggable sans R8 (`performance.md` PF9), ce qui ralentit tout le code Kotlin, interface comprise ; c'est la décision P36.7 | à décider (P36.7) |
+| Interface | Jetpack Compose, Kotlin | Kotlin est le langage de la plateforme ; tout autre choix serait une réécriture plus lente à démarrer | aucun par le langage. **Le levier est ailleurs** : l'APK distribué était un build debuggable sans R8 (`performance.md` PF9), ce qui ralentit tout le code Kotlin, interface comprise | ✅ non debuggable depuis P36.7 (ADR-120, 2026-11-09) ; reste R8, que le build benchmark permet de mesurer |
 | **Calcul par pixel des tuiles dessinées ici** : fusion des calques (16 modes), teinte, matrice de couleur, masque d'altitude | Kotlin (`Blend`, `MaskRaster`), boucles de flottants pixel par pixel | **Rust** | fort : § 4 | ✅ porté |
 | **PNG des tuiles dessinées ici** (fusionnées, découpées, complétées) | Skia, mais avec ses réglages les plus lents (tous les filtres essayés, zlib niveau 6), pour une image jamais stockée | **Rust** (`png` + `fdeflate`) | fort : c'était le poste le plus lourd d'une tuile dessinée (§ 4). Environ les trois quarts de ce gain viennent du réglage (compression rapide), le reste du langage | ✅ porté |
 | Fusion des calques dans le PDF (`AndroidBandRenderer.mix`, une bande entière) | Kotlin (`Blend`) | Rust | le même que pour les tuiles, sur des millions de pixels par bande | ✅ porté (mêmes fonctions) |
-| Simplification des tracés (Douglas-Peucker) | Kotlin (`PathSimplifier`) | Rust | faible : § 4 | ✅ porté, gain à confirmer sur téléphone |
+| Simplification des tracés (Douglas-Peucker) | Kotlin (`PathSimplifier`) | Rust | presque nul sur une JVM de poste (× 1,1), net sur Android (× 20 sur l'émulateur, APK debuggable) : § 4 | ✅ porté |
 | Lecture des GPX, KML, GeoJSON | Kotlin (`XmlPullParser`) | Rust lirait le texte 3 à 5 fois plus vite | un import de gros fichier plus court, opération rare ; le lecteur garde les extensions XML inconnues, les espaces de noms et un journal des anomalies : le réécrire est risqué | non retenu |
 | Statistiques, profil, projections (UTM, MGRS, Lambert 93), grilles | Kotlin | Kotlin | quelques centaines de points par appel : le passage en natif coûterait plus que le calcul | non retenu |
 | Glyphes des noms sur la carte (champ de distance, `SignedDistance`) | Kotlin, une fois par plage de caractères puis gardé en mémoire | Rust irait plus vite | une fois par lancement et par plage : invisible | non retenu |
@@ -37,8 +37,8 @@ microseconde par appel, plus la copie des tableaux).
 | Scripts et outils (`tools/`, `scripts/`) | bash, Node, PowerShell | hors de l'application | — | rien à faire |
 
 En résumé : sur une vingtaine de domaines, **trois** gagnent à changer de langage (calcul par pixel, PNG des tuiles
-dessinées, et dans une moindre mesure la simplification des tracés) ; ils forment le « moteur de calcul » de ce
-document. Tout le reste est déjà natif ou trop léger pour que le langage compte.
+dessinées, simplification des tracés) ; ils forment le « moteur de calcul » de ce document. Tout le reste est déjà
+natif ou trop léger pour que le langage compte.
 
 ## 2. Ce que fait le moteur
 
@@ -90,7 +90,8 @@ Le code Kotlin reste en place, inchangé, sous le nom `…Reference` : il sert d
   opaques et transparents, table, mode non séparable, bande d'altitude, PNG, tracé). Au moindre écart, le moteur n'est
   pas installé : `engine.selftest`, `engine.version` ou `engine.load` dans le journal et en ticket.
 - Journal : événement `engine.state` (`state`, `native`) au démarrage ; logcat, étiquette `ToolMapEngine`
-  (`engine native=1 state=active abi=1 arch=…`).
+  (`engine native=1 state=active abi=1 arch=…`). Mesure à la demande : `adb shell dumpsys activity
+  fr.toolmap/.MainActivity engine-bench` (`MainActivity.dump`, builds debug et benchmark).
 - Le code Rust n'a que deux dépendances : `jni-sys` 0.3.0 (les types de JNI, aucune dépendance) et `png` 0.18
   (avec `fdeflate`, `crc32fast`, `flate2`, `miniz_oxide`), versions figées par `Cargo.lock`. Seul `lib.rs` contient du
   code `unsafe` (les appels JNI).
@@ -128,22 +129,56 @@ creuse sur téléphone, où le compilateur d'Android est moins fort. Le Douglas-
 
 ### 4.2 Sur l'émulateur de la CI (ART, Android 14, x86_64)
 
-`tools/emulator/smoke.sh` relance l'APK de debug avec la mesure demandée (`EngineBench`, tuiles dessinées par
-l'application) et écrit ses lignes dans le journal du job. Un APK de debug est debuggable : Android y compile le
-Kotlin sans toutes ses optimisations, comme sur le téléphone de l'utilisateur aujourd'hui (l'APK distribué est le
-même). Chiffres du premier run : § 4.3.
+`tools/emulator/smoke.sh` demande la mesure à l'application lancée (`adb shell dumpsys activity
+fr.toolmap/.MainActivity engine-bench` → `EngineBench`, tuiles dessinées par l'application) et écrit ses lignes dans
+le journal du job. Seuls `adb` et le système peuvent faire parler une activité par `dumpsys` : la commande marche sur
+un APK non debuggable, et une release n'écoute pas.
 
 ### 4.3 Résultats sur l'émulateur
 
-À remplir au premier run vert (journal du job « CI », étape « Check the APK on an emulator »).
+Run « CI » 42707577075 (2026-11-09, commit 6bb9e2b, **0.4.222, APK encore debuggable**), émulateur
+`sdk_gphone64_x86_64`, Android 14, 2 cœurs ; médianes de 9 passages après 4 d'échauffement, une tuile de 256 px.
+
+| Étape | Kotlin (ART, APK debuggable) | Rust | Gain |
+|---|---|---|---|
+| Fusion Produit, pixels opaques | 6,16 ms | 0,12 ms | × 53 |
+| Fusion Normal, pixels opaques, opacité 60 % | 5,39 ms | 0,12 ms | × 45 |
+| Fusion Lumière tamisée, pixels opaques | 10,61 ms | 0,12 ms | × 89 |
+| Fusion Normal, calque en partie transparent | 1,44 ms | 0,35 ms | × 4,1 |
+| Fusion Incrustation, calque en partie transparent, 80 % | 12,33 ms | 0,70 ms | × 18 |
+| Fusion Couleur (mode non séparable) | 5,46 ms | 0,93 ms | × 5,9 |
+| Teinte | 6,76 ms | 1,24 ms | × 5,4 |
+| Matrice de couleur | 0,98 ms | 0,17 ms | × 5,7 |
+| Masque d'altitude | 9,68 ms | 0,38 ms | × 26 |
+| Douglas-Peucker, 20 000 points | 19,47 ms | 0,99 ms | × 20 |
+| PNG d'une tuile de plan : `Bitmap.compress` (77 Ko) | 7,81 ms | 0,33 ms (83 Ko) | × 23 |
+| PNG d'une tuile de photo : `Bitmap.compress` (139 Ko) | 18,94 ms | 0,39 ms (183 Ko) | × 48 |
+| **Tuile fusionnée entière** (3 calques) | 44,6 ms | 10,6 ms | **× 4,2** |
+| **Tuile découpée par une bande d'altitude** | 22,9 ms | 2,9 ms | **× 7,8** |
+
+Ce que ces chiffres ajoutent à ceux de la machine de build : sur Android, le code Kotlin par pixel est 5 à 10 fois
+plus lent que sur une JVM de poste, le code Rust garde la même vitesse ; les gains du calcul sont donc bien plus
+grands qu'au § 4.1 (× 4 à × 89 au lieu de × 1 à × 11), et le Douglas-Peucker, presque sans gain sur le poste, gagne
+× 20 ici. Dans une tuile fusionnée entière il reste surtout le décodage des trois images par Skia, déjà natif.
+
+**Réserve** : cet APK était debuggable, et Android compile alors le Kotlin sans toutes ses optimisations. Depuis
+P36.7 (ADR-120) l'APK distribué ne l'est plus : la colonne Kotlin baisse, les gains aussi. Chiffres de l'APK non
+debuggable : § 4.3 bis, au premier run vert après ce changement.
+
+### 4.3 bis Résultats sur l'émulateur, APK non debuggable
+
+À remplir au premier run vert de l'APK non debuggable (journal du job « CI », étape « Check the APK on an emulator »).
 
 ### 4.4 Mesurer soi-même
 
 ```bash
 # Machine de build (indicatif)
 ./gradlew :data:testDebugUnitTest --tests '*TilePipelineBenchmark*' -Ptoolmap.engine.bench=true
-# Émulateur, APK de debug ou benchmark installé
+# Émulateur, APK de la CI (ou benchmark) installé : lance l'application et lui demande la mesure
 bash tools/perf/E-engine.sh
+# La même demande à la main, application ouverte, puis lecture des lignes
+adb shell dumpsys activity fr.toolmap/.MainActivity engine-bench
+adb logcat -d -s ToolMapEngine
 # Un scénario complet avec puis sans le moteur (APK benchmark)
 bash tools/perf/B-blend.sh
 ENGINE=kotlin bash tools/perf/B-blend.sh
@@ -151,17 +186,21 @@ ENGINE=kotlin bash tools/perf/B-blend.sh
 
 ## 5. Debug d'abord, release ensuite
 
-Demande de l'utilisateur : une version debug à essayer sur l'émulateur **avant** la mise en release.
+Demandes de l'utilisateur du 2026-11-09 : une version debug à essayer sur l'émulateur **avant** la mise en release ;
+puis : l'APK de debug non debuggable pour y mesurer les performances pendant le test QGIS, **toujours sans release**,
+« la release complète quand le test de géoréférence sera fini ».
 
-| Type de build | Bibliothèque dans l'APK | Moteur aux commandes (`BuildConfig.NATIVE_ENGINE`) |
-|---|---|---|
-| `debug` (APK de la CI, celui de l'essai) | oui | **oui** |
-| `benchmark` (mesures) | oui | oui ; `perf.engine=kotlin` l'éteint pour un lancement, `perf.engine=bench` lance la mesure |
-| `release` | oui | **non**, tant que l'utilisateur n'a pas validé l'essai sur l'émulateur (P38.6) |
+| Type de build | Bibliothèque dans l'APK | Moteur aux commandes (`BuildConfig.NATIVE_ENGINE`) | Debuggable |
+|---|---|---|---|
+| `debug` (APK de la CI, celui de l'essai) | oui | **oui** | **non** depuis P36.7 (ADR-120) ; `-Ptoolmap.debuggable=true` pour un build local avec débogueur et `run-as` |
+| `benchmark` (mesures scriptées de `tools/perf`, R8) | oui | oui ; `perf.engine=kotlin` l'éteint pour un lancement | non |
+| `release` | oui | **non**, jusqu'à la release complète | non |
 
-La mise en release est une ligne (`NATIVE_ENGINE` à `true` dans le type `release` de `app/build.gradle.kts`), à faire
-quand l'utilisateur le dit. Rien de ce travail n'atteint `main` (la branche dont les téléphones tirent leurs mises à
-jour) sans une fusion demandée par l'utilisateur.
+La **release complète** (P38.6) se fait quand le test du PDF géoréférencé dans QGIS (P37.3) est fini et que
+l'utilisateur le dit : `NATIVE_ENGINE` à `true` dans le type `release` de `app/build.gradle.kts`, puis le workflow
+« Release ». D'ici là, rien de ce travail n'atteint `main` (la branche dont les téléphones tirent leurs mises à jour)
+sans une fusion demandée par l'utilisateur ; la CI continue de livrer l'APK de debug de la branche, après son
+contrôle sur émulateur.
 
 Le contrôle sur émulateur de la CI (`smoke.sh`, ADR-117) échoue si un APK qui contient la bibliothèque ne l'a pas aux
 commandes (hors release), et si l'application plante pendant la mesure.
@@ -206,13 +245,20 @@ revérifie sur chaque appareil, à chaque lancement.
 
 ## 8. Essayer sur l'émulateur (utilisateur)
 
-1. Installer l'APK de debug : `adb install -r -g ToolMap-debug-<version>.apk`.
+À faire dans la session locale du test QGIS (P37.3), avec **l'APK de la CI** : c'est lui qui contient le moteur (un
+build du poste sans Rust ne l'a pas) et il n'est plus debuggable (P36.7), donc ses performances sont celles d'un
+téléphone.
+
+1. Installer l'APK de la CI : `adb install -r -g ToolMap-debug-<version>.apk` (signé par la clé de publication : une
+   installation signée par la clé de debug du poste se désinstalle d'abord).
 2. Vérifier que le moteur est aux commandes : `adb logcat -d -s ToolMapEngine` doit montrer
    `engine native=1 state=active`.
 3. Parcourir ce que le moteur dessine : Cartes et calques ▸ un calque ▸ Couleurs ▸ **Fusion** (Produit, Lumière
    tamisée, Couleur) et **Teinter** ; ⋮ ▸ **Conditions d'affichage** avec une bande d'altitude (favori « Sortie
    Ski ») ; zoomer au-delà du dernier zoom d'une carte (tuiles complétées) ; **Imprimer** un PDF avec un calque
    fusionné ; ouvrir un long tracé.
-4. Mesurer : `bash tools/perf/E-engine.sh` ; pour un scénario complet, `tools/perf/B-blend.sh` avec et sans
-   `ENGINE=kotlin` (APK benchmark).
-5. Dire le résultat : la mise en release (§ 5) attend ce retour.
+4. Mesurer le moteur : `bash tools/perf/E-engine.sh`. Mesurer l'application : `adb shell am start -W -n
+   fr.toolmap/.MainActivity` (démarrage), `adb shell dumpsys gfxinfo fr.toolmap` (images lentes), lignes `ToolMapPerf`
+   de logcat (temps jusqu'à la carte dessinée). Les scénarios scriptés de `tools/perf` (vue fixe, `ENGINE=kotlin`)
+   demandent l'APK benchmark, à compiler sur un poste où Rust et le NDK sont installés (§ 6).
+5. Dire le résultat : la release complète (§ 5) attend ce retour et la fin du test QGIS.

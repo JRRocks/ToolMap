@@ -171,6 +171,14 @@ android {
         debug {
             // The publication key signs the debug APK too, when the environment provides it (ADR-047).
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            // This build type is the APK handed out, and it is no longer debuggable (P36.7, ADR-120, decision of
+            // 2026-11-09): Android then runs its code at full speed, so what is measured on the emulator is what a
+            // phone gets, and `run-as` no longer reads the app's keys and tokens. Whoever needs a debugger or
+            // `run-as` builds with -Ptoolmap.debuggable=true.
+            isDebuggable = providers.gradleProperty("toolmap.debuggable").map { it == "true" }.getOrElse(false)
+            // What this build type offers to whoever tests the app, debuggable or not: the tile diagnostics in
+            // « Plus », a larger event log copied to logcat, the version a test gives the updater.
+            buildConfigField("boolean", "DEV_TOOLS", "true")
             // The map timing lines in logcat (fr.toolmap.perf.PerfLog): debug and benchmark only, never a release.
             buildConfigField("boolean", "PERF_LOG", "true")
             // The launch hooks of the measure scripts (PerfIntent) start downloads from any intent: never in the APK
@@ -187,6 +195,7 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Unsigned when no keystore is configured: the build still works and Play can sign an uploaded bundle.
             signingConfigs.findByName("release")?.let { signingConfig = it }
+            buildConfigField("boolean", "DEV_TOOLS", "false")
             buildConfigField("boolean", "PERF_LOG", "false")
             buildConfigField("boolean", "PERF_INTENT", "false")
             // A release keeps the Kotlin code in charge until the user has tried the native engine on the emulator
@@ -344,13 +353,21 @@ androidComponents {
     }
 }
 
-// Baseline Profile (P15.5, ADR-057): generated on the emulator by :baselineprofile, versioned in src/main/generated.
+// Baseline Profile (P15.5, ADR-057): generated on the emulator by :baselineprofile, versioned in the plugin's own
+// folder, src/main/generated/baselineProfiles.
 baselineProfile {
     // Only by hand: `./gradlew :app:generateBaselineProfile` (needs a device; the CI has none).
     automaticGenerationDuringBuild = false
     saveInSrc = true
     mergeIntoMain = true
-    // Straight in src/main/baseline-prof.txt: every build type merges that file, the plugin only wires its own folder
-    // into the release variants (the benchmark build type would not get it).
-    baselineProfileOutputDir = "."
+}
+
+// The plugin gives that folder to the build types it handles (release, and debug since it is no longer debuggable,
+// ADR-120), not to `benchmark`, a name it keeps for its own build types: given here. Until 2026-11-09 the folder was
+// src/main itself (`baselineProfileOutputDir = "."`): release, and then debug, took every source file of the app for
+// profile rules and could not be built (ADR-120).
+androidComponents {
+    onVariants(selector().withBuildType("benchmark")) { variant ->
+        variant.sources.baselineProfiles?.addStaticSourceDirectory("src/main/generated/baselineProfiles")
+    }
 }

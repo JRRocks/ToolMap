@@ -23,7 +23,7 @@ import fr.toolmap.map.MapViewModel
  * - `perf.altmin`, `perf.altmax` (metres, an empty value = no limit), `perf.logic` (`and` / `or`): the elevation band
  *   of `perf.overlay`, or else of `perf.source` (P20);
  * - `perf.engine`: `kotlin` keeps the native engine off for this start (the same scenario measured with the Kotlin
- *   code, ADR-119), `bench` times each computation with both ([EngineBench]).
+ *   code, ADR-119).
  */
 object PerfIntent {
     private const val SOURCE = "perf.source"
@@ -47,15 +47,9 @@ object PerfIntent {
         zones: ZoneQueue,
     ) {
         val extras = intent?.extras ?: return
-        when (extras.getString(ENGINE)) {
-            "kotlin" -> {
-                NativeEngine.keepOff()
-                Log.i(EngineBench.TAG, "engine ${NativeEngine.describe()} (kept off by perf.engine)")
-            }
-
-            "bench" -> {
-                EngineBench.start()
-            }
+        if (extras.getString(ENGINE) == "kotlin") {
+            NativeEngine.keepOff()
+            Log.i(EngineBench.TAG, "engine ${NativeEngine.describe()} (kept off by perf.engine)")
         }
         val source = extras.getString(SOURCE)
         if (source != null) {

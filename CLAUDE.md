@@ -18,7 +18,7 @@ Ne sont pas concernées : les modifications sans effet visible (logique, perform
 
 Aucune version n'est mise à disposition (artefact `toolmap-debug-apk`, pré-release `debug-<sha7>`, release `android-<version>` ou `v*`, lien donné à l'utilisateur) sans avoir tourné sur un émulateur Android, **en session cloud comme en session locale** (ADR-117) :
 
-- **CI (toutes les sessions)** : le job « CI » installe l'APK qu'il vient de compiler sur un émulateur (API 34, `tools/emulator/smoke.sh`) et le lance ; un plantage Java ou natif, un ANR, l'écran de rapport de plantage ou un écran de carte absent font échouer le job **avant** toute publication (capture, vue de la fenêtre et journal : artefact `emulator-check`). Même contrôle dans « Release ». Le script exige aussi que le moteur natif (ADR-119) soit aux commandes dans un APK qui le contient (hors release), puis relance l'APK de debug pour mesurer le moteur contre le code Kotlin (lignes « Native engine » du journal du job).
+- **CI (toutes les sessions)** : le job « CI » installe l'APK qu'il vient de compiler sur un émulateur (API 34, `tools/emulator/smoke.sh`) et le lance ; un plantage Java ou natif, un ANR, l'écran de rapport de plantage ou un écran de carte absent font échouer le job **avant** toute publication (capture, vue de la fenêtre et journal : artefact `emulator-check`). Même contrôle dans « Release ». Le script exige aussi que le moteur natif (ADR-119) soit aux commandes dans un APK qui le contient (hors release), puis demande à l'application de mesurer le moteur contre le code Kotlin (`dumpsys activity`, lignes « Native engine » du journal du job).
 - **Session cloud** (pas de KVM dans le conteneur, donc pas d'émulateur) : le lien n'est donné qu'après le run CI vert, contrôle sur émulateur compris ; quand la session a touché à l'écran, regarder la capture de `emulator-check` et le dire (le stockage des artefacts n'est pas joignable depuis le conteneur cloud : lire alors les « Texts on the screen » que `smoke.sh` écrit dans le journal du job, `get_job_logs`).
 - **Session locale (poste Windows)** : avant le push, `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` sur l'émulateur, puis parcourir à la main les écrans touchés par la session (captures) ; le consigner au journal.
 - Un contrôle sur émulateur rouge ne se contourne pas : on corrige, on revérifie, puis on repousse.
@@ -27,7 +27,7 @@ Aucune version n'est mise à disposition (artefact `toolmap-debug-apk`, pré-rel
 
 Tant qu'une ligne ci-dessous n'est pas faite, la rappeler à l'utilisateur **à chaque session, dans le premier et dans le dernier message**, même quand la session porte sur autre chose. Le jour où c'est fait : le consigner au journal et retirer la ligne d'ici.
 
-- **Test du PDF géoréférencé dans QGIS** (P37.3, `docs/specs/print-pdf.md` § 9.4) : à faire avec l'utilisateur en session locale (émulateur + QGIS du poste Windows). Attend son choix sur l'aperçu `docs/previews/p37-pdf-georef.html` (P37.0 : emplacement A, B ou C ; au départ Non ou Oui), puis l'interrupteur (P37.2).
+- **Test du PDF géoréférencé dans QGIS** (P37.3, `docs/specs/print-pdf.md` § 9.4) : à faire avec l'utilisateur en session locale (émulateur + QGIS du poste Windows). Attend son choix sur l'aperçu `docs/previews/p37-pdf-georef.html` (P37.0 : emplacement A, B ou C ; au départ Non ou Oui), puis l'interrupteur (P37.2). **Dans la même session** (décision du 2026-11-09) : essai des performances de l'application sur l'émulateur avec l'APK de la CI, moteur natif compris (P38.5, `docs/specs/native-engine.md` § 8). **Aucune release avant la fin de ce test** : la release complète vient après (P38.6).
 
 ## ⚠️ Tâches de debug : pas d'aperçu, pas de question (demande de l'utilisateur, 2026-10-24)
 
@@ -137,6 +137,7 @@ Google Drive est le **miroir des fichiers locaux** du poste Windows (2e sauvegar
 - Modules Gradle : `:core` (Kotlin JVM pur, testable sans Android), `:engine`, `:data`, `:p2p`, `:app`.
 - **Un langage par domaine** (ADR-119, `docs/specs/native-engine.md`) : Kotlin partout, sauf le moteur de calcul par pixel des tuiles dessinées par l'application (fusion, teinte, matrice de couleur, masque d'altitude, PNG rapide, Douglas-Peucker), en **Rust** dans `:engine` (`engine/src/main/rust`, `libtoolmap_engine.so`), installé à la porte `Compute.accelerator` de `:core`. Le code Kotlin (`…Reference`) reste la référence et le repli. Rust 1.97.0 (`rust-toolchain.toml`) et NDK 28.2.13676358, facultatifs sur un poste, obligatoires en CI.
 - AGP 9.4 + Gradle 9.6 + Kotlin 2.4 (Kotlin intégré à AGP : ne pas appliquer `kotlin-android`), compileSdk 37, minSdk 26 (ADR-007). Versions figées dans `gradle/libs.versions.toml`.
+- Types de build : `debug` (l'APK distribué par la CI ; **non debuggable** depuis le 2026-11-09, ADR-120 ; ses outils d'essai passent par `BuildConfig.DEV_TOOLS`, jamais par `BuildConfig.DEBUG`), `benchmark` (R8, mesures scriptées), `release` (pas avant la fin du test QGIS, P38.6).
 
 ## Numéro de version
 
@@ -146,6 +147,7 @@ Le numéro est dans `version.properties` et **son CORRECTIF augmente tout seul**
 
 ```bash
 ./gradlew check assembleDebug     # CI complète : ktlint (Spotless) + lint + tests unitaires + APK debug
+./gradlew assembleDebug -Ptoolmap.debuggable=true   # APK de debug avec débogueur et run-as : il n'est plus debuggable sans cela (P36.7, ADR-120)
 ./gradlew :core:test testDebugUnitTest   # tests seuls (":core" est un module JVM pur : pas de testDebugUnitTest)
 ./gradlew spotlessApply           # corrige le style (ktlint) avant de committer
 ./gradlew lint                    # Android Lint seul
@@ -154,8 +156,8 @@ bash tools/emulator/brouter-setup.sh [E5_N45 …]   # BRouter et ses cases .rd5 
 bash tools/emulator/smoke.sh app/build/outputs/apk/debug   # contrôle sur émulateur avant toute publication (installe, lance, cherche plantage / ANR, moteur natif aux commandes puis mesuré ; capture et journal dans emulator-check/)
 ./gradlew :engine:cargoTest :engine:testDebugUnitTest   # moteur natif : tests du crate Rust, puis parité au bit près avec le code Kotlin (sautée sans Rust)
 ./gradlew :data:testDebugUnitTest --tests '*TilePipelineBenchmark*' -Ptoolmap.engine.bench=true   # Kotlin contre Rust sur la machine de build (data/build/engine-bench.txt)
-bash tools/perf/E-engine.sh       # Kotlin contre Rust sur l'émulateur (APK debug ou benchmark installé)
-./gradlew :app:generateBaselineProfile   # régénère app/src/main/baseline-prof.txt (émulateur branché, ≈ 6 min ; la CI ne le fait pas)
+bash tools/perf/E-engine.sh       # Kotlin contre Rust sur l'émulateur (APK de la CI ou benchmark installé ; demande faite par dumpsys)
+./gradlew :app:generateBaselineProfile   # régénère app/src/main/generated/baselineProfiles/baseline-prof.txt (émulateur branché, ≈ 6 min ; la CI ne le fait pas)
 # APK : app/build/outputs/apk/debug/ToolMap-debug-<version>.apk (nom : docs/specs/release.md §1)
 ./gradlew :app:assembleBenchmark  # APK benchmark (R8, non debuggable, clé de debug ; ADR-057) : celui des mesures P15
 bash tools/perf/run-all.sh app/build/outputs/apk/benchmark/ToolMap-benchmark-<version>.apk   # mesures sur l'émulateur (tools/perf/README.md)
@@ -167,6 +169,7 @@ Les commandes longues (> 2 min) doivent tourner en arrière-plan avec une sortie
 
 - **Cloud** (claude.ai/code) : le **hook SessionStart** (`.claude/hooks/session-start.sh`) installe le SDK Android dans `$HOME/android-sdk`, écrit `local.properties` et configure le miroir Maven Central du bac à sable (ADR-009). Si une session démarre sans lui, lancer à la main : `CLAUDE_CODE_REMOTE=true CLAUDE_PROJECT_DIR=$PWD ./.claude/hooks/session-start.sh` puis `export ANDROID_HOME=$HOME/android-sdk`. Un build à froid prend ≈ 2 min. En cas de `429 Too Many Requests` de Maven Central, vérifier que `~/.gradle/init.d/cloud-mirror.init.gradle` existe. Pas d'émulateur (pas de KVM) : c'est la CI qui fait le contrôle sur émulateur. Le hook installe aussi le NDK (`ndk;28.2.13676358`) et prépare le Rust du moteur natif (`rustup` et `cargo` sont dans l'image) ; s'il n'y arrive pas, le build local laisse le moteur de côté et le dit (« moteur natif absent de ce build »), le code Kotlin fait tout. GDAL s'installe (`apt-get install -y gdal-bin`) pour vérifier un PDF géoréférencé (`PrintGeoTest`).
 - **Poste Windows de l'utilisateur** (depuis le 2026-10-15, sessions 27 et suivantes) : SDK d'Android Studio (`local.properties` → `C:/Users/<utilisateur>/AppData/Local/Android/Sdk`), `./gradlew` lancé depuis Git Bash avec le JDK d'Android Studio ; un build complet prend ≈ 4 à 5 min. **Un émulateur est disponible** (« Medium_Phone », Android 37) : `adb install -r -g app/build/outputs/apk/debug/ToolMap-debug-<version>.apk`, gestes par `adb shell input`, écran lu par `uiautomator dump` et captures. Le hook cloud ne fait rien ici.
+  - **APK de debug non debuggable** (P36.7, ADR-120, 2026-11-09) : ses performances sur l'émulateur valent pour un téléphone, mais `run-as` et le débogueur demandent un build `-Ptoolmap.debuggable=true`. Pour mesurer, installer l'APK de la CI (il a le moteur natif).
   - **Moteur natif** : le build marche sans Rust ni NDK (APK sans la bibliothèque, le code Kotlin fait tout, tests de parité sautés). Pour le compiler aussi en local : Rust par [rustup](https://rustup.rs) (version et cibles Android suivent `engine/src/main/rust/rust-toolchain.toml`) et le NDK par Android Studio (SDK Manager ▸ SDK Tools ▸ « NDK (Side by side) » 28.2.13676358). L'APK de la CI a toujours le moteur.
   - **Attention git** : sur le poste `C:\Bureau\Desktop\Jean`, le dossier `ToolMap/` n'est **pas suivi** par le dépôt qui le contient (branche `sauvegarde/…`, sans remote) : rien ne s'y annule par git. Faire une copie des fichiers avant une réécriture importante. Sur le poste `C:\Users\<utilisateur>\Desktop\Claude Code\ToolMap`, le dossier est un **clone git** de `JRRocks/ToolMap` (depuis le 2026-10-28 ; `core.autocrlf=false`, identité `noreply` réglée dans le dépôt) : la mise à jour se fait par `git fetch` (§ « Copie la plus récente d'abord »).
   - **Dépôts GitHub** (depuis le 2026-10-27) : le code est poussé dans le dépôt **public** `JRRocks/ToolMap`, branche `main`, repartie d'un seul commit sans historique (0.4.81). L'historique complet jusqu'à 0.4.80 est dans le dépôt **privé** `JRRocks/ToolMap-Archive` : ne jamais en pousser un commit ni une branche dans `ToolMap` (ils portent l'adresse e-mail de l'utilisateur). Identité des commits : `JRRocks <314636139+JRRocks@users.noreply.github.com>`, jamais l'adresse personnelle.

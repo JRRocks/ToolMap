@@ -364,7 +364,7 @@ class UpdateController(
 
     /** This APK's version; a debug build reads the one a test wrote in its preferences (`installed_override`). */
     private fun installedVersion(): String =
-        (if (BuildConfig.DEBUG) prefs.getString(KEY_INSTALLED_OVERRIDE, null) else null) ?: BuildConfig.VERSION_NAME
+        (if (BuildConfig.DEV_TOOLS) prefs.getString(KEY_INSTALLED_OVERRIDE, null) else null) ?: BuildConfig.VERSION_NAME
 
     private companion object {
         const val PREFS = "updates"

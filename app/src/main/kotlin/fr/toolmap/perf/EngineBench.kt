@@ -1,6 +1,5 @@
 package fr.toolmap.perf
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -18,15 +17,16 @@ import fr.toolmap.core.layers.Blend
 import fr.toolmap.core.layers.BlendMode
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.layers.RasterAdjust
+import fr.toolmap.core.problem.catchReported
 import fr.toolmap.core.track.PathSimplifier
 import fr.toolmap.data.tiles.BitmapElevationMasker
 import fr.toolmap.data.tiles.BitmapTileBlender
 import fr.toolmap.data.tiles.DemGrid
 import fr.toolmap.engine.NativeEngine
 import java.io.ByteArrayOutputStream
-import java.io.File
 import java.util.Locale
 import java.util.Random
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -35,29 +35,34 @@ import kotlin.math.sin
  * each step of a drawn tile, then whole tiles, on tiles drawn here (no network, no stored map needed). Lines go to
  * logcat under [TAG], `bench …`, for `tools/emulator/smoke.sh` and `tools/perf/E-engine.sh`.
  *
- * Runs only when asked, off the main thread: in a debug APK by a marker file that only `adb` can leave
- * (`adb shell run-as fr.toolmap touch files/engine-bench`, then a start of the app), in a benchmark APK by
- * `perf.engine=bench` ([PerfIntent]). Never in a release, and never by itself.
+ * Runs only when asked, off the main thread, by `adb shell dumpsys activity fr.toolmap/.MainActivity engine-bench`
+ * (`MainActivity.dump`): only `adb` and the system may make an activity dump, whatever the build, debuggable or not.
+ * Builds with the timing lines listen (debug and benchmark); a release never does.
  */
 object EngineBench {
     const val TAG = "ToolMapEngine"
-    private const val MARKER = "engine-bench"
+
+    /** The word after the activity's name in the `dumpsys` command that asks for the measure. */
+    const val DUMP_ARGUMENT = "engine-bench"
     private const val SIZE = 256
     private const val WARMUP = 4
     private const val ROUNDS = 9
     private const val PATH_POINTS = 20_000
 
-    /** Runs the measure if `adb` left the marker file, and removes it: one start, one measure. */
-    fun runIfAsked(context: Context) {
-        val marker = File(context.filesDir, MARKER)
-        if (!marker.isFile) return
-        marker.delete()
-        run()
-    }
+    private val running = AtomicBoolean(false)
 
-    /** Starts the measure on a thread of its own (the benchmark build's `perf.engine=bench`). */
-    fun start() {
-        Thread(::run, "engine-bench").apply { priority = Thread.NORM_PRIORITY }.start()
+    /** Starts the measure on a thread of its own; false when one is already running. */
+    fun start(): Boolean {
+        if (!running.compareAndSet(false, true)) return false
+        Thread({
+            try {
+                // A failure of the measure is a bug to report, never a crash of the app it measures.
+                catchReported("engine.bench") { run() }
+            } finally {
+                running.set(false)
+            }
+        }, "engine-bench").start()
+        return true
     }
 
     private fun say(line: String) {

@@ -1084,7 +1084,7 @@ fun MapScreen(
             nightPercent = appSettings.maps.nightPercent,
             measureAllowed = !drawUi.active && !measureUi.active && !printUi.active,
             printAllowed = !drawUi.active && !measureUi.active && !printUi.active,
-            diagnostics = BuildConfig.DEBUG,
+            diagnostics = BuildConfig.DEV_TOOLS,
             updateSubtitle = updateMenuSubtitle(updateUi),
         )
     val trackLibrary = library

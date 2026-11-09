@@ -26,9 +26,9 @@ object AppEventLog {
     fun store(context: Context): EventStore =
         store ?: EventStore(
             File(context.applicationContext.filesDir, DIR),
-            maxFileBytes = if (BuildConfig.DEBUG) DEBUG_FILE_BYTES else EventStore.DEFAULT_MAX_FILE_BYTES,
-            memoryLines = if (BuildConfig.DEBUG) DEBUG_MEMORY_LINES else EventStore.DEFAULT_MEMORY_LINES,
-            mirror = if (BuildConfig.DEBUG) { line -> Log.i(LOGCAT_TAG, line) } else null,
+            maxFileBytes = if (BuildConfig.DEV_TOOLS) DEBUG_FILE_BYTES else EventStore.DEFAULT_MAX_FILE_BYTES,
+            memoryLines = if (BuildConfig.DEV_TOOLS) DEBUG_MEMORY_LINES else EventStore.DEFAULT_MEMORY_LINES,
+            mirror = if (BuildConfig.DEV_TOOLS) { line -> Log.i(LOGCAT_TAG, line) } else null,
         ).also {
             store = it
             EventLog.install(it)
