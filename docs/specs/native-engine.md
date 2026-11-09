@@ -42,7 +42,7 @@ document. Tout le reste est déjà natif ou trop léger pour que le langage comp
 
 ## 2. Ce que fait le moteur
 
-Une bibliothèque Rust, `libtoolmap_engine.so` (0,4 à 0,6 Mo par architecture, 1,6 Mo dans l'APK), appelée par JNI :
+Une bibliothèque Rust, `libtoolmap_engine.so` (0,3 à 0,5 Mo par architecture, 1,2 Mo dans l'APK), appelée par JNI :
 
 | Fonction | Remplace | Sert à |
 |---|---|---|
