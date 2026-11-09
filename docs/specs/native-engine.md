@@ -28,7 +28,7 @@ microseconde par appel, plus la copie des tableaux).
 | **Calcul par pixel des tuiles dessinées ici** : fusion des calques (16 modes), teinte, matrice de couleur, masque d'altitude | Kotlin (`Blend`, `MaskRaster`), boucles de flottants pixel par pixel | **Rust** | fort : § 4 | ✅ porté |
 | **PNG des tuiles dessinées ici** (fusionnées, découpées, complétées) | Skia, mais avec ses réglages les plus lents (tous les filtres essayés, zlib niveau 6), pour une image jamais stockée | **Rust** (`png` + `fdeflate`) | fort : c'était le poste le plus lourd d'une tuile dessinée (§ 4). Environ les trois quarts de ce gain viennent du réglage (compression rapide), le reste du langage | ✅ porté |
 | Fusion des calques dans le PDF (`AndroidBandRenderer.mix`, une bande entière) | Kotlin (`Blend`) | Rust | le même que pour les tuiles, sur des millions de pixels par bande | ✅ porté (mêmes fonctions) |
-| Simplification des tracés (Douglas-Peucker) | Kotlin (`PathSimplifier`) | Rust | presque nul sur une JVM de poste (× 1,1), net sur Android (× 20 sur l'émulateur, APK debuggable) : § 4 | ✅ porté |
+| Simplification des tracés (Douglas-Peucker) | Kotlin (`PathSimplifier`) | Rust | presque nul sur une JVM de poste (× 1,1), × 2,2 sur Android (émulateur, APK non debuggable ; × 20 quand l'APK était debuggable) : § 4 | ✅ porté |
 | Lecture des GPX, KML, GeoJSON | Kotlin (`XmlPullParser`) | Rust lirait le texte 3 à 5 fois plus vite | un import de gros fichier plus court, opération rare ; le lecteur garde les extensions XML inconnues, les espaces de noms et un journal des anomalies : le réécrire est risqué | non retenu |
 | Statistiques, profil, projections (UTM, MGRS, Lambert 93), grilles | Kotlin | Kotlin | quelques centaines de points par appel : le passage en natif coûterait plus que le calcul | non retenu |
 | Glyphes des noms sur la carte (champ de distance, `SignedDistance`) | Kotlin, une fois par plage de caractères puis gardé en mémoire | Rust irait plus vite | une fois par lancement et par plage : invisible | non retenu |
@@ -162,12 +162,42 @@ grands qu'au § 4.1 (× 4 à × 89 au lieu de × 1 à × 11), et le Douglas-Peuc
 × 20 ici. Dans une tuile fusionnée entière il reste surtout le décodage des trois images par Skia, déjà natif.
 
 **Réserve** : cet APK était debuggable, et Android compile alors le Kotlin sans toutes ses optimisations. Depuis
-P36.7 (ADR-120) l'APK distribué ne l'est plus : la colonne Kotlin baisse, les gains aussi. Chiffres de l'APK non
-debuggable : § 4.3 bis, au premier run vert après ce changement.
+P36.7 (ADR-120) l'APK distribué ne l'est plus : la colonne Kotlin baisse, les gains du moteur aussi. Chiffres de
+l'APK non debuggable : § 4.3 bis.
 
 ### 4.3 bis Résultats sur l'émulateur, APK non debuggable
 
-À remplir au premier run vert de l'APK non debuggable (journal du job « CI », étape « Check the APK on an emulator »).
+Run « CI » 42712917348 (2026-11-09, commit 550b3c3, **0.4.224, APK non debuggable**, P36.7), même émulateur
+(`sdk_gphone64_x86_64`, Android 14, 2 cœurs), mesure demandée par `dumpsys`.
+
+| Étape | Kotlin, APK debuggable (§ 4.3) | Kotlin, APK non debuggable | Rust | Gain du moteur (APK non debuggable) |
+|---|---|---|---|---|
+| Fusion Produit, pixels opaques | 6,16 ms | 1,59 ms | 0,12 ms | × 13 |
+| Fusion Normal, pixels opaques, opacité 60 % | 5,39 ms | 1,01 ms | 0,12 ms | × 8,6 |
+| Fusion Lumière tamisée, pixels opaques | 10,61 ms | 2,61 ms | 0,13 ms | × 20 |
+| Fusion Normal, calque en partie transparent | 1,44 ms | 0,80 ms | 0,33 ms | × 2,4 |
+| Fusion Incrustation, calque en partie transparent, 80 % | 12,33 ms | 1,33 ms | 0,44 ms | × 3,0 |
+| Fusion Couleur (mode non séparable) | 5,46 ms | 1,86 ms | 1,06 ms | × 1,8 |
+| Teinte | 6,76 ms | 1,15 ms | 0,77 ms | × 1,5 |
+| Matrice de couleur | 0,98 ms | 0,70 ms | 0,18 ms | × 3,9 |
+| Masque d'altitude | 9,68 ms | 0,87 ms | 0,42 ms | × 2,1 |
+| Douglas-Peucker, 20 000 points | 19,47 ms | 2,06 ms | 0,94 ms | × 2,2 |
+| PNG d'une tuile de plan : `Bitmap.compress` | 7,81 ms | 7,32 ms | 0,32 ms | × 23 |
+| PNG d'une tuile de photo : `Bitmap.compress` | 18,94 ms | 16,14 ms | 0,30 ms | × 54 |
+| **Tuile fusionnée entière** (3 calques) | 44,6 ms | 25,1 ms | 4,5 ms | **× 5,5** |
+| **Tuile découpée par une bande d'altitude** | 22,9 ms | 9,3 ms | 2,0 ms | **× 4,6** |
+
+Lecture :
+
+- **Le passage en non debuggable (P36.7) rend à lui seul le code Kotlin 1,4 à 11 fois plus rapide** sur ces calculs
+  (deuxième colonne contre la première). Ce gain vaut pour tout le code Kotlin de l'application, interface
+  comprise ; le PNG d'Android, déjà natif, ne bouge pas.
+- **Le moteur Rust garde son avantage sur l'APK non debuggable** : × 5,5 et × 4,6 sur une tuile entière, surtout par
+  le PNG (× 23 à × 54) et la fusion de pixels opaques (× 9 à × 20). Là où le calcul reste en flottants pixel par
+  pixel (calque en partie transparent, mode Couleur, teinte), il gagne × 1,5 à × 3 ; le Douglas-Peucker × 2,2.
+- **Les deux ensemble**, par rapport à l'APK d'avant (debuggable, Kotlin seul) : une tuile fusionnée passe de
+  44,6 ms à 4,5 ms, une tuile découpée de 22,9 ms à 2,0 ms, soit environ dix fois moins.
+- Ces mesures viennent de deux runs de la CI, sur deux machines : à quelques pour cent près d'un run à l'autre.
 
 ### 4.4 Mesurer soi-même
 
