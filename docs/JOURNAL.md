@@ -20,6 +20,15 @@
 
 ---
 
+## 2026-11-10 — Session 96 (suite 2) — [P38.6] Fusion de la branche de travail dans `main`
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après b83a4c5 (0.4.229, CI verte, émulateur compris, run 42823288713) ; ce commit est poussé sur la branche **et sur `main`** (avance rapide, sans commit de fusion, pas de PR). Copies avant la fusion (`git fetch`) : cette branche = local = 0.4.229 (référence) ; `main` = 0.4.134 (6fa0aec), sans aucun commit absent de la branche (77 commits de retard) ; Drive non monté sur ce poste.
+- **Objectif** : demande de l'utilisateur du 2026-11-10, après la release complète : « Oui, fusionne ». `main` reçoit tout le travail de la branche depuis la 0.4.134 : les téléphones qui suivent `main` se voient proposer cette version.
+- **Réalisé** : `main` avancée jusqu'au commit de la branche (`git push origin <commit>:main`). Aucun changement de code dans ce commit.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** : `./gradlew spotlessApply` seul, puis `./gradlew check assembleDebug` et `CI=true ./gradlew help` avant le push ; run « CI » de `main` (contrôle sur émulateur, puis pré-version `debug-<sha7>`) : résultat dans le message de fin de session.
+- **Problèmes / dette technique** : miroir Drive toujours à faire depuis un poste où le Drive est monté.
+- **Prochaine étape recommandée** : essai de l'impression en réseau mobile par l'utilisateur (P17.11) ; miroir Drive.
+
 ## 2026-11-10 — Session 96 (suite) — [P38.6] Release complète : build de release vert, contrôle sur émulateur compris
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 2ec0ced (0.4.228) ; poussée sur `JRRocks/ToolMap` (pas de PR, pas de fusion dans `main`). Copies : GitHub (cette branche) = local = 0.4.228 (référence), Drive non monté sur ce poste.
 - **Objectif** : consigner le résultat de la release complète demandée par l'utilisateur. Le build de release existe, signé, avec le moteur natif aux commandes ; rien ne change à l'écran.
