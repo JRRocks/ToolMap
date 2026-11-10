@@ -150,7 +150,7 @@ Demande du 2026-11-09 : à la création du PDF, choisir **oui ou non** pour qu'i
 ### 9.3 Reste (P37.0, P37.2, P37.3)
 1. ~~**Aperçu**~~ `docs/previews/p37-pdf-georef.html` (images `docs/previews/p37/`) : **validé le 2026-11-10, variante B (« Qualité et marges »), désactivé au départ**.
 2. ~~**Écran**~~ selon l'aperçu validé : fait le 2026-11-10 (§ 9.2), rendus Robolectric `docs/previews/p37/p37-B-ecran-qualite.png` et `p37-B-ecran-reglages.png` ; la capture de l'émulateur se prend pendant le test ci-dessous.
-3. **Test en local, émulateur + QGIS** (protocole ci-dessous).
+3. ~~**Test en local, émulateur + QGIS**~~ (protocole ci-dessous) : fait le 2026-11-10, résultats au § 9.6.
 
 ### 9.4 Protocole de test en local (poste Windows : émulateur + QGIS)
 1. Compiler, installer : `./gradlew assembleDebug`, `adb install -r -g app/build/outputs/apk/debug/ToolMap-debug-<version>.apk`, puis `bash tools/emulator/smoke.sh app/build/outputs/apk/debug`.
@@ -171,5 +171,17 @@ Demande du 2026-11-09 : à la création du PDF, choisir **oui ou non** pour qu'i
 | Format, écriture dans le PDF, coins par page, option désactivée, tests JVM et GDAL | fait (session 92) | — |
 | Aperçu de l'interrupteur | validé le 2026-11-10 (B, désactivé au départ) | — |
 | Écran : interrupteur, textes, résumé, index de l'interface, test Robolectric | fait le 2026-11-10 | — |
-| Test émulateur + QGIS (§ 9.4) | session locale | ≈ 1 h |
+| Test émulateur + QGIS (§ 9.4) | fait le 2026-11-10 (§ 9.6) | — |
 | Couches vectorielles géospatiales dans le PDF (traces et waypoints en couches QGIS) | non prévu | plusieurs jours : structure logique du PDF, contenus optionnels ; à rediscuter si le besoin apparaît |
+
+### 9.6 Résultat du test en local (P37.3, 2026-11-10)
+APK **0.4.226 de la CI** sur l'émulateur du poste (Android 16), **QGIS 3.44.12** et son **GDAL 3.13.1**.
+
+- **Sur l'émulateur** : OpenStreetMap seul, trace `korita-zbevnica.gpx` affichée, A4 paysage au 1:25 000, 300 dpi, grille UTM, traces et waypoints imprimés, 100 tuiles téléchargées d'abord. Un PDF avec « PDF géoréférencé » activé (595 533 octets), un témoin désactivé (594 544 octets : 989 octets de moins). Le dernier choix est gardé : à la réouverture du panneau, le résumé dit « 300 dpi · marge 8 mm · géoréférencé ». Captures : `docs/previews/p37/p37-B-emulateur-qualite.png`, `p37-B-emulateur-reglages.png`.
+- **`gdalinfo`** : PDF géoréférencé → « WGS 84 / Pseudo-Mercator », `ID["EPSG",3857]`, `NEATLINE` = le cadre (9 388,9 m × 5 274,6 m dans le plan Web Mercator, soit 6,59 km × 3,70 km sur le terrain à cette latitude : les « 6.6 km × 3.7 km » du panneau) ; pixel de 6,03 m (plan) à 150 dpi, 3,01 m à 300 dpi. Témoin → aucun système, coins en pixels.
+- **QGIS** (PyQGIS, même fournisseur GDAL que l'interface) : la couche du PDF arrive valide en **EPSG:3857** ; le témoin n'a pas de système (QGIS ne le place pas). Superposés : tuiles XYZ OpenStreetMap, PDF à 60 % d'opacité, couche `tracks` du GPX (4 traces) : routes, sentiers et noms du PDF tombent sur ceux d'OpenStreetMap, la trace vectorielle passe au milieu de la trace rouge imprimée (`docs/previews/p37/p37-qgis-ensemble.jpg`, détail au 1:1 000 `p37-qgis-detail.png`).
+- **Écart mesuré** (points du GPX portés sur l'image que GDAL tire du PDF) : 358 points dans le cadre, **347 sur le rouge de la trace**, les 11 autres à moins de 40 m du waypoint « 001 », sous son icône (blanc et bleu de l'icône). Écart au milieu du trait : médiane 0,5 pixel à 150 dpi (≈ 2,1 m sur le terrain), 1 pixel au 95e centile ; médiane 0 pixel à 300 dpi. Témoin du contraire : les mêmes points décalés de 300 m vers l'est ne tombent sur du rouge que 4 fois (là où la boucle repasse).
+- **Grille** : les croisements UTM 33N (433 000, 5 026 000), (435 000, 5 025 000) et (431 000, 5 027 000), convertis par `gdaltransform`, tombent sur le bleu des lignes de la grille imprimée ; un point entre les lignes tombe sur la carte.
+- **`PrintGeoTest` avec le GDAL de QGIS dans le `PATH`** : 4 tests sur 4, aucun sauté (le test de bout en bout s'exécute).
+- **Relevé** : en lisant le PDF, GDAL (poppler) écrit « No display font for 'ArialUnicode' » et « … 'Symbol' ». Le PDF n'emploie que Helvetica, sans police embarquée ; les textes de la feuille sont rendus quand même. Sans effet sur la géoréférence.
+- **Non essayé** : Global Mapper, Acrobat Reader, Avenza Maps (facultatifs, § 9.4 point 5).

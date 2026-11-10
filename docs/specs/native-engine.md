@@ -199,6 +199,48 @@ Lecture :
   44,6 ms à 4,5 ms, une tuile découpée de 22,9 ms à 2,0 ms, soit environ dix fois moins.
 - Ces mesures viennent de deux runs de la CI, sur deux machines : à quelques pour cent près d'un run à l'autre.
 
+### 4.3 ter Résultats sur l'émulateur du poste Windows (P38.5, 2026-11-10)
+
+APK **0.4.226 de la CI** (non debuggable, moteur natif), émulateur du poste (`sdk_gphone64_x86_64`, Android 16,
+6 cœurs, **rendu logiciel** `-gpu swiftshader_indirect`), `tools/emulator/smoke.sh` puis parcours à la main.
+`engine native=1 state=active abi=1 arch=x86_64`, mesure terminée en 2,1 s.
+
+| Étape | Kotlin | Rust | Gain |
+|---|---|---|---|
+| Fusion Produit, pixels opaques | 2,93 ms | 0,33 ms | × 9,0 |
+| Fusion Normal, pixels opaques, opacité 60 % | 2,09 ms | 0,22 ms | × 9,7 |
+| Fusion Lumière tamisée, pixels opaques | 3,82 ms | 0,21 ms | × 18 |
+| Fusion Normal, calque en partie transparent | 1,17 ms | 0,55 ms | × 2,1 |
+| Fusion Incrustation, calque en partie transparent, 80 % | 2,12 ms | 0,79 ms | × 2,7 |
+| Fusion Couleur (mode non séparable) | 3,05 ms | 1,63 ms | × 1,9 |
+| Teinte | 1,90 ms | 1,04 ms | × 1,8 |
+| Matrice de couleur | 1,10 ms | 0,31 ms | × 3,6 |
+| Masque d'altitude | 2,18 ms | 1,10 ms | × 2,0 |
+| Douglas-Peucker, 20 000 points | 3,34 ms | 1,33 ms | × 2,5 |
+| PNG d'une tuile de plan : `Bitmap.compress` | 9,37 ms | 0,57 ms | × 16 |
+| PNG d'une tuile de photo : `Bitmap.compress` | 24,20 ms | 0,80 ms | × 30 |
+| **Tuile fusionnée entière** (3 calques) | 41,2 ms | 11,0 ms | **× 3,7** |
+| **Tuile découpée par une bande d'altitude** | 14,4 ms | 4,1 ms | **× 3,5** |
+
+Application :
+
+- **Démarrage à froid** (`am start -W`, 5 fois) : 1 809 ms la première fois après l'installation, puis 1 085, 1 124,
+  1 053 et 1 216 ms ; carte dessinée 1,65 à 1,86 s après l'ouverture (`ToolMapPerf rendered trigger=open`, 37 tuiles
+  du stockage), soit 2,1 à 3,0 s après la création du processus.
+- **Fusion à l'écran** (favori « Rando été », IGN Pentes en « Produit » sur IGN SCAN 25, zoom 17 donc tuiles
+  complétées) : 42 à 44 tuiles composées par vue, vue prête 1,3 à 1,6 s après le geste, réseau compris (21 à 34
+  tuiles lues en ligne), aucun échec, aucun appel refusé par le moteur.
+- **Bande d'altitude** (favori « Rando Hiver ») : tuiles découpées dessinées (`masked=10`), aucun plantage.
+- **PDF avec un calque fusionné** (A4 paysage, 1:25 000, 300 dpi, 106 tuiles lues en ligne) : enregistré en moins de
+  10 s, 2,4 Mo, aucune tuile manquante.
+- **Images lentes** (`dumpsys gfxinfo`) : 216 images, médiane 34 ms, 90e centile 48 ms. Ce chiffre ne dit rien d'un
+  téléphone : l'émulateur du poste dessine la carte sans carte graphique (le rendu matériel le fait planter). À
+  juger sur le téléphone.
+- Les calculs sont plus lents ici que sur l'émulateur de la CI (§ 4.3 bis) : autre machine, six cœurs partagés avec
+  le rendu logiciel. Les gains du moteur restent du même ordre.
+- Relevé en passant : ART refuse de compiler `MapScreenKt.MapScreen` (« Method exceeds compiler instruction limit:
+  28496 ») ; cette fonction reste interprétée.
+
 ### 4.4 Mesurer soi-même
 
 ```bash
