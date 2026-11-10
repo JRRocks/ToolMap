@@ -20,6 +20,18 @@
 
 ---
 
+## 2026-11-10 — Session 96 (suite) — [P38.6] Release complète : build de release vert, contrôle sur émulateur compris
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 2ec0ced (0.4.228) ; poussée sur `JRRocks/ToolMap` (pas de PR, pas de fusion dans `main`). Copies : GitHub (cette branche) = local = 0.4.228 (référence), Drive non monté sur ce poste.
+- **Objectif** : consigner le résultat de la release complète demandée par l'utilisateur. Le build de release existe, signé, avec le moteur natif aux commandes ; rien ne change à l'écran.
+- **Réalisé** : résultats relevés, P38.6 passé à ✅ au plan. Aucun changement de code.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - Avant le push de 2ec0ced : `./gradlew spotlessApply` seul, puis `./gradlew check assembleDebug` : BUILD SUCCESSFUL in 2m 54s, 0.4.228 ; `CI=true ./gradlew help` sans erreur.
+  - Run « CI » 42819708238 (2ec0ced) : vert, contrôle sur émulateur compris ; artefact `toolmap-debug-apk` 13767910660.
+  - **Run « Release » 42821299088** (lancé à la main sur la branche, commit 2ec0ced) : vert. « Signing with the release key. » ; contrôle sur émulateur de `ToolMap-release-0.4.228.apk` : « Native engine: engine native=1 state=active abi=1 arch=x86_64 », « OK: ToolMap started, in front, no crash, no ANR, native engine in charge ». Artefacts : `toolmap-release-apk` 13767353088 (45,6 Mo), `toolmap-release-aab` 13767383036 (45,4 Mo), `emulator-check-release` 13767667813.
+- **Problèmes / dette technique** : les artefacts du workflow « Release » ne se téléchargent que connecté à GitHub et ne sont pas publiés en release GitHub ; R8 toujours désactivé ; le build de release n'a pas été essayé sur un téléphone.
+- **Prochaine étape recommandée** : fusion dans `main` si l'utilisateur la demande ; son essai de l'impression en réseau mobile (P17.11) ; miroir Drive depuis un poste où le Drive est monté.
+
 ## 2026-11-10 — Session 96 — [P38.6] Release complète : le moteur natif aux commandes dans le build de release
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après e403681 (0.4.227, CI verte, émulateur compris, run 42816972212) ; poussée sur `JRRocks/ToolMap` (pas de PR, pas de fusion dans `main`). Copies : GitHub (cette branche) = local = 0.4.227 (référence), Drive non monté sur ce poste.
 - **Objectif** : demande de l'utilisateur du 2026-11-10, après le test QGIS et l'essai des performances : « Oui, release ». Le build de release dessine désormais ses tuiles fusionnées, découpées et complétées avec le moteur natif, comme l'APK de debug ; rien ne change à l'écran.
