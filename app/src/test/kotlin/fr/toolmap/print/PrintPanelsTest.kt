@@ -7,6 +7,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -26,6 +28,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * The print panels of P17.8: the sheets of variant E (« Épreuve »), the settings of variant A (« Gabarit ») and the box
@@ -141,5 +145,27 @@ class PrintPanelsTest {
         assertEquals(PrintSheetPage.QUALITY, holder.ui.sheetPage)
         rule.onNodeWithText("Résolution élevée").assertExists()
         rule.onNodeWithText("72 dpi au moins, pas de maximum").assertExists()
+    }
+
+    @Test
+    fun `the georeferenced PDF is off at first, turned on in the quality page and said by its summary`() {
+        val holder = confirming(PrintTemplate())
+        rule.setContent {
+            ToolMapTheme { PrintConfirmSheet(ui = holder.ui, actions = holder.actions, maxHeight = 900.dp) }
+        }
+        // Off at first: the summary is the one of before, and the main page has no line of its own for it.
+        assertFalse(holder.ui.template.geoReferenced)
+        rule.onNodeWithText("300 dpi · marge 8 mm · grille tous les 1 km").assertExists()
+        rule.onAllNodesWithText("PDF géoréférencé").assertCountEquals(0)
+
+        rule.onNodeWithText("Qualité et marges").performClick()
+        rule.onNodeWithText("S'ouvre à sa place dans QGIS, Global Mapper").assertExists()
+        rule.onNodeWithText("PDF géoréférencé").assertExists()
+        // The switches of the page, in order: lighter file, layers out of their zoom range, georeferenced PDF.
+        rule.onAllNodes(isToggleable())[2].assertIsOff().performClick()
+        assertTrue(holder.ui.template.geoReferenced)
+
+        holder.ui = holder.ui.copy(sheetPage = PrintSheetPage.MAIN)
+        rule.onNodeWithText("300 dpi · marge 8 mm · géoréférencé").assertExists()
     }
 }

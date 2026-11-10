@@ -816,6 +816,8 @@
   <string name="print_quality_title">Qualité et marges</string>
   <string name="print_quality_summary">%1$d dpi · marge %2$d mm</string>
   <string name="print_quality_summary_grid">%1$d dpi · marge %2$d mm · grille tous les %3$s</string>
+  <!-- P37.2 : PDF géoréférencé, variante B de docs/previews/p37-pdf-georef.html (validée le 2026-11-10) -->
+  <string name="print_quality_summary_georef">%1$d dpi · marge %2$d mm · géoréférencé</string>
   <string name="print_back_to_settings">Retour aux réglages</string>
   <string name="print_section_resolution">Résolution</string>
   <string name="print_dpi_other">Autre…</string>
@@ -845,6 +847,8 @@
   <string name="print_lighter">Fichier plus léger</string>
   <string name="print_lighter_hint">Tuiles d\'un niveau de zoom en moins</string>
   <string name="print_respect_ranges">Laisser de côté les calques hors de leur plage de zoom</string>
+  <string name="print_georef">PDF géoréférencé</string>
+  <string name="print_georef_hint">S\'ouvre à sa place dans QGIS, Global Mapper</string>
   <string name="print_section_grid">Grille</string>
   <string name="print_grid_none">Aucune</string>
   <string name="print_grid_wgs84">WGS84 DMS</string>

@@ -144,16 +144,17 @@ Demande du 2026-11-09 : à la création du PDF, choisir **oui ou non** pour qu'i
 | `PdfPage.geoViewport(…)` | écrit le système, la mesure et le viewport à la fin de la page, et `/VP` dans le dictionnaire de la page |
 | `core/.../print/PrintGeo.kt` | le viewport d'une page d'impression : cadre de `PageSetup`, coins par `FrameProjection.toLonLat` |
 | `PrintTemplate.geoReferenced` | l'option, **désactivée** (gardée dans `last.json` comme les autres réglages) ; `PrintExporter` l'applique à chaque page |
+| `print/PrintPanel.kt` (P37.2, 2026-11-10) | l'interrupteur « PDF géoréférencé » (« S'ouvre à sa place dans QGIS, Global Mapper ») dans « Qualité et marges », sous « Laisser de côté les calques hors de leur plage de zoom » ; **désactivé au départ**, le dernier choix est gardé ; actif, le résumé de la ligne « Qualité et marges » devient « 300 dpi · marge 8 mm · géoréférencé » (à la place du pas de la grille). Variante B de l'aperçu, validée le 2026-11-10 : une option pour spécialistes, donc ni ligne dans l'encadré d'état, ni ligne à la fin de l'export |
 | Tests | `PdfGeoTest` (dictionnaires), `PrintGeoTest` : coins exacts dans le plan Web Mercator, option désactivée = fichier inchangé, une géoréférence par page d'atlas, et **de bout en bout avec GDAL** quand `gdalinfo` est installé : EPSG:3857 lu, origine et taille de pixel conformes au cadre, et aux coordonnées de 30 points de la trace `fixtures/gpx/korita-zbevnica.gpx` imprimée au 1:25 000, GDAL trouve 30 fois le rouge de la trace (0 sur 30 à 300 m de là). Le PDF d'essai reste dans `core/build/geopdf/korita-zbevnica-25k.pdf`. |
 
 ### 9.3 Reste (P37.0, P37.2, P37.3)
-1. **Aperçu** `docs/previews/p37-pdf-georef.html` (images `docs/previews/p37/`) : emplacement de l'interrupteur (A « Feuille », B « Qualité et marges », C au-dessus de « Créer le PDF ») et valeur au départ ; **validation de l'utilisateur avant tout code d'écran**.
-2. **Écran** selon l'aperçu validé : interrupteur, textes (`strings.xml`), ligne de l'encadré d'état et de la fin de l'export si la variante le prévoit, `docs/specs/ui-index.md`, test Robolectric.
+1. ~~**Aperçu**~~ `docs/previews/p37-pdf-georef.html` (images `docs/previews/p37/`) : **validé le 2026-11-10, variante B (« Qualité et marges »), désactivé au départ**.
+2. ~~**Écran**~~ selon l'aperçu validé : fait le 2026-11-10 (§ 9.2), rendus Robolectric `docs/previews/p37/p37-B-ecran-qualite.png` et `p37-B-ecran-reglages.png` ; la capture de l'émulateur se prend pendant le test ci-dessous.
 3. **Test en local, émulateur + QGIS** (protocole ci-dessous).
 
 ### 9.4 Protocole de test en local (poste Windows : émulateur + QGIS)
 1. Compiler, installer : `./gradlew assembleDebug`, `adb install -r -g app/build/outputs/apk/debug/ToolMap-debug-<version>.apk`, puis `bash tools/emulator/smoke.sh app/build/outputs/apk/debug`.
-2. Sur l'émulateur : afficher OpenStreetMap (ou IGN), importer la trace d'essai (`adb push fixtures/gpx/korita-zbevnica.gpx /sdcard/Download/`, puis Traces › Importer), cadrer la trace, imprimer au 1:25 000, A4 paysage, grille UTM, **PDF géoréférencé activé**, enregistrer dans Documents ; refaire une fois **désactivé** (témoin). Récupérer : `adb pull /sdcard/Documents/<nom>.pdf`.
+2. Sur l'émulateur : afficher OpenStreetMap (ou IGN), importer la trace d'essai (`adb push fixtures/gpx/korita-zbevnica.gpx /sdcard/Download/`, puis Traces › Importer), cadrer la trace, imprimer au 1:25 000, A4 paysage, grille UTM, **PDF géoréférencé activé** (Qualité et marges ; capture de cette page et de la page principale, à mettre à côté de l'aperçu validé), enregistrer dans Documents ; refaire une fois **désactivé** (témoin). Récupérer : `adb pull /sdcard/Documents/<nom>.pdf`.
 3. **QGIS** :
    - *Couche › Ajouter une couche › Ajouter une couche raster…*, le PDF : la couche doit arriver en **EPSG:3857** (barre d'état, Propriétés › Information) ; le PDF témoin, lui, n'a pas de système (QGIS le place hors du monde ou demande).
    - *Explorateur › XYZ Tiles › OpenStreetMap* : les routes et sentiers de la carte du PDF tombent sur ceux d'OSM.
@@ -168,7 +169,7 @@ Demande du 2026-11-09 : à la création du PDF, choisir **oui ou non** pour qu'i
 | Partie | État | Coût |
 |---|---|---|
 | Format, écriture dans le PDF, coins par page, option désactivée, tests JVM et GDAL | fait (session 92) | — |
-| Aperçu de l'interrupteur | fait, à valider | une réponse |
-| Écran : interrupteur, textes, résumé, index de l'interface, test Robolectric | après validation | ≈ 1 à 2 h, un build |
+| Aperçu de l'interrupteur | validé le 2026-11-10 (B, désactivé au départ) | — |
+| Écran : interrupteur, textes, résumé, index de l'interface, test Robolectric | fait le 2026-11-10 | — |
 | Test émulateur + QGIS (§ 9.4) | session locale | ≈ 1 h |
 | Couches vectorielles géospatiales dans le PDF (traces et waypoints en couches QGIS) | non prévu | plusieurs jours : structure logique du PDF, contenus optionnels ; à rediscuter si le besoin apparaît |

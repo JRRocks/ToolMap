@@ -698,6 +698,10 @@ private fun QualityPage(
     SwitchRow(R.string.print_respect_ranges, template.respectLayerRanges) { v ->
         actions.onUpdate { it.copy(respectLayerRanges = v) }
     }
+    // P37.2, variant B: a setting of the file, for specialists (QGIS, Global Mapper); off until turned on.
+    SwitchRow(R.string.print_georef, template.geoReferenced, hint = R.string.print_georef_hint) { v ->
+        actions.onUpdate { it.copy(geoReferenced = v) }
+    }
     Text(
         stringResource(R.string.print_margin, template.page.marginMm.roundToInt()),
         style = MaterialTheme.typography.labelLarge,
@@ -1118,10 +1122,13 @@ private fun elementsSummary(d: Dressing): String {
     }
 }
 
-/** « 300 dpi · marge 8 mm · grille tous les 1 km ». */
+/** « 300 dpi · marge 8 mm · grille tous les 1 km », or « … · géoréférencé » in place of the grid (P37.2). */
 @Composable
 private fun qualitySummary(template: PrintTemplate): String {
     val margin = template.page.marginMm.roundToInt()
+    if (template.geoReferenced) {
+        return stringResource(R.string.print_quality_summary_georef, template.dpi, margin)
+    }
     if (template.grid == GridKind.NONE) return stringResource(R.string.print_quality_summary, template.dpi, margin)
     val degrees = template.grid == GridKind.WGS84 || template.grid == GridKind.WGS84_DECIMAL
     return stringResource(

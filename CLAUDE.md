@@ -27,7 +27,7 @@ Aucune version n'est mise à disposition (artefact `toolmap-debug-apk`, pré-rel
 
 Tant qu'une ligne ci-dessous n'est pas faite, la rappeler à l'utilisateur **à chaque session, dans le premier et dans le dernier message**, même quand la session porte sur autre chose. Le jour où c'est fait : le consigner au journal et retirer la ligne d'ici.
 
-- **Test du PDF géoréférencé dans QGIS** (P37.3, `docs/specs/print-pdf.md` § 9.4) : à faire avec l'utilisateur en session locale (émulateur + QGIS du poste Windows). Attend son choix sur l'aperçu `docs/previews/p37-pdf-georef.html` (P37.0 : emplacement A, B ou C ; au départ Non ou Oui), puis l'interrupteur (P37.2). **Dans la même session** (décision du 2026-11-09) : essai des performances de l'application sur l'émulateur avec l'APK de la CI, moteur natif compris (P38.5, `docs/specs/native-engine.md` § 8). **Aucune release avant la fin de ce test** : la release complète vient après (P38.6).
+- **Test du PDF géoréférencé dans QGIS** (P37.3, `docs/specs/print-pdf.md` § 9.4) : à faire avec l'utilisateur en session locale (émulateur + QGIS du poste Windows). L'interrupteur est en place depuis le 2026-11-10 (P37.2, choix de l'utilisateur sur l'aperçu `docs/previews/p37-pdf-georef.html` : variante B, dans « Qualité et marges », désactivé au départ) : il reste ce test, où l'on prend aussi la capture de l'émulateur à mettre à côté de l'aperçu. **Dans la même session** (décision du 2026-11-09) : essai des performances de l'application sur l'émulateur avec l'APK de la CI, moteur natif compris (P38.5, `docs/specs/native-engine.md` § 8). **Aucune release avant la fin de ce test** : la release complète vient après (P38.6).
 
 ## ⚠️ Tâches de debug : pas d'aperçu, pas de question (demande de l'utilisateur, 2026-10-24)
 

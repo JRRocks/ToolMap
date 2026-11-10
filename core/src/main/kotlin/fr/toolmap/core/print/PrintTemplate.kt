@@ -48,7 +48,7 @@ data class PrintTemplate(
     val overlapPercent: Double = DEFAULT_OVERLAP_PERCENT,
     /**
      * The PDF says where its map is on the ground (geospatial PDF, ISO 32000): QGIS, Global Mapper or Avenza Maps open
-     * it at its place (P37). Nothing changes on the paper. Off until the print screen offers it.
+     * it at its place (P37). Nothing changes on the paper. Off until turned on in « Qualité et marges » (P37.2).
      */
     val geoReferenced: Boolean = false,
 ) {
