@@ -43,6 +43,7 @@ import fr.toolmap.core.geo.ScaleBar
 import fr.toolmap.core.geo.ScreenGridIssue
 import fr.toolmap.core.geo.ScreenGridPlan
 import fr.toolmap.core.geo.ZoomMapping
+import fr.toolmap.core.layers.LayerZoom
 import fr.toolmap.core.print.PrintFormat
 import fr.toolmap.core.settings.barometerOn
 import fr.toolmap.core.state.CameraState
@@ -243,7 +244,7 @@ private fun ScaleChip(
     val shown = mapping.toTileZoom(camera.zoom)
     val denominator = ScaleBar.denominator(camera.lat, shown, density)
     val bar = ScaleBar.forDisplayedZoom(camera.lat, shown, density, SCALE_BAR_MAX_DP, LocalFormats.current.units)
-    val zoom = Math.round(shown).toString() + (baseMaxZoom?.let { "/$it" }.orEmpty())
+    val zoom = LayerZoom.shownZoom(shown).toString() + (baseMaxZoom?.let { "/$it" }.orEmpty())
     val detailLabel = stringResource(R.string.info_chip_details)
     InfoChip(Modifier.clickable(onClickLabel = detailLabel, role = Role.Button) { open = !open }) {
         Row(verticalAlignment = Alignment.CenterVertically) {

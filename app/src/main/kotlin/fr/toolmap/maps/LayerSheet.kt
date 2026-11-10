@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.layers.LayerElevation
+import fr.toolmap.core.layers.LayerZoom
 import fr.toolmap.map.MenuRow
 import fr.toolmap.map.PanelBand
 import fr.toolmap.map.PanelChevron
@@ -234,7 +235,7 @@ private fun StateBlock(
     onVisible: (Boolean) -> Unit,
     modifier: Modifier,
 ) {
-    val zoom = currentZoom.toInt()
+    val zoom = LayerZoom.shownZoom(currentZoom)
     val title =
         when {
             !layer.visible -> stringResource(R.string.maps_sheet_hidden)

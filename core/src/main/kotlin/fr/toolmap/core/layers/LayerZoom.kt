@@ -4,20 +4,28 @@ import fr.toolmap.core.geo.ZoomMapping
 
 /**
  * Per-layer display range (feature N3). A range is written in the zoom shown to the user (the `z` of the 256 px
- * tiles on screen, [ZoomMapping]), both bounds **inclusive**: "8 to 16" means the layer is visible from zoom 8.0 up to
- * (but excluding) 17.0, so two layers "1–7" and "8–16" meet without a gap at zoom 7.5.
+ * tiles on screen, [ZoomMapping]), both bounds **inclusive**. MapLibre draws the tiles of the zoom nearest to the
+ * camera, and the map shows that rounded zoom: a layer is drawn while the **rounded** displayed zoom is in its range
+ * (ADR-123). "8 to 16" is visible from zoom 7.5 up to (but excluding) 16.5, so two layers "1–7" and "8–16" meet
+ * without a gap at 7.5, and a one-zoom layer "18" covers exactly what the map calls zoom 18, with its zoom 18 tiles.
  */
 object LayerZoom {
+    /** Half a zoom: where the nearest tile zoom, and so the zoom shown, changes. */
+    private const val HALF = 0.5
+
     /** MapLibre's `minzoom` / `maxzoom` of a raster layer, in camera zoom; `null` = not set. */
     data class CameraRange(
         val minZoom: Float?,
         val maxZoom: Float?,
     )
 
+    /** The zoom the map shows at the displayed zoom [displayedZoom]: the one of the tiles on screen, the nearest. */
+    fun shownZoom(displayedZoom: Double): Int = Math.round(displayedZoom).toInt().coerceAtLeast(0)
+
     /**
      * MapLibre hides a layer below `minzoom` and from `maxzoom` on (exclusive). With the camera at displayed zoom
-     * − offset ([ZoomMapping], 1 with MapLibre's default tile size): `minzoom = min − offset` and
-     * `maxzoom = max + 1 − offset`; a bound below camera zoom 0 means "no minimum" or "never shown".
+     * − offset ([ZoomMapping], 1 with MapLibre's default tile size): `minzoom = min − 0.5 − offset` and
+     * `maxzoom = max + 0.5 − offset`; a bound below camera zoom 0 means "no minimum" or "never shown".
      */
     fun cameraRange(
         displayMin: Int?,
@@ -25,8 +33,8 @@ object LayerZoom {
         mapping: ZoomMapping = ZoomMapping.STANDARD,
     ): CameraRange =
         CameraRange(
-            minZoom = displayMin?.let { mapping.toCameraZoom(it.toDouble()).toFloat() }?.takeIf { it > 0f },
-            maxZoom = displayMax?.let { mapping.toCameraZoom(it + 1.0).toFloat().coerceAtLeast(0f) },
+            minZoom = displayMin?.let { mapping.toCameraZoom(it - HALF).toFloat() }?.takeIf { it > 0f },
+            maxZoom = displayMax?.let { mapping.toCameraZoom(it + HALF).toFloat().coerceAtLeast(0f) },
         )
 
     /** True when a layer with this range is drawn at the displayed zoom [displayedZoom] (fractions allowed). */
@@ -35,7 +43,8 @@ object LayerZoom {
         displayMax: Int?,
         displayedZoom: Double,
     ): Boolean =
-        (displayMin == null || displayedZoom >= displayMin) && (displayMax == null || displayedZoom < displayMax + 1)
+        (displayMin == null || displayedZoom >= displayMin - HALF) &&
+            (displayMax == null || displayedZoom < displayMax + HALF)
 
     fun isActiveAt(
         layer: LayerConfig,

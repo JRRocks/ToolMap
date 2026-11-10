@@ -178,9 +178,9 @@ class BuiltinSourcesTest {
         val stack = ski.toStack { true }.stack
         assertEquals(
             listOf("ign-scan25", "OSMSNOWM"),
-            stack.layers.filter { LayerZoom.isActiveAt(it, 12.5) }.map { it.sourceId },
+            stack.layers.filter { LayerZoom.isActiveAt(it, 12.25) }.map { it.sourceId },
         )
-        assertEquals(5, stack.layers.count { LayerZoom.isActiveAt(it, 13.5) })
+        assertEquals(5, stack.layers.count { LayerZoom.isActiveAt(it, 12.5) })
     }
 
     @Test
@@ -228,9 +228,19 @@ class BuiltinSourcesTest {
         val slopes = stack.layers.last()
         val shown =
             (1..20).map { z ->
-                maps.filter { LayerZoom.isActiveAt(it, z + 0.5) }.map { it.sourceId }
+                maps.filter { LayerZoom.isActiveAt(it, z.toDouble()) }.map { it.sourceId }
             }
         assertTrue(shown.all { it.size == 1 }, "maps per zoom: $shown")
+        // The map changes with the zoom shown on the map, the nearest one: never in the middle of a zoom (ADR-123).
+        for (z in 1..20) {
+            for (displayed in listOf(z - 0.5, z - 0.25, z + 0.25, z + 0.49)) {
+                assertEquals(
+                    shown[z - 1],
+                    maps.filter { LayerZoom.isActiveAt(it, displayed) }.map { it.sourceId },
+                    "at $displayed",
+                )
+            }
+        }
         assertEquals("osm", shown[8 - 1].single())
         assertEquals("opentopomap", shown[10 - 1].single())
         assertEquals("ign-scan25", shown[17 - 1].single())
@@ -239,7 +249,7 @@ class BuiltinSourcesTest {
         assertEquals("ign-ortho", shown[20 - 1].single())
         // The slopes cover every zoom at 31 %, as in the author's export.
         assertEquals("ign-pentes", slopes.sourceId)
-        assertTrue((1..20).all { LayerZoom.isActiveAt(slopes, it + 0.5) })
+        assertTrue((1..20).all { LayerZoom.isActiveAt(slopes, it.toDouble()) })
         assertEquals(0.31f, slopes.opacity, 0.001f)
     }
 }

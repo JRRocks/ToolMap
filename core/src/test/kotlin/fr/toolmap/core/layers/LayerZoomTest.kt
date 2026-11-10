@@ -42,12 +42,43 @@ class LayerZoomTest {
 
     @Test
     fun `an inclusive display range becomes a camera range with an exclusive upper bound`() {
-        // Displayed 8..16 = camera 7 up to (not including) 16.
-        assertEquals(LayerZoom.CameraRange(7f, 16f), LayerZoom.cameraRange(8, 16))
-        assertEquals(LayerZoom.CameraRange(null, 7f), LayerZoom.cameraRange(1, 7))
+        // Displayed 8..16 = shown from 7.5 up to (not including) 16.5 = camera 6.5 up to 15.5 (ADR-123).
+        assertEquals(LayerZoom.CameraRange(6.5f, 15.5f), LayerZoom.cameraRange(8, 16))
+        assertEquals(LayerZoom.CameraRange(null, 6.5f), LayerZoom.cameraRange(1, 7))
         assertEquals(LayerZoom.CameraRange(null, null), LayerZoom.cameraRange(null, null))
         assertEquals(LayerZoom.CameraRange(null, null), LayerZoom.cameraRange(0, null))
-        assertEquals(LayerZoom.CameraRange(11f, null), LayerZoom.cameraRange(12, null))
+        assertEquals(LayerZoom.CameraRange(10.5f, null), LayerZoom.cameraRange(12, null))
+    }
+
+    @Test
+    fun `a layer is drawn while the zoom shown on the map, the nearest one, is in its range`() {
+        // The one-zoom layer of « Rando été »: all of what the map calls zoom 18, nothing of 17 or 19.
+        var displayed = 16.0
+        while (displayed <= 20.0) {
+            assertEquals(LayerZoom.shownZoom(displayed) == 18, LayerZoom.isActiveAt(18, 18, displayed), "at $displayed")
+            assertEquals(
+                LayerZoom.shownZoom(displayed) >= 19,
+                LayerZoom.isActiveAt(19, null, displayed),
+                "at $displayed",
+            )
+            assertEquals(LayerZoom.shownZoom(displayed) <= 17, LayerZoom.isActiveAt(12, 17, displayed), "at $displayed")
+            displayed += 0.125
+        }
+        assertEquals(18, LayerZoom.shownZoom(17.5))
+        assertEquals(17, LayerZoom.shownZoom(17.49))
+        assertEquals(0, LayerZoom.shownZoom(-0.7))
+    }
+
+    @Test
+    fun `the tiles MapLibre asks for at a displayed zoom are those of the zoom the layers switch on`() {
+        for (mapping in mappings) {
+            var displayed = maxOf(1.0, firstQuarter(mapping))
+            while (displayed <= 22.0) {
+                val camera = mapping.toCameraZoom(displayed)
+                assertEquals(LayerZoom.shownZoom(displayed), mapping.requestedTileZoom(camera), "at $displayed")
+                displayed += 0.25
+            }
+        }
     }
 
     @Test
@@ -74,13 +105,13 @@ class LayerZoomTest {
     }
 
     @Test
-    fun `the author's workspace shows Topo and slopes from 8 and Plan and slopes below, with no gap at 7_5`() {
+    fun `the author's workspace shows Topo and slopes from 8 and Plan and slopes below, with no gap at 7_5 nor 8`() {
         val workspace = topoPlanSlopes
         val stack = workspace.toStack { true }.stack
         for (mapping in mappings) {
             val props = StackToStyle.desired(stack, mapping) { true }.associate { it.sourceId to it.props }
             var displayed = maxOf(1.0, firstQuarter(mapping))
-            while (displayed < 17.0) {
+            while (displayed < 16.5) {
                 val camera = cameraAt(mapping, displayed)
                 val plan = visibleInMapLibre(props.getValue("ign-plan"), camera)
                 val topo = visibleInMapLibre(props.getValue("ign-scan25"), camera)
@@ -88,12 +119,12 @@ class LayerZoomTest {
                 assertTrue(plan || topo, "a base map is shown at $displayed")
                 assertTrue(plan != topo, "exactly one base map at $displayed")
                 assertTrue(slopes, "slopes shown at $displayed")
-                assertEquals(displayed >= 8.0, topo, "topo at $displayed")
-                assertEquals(displayed < 8.0, plan, "plan at $displayed")
+                assertEquals(displayed >= 7.5, topo, "topo at $displayed")
+                assertEquals(displayed < 7.5, plan, "plan at $displayed")
                 displayed += 0.25
             }
-            // Past 16.999 neither base map nor slopes remain (the ranges end at 16).
-            val beyond = cameraAt(mapping, 17.0)
+            // From 16.5 on neither base map nor slopes remain (the ranges end at 16).
+            val beyond = cameraAt(mapping, 16.5)
             assertFalse(visibleInMapLibre(props.getValue("ign-scan25"), beyond))
             assertFalse(visibleInMapLibre(props.getValue("ign-pentes"), beyond))
         }
@@ -104,8 +135,8 @@ class LayerZoomTest {
         // Density 2.8125 (samsung SM-S931U), AlpineQuest's sharpness: displayed zoom = camera + 2.49.
         val phone = ZoomMapping.forScreen(2.8125, 1.0)
         val range = LayerZoom.cameraRange(8, 16, phone)
-        assertEquals(8 - phone.offset, range.minZoom!!.toDouble(), 1e-5)
-        assertEquals(17 - phone.offset, range.maxZoom!!.toDouble(), 1e-5)
+        assertEquals(7.5 - phone.offset, range.minZoom!!.toDouble(), 1e-5)
+        assertEquals(16.5 - phone.offset, range.maxZoom!!.toDouble(), 1e-5)
     }
 
     @Test
@@ -131,8 +162,8 @@ class LayerZoomTest {
         val id = base.layers.single().id
         val stack = base.setZoomRange(id, 8, 16)
         val applied = StackToStyle.desired(stack) { true }.single().props
-        assertEquals(7f, applied.minZoom)
-        assertEquals(16f, applied.maxZoom)
+        assertEquals(6.5f, applied.minZoom)
+        assertEquals(15.5f, applied.maxZoom)
 
         val restored = WorkStateCodec.decodeOrDefault(WorkStateCodec.encode(WorkState(stack = stack)))
         assertEquals(8, restored.stack[id]!!.displayMinZoom)

@@ -64,6 +64,7 @@ import fr.toolmap.core.layers.Favorites
 import fr.toolmap.core.layers.LayerConfig
 import fr.toolmap.core.layers.LayerElevation
 import fr.toolmap.core.layers.LayerField
+import fr.toolmap.core.layers.LayerZoom
 import fr.toolmap.core.layers.Workspace
 import fr.toolmap.core.source.TileSource
 import fr.toolmap.core.state.WorkState
@@ -77,7 +78,6 @@ import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.FilledTonalButton
 import fr.toolmap.ui.theme.TextButton
 import fr.toolmap.ui.theme.toolMap
-import kotlin.math.floor
 
 /** What the root panel can ask the map screen to do (screens it cannot open itself). */
 class MapsRootActions(
@@ -181,7 +181,7 @@ fun MapsRootPanel(
                         single = layers.singleOrNull()?.let { byId[it.sourceId]?.name },
                         count = layers.size,
                         drawn = drawn,
-                        zoom = floor(currentZoom).toInt(),
+                        zoom = LayerZoom.shownZoom(currentZoom),
                         offline = offline,
                         onShare = { actions.onShareFavorites(applied?.id) },
                         onSave = { showSave = true },

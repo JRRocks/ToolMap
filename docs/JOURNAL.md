@@ -20,6 +20,24 @@
 
 ---
 
+## 2026-11-10 — Session 98 — [P3.1] Changement de carte selon le zoom : au zoom affiché sur la carte (« Rando été » aux zooms 18 et 19)
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 6b6deac (0.4.234) ; poussée sur `JRRocks/ToolMap` (pas de PR ; `main` non touchée par cette session). Copies relevées (`git fetch`) : GitHub, cette branche = `main` = 0.4.234 (référence) ; local de la session cloud à 0.4.225, sans changement local, mis à jour par avance rapide avant tout travail ; les deux autres branches 0.4.102 et 0.4.145 ; Drive non relevé (session cloud).
+- **Objectif** : demande de l'utilisateur : « Le changement de carte selon le zoom ne semble pas fonctionner correctement sur "Rando été" en zoom 18 et 19 pourtant fonctionnelle entre le zoom 10 et 9. Pourquoi ? Et corrige ». Les cartes changent maintenant au zoom affiché sur la carte : au zoom 18 OpenStreetMap, à partir du zoom 19 les photos aériennes.
+- **Réalisé** :
+  - **Cause** : la pastille d'échelle affiche le zoom arrondi et MapLibre dessine les tuiles du zoom le plus proche (« 18 » de 17,5 à 18,5), alors que les plages des calques coupaient aux zooms entiers (« 18 » de 18,0 à 19,0). Sur la première moitié de « 18 » on voyait encore le SCAN 25 (agrandi), sur la première moitié de « 19 » encore OpenStreetMap. Entre 9 et 10 rien ne se voit : c'est la même carte (OpenTopoMap 9–11) ; le calque d'un seul zoom (OpenStreetMap 18) rend le demi-zoom de décalage évident.
+  - **Correction** (`:core` `LayerZoom`) : un calque est dessiné tant que le zoom affiché arrondi est dans sa plage (`min − 0,5` à `max + 0,5`), sur la carte (`cameraRange`), dans les panneaux (`isActiveAt`) et à l'impression. Un seul arrondi (`LayerZoom.shownZoom`) pour la pastille d'échelle, le bandeau « cartes dessinées au zoom z » (avant : partie entière, un de moins que la pastille la moitié du temps) et la fiche d'une carte.
+  - Aucun texte, écran ni disposition changés : pas d'aperçu (correction de logique demandée).
+  - ADR-123, plan (P3.1, P3.3).
+- **Décisions (ADR)** : ADR-123 (remplace la sémantique d'ADR-016 et la traduction des plages d'ADR-032).
+- **Tests / vérifications** :
+  - `LayerZoomTest` : nouveaux tests (calque d'un zoom « 18 » dessiné exactement quand la carte affiche 18, tous les huitièmes de zoom de 16 à 20 ; le zoom des tuiles que MapLibre demande est celui sur lequel les calques basculent, pour 4 écrans) ; tests existants passés à la nouvelle règle (accord règle affichée / règle MapLibre tous les quarts de zoom, favori Topo / Plan sans trou ni recouvrement).
+  - `BuiltinSourcesTest` : « Rando été » montre une seule carte à chaque zoom de 1 à 20 et la même carte sur tout ce que la carte appelle ce zoom (z − 0,5 à z + 0,49). `PrintPlanTest` : 1:25 000 (zoom équivalent 15,67, affiché 16) et 1:50 000 (14,67, affiché 15).
+  - Premier passage `./gradlew :core:test` : **rouge**, 2 échecs sur 1 077 (`PrintPlanTest`, `BuiltinSourcesTest` « Rando Hiver » : attentes écrites pour l'ancienne règle), corrigés ; puis `./gradlew :core:test :data:testDebugUnitTest :app:testDebugUnitTest` (`LC_ALL=C.UTF-8`) : vert.
+  - `./gradlew spotlessApply` seul, puis `./gradlew check assembleDebug`, `CI=true ./gradlew help`, run « CI » (émulateur compris) : résultat dans le dernier message de la session.
+  - **Non vérifié à l'écran** : pas d'émulateur en session cloud, et le contrôle de la CI ne zoome pas jusqu'à 18. À voir sur le téléphone ou l'émulateur du poste : « Rando été », pastille d'échelle ouverte, zooms 17 → 18 → 19.
+- **Problèmes / dette technique** : tous les calques limités à des zooms basculent un demi-zoom plus tôt qu'avant (voulu). Le repère du zoom courant de la barre de « Conditions d'affichage » reste continu (à moins d'un demi-cran de la poignée quand le calque s'allume).
+- **Prochaine étape recommandée** : vérifier « Rando été » aux zooms 17 à 19 sur le téléphone ; supprimer `debug-f335585` (P38.7) ; essai de l'impression en réseau mobile (P17.11).
+
 ## 2026-11-10 — Session 97 (suite 3) — [P38.7] Passerelle vérifiée, fusion dans `main`
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après b8a065a (0.4.233, CI verte, run 42840189325) ; ce commit est poussé sur la branche **et sur `main`** (avance rapide, pas de PR). Copies avant la fusion (`git fetch`) : cette branche = local = 0.4.233 (référence) ; `main` = 0.4.230 (f335585), sans commit absent de la branche ; Drive non monté sur ce poste.
 - **Objectif** : demande de l'utilisateur du 2026-11-10 : « Oui, fusionne ». `main` reçoit la règle des releases en APK de release (ADR-121) et la passerelle 0.4.231 (ADR-122) : un push sur `main` ne republie plus de pré-version de debug.

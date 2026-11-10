@@ -118,9 +118,9 @@ Tuiles **Terrarium** (AWS open data `elevation-tiles-prod`) traitées comme une 
 ### P3 — Superposition par plage de zoom (N3)
 | ID | Statut | Tâche | Critères d'acceptation |
 |---|---|---|---|
-| P3.1 | 🔄 | `LayerConfig.displayMinZoom/displayMaxZoom` (bornes incluses, en zoom des tuiles), traduits en `minzoom` / `maxzoom` MapLibre avec le décalage de zoom de l'écran (ADR-011, ADR-016, ADR-032). 7 tests JVM (`LayerZoomTest`). **À voir sur téléphone** | Tests JVM de la traduction ; vérifier à l'écran qu'un calque 8–16 apparaît à l'affichage « zoom 8 » |
+| P3.1 | 🔄 | `LayerConfig.displayMinZoom/displayMaxZoom` (bornes incluses, en zoom des tuiles), traduits en `minzoom` / `maxzoom` MapLibre avec le décalage de zoom de l'écran (ADR-011, ADR-016, ADR-032). **Depuis le 2026-11-10 (ADR-123)** : un calque est dessiné tant que le zoom affiché sur la carte (le plus proche, celui des tuiles) est dans sa plage ; corrige « Rando été » aux zooms 18 et 19. 7 tests JVM (`LayerZoomTest`). **À voir sur téléphone** | Tests JVM de la traduction ; vérifier à l'écran qu'un calque 8–16 apparaît à l'affichage « zoom 8 » |
 | P3.2 | 🔄 | UI « barres de zoom » : une barre de 0 à 20 par calque, deux poignées, curseur du zoom courant, calques inactifs grisés. `ZoomBar` (5 tests), persistance testée ; fluidité **à voir sur téléphone** | Réglage au doigt fluide ; valeurs persistées |
-| P3.3 | 🔄 | Espaces de travail / préréglages (pile de calques + plages, nommés). Préréglage fourni « IGN Topo 8–16, Plan 1–7, Pentes » ; critère vérifié en JVM tous les quarts de zoom ; affichage **à voir sur téléphone** | z ≥ 8 → Topo + Pentes ; z ≤ 7 → Plan + Pentes ; aucun trou visuel à z = 7,5 |
+| P3.3 | 🔄 | Espaces de travail / préréglages (pile de calques + plages, nommés). Préréglage fourni « IGN Topo 8–16, Plan 1–7, Pentes » ; critère vérifié en JVM tous les quarts de zoom ; affichage **à voir sur téléphone** | z ≥ 8 → Topo + Pentes ; z ≤ 7 → Plan + Pentes ; aucun trou visuel à z = 7,5 (depuis ADR-123, le passage se fait à 7,5 : zoom affiché 8) |
 | P3.4 | ✅ | Le compositeur PDF (P7) et le téléchargement de zone (P2.4) respectent les plages de zoom des calques (`ZoomLimit`, `PrintLayers`) | Ne télécharger que les calques visibles au zoom concerné (option) |
 
 ### P4 — Assistant d'ajout de carte (N2)

@@ -88,14 +88,15 @@ class PrintPlanTest {
         // 1:25 000 at 300 dpi and 45 degrees: equivalent zoom 15.67, as the screen would show at that zoom.
         val range = plan(stack(layer("ign-maps", min = 8, max = 15), layer("ign-plan", min = 16, max = 19)))
         assertEquals(15.67, range.equivalentZoom, 0.01)
-        // 15.67 < 15 + 1: the first stays; 15.67 < 16: the second is not yet visible.
-        assertEquals(listOf("ign-maps"), range.layers.map { it.source.id })
+        // 15.67 is shown as zoom 16, the nearest (ADR-123): the second map is drawn, the first is past its range.
+        assertEquals(listOf("ign-plan"), range.layers.map { it.source.id })
         val outside = assertIs<PrintWarning.OutsideRange>(range.warnings.single())
-        assertEquals("ign-plan", outside.sourceId)
-        // The same stack at 1:10 000 (equivalent zoom 17.0): the roles are swapped.
-        val closer =
-            plan(stack(layer("ign-maps", min = 8, max = 15), layer("ign-plan", min = 16, max = 19)), scale = 10_000.0)
-        assertEquals(listOf("ign-plan"), closer.layers.map { it.source.id })
+        assertEquals("ign-maps", outside.sourceId)
+        // The same stack at 1:50 000 (equivalent zoom 14.67, shown as 15): the roles are swapped.
+        val farther =
+            plan(stack(layer("ign-maps", min = 8, max = 15), layer("ign-plan", min = 16, max = 19)), scale = 50_000.0)
+        assertEquals(14.67, farther.equivalentZoom, 0.01)
+        assertEquals(listOf("ign-maps"), farther.layers.map { it.source.id })
     }
 
     @Test
