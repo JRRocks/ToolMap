@@ -19,7 +19,7 @@ jobs:
     # The emulator check (below) adds a few minutes to the build.
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # The token is not left in .git/config, where the build and the tests it runs could read it (P36 review):
           # no step uses git after this one (gh and github-script get the token they need themselves).
