@@ -116,7 +116,7 @@ jobs:
       - name: Upload the emulator check
         if: always() && steps.emulator.outcome != 'skipped'
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: emulator-check-release
           path: emulator-check/
@@ -124,14 +124,14 @@ jobs:
           retention-days: 14
 
       - name: Upload APKs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: toolmap-release-apk
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       - name: Upload bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: toolmap-release-aab
           path: app/build/outputs/bundle/release/*.aab
@@ -139,7 +139,7 @@ jobs:
 
       - name: Upload the R8 mapping (needed to read crash traces)
         if: ${{ inputs.minify }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: toolmap-r8-mapping
           path: app/build/outputs/mapping/release/mapping.txt
