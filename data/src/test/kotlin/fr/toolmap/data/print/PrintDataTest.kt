@@ -132,6 +132,16 @@ class PrintDataTest {
     }
 
     @Test
+    fun `a tile whose server stays silent is given up after the print's own time, not the client's`() {
+        answer = { _, _, _ -> MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE) }
+        val fetcher = HttpPrintTileFetcher(client, store, offline, tileTimeoutMillis = 300)
+        val start = System.nanoTime()
+        assertIs<TileFetch.Unavailable>(fetcher.fetch(free, TileId(9, 0, 0)))
+        // The client's own read timeout is 10 s here (30 s in the app), and it would try a second connection.
+        assertTrue((System.nanoTime() - start) / 1_000_000 < 5_000, "the tile held the print too long")
+    }
+
+    @Test
     fun `offline and restricted servers are never reached by a print`() {
         val fetcher = HttpPrintTileFetcher(client, store, offline)
         assertIs<TileFetch.Unavailable>(fetcher.fetch(osmLike, TileId(9, 0, 0)))

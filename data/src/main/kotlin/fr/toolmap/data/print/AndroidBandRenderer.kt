@@ -108,20 +108,38 @@ class AndroidBandRenderer(
         return RenderedBand(PdfImage.jpeg(width, band.heightPx, out.toByteArray()), missing)
     }
 
-    /** The tiles of [placements], read in parallel (never more at once than the source's server policy allows). */
+    /**
+     * The tiles of [placements], read in parallel (never more at once than the source's server policy allows).
+     *
+     * The few tiles that could not be read are asked once more: on a phone network a connection goes silent now and
+     * then, its tiles wait for nothing until their time runs out, and a new connection gets them at once. When most of
+     * the strip failed there is no network to speak of (or the map is not stored and must not be fetched): asking again
+     * would only double the wait.
+     */
     private fun fetchAll(
         layer: PrintLayer,
         placements: List<TilePlacement>,
     ): Map<TileId, TileFetch> {
         if (placements.isEmpty()) return emptyMap()
+        val tiles = placements.map { it.tile }.distinct()
+        val first = fetchPass(layer, tiles)
+        val failed = tiles.filter { first[it] is TileFetch.Unavailable }
+        if (failed.isEmpty() || failed.size * RETRY_SHARE > tiles.size) return first
+        return first + fetchPass(layer, failed)
+    }
+
+    private fun fetchPass(
+        layer: PrintLayer,
+        tiles: List<TileId>,
+    ): Map<TileId, TileFetch> {
         val width = minOf(MAX_FETCH_THREADS, BulkPolicy.limitsFor(layer.source).maxThreads).coerceAtLeast(1)
         val gate = Semaphore(width)
         val tasks =
-            placements.map { p ->
+            tiles.map { tile ->
                 Callable {
                     gate.acquire()
                     try {
-                        p.tile to fetch(layer, p.tile)
+                        tile to fetch(layer, tile)
                     } finally {
                         gate.release()
                     }
@@ -233,6 +251,9 @@ class AndroidBandRenderer(
     companion object {
         const val DEFAULT_JPEG_QUALITY = 88
         private const val MAX_FETCH_THREADS = 6
+
+        /** Failed tiles are asked again when they are at most one in [RETRY_SHARE] of the strip. */
+        private const val RETRY_SHARE = 2
         private const val MAX_ALPHA = 255f
         private const val MIN_BUFFER = 64 * 1024
         private const val COMPRESSION_GUESS = 8

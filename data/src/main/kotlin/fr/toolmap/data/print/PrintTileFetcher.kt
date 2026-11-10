@@ -18,6 +18,7 @@ import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 /** What reading one tile gave. */
 sealed interface TileFetch {
@@ -59,6 +60,12 @@ class HttpPrintTileFetcher(
     sources: SourceLookup = SourceLookup { null },
     private val scaling: () -> ScalingPolicy = { ScalingPolicy() },
     private val composer: TileComposer = BitmapTileComposer(),
+    /**
+     * The longest one tile may take, waiting for its turn included. The tile client waits 15 s for a connection and
+     * 30 s for each read, and tries again on another connection: right for a map on the screen, but a print waits for
+     * every tile of a strip, and one silent connection held it for a minute (0.4.224, seen on a phone).
+     */
+    private val tileTimeoutMillis: Long = TILE_TIMEOUT_MILLIS,
 ) : PrintTileFetcher {
     private val resolver = TileResolver { id -> sources.find(id) }
 
@@ -114,7 +121,9 @@ class HttpPrintTileFetcher(
                 .addPathSegment(tile.y.toString())
                 .build()
         return try {
-            client.newCall(Request.Builder().url(url).get().build()).execute().use { response ->
+            val call = client.newCall(Request.Builder().url(url).get().build())
+            call.timeout().timeout(tileTimeoutMillis, TimeUnit.MILLISECONDS)
+            call.execute().use { response ->
                 when {
                     response.isSuccessful -> {
                         val bytes = response.body?.bytes()
@@ -139,5 +148,6 @@ class HttpPrintTileFetcher(
 
     private companion object {
         const val HTTP_NOT_FOUND = 404
+        const val TILE_TIMEOUT_MILLIS = 20_000L
     }
 }

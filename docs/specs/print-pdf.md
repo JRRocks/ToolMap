@@ -89,7 +89,7 @@ Notations : `S` = dénominateur d'échelle, `d` = dpi, `(fw, fh)` = taille du ca
 | PDF | `PdfWriter` (Helvetica WinAnsi, JPEG `DCTDecode`, `MediaBox` réelle) | `fr.toolmap.core.pdf` |
 | Habillage | titre / sous-titre, échelle numérique, barre graphique, nord + déclinaison (`GeomagneticField`) + convergence, grille (UTM, Lambert 93, WGS84, MGRS) étiquetée, traces, waypoints, légende, cartouche avec attributions, coordonnées des coins, mini-carte | `PageComposer`, `GridPlanner`, `ScaleBarPlan` |
 | Atlas | grille de pages avec recouvrement, ou le long d'une trace ; page d'assemblage numérotée | `Atlas` |
-| Tuiles | stockage local d'abord ; réseau seulement pour les sources sans politique restrictive ; hachures + compte pour les tuiles indisponibles ; téléchargement des manquantes (≤ 1 500) | `HttpPrintTileFetcher`, `ZoneDownloader.missing/runTiles`, `AndroidBandRenderer` |
+| Tuiles | stockage local d'abord ; réseau seulement pour les sources sans politique restrictive ; une tuile est abandonnée au bout de 20 s (attente de son tour comprise), et les tuiles en échec d'une bande sont redemandées une fois quand elles sont la moitié de la bande au plus (P17.11) ; hachures + compte pour les tuiles indisponibles ; téléchargement des manquantes (≤ 1 500) | `HttpPrintTileFetcher`, `ZoneDownloader.missing/runTiles`, `AndroidBandRenderer` |
 | Interface | ~~panneau unique, aperçu `PdfRenderer`, modèles~~ → parcours P17 (§6) : `PrintSetupDialog`, `PrintFrameOverlay` + `PrintFrameBar` + `PrintFrameActions`, `PrintConfirmSheet`, `PrintOutcomeDialog` ; étapes `PrintStage` dans `PrintViewModel` | `fr.toolmap.print` (`:app`) |
 | Réglages mémorisés | `PrintTemplateStore.last` / `remember` (`last.json`, écriture atomique) ; ~~`templates.json`~~ | `:data` |
 

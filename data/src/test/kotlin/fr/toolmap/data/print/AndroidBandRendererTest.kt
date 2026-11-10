@@ -106,6 +106,40 @@ class AndroidBandRendererTest {
         }
     }
 
+    @Test
+    fun `a tile that fails once is asked again and printed, nothing is missing`() {
+        val page = plan.pages.single()
+        val band = page.raster.band(0)
+        val flaky = page.raster.placements(page.layers.layers.single().tileZoom, band).first().tile
+        val asked = java.util.concurrent.ConcurrentHashMap<TileId, Int>()
+        val once =
+            PrintTileFetcher { _: TileSource, tile: TileId ->
+                val count = asked.merge(tile, 1, Int::plus)
+                if (tile == flaky && count == 1) TileFetch.Unavailable else TileFetch.Found(solidTile(Color.RED))
+            }
+        AndroidBandRenderer(once).use { renderer ->
+            assertEquals(0, renderer.render(page, band).missingTiles)
+        }
+        assertEquals(2, asked[flaky])
+        assertTrue(asked.filterKeys { it != flaky }.values.all { it == 1 }, "the other tiles are asked once")
+    }
+
+    @Test
+    fun `when most tiles fail none is asked again`() {
+        val page = plan.pages.single()
+        val band = page.raster.band(0)
+        val asked = java.util.concurrent.ConcurrentHashMap<TileId, Int>()
+        val dead =
+            PrintTileFetcher { _: TileSource, tile: TileId ->
+                asked.merge(tile, 1, Int::plus)
+                TileFetch.Unavailable
+            }
+        AndroidBandRenderer(dead).use { renderer ->
+            assertTrue(renderer.render(page, band).missingTiles > 0)
+        }
+        assertTrue(asked.values.all { it == 1 }, "asked: $asked")
+    }
+
     /** A Terrarium tile at [meters] everywhere. */
     private fun demTile(meters: Int): ByteArray {
         val v = meters + 32768
