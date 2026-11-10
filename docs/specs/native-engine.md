@@ -266,16 +266,15 @@ puis : l'APK de debug non debuggable pour y mesurer les performances pendant le 
 |---|---|---|---|
 | `debug` (APK de la CI, celui de l'essai) | oui | **oui** | **non** depuis P36.7 (ADR-120) ; `-Ptoolmap.debuggable=true` pour un build local avec débogueur et `run-as` |
 | `benchmark` (mesures scriptées de `tools/perf`, R8) | oui | oui ; `perf.engine=kotlin` l'éteint pour un lancement | non |
-| `release` | oui | **non**, jusqu'à la release complète | non |
+| `release` | oui | **oui depuis le 2026-11-10** (P38.6) | non |
 
-La **release complète** (P38.6) se fait quand le test du PDF géoréférencé dans QGIS (P37.3) est fini et que
-l'utilisateur le dit : `NATIVE_ENGINE` à `true` dans le type `release` de `app/build.gradle.kts`, puis le workflow
-« Release ». D'ici là, rien de ce travail n'atteint `main` (la branche dont les téléphones tirent leurs mises à jour)
-sans une fusion demandée par l'utilisateur ; la CI continue de livrer l'APK de debug de la branche, après son
-contrôle sur émulateur.
+La **release complète** (P38.6) a été demandée par l'utilisateur le 2026-11-10, le test du PDF géoréférencé dans QGIS
+(P37.3) et l'essai des performances (P38.5) finis : `NATIVE_ENGINE` est à `true` dans le type `release` de
+`app/build.gradle.kts`, et le workflow « Release » compile et contrôle ce build sur l'émulateur. La fusion dans `main`
+reste une demande à part de l'utilisateur.
 
 Le contrôle sur émulateur de la CI (`smoke.sh`, ADR-117) échoue si un APK qui contient la bibliothèque ne l'a pas aux
-commandes (hors release), et si l'application plante pendant la mesure.
+commandes (release comprise), et si l'application plante pendant la mesure (une release n'offre pas la mesure).
 
 ## 6. Compiler
 

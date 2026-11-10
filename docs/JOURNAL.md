@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-11-10 — Session 96 — [P38.6] Release complète : le moteur natif aux commandes dans le build de release
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après e403681 (0.4.227, CI verte, émulateur compris, run 42816972212) ; poussée sur `JRRocks/ToolMap` (pas de PR, pas de fusion dans `main`). Copies : GitHub (cette branche) = local = 0.4.227 (référence), Drive non monté sur ce poste.
+- **Objectif** : demande de l'utilisateur du 2026-11-10, après le test QGIS et l'essai des performances : « Oui, release ». Le build de release dessine désormais ses tuiles fusionnées, découpées et complétées avec le moteur natif, comme l'APK de debug ; rien ne change à l'écran.
+- **Réalisé** :
+  - `app/build.gradle.kts` : `NATIVE_ENGINE` à `true` pour le type `release` (il l'était déjà pour `debug` et `benchmark`).
+  - `tools/emulator/smoke.sh` : un APK de release qui contient la bibliothèque doit l'avoir aux commandes, comme les autres (il devait jusqu'ici la garder éteinte, et le contrôle du workflow « Release » aurait échoué).
+  - Spec `native-engine.md` § 5, plan (P38.6 🔄 jusqu'au run « Release » vert), `CLAUDE.md` (contrôle sur émulateur, rappels).
+  - Workflow « Release » lancé sur cette branche après le run « CI » vert du commit (résultat dans le message de fin de session et dans l'entrée suivante).
+- **Décisions (ADR)** : aucune nouvelle ; ADR-119 point 5 prévoyait ce passage à la validation de l'utilisateur, donnée le 2026-11-10.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply` seul, puis `./gradlew check assembleDebug` et `CI=true ./gradlew help` avant le push (résultat dans le message de fin de session).
+  - Le build de release ne se compile pas avec le moteur sur ce poste (ni Rust ni NDK) et sa clé n'est que dans les secrets du dépôt : c'est le workflow « Release » qui le compile, le signe et le contrôle sur émulateur.
+- **Problèmes / dette technique** :
+  - Le workflow « Release » ne publie pas de release GitHub : il laisse des artefacts (`toolmap-release-apk`, `toolmap-release-aab`), à télécharger connecté. Les téléphones continuent de recevoir l'APK de debug de la CI (`android-<version>`), qui a le moteur depuis la 0.4.222.
+  - R8 reste désactivé (jamais essayé sur un téléphone, `release.md` § 4).
+- **Prochaine étape recommandée** : P38.6 ✅ une fois le run « Release » vert consigné ; fusion dans `main` si l'utilisateur la demande ; son essai de l'impression en réseau mobile (P17.11).
+
 ## 2026-11-10 — Session 95 — [P37.2][P37.3][P38.5] PDF géoréférencé vérifié dans QGIS, performances mesurées sur l'émulateur
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 2bd9904 (0.4.226, CI verte, émulateur compris, run 42802538813) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies relevées (`git fetch`) : GitHub (cette branche) = local = **0.4.226** (référence), arbre propre ; `main` 0.4.134, `claude/blissful-hopper-8kr9d6` 0.4.145, `claude/pensive-edison-cgzr8t` 0.4.102 ; Drive non monté sur ce poste (ni version relevée ni miroir).
 - **Objectif** : demande de l'utilisateur : passer au test du PDF géoréférencé dans QGIS (P37.3) et à l'essai des performances (P38.5). Le PDF géoréférencé de l'application s'ouvre à sa place dans QGIS, vérifié sur l'émulateur ; rien ne change dans l'application.

@@ -78,23 +78,14 @@ if [[ "$front" != *"$pkg/"* ]]; then fail "ToolMap is not in front: $front"; fi
 pid="$(adb shell pidof "$pkg" | tr -d '\r' || true)"
 [ -n "$pid" ] || fail "ToolMap is not running"
 
-# The native engine: in charge wherever the APK carries it, except in a release, which keeps the Kotlin code in charge
-# until the engine has been tried (BuildConfig.NATIVE_ENGINE).
+# The native engine: in charge wherever the APK carries it, a release included since P38.6 (BuildConfig.NATIVE_ENGINE).
 engine_note=""
 if unzip -l "$apk" 2>/dev/null | grep 'libtoolmap_engine.so' > /dev/null; then
   engine="$(grep -E 'ToolMapEngine *: engine ' "$out/logcat.txt" | tail -n 1 | sed -E 's/^.*ToolMapEngine *: //' || true)"
   echo "Native engine: ${engine:-no line in the log}"
-  case "$(basename "$apk")" in
-    ToolMap-release-*)
-      [[ "$engine" == *"state=off"* ]] || fail "a release keeps the native engine off, the log says: ${engine:-nothing}"
-      engine_note=", native engine kept off (release)"
-      ;;
-    *)
-      [[ "$engine" == *"native=1 state=active"* ]] ||
-        fail "the APK carries the native engine but it is not in charge: ${engine:-no line in the log}"
-      engine_note=", native engine in charge"
-      ;;
-  esac
+  [[ "$engine" == *"native=1 state=active"* ]] ||
+    fail "the APK carries the native engine but it is not in charge: ${engine:-no line in the log}"
+  engine_note=", native engine in charge"
 else
   echo "Native engine: not in this APK (built without Rust), the Kotlin code does all the work."
 fi

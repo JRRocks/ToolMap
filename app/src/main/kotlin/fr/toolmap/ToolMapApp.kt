@@ -77,7 +77,7 @@ class ToolMapApp : Application() {
     /**
      * The native compute engine (Rust, ADR-119): loaded and checked against the Kotlin code off the main thread, then
      * in charge of the heavy pixel work of the tiles. Until it is, and whenever it cannot be, the Kotlin code works.
-     * A release keeps the Kotlin code in charge (`BuildConfig.NATIVE_ENGINE`) until the engine has been tried.
+     * In charge in every build type since P38.6 (`BuildConfig.NATIVE_ENGINE`).
      */
     private fun startNativeEngine() {
         Thread({

@@ -198,9 +198,9 @@ android {
             buildConfigField("boolean", "DEV_TOOLS", "false")
             buildConfigField("boolean", "PERF_LOG", "false")
             buildConfigField("boolean", "PERF_INTENT", "false")
-            // A release keeps the Kotlin code in charge until the user has tried the native engine on the emulator
-            // and said so (request of 2026-11-09, ADR-119): then this line becomes "true" (P38.6).
-            buildConfigField("boolean", "NATIVE_ENGINE", "false")
+            // The native engine is in charge in a release too since 2026-11-10 (P38.6): tried on the emulator with
+            // the debug APK (P38.5), then asked for by the user (ADR-119).
+            buildConfigField("boolean", "NATIVE_ENGINE", "true")
         }
         // What the measures of P15 run on (ADR-057): a release with R8, still installable over the debug APK.
         create("benchmark") {

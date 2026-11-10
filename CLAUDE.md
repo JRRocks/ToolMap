@@ -18,7 +18,7 @@ Ne sont pas concernées : les modifications sans effet visible (logique, perform
 
 Aucune version n'est mise à disposition (artefact `toolmap-debug-apk`, pré-release `debug-<sha7>`, release `android-<version>` ou `v*`, lien donné à l'utilisateur) sans avoir tourné sur un émulateur Android, **en session cloud comme en session locale** (ADR-117) :
 
-- **CI (toutes les sessions)** : le job « CI » installe l'APK qu'il vient de compiler sur un émulateur (API 34, `tools/emulator/smoke.sh`) et le lance ; un plantage Java ou natif, un ANR, l'écran de rapport de plantage ou un écran de carte absent font échouer le job **avant** toute publication (capture, vue de la fenêtre et journal : artefact `emulator-check`). Même contrôle dans « Release ». Le script exige aussi que le moteur natif (ADR-119) soit aux commandes dans un APK qui le contient (hors release), puis demande à l'application de mesurer le moteur contre le code Kotlin (`dumpsys activity`, lignes « Native engine » du journal du job).
+- **CI (toutes les sessions)** : le job « CI » installe l'APK qu'il vient de compiler sur un émulateur (API 34, `tools/emulator/smoke.sh`) et le lance ; un plantage Java ou natif, un ANR, l'écran de rapport de plantage ou un écran de carte absent font échouer le job **avant** toute publication (capture, vue de la fenêtre et journal : artefact `emulator-check`). Même contrôle dans « Release ». Le script exige aussi que le moteur natif (ADR-119) soit aux commandes dans un APK qui le contient (release comprise depuis P38.6), puis demande à l'application de mesurer le moteur contre le code Kotlin (`dumpsys activity`, lignes « Native engine » du journal du job).
 - **Session cloud** (pas de KVM dans le conteneur, donc pas d'émulateur) : le lien n'est donné qu'après le run CI vert, contrôle sur émulateur compris ; quand la session a touché à l'écran, regarder la capture de `emulator-check` et le dire (le stockage des artefacts n'est pas joignable depuis le conteneur cloud : lire alors les « Texts on the screen » que `smoke.sh` écrit dans le journal du job, `get_job_logs`).
 - **Session locale (poste Windows)** : avant le push, `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` sur l'émulateur, puis parcourir à la main les écrans touchés par la session (captures) ; le consigner au journal.
 - Un contrôle sur émulateur rouge ne se contourne pas : on corrige, on revérifie, puis on repousse.
@@ -27,7 +27,7 @@ Aucune version n'est mise à disposition (artefact `toolmap-debug-apk`, pré-rel
 
 Tant qu'une ligne ci-dessous n'est pas faite, la rappeler à l'utilisateur **à chaque session, dans le premier et dans le dernier message**, même quand la session porte sur autre chose. Le jour où c'est fait : le consigner au journal et retirer la ligne d'ici.
 
-- (aucun rappel en cours ; le test du PDF géoréférencé dans QGIS, P37.3, et l'essai des performances, P38.5, sont faits depuis le 2026-11-10, journal, session 95. La release complète, P38.6, attend que l'utilisateur la demande.)
+- (aucun rappel en cours ; le test du PDF géoréférencé dans QGIS, P37.3, et l'essai des performances, P38.5, sont faits depuis le 2026-11-10, journal, session 95. La release complète, P38.6, a été demandée et lancée le 2026-11-10, session 96.)
 
 ## ⚠️ Tâches de debug : pas d'aperçu, pas de question (demande de l'utilisateur, 2026-10-24)
 
