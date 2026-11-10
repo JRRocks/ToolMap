@@ -64,8 +64,9 @@ if (-not $SkipApk) {
     New-Item -ItemType Directory $tmp | Out-Null
     $archived = 0
     function Copy-ToDrive([string]$dir) {
-        foreach ($apk in Get-ChildItem $dir -Recurse -Filter "ToolMap-debug-*.apk") {
-            $target = Join-Path $apkDir ("ToolMap." + $apk.BaseName.Substring("ToolMap-debug-".Length) + ".apk")
+        # Releases carry the release APK since ADR-121; the two older ones still listed may carry the debug APK.
+        foreach ($apk in Get-ChildItem $dir -Recurse -Filter "ToolMap-*-*.apk") {
+            $target = Join-Path $apkDir ("ToolMap." + ($apk.BaseName -replace '^ToolMap-[a-z]+-', '') + ".apk")
             Copy-Item $apk.FullName $target -Force
             Write-Host "APK de GitHub archivé : $target"
             $script:archived++
@@ -74,24 +75,17 @@ if (-not $SkipApk) {
     try {
         $tags = @(gh release list --repo $repo --limit 100 --json tagName -q '.[].tagName' |
             Where-Object { $_ -like "android-*" })
-        # This commit's version has no release (older than the two kept, or publication failed): its CI artifact.
+        # This commit's version has no release (older than the two kept, or publication failed): nothing to archive
+        # for it. The CI artifact is the debug APK, for the development phase only (ADR-121): never archived.
         if ($tags -notcontains "android-$localVersion") {
-            $sha = (git -C $projectDir rev-parse HEAD).Trim()
-            $run = gh run list --repo $repo --commit $sha --workflow CI --event push --status success --limit 1 `
-                --json databaseId -q '.[0].databaseId'
-            if ($run) {
-                gh run download $run --repo $repo -n toolmap-debug-apk -D (Join-Path $tmp "run") | Out-Null
-                Copy-ToDrive (Join-Path $tmp "run")
-            } else {
-                Write-Warning "Pas d'APK de GitHub pour $($sha.Substring(0, 7)) : relancer ce script après la CI."
-            }
+            Write-Warning "Pas de release android-$localVersion sur GitHub : rien à archiver pour cette version (relancer ce script après la CI)."
         }
         foreach ($tag in $tags) {
             $target = Join-Path $apkDir ("ToolMap." + $tag.Substring("android-".Length) + ".apk")
             # One asset per android-* release (ci.yml). No quotes in the filter: Windows PowerShell 5.1 strips them.
             $size = gh release view $tag --repo $repo --json assets -q '.assets[0].size'
             if (-not (Test-Path $target) -or (Get-Item $target).Length -ne [long]$size) {
-                gh release download $tag --repo $repo -p "ToolMap-debug-*.apk" -D (Join-Path $tmp $tag) | Out-Null
+                gh release download $tag --repo $repo -p "ToolMap-*-*.apk" -D (Join-Path $tmp $tag) | Out-Null
                 Copy-ToDrive (Join-Path $tmp $tag)
             }
         }

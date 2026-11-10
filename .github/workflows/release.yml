@@ -77,10 +77,14 @@ jobs:
             echo "No release key: the artifacts will be unsigned."
           fi
 
+      # The build number follows the version name (app/build.gradle.kts, ADR-121), as in the APK the CI publishes.
       - name: Build
+        env:
+          # Optional: the coordination server built into the APK (repository secrets; empty = none built in).
+          TOOLMAP_FIREBASE_DB_URL: ${{ secrets.TOOLMAP_FIREBASE_DB_URL }}
+          TOOLMAP_FIREBASE_API_KEY: ${{ secrets.TOOLMAP_FIREBASE_API_KEY }}
         run: >
           ./gradlew assembleRelease bundleRelease
-          -Ptoolmap.versionCode=${{ github.run_number }}
           -Ptoolmap.minify=${{ inputs.minify || 'false' }}
 
       # No version is published before it ran on an emulator (CLAUDE.md, ADR-117); an unsigned APK does not install,

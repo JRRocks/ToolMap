@@ -66,10 +66,26 @@ class AppUpdateTest {
             [
               {"tag_name":"debug-1111111","draft":true,"assets":[{"name":"ToolMap-debug-0.9.0.apk","browser_download_url":"https://x/a.apk","size":1}]},
               {"tag_name":"v0.8.0","draft":false,"assets":[{"name":"ToolMap-debug-0.8.0.apk","browser_download_url":"https://x/b.apk","size":1}]},
-              {"tag_name":"debug-2222222","draft":false,"assets":[{"name":"ToolMap-release-0.7.0.apk","browser_download_url":"https://x/c.apk","size":1},{"name":"notes.txt","browser_download_url":"https://x/d","size":1}]}
+              {"tag_name":"debug-2222222","draft":false,"assets":[{"name":"ToolMap-benchmark-0.7.0.apk","browser_download_url":"https://x/c.apk","size":1},{"name":"notes.txt","browser_download_url":"https://x/d","size":1}]}
             ]
             """.trimIndent()
         assertNull(GitHubReleases.latestApk(body))
+    }
+
+    @Test
+    fun `the release APK of an Android release is read, above an older debug one`() {
+        // ADR-121: releases carry ToolMap-release-<version>.apk; those published before carried the debug APK.
+        val body =
+            """
+            [
+              {"tag_name":"android-0.4.231","draft":false,"assets":[{"name":"ToolMap-release-0.4.231.apk","browser_download_url":"https://x/231.apk","size":45000000}]},
+              {"tag_name":"android-0.4.230","draft":false,"assets":[{"name":"ToolMap-debug-0.4.230.apk","browser_download_url":"https://x/230.apk","size":1}]}
+            ]
+            """.trimIndent()
+        val apk = GitHubReleases.latestApk(body)!!
+        assertEquals("0.4.231", apk.version.toString())
+        assertEquals("https://x/231.apk", apk.url)
+        assertEquals(apk, UpdateDecision.offer("0.4.230", apk))
     }
 
     @Test

@@ -111,8 +111,16 @@ android {
         applicationId = "fr.toolmap"
         minSdk = minSdkLevel
         targetSdk = targetSdkLevel
-        // The release workflow passes the build number; a local build is version 1.
-        versionCode = providers.gradleProperty("toolmap.versionCode").map(String::toInt).getOrElse(1)
+        // The build number follows the version name (0.4.231 → 400231), the same for every build type and every
+        // workflow (ADR-121): a release APK and a debug APK of a later version install over each other, and Android
+        // refuses to go back to an older version. -Ptoolmap.versionCode overrides it.
+        val versionNumbers = appVersionName.split('.').map { it.toIntOrNull() ?: 0 }
+        val versionCodeFromName =
+            versionNumbers.getOrElse(0) { 0 } * 10_000_000 +
+                versionNumbers.getOrElse(1) { 0 } * 100_000 +
+                versionNumbers.getOrElse(2) { 0 }
+        versionCode =
+            providers.gradleProperty("toolmap.versionCode").map(String::toInt).getOrElse(versionCodeFromName)
         versionName = appVersionName
         // The commit an APK was built from, written in crash reports: CI builds know it, a local build says "local".
         val commit = providers.environmentVariable("GITHUB_SHA").orNull?.take(7) ?: "local"

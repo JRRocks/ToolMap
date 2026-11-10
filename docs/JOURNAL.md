@@ -20,6 +20,26 @@
 
 ---
 
+## 2026-11-10 — Session 97 — [P38.7] Toute release porte l'APK de release ; le debug ne sert plus qu'à la conception
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après f335585 (0.4.230, CI verte sur la branche et sur `main`, runs 42827284853 et 42827350304) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies : GitHub (cette branche = `main`) = local = 0.4.230 (référence), Drive non monté sur ce poste.
+- **Objectif** : question puis règle de l'utilisateur : la dernière release (`android-0.4.230`) portait encore un APK de debug ; « à partir de maintenant toute release se fait en APK native, les debug seront uniquement durant la conception », et, à la question de la cadence : « à chaque push, release en APK native, plus de debug sur GitHub hormis les artefacts ». Les téléphones reçoivent désormais l'APK de release ; rien ne change à l'écran, sauf les outils d'essai, absents d'une release.
+- **Réalisé** :
+  - **CI** (`ci.yml`) : avec la clé de publication, `check assembleDebug assembleRelease` ; contrôle sur émulateur de l'APK de release puis de l'APK de debug ; la release `android-<version>` porte `ToolMap-release-<version>.apk` ; l'étape de la pré-version `debug-<sha7>` est retirée ; la garde de livraison regarde la release, puis l'artefact. Sans clé (Dependabot) : ni APK de release ni publication.
+  - **`versionCode`** tiré du nom de version (`0.4.231` → `400231`) pour tous les types de build ; le workflow « Release » ne passe plus le numéro du run, et reçoit l'adresse du serveur de coordination comme la CI (elle manquait à son build).
+  - **Mise à jour dans l'application** (`GitHubReleases`) : lit `ToolMap-release-<version>.apk`, et encore l'ancien nom.
+  - **Miroir Drive** (`drive-mirror.ps1`) : archive les APK des releases quel que soit leur type dans le nom ; n'archive plus l'artefact de debug.
+  - ADR-121, spec `release.md` § 1, règle dans `CLAUDE.md`, plan (P38.7).
+- **Décisions (ADR)** : ADR-121.
+- **Tests / vérifications** :
+  - `AppUpdateTest` : nouveau cas (APK de release lu, au-dessus d'un ancien APK de debug), cas des autres fichiers adapté.
+  - `./gradlew spotlessApply` seul, puis `./gradlew check assembleDebug` et `CI=true ./gradlew help` avant le push ; run « CI », contenu de la release publiée et nettoyage des releases de debug : résultat dans le message de fin de session et dans l'entrée suivante.
+  - **Non vérifiable ici** : `drive-mirror.ps1` (Drive non monté ; seule sa syntaxe est contrôlée) ; l'installation de l'APK de release par-dessus l'APK de debug sur un téléphone.
+- **Problèmes / dette technique** :
+  - Une installation jusqu'à la 0.4.230 ne connaît que le nom `ToolMap-debug-…` : elle ne verra pas les nouvelles releases. Le premier APK de release s'installe une fois à la main, par-dessus (même clé).
+  - L'APK de release n'a ni le diagnostic des tuiles de « Plus », ni le journal d'événements agrandi, ni les lignes `ToolMapPerf`.
+  - R8 toujours désactivé ; le build de release n'est contrôlé que sur l'émulateur (démarrage, carte, moteur).
+- **Prochaine étape recommandée** : installer l'APK de release sur le téléphone ; fusion dans `main` si l'utilisateur la demande ; essai de l'impression en réseau mobile (P17.11).
+
 ## 2026-11-10 — Session 96 (suite 2) — [P38.6] Fusion de la branche de travail dans `main`
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après b83a4c5 (0.4.229, CI verte, émulateur compris, run 42823288713) ; ce commit est poussé sur la branche **et sur `main`** (avance rapide, sans commit de fusion, pas de PR). Copies avant la fusion (`git fetch`) : cette branche = local = 0.4.229 (référence) ; `main` = 0.4.134 (6fa0aec), sans aucun commit absent de la branche (77 commits de retard) ; Drive non monté sur ce poste.
 - **Objectif** : demande de l'utilisateur du 2026-11-10, après la release complète : « Oui, fusionne ». `main` reçoit tout le travail de la branche depuis la 0.4.134 : les téléphones qui suivent `main` se voient proposer cette version.

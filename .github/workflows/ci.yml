@@ -5,7 +5,8 @@ on:
   pull_request:
 
 permissions:
-  # Creating the debug pre-release (step "Publish the debug APK"); deleting old artifacts (step "Delete old artifacts").
+  # Creating the release android-<version> (step "Publish the Android release"); deleting old artifacts (step "Delete
+  # old artifacts").
   contents: write
   actions: write
 
@@ -69,8 +70,10 @@ jobs:
           ANDROID_HOME="$HOME/android-sdk" ./scripts/install-android-sdk.sh
           echo "sdk.dir=$HOME/android-sdk" > local.properties
 
-      # The publication key (ADR-047) signs the debug APK too, so that no APK handed out is signed by the public debug key.
-      # Without the secret, the build falls back to the public key, and the run says so.
+      # The publication key (ADR-047) signs the release APK, the one that is published (ADR-121), and the debug APK too,
+      # so that no APK handed out is signed by the public debug key. Without the secret (Dependabot, a fork), there is no
+      # release APK (unsigned, it would not install) and nothing is published; the debug APK falls back to the public
+      # key, and the run says so.
       - name: Publication key (only when the secret exists)
         env:
           KEYSTORE_BASE64: ${{ secrets.TOOLMAP_KEYSTORE_BASE64 }}
@@ -79,17 +82,19 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/publication.jks"
             echo "TOOLMAP_KEYSTORE_FILE=$RUNNER_TEMP/publication.jks" >> "$GITHUB_ENV"
             echo "APK_SIGNER=publication" >> "$GITHUB_ENV"
-            echo "The debug APK is signed with the publication key."
+            echo "RELEASE_TASK=assembleRelease" >> "$GITHUB_ENV"
+            echo "The release APK and the debug APK are signed with the publication key."
           else
             echo "APK_SIGNER=debug" >> "$GITHUB_ENV"
-            echo "::warning::No publication key in the secrets: the debug APK is signed with the public debug key."
+            echo "RELEASE_TASK=" >> "$GITHUB_ENV"
+            echo "::warning::No publication key in the secrets: no release APK, the debug APK is signed with the public debug key."
           fi
 
       # The import of the problem reports into issues (ADR-116), checked without network.
       - name: Problem import tests
         run: node --test tools/problems/reports.test.mjs
 
-      - name: Style, lint, unit tests, debug APK
+      - name: Style, lint, unit tests, debug APK, release APK
         env:
           # Optional: the coordination server built into the APK (repository secrets; empty = none built in).
           TOOLMAP_FIREBASE_DB_URL: ${{ secrets.TOOLMAP_FIREBASE_DB_URL }}
@@ -98,18 +103,22 @@ jobs:
           TOOLMAP_KEYSTORE_PASSWORD: ${{ secrets.TOOLMAP_KEYSTORE_PASSWORD }}
           TOOLMAP_KEY_ALIAS: ${{ secrets.TOOLMAP_KEY_ALIAS }}
           TOOLMAP_KEY_PASSWORD: ${{ secrets.TOOLMAP_KEY_PASSWORD }}
-        run: ./gradlew check assembleDebug
+        run: ./gradlew check assembleDebug $RELEASE_TASK
 
-      # The signer of the APK, as the SHA-256 of its certificate (public, not a secret). It changes when the publication
+      # The signer of the APKs, as the SHA-256 of its certificate (public, not a secret). It changes when the publication
       # key starts signing (ADR-047): docs/specs/release.md §2 gives the fingerprint of the public debug key to compare with.
-      - name: Show the signer of the debug APK
+      - name: Show the signer of the APKs
         run: |
           apksigner="$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
-          "$apksigner" verify --print-certs app/build/outputs/apk/debug/ToolMap-debug-*.apk
+          for apk in app/build/outputs/apk/*/ToolMap-*.apk; do
+            echo "$apk"
+            "$apksigner" verify --print-certs "$apk"
+          done
 
-      # No version is published before it ran on an emulator (CLAUDE.md, ADR-117): the APK just built is installed and
-      # started; a crash, an ANR, the crash report screen or no map screen fails the job before any publication below
-      # (artifact, pre-release, release). Cloud sessions have no emulator of their own: this is their check.
+      # No version is published before it ran on an emulator (CLAUDE.md, ADR-117): each APK just built is installed and
+      # started, the release APK (the one published) then the debug APK (the artifact); a crash, an ANR, the crash
+      # report screen or no map screen fails the job before any publication below (artifact, release). Cloud sessions
+      # have no emulator of their own: this is their check.
       - name: Enable KVM for the emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -136,7 +145,9 @@ jobs:
           target: google_apis
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
-          script: bash tools/emulator/smoke.sh app/build/outputs/apk/debug emulator-check
+          script: |
+            if [ -d app/build/outputs/apk/release ]; then bash tools/emulator/smoke.sh app/build/outputs/apk/release emulator-check/release; fi
+            bash tools/emulator/smoke.sh app/build/outputs/apk/debug emulator-check
 
       # The screenshot, window dump and log of the check, also when it failed (what to look at).
       - name: Upload the emulator check
@@ -171,47 +182,22 @@ jobs:
             }
             core.info(`Deleted ${old.length} artifacts, ${(freed / 1e6).toFixed(1)} MB; this run's upload is the only APK kept.`);
 
-      # Release assets are not counted in the Actions storage quota, so the APK also goes to a pre-release tagged with the
-      # commit (debug-<sha7>), titled with its version. Only the newest debug pre-release is kept, as for the artifacts.
-      # Pushes to main only: the app offers the newest of these pre-releases as its update (P31, ADR-094), so a work
-      # branch must not publish one; its APK is the artifact below.
-      - name: Publish the debug APK
-        id: publish-apk
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tag="debug-${GITHUB_SHA::7}"
-          apk="$(ls app/build/outputs/apk/debug/ToolMap-debug-*.apk)"
-          # The version is the one in the APK name (ToolMap-debug-<version>.apk, from appVersionName).
-          version="$(basename "$apk" .apk)"
-          version="${version#ToolMap-debug-}"
-          if [ "$APK_SIGNER" = "publication" ]; then
-            signed="signé avec la clé de publication de ToolMap (secret du dépôt)"
-          else
-            signed="signé avec la clé de debug publique : aucune clé de publication dans les secrets"
-          fi
-          gh release create "$tag" "$apk" --target "$GITHUB_SHA" --prerelease \
-            --title "ToolMap debug $version (${GITHUB_SHA::7})" \
-            --notes "APK de debug $version compilé depuis le commit ${GITHUB_SHA}, $signed. Une installation signée par une autre clé doit être désinstallée une fois."
-          for old in $(gh release list --limit 100 --json tagName -q '.[] | select(.tagName | startswith("debug-")) | .tagName'); do
-            [ "$old" = "$tag" ] || gh release delete "$old" --cleanup-tag --yes
-          done
-
-      # Every push (any branch but Dependabot's) also publishes its APK as the release android-<version>, and only the two
-      # newest versions are kept (ADR-099). The app ignores these tags (it reads debug-* only, ADR-094); the Windows
-      # workstation copies them to the Drive (scripts/drive-mirror.ps1). A version already published is kept as it is,
-      # and a version older than the two published ones is not published.
+      # Every push (any branch but Dependabot's) publishes its release APK as the release android-<version>, and only the
+      # two newest versions are kept (ADR-099). Since ADR-121 a release carries the release build type, never the debug
+      # one: the debug APK is only the artifact below, and the debug-<sha7> pre-releases are gone. The app offers these
+      # releases as its update (ADR-104); the Windows workstation copies them to the Drive (scripts/drive-mirror.ps1).
+      # A version already published is kept as it is, and a version older than the two published ones is not published.
+      # Release assets are not counted in the Actions storage quota.
       - name: Publish the Android release
-        if: github.event_name == 'push' && !startsWith(github.ref_name, 'dependabot/')
+        id: publish-apk
+        if: github.event_name == 'push' && !startsWith(github.ref_name, 'dependabot/') && env.APK_SIGNER == 'publication'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          apk="$(ls app/build/outputs/apk/debug/ToolMap-debug-*.apk)"
+          apk="$(ls app/build/outputs/apk/release/ToolMap-release-*.apk)"
           version="$(basename "$apk" .apk)"
-          version="${version#ToolMap-debug-}"
+          version="${version#ToolMap-release-}"
           tag="android-$version"
           if gh release view "$tag" > /dev/null 2>&1; then
             echo "$tag is already published: kept as it is."
@@ -225,20 +211,15 @@ jobs:
           fi
           latest=false
           [ "$(printf '%s\n' "$newest" | head -n 1)" = "$tag" ] && latest=true
-          if [ "$APK_SIGNER" = "publication" ]; then
-            signed="signé avec la clé de publication de ToolMap"
-          else
-            signed="signé avec la clé de debug publique : aucune clé de publication dans les secrets"
-          fi
           gh release create "$tag" "$apk" --target "$GITHUB_SHA" --latest="$latest" \
             --title "ToolMap Android $version" \
-            --notes "APK $version compilé par la CI depuis le commit ${GITHUB_SHA} (branche ${GITHUB_REF_NAME}), $signed. Seules les deux dernières versions sont gardées ici ; toutes sont archivées sur le Drive."
+            --notes "APK de release $version compilé par la CI depuis le commit ${GITHUB_SHA} (branche ${GITHUB_REF_NAME}), signé avec la clé de publication de ToolMap, contrôlé sur émulateur. Seules les deux dernières versions sont gardées ici ; toutes sont archivées sur le Drive."
           for old in $(printf '%s\n' $published "$tag" | sort -uVr | tail -n +3); do
             gh release delete "$old" --cleanup-tag --yes
           done
 
-      # Not blocking: the account's storage quota can refuse the upload. The APK still reaches the pre-release published
-      # above, which does not count in the quota (docs/specs/release.md §1, ADR-045).
+      # The debug APK, for the development phase only (ADR-121). Not blocking: the account's storage quota can refuse the
+      # upload; the release APK published above does not count in the quota (docs/specs/release.md §1, ADR-045).
       - name: Upload debug APK
         id: upload-apk
         continue-on-error: true
@@ -260,10 +241,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # Last check (ADR-046): a push must leave the APK somewhere. It passes when the artifact was uploaded, or when the
-      # commit's pre-release already carries the APK (also on a re-run, where the release exists and the publish step fails).
-      # It fails only when both are missing. Push events only: pull requests have no pre-release, and on a branch other
-      # than main only the artifact can deliver the APK. Runs only while the blocking steps before it succeeded.
+      # Last check (ADR-046): a push must leave an APK somewhere. It passes when the release of this version carries the
+      # release APK (also on a re-run, or for a commit that does not change the version: the release exists already), or
+      # when the debug artifact was uploaded. It fails only when both are missing. Push events only. Runs only while the
+      # blocking steps before it succeeded.
       - name: Check that the APK was delivered
         if: success() && github.event_name == 'push'
         env:
@@ -271,14 +252,15 @@ jobs:
           UPLOAD: ${{ steps.upload-apk.outcome }}
           PUBLISH: ${{ steps.publish-apk.outcome }}
         run: |
-          tag="debug-${GITHUB_SHA::7}"
+          version="$(basename "$(ls app/build/outputs/apk/debug/ToolMap-debug-*.apk)" .apk)"
+          tag="android-${version#ToolMap-debug-}"
+          if gh release view "$tag" --json assets --jq '.assets[].name' 2>/dev/null | grep -q '^ToolMap-release-.*\.apk$'; then
+            echo "Release APK delivered by the release $tag (publish: $PUBLISH, debug artifact: $UPLOAD)."
+            exit 0
+          fi
           if [ "$UPLOAD" = "success" ]; then
-            echo "APK delivered as the artifact toolmap-debug-apk."
+            echo "No release APK in $tag (publish: $PUBLISH); debug APK delivered as the artifact toolmap-debug-apk."
             exit 0
           fi
-          if gh release view "$tag" --json assets --jq '.assets[].name' 2>/dev/null | grep -q '^ToolMap-debug-.*\.apk$'; then
-            echo "APK delivered by the pre-release $tag (artifact upload: $UPLOAD, publish: $PUBLISH)."
-            exit 0
-          fi
-          echo "::error::No APK delivered: artifact upload $UPLOAD, no APK in the pre-release $tag (publish $PUBLISH)."
+          echo "::error::No APK delivered: no release APK in $tag (publish $PUBLISH), artifact upload $UPLOAD."
           exit 1

@@ -44,7 +44,22 @@ Le téléversement de l'APK (`Upload debug APK`) et celui des rapports (`Upload 
 
 Demande de l'utilisateur du 2026-11-09 (règle dans `CLAUDE.md`). Dans `ci.yml`, après « Style, lint, unit tests, debug APK » et avant toute publication, le job active KVM et démarre un émulateur (`reactivecircus/android-emulator-runner@v2`, API 34, x86_64, `google_apis`), puis lance `tools/emulator/smoke.sh` : installation de l'APK du run, lancement par le lanceur, attente de l'écran de la carte ; plantage Java ou natif, ANR, écran de rapport de plantage au premier plan ou appli absente font échouer le job. Les étapes qui publient (« Delete old artifacts », pré-release `debug-*`, release `android-<version>`, artefact `toolmap-debug-apk`) viennent après et sont sautées si le contrôle échoue : une version qui ne démarre pas n'est jamais proposée par la mise à jour de l'appli (§7, qui lit ces releases). Capture, vue de la fenêtre (`ui.xml`) et journal : artefact `emulator-check`, gardé 14 jours, aussi en cas d'échec ; les textes de l'écran et le poids de la capture sont aussi écrits dans le journal du job, seul lisible depuis une session cloud (son réseau n'atteint pas le stockage des artefacts). Premier run : 2026-11-09, 0.4.213, Android 14, contrôle en 2 min 40 s. Même contrôle dans `release.yml` (artefact `emulator-check-release`). Le même script sert sur le poste Windows avant un push.
 
-### Release de debug
+### Depuis le 2026-11-10 : toute release porte l'APK de release (ADR-121)
+
+Décision de l'utilisateur : « toute release se fait en APK native, les debug seront uniquement durant la conception » ; « à chaque push, release en APK native, plus de debug sur GitHub hormis les artefacts ». **Ce paragraphe remplace ce que les deux suivants disent du contenu des releases** (ils restent pour l'histoire) :
+
+- À chaque push (toute branche sauf `dependabot/…`), quand la clé de publication est dans les secrets, `ci.yml` compile `check assembleDebug assembleRelease`, contrôle **les deux APK** sur l'émulateur (release d'abord, puis debug ; captures dans `emulator-check/release/` et `emulator-check/`), puis publie **l'APK de release** dans `android-<version>` :
+  `https://github.com/JRRocks/ToolMap/releases/download/android-<version>/ToolMap-release-<version>.apk`
+- Les deux dernières versions restent gardées ; une version déjà publiée garde sa release.
+- **Plus de pré-version `debug-<sha7>`**, plus d'APK de debug dans une release. L'APK de debug n'est livré que par l'artefact `toolmap-debug-apk` du run (connecté à GitHub), pour la conception.
+- Sans clé de publication : ni APK de release, ni release publiée ; seul l'artefact de debug (clé de debug publique).
+- Garde de livraison : passe si la release `android-<version>` porte un `ToolMap-release-*.apk`, sinon si l'artefact de debug a été téléversé.
+- `versionCode` = `MAJEUR × 10 000 000 + MINEUR × 100 000 + CORRECTIF` (`0.4.231` → `400231`), pour tous les types de build et les deux workflows ; `-Ptoolmap.versionCode` le remplace. Le workflow « Release » ne passe plus le numéro du run ; il sert à produire le bundle Google Play (`.aab`) et un APK réduit par R8 à essayer.
+- L'application lit `ToolMap-release-<version>.apk` (et l'ancien nom `ToolMap-debug-…`) dans les releases `android-*` (§7). **Une installation jusqu'à la 0.4.230 ne connaît que l'ancien nom** : le premier APK de release s'installe une fois à la main, par-dessus (même clé, données gardées).
+- `scripts/drive-mirror.ps1` archive les APK des releases (`ToolMap.<version>.apk`) ; l'artefact de debug n'est plus jamais archivé.
+- Ce que l'APK de release n'a pas, par rapport à l'APK de debug : les outils d'essai (`DEV_TOOLS` : diagnostic des tuiles dans « Plus », journal d'événements agrandi et copié dans logcat, version d'essai de la mise à jour), les lignes `ToolMapPerf`, la mesure du moteur par `dumpsys`.
+
+### Release de debug (retirée le 2026-11-10, ADR-121)
 
 Les fichiers d'une release GitHub ne comptent pas dans le quota d'artefacts. Donc, à chaque push **sur `main`**, l'étape « Publish the debug APK » crée une **pré-release** `debug-<sha7>` (commit exact, titre « ToolMap debug <version> (<sha7>) ») qui porte l'APK sous son nom `ToolMap-debug-<version>.apk`. Seule la plus récente est gardée : les anciennes pré-releases `debug-*` et leurs étiquettes sont supprimées. Le lien de téléchargement direct est :
 
