@@ -20,6 +20,20 @@
 
 ---
 
+## 2026-11-10 — Session 97 (suite) — [P38.7] Première release en APK de release : 0.4.231 publiée
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 02c22d5 (0.4.231) ; poussée sur `JRRocks/ToolMap` (pas de PR ; `main` reste à f335585, 0.4.230, avec l'ancien `ci.yml`). Copies : GitHub (cette branche) = local = 0.4.231 (référence), `main` 0.4.230, Drive non monté sur ce poste.
+- **Objectif** : consigner le premier run de la CI qui publie l'APK de release (ADR-121). La release `android-0.4.231` porte l'APK de release ; rien ne change à l'écran.
+- **Réalisé** : résultats relevés. Aucun changement de code.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - Avant le push de 02c22d5 : `./gradlew spotlessApply` seul, puis `./gradlew check assembleDebug` : BUILD SUCCESSFUL in 3m 39s, 0.4.231 ; `./gradlew assembleRelease` : BUILD SUCCESSFUL in 1m 17s ; `aapt2 dump badging` sur les deux APK : `versionCode='400231'`, `versionName='0.4.231'` ; `CI=true ./gradlew help` sans erreur.
+  - **Run « CI » 42832876462** (02c22d5) : vert en 13 min 8 s. Les deux APK signés par la clé de publication (SHA-256 `85334c0a…a0d3a4`, celle de `release.md` § 2). Contrôle sur émulateur des deux : `ToolMap-release-0.4.231.apk` puis `ToolMap-debug-0.4.231.apk`, chacun « OK: ToolMap started, in front, no crash, no ANR, native engine in charge », `engine native=1 state=active`. « Release APK delivered by the release android-0.4.231 ».
+  - **Release `android-0.4.231`** : un seul fichier, `ToolMap-release-0.4.231.apk` (82,4 Mo), marquée « Latest ». Artefact de debug : `toolmap-debug-apk` 13773157448.
+- **Problèmes / dette technique** :
+  - **Deux releases portent encore un APK de debug** : `android-0.4.230` (retirée d'elle-même par la CI à la publication de la version suivante : seules les deux plus récentes restent) et la pré-version `debug-f335585`, que plus rien ne retire. Leur suppression par la session a été refusée par le garde-fou des actions destructrices : à faire par l'utilisateur, ou à autoriser.
+  - `main` a encore l'ancien `ci.yml` : un push sur `main` republierait une pré-version de debug tant que ce commit n'y est pas fusionné.
+- **Prochaine étape recommandée** : supprimer `debug-f335585` ; fusionner dans `main` si l'utilisateur le demande ; installer l'APK de release sur le téléphone (une fois, à la main) ; P38.7 ✅ quand plus aucune release ne porte d'APK de debug.
+
 ## 2026-11-10 — Session 97 — [P38.7] Toute release porte l'APK de release ; le debug ne sert plus qu'à la conception
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après f335585 (0.4.230, CI verte sur la branche et sur `main`, runs 42827284853 et 42827350304) ; poussée sur `JRRocks/ToolMap` (pas de PR). Copies : GitHub (cette branche = `main`) = local = 0.4.230 (référence), Drive non monté sur ce poste.
 - **Objectif** : question puis règle de l'utilisateur : la dernière release (`android-0.4.230`) portait encore un APK de debug ; « à partir de maintenant toute release se fait en APK native, les debug seront uniquement durant la conception », et, à la question de la cadence : « à chaque push, release en APK native, plus de debug sur GitHub hormis les artefacts ». Les téléphones reçoivent désormais l'APK de release ; rien ne change à l'écran, sauf les outils d'essai, absents d'une release.
