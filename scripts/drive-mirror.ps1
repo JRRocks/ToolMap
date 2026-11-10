@@ -82,7 +82,8 @@ if (-not $SkipApk) {
         }
         foreach ($tag in $tags) {
             $target = Join-Path $apkDir ("ToolMap." + $tag.Substring("android-".Length) + ".apk")
-            # One asset per android-* release (ci.yml). No quotes in the filter: Windows PowerShell 5.1 strips them.
+            # One APK per android-* release (ci.yml); the bridge android-0.4.231 carries it under two names (ADR-122):
+            # same size, same target. No quotes in the filter: Windows PowerShell 5.1 strips them.
             $size = gh release view $tag --repo $repo --json assets -q '.assets[0].size'
             if (-not (Test-Path $target) -or (Get-Item $target).Length -ne [long]$size) {
                 gh release download $tag --repo $repo -p "ToolMap-*-*.apk" -D (Join-Path $tmp $tag) | Out-Null

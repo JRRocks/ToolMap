@@ -20,6 +20,21 @@
 
 ---
 
+## 2026-11-10 — Session 97 (suite 2) — [P38.7] La mise à jour est de nouveau proposée aux versions jusqu'à la 0.4.230
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après ed65fc9 (0.4.232) ; poussée sur `JRRocks/ToolMap` (pas de PR ; `main` reste à f335585, 0.4.230). Copies : GitHub (cette branche) = local = 0.4.232 (référence), Drive non monté sur ce poste.
+- **Objectif** : retour de l'utilisateur, capture de « Mises à jour » sur l'émulateur (0.4.226 installée, 0.4.230 proposée, pas la 0.4.231) : « le problème n'est pas de la télécharger, mais de l'avoir en dernière mise à jour proposée ». Une version installée jusqu'à la 0.4.230 se voit de nouveau proposer la dernière version, qui est l'APK de release.
+- **Réalisé** : **passerelle 0.4.231**, sur la demande de l'utilisateur (« crée une passerelle, 0.4.231 sera le dernier APK trouvé avec le mot "debug" […] 0.4.231 sera donc à garder ») : la release `android-0.4.231` porte maintenant le même APK de release sous deux noms, `ToolMap-release-0.4.231.apk` et `ToolMap-debug-0.4.231.apk` (copie octet pour octet, 82 378 246 octets, `gh release upload` ; note de la release réécrite), et `ci.yml` ne la retire plus jamais. Une ancienne version se voit proposer la 0.4.231, qui lit ensuite les releases suivantes. ADR-122, `release.md` § 1, plan. Aucun changement dans l'application. (Première idée de la session, écartée par l'utilisateur : le second nom dans chaque release.)
+- **Décisions (ADR)** : ADR-122 (remplace deux points d'ADR-121).
+- **Tests / vérifications** :
+  - Cause lue dans le code de la 0.4.230 (`git show f335585:core/…/AppUpdate.kt`) : `Regex("""ToolMap-debug-(\d+(?:\.\d+)+)\.apk""")`, `matchEntire` sur le nom du fichier, étiquettes `android-` et `debug-`.
+  - `./gradlew spotlessApply` seul, puis `./gradlew check assembleDebug` et `CI=true ./gradlew help` avant le push ; run « CI », fichiers de la release et écran « Mises à jour » de l'émulateur : résultat dans le message de fin de session et dans l'entrée suivante.
+  - Le run de ed65fc9 (42837810413, 0.4.232) est annulé par ce push (un seul run par branche) : pas de release `android-0.4.232`.
+- **Problèmes / dette technique** :
+  - Un fichier nommé « debug » qui est un APK de release, dans la seule release passerelle. Une ancienne version fait deux mises à jour à la suite (0.4.231, puis la dernière).
+  - L'émulateur du poste n'a plus de place (94 %, 384 Mo libres) : l'installation d'un APK y échoue (`INSTALL_FAILED_INSUFFICIENT_STORAGE`) tant que rien n'est supprimé ; la proposition de mise à jour s'y vérifie, pas l'installation.
+  - La pré-version `debug-f335585` (APK de debug 0.4.230) reste à supprimer par l'utilisateur.
+- **Prochaine étape recommandée** : supprimer `debug-f335585` ; libérer de la place sur l'émulateur ; fusion dans `main` si l'utilisateur la demande.
+
 ## 2026-11-10 — Session 97 (suite) — [P38.7] Première release en APK de release : 0.4.231 publiée
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 02c22d5 (0.4.231) ; poussée sur `JRRocks/ToolMap` (pas de PR ; `main` reste à f335585, 0.4.230, avec l'ancien `ci.yml`). Copies : GitHub (cette branche) = local = 0.4.231 (référence), `main` 0.4.230, Drive non monté sur ce poste.
 - **Objectif** : consigner le premier run de la CI qui publie l'APK de release (ADR-121). La release `android-0.4.231` porte l'APK de release ; rien ne change à l'écran.

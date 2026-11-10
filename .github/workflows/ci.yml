@@ -213,8 +213,12 @@ jobs:
           [ "$(printf '%s\n' "$newest" | head -n 1)" = "$tag" ] && latest=true
           gh release create "$tag" "$apk" --target "$GITHUB_SHA" --latest="$latest" \
             --title "ToolMap Android $version" \
-            --notes "APK de release $version compilé par la CI depuis le commit ${GITHUB_SHA} (branche ${GITHUB_REF_NAME}), signé avec la clé de publication de ToolMap, contrôlé sur émulateur. Seules les deux dernières versions sont gardées ici ; toutes sont archivées sur le Drive."
+            --notes "APK de release $version compilé par la CI depuis le commit ${GITHUB_SHA} (branche ${GITHUB_REF_NAME}), signé avec la clé de publication de ToolMap, contrôlé sur émulateur. Seules les deux dernières versions sont gardées ici, avec la version passerelle 0.4.231 ; toutes sont archivées sur le Drive."
+          # android-0.4.231 is the bridge (ADR-122), never deleted: it also carries its release APK under the name
+          # ToolMap-debug-0.4.231.apk, the only one the apps up to 0.4.230 read. They are offered 0.4.231, which reads
+          # the releases above.
           for old in $(printf '%s\n' $published "$tag" | sort -uVr | tail -n +3); do
+            [ "$old" = "android-0.4.231" ] && continue
             gh release delete "$old" --cleanup-tag --yes
           done
 
