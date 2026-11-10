@@ -20,6 +20,20 @@
 
 ---
 
+## 2026-11-10 — Session 97 (suite 3) — [P38.7] Passerelle vérifiée, fusion dans `main`
+- **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après b8a065a (0.4.233, CI verte, run 42840189325) ; ce commit est poussé sur la branche **et sur `main`** (avance rapide, pas de PR). Copies avant la fusion (`git fetch`) : cette branche = local = 0.4.233 (référence) ; `main` = 0.4.230 (f335585), sans commit absent de la branche ; Drive non monté sur ce poste.
+- **Objectif** : demande de l'utilisateur du 2026-11-10 : « Oui, fusionne ». `main` reçoit la règle des releases en APK de release (ADR-121) et la passerelle 0.4.231 (ADR-122) : un push sur `main` ne republie plus de pré-version de debug.
+- **Réalisé** : résultats du run précédent consignés ; `main` avancée jusqu'au commit de la branche. Aucun changement de code.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - **Run « CI » 42840189325** (b8a065a) : vert ; contrôle sur émulateur de l'APK de release puis de l'APK de debug, chacun « OK: ToolMap started, in front, no crash, no ANR, native engine in charge » ; « Release APK delivered by the release android-0.4.233 ».
+  - **Releases après ce run** : `android-0.4.233` (`ToolMap-release-0.4.233.apk` seul, 82 378 270 octets), `android-0.4.231` (`ToolMap-release-0.4.231.apk` et `ToolMap-debug-0.4.231.apk`, 82 378 246 octets chacun), `android-0.4.230` retirée par la CI ; `debug-f335585` toujours là.
+  - **Émulateur du poste** (0.4.226 installée, APK de debug de la CI), après relance de l'application : bandeau « ToolMap 0.4.231 disponible · Vous avez la 0.4.226 · 82 MB » ; « Plus » : « Mises à jour, 0.4.231 disponible » ; dialogue : « Dernière version : 0.4.231 (10 Nov) ». Avant l'ajout du second nom : 0.4.230.
+  - `./gradlew spotlessApply` seul, puis `./gradlew check assembleDebug` et `CI=true ./gradlew help` avant le push.
+  - **Non vérifié** : l'installation depuis l'application (émulateur sans place) ; la conservation de `android-0.4.231` quand elle n'est plus parmi les deux plus récentes (ce push le montre : résultat dans le message de fin de session).
+- **Problèmes / dette technique** : la pré-version `debug-f335585` reste à supprimer par l'utilisateur (suppression refusée à la session) ; P38.7 reste 🔄 jusque-là.
+- **Prochaine étape recommandée** : supprimer `debug-f335585`, puis P38.7 ✅ ; libérer de la place sur l'émulateur ; essai de l'impression en réseau mobile (P17.11).
+
 ## 2026-11-10 — Session 97 (suite 2) — [P38.7] La mise à jour est de nouveau proposée aux versions jusqu'à la 0.4.230
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après ed65fc9 (0.4.232) ; poussée sur `JRRocks/ToolMap` (pas de PR ; `main` reste à f335585, 0.4.230). Copies : GitHub (cette branche) = local = 0.4.232 (référence), Drive non monté sur ce poste.
 - **Objectif** : retour de l'utilisateur, capture de « Mises à jour » sur l'émulateur (0.4.226 installée, 0.4.230 proposée, pas la 0.4.231) : « le problème n'est pas de la télécharger, mais de l'avoir en dernière mise à jour proposée ». Une version installée jusqu'à la 0.4.230 se voit de nouveau proposer la dernière version, qui est l'APK de release.
