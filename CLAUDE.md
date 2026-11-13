@@ -111,6 +111,7 @@ Google Drive est le **miroir des fichiers locaux** du poste Windows (2e sauvegar
 | `docs/DECISIONS.md` | Décisions d'architecture (ADR) |
 | `docs/specs/aqx-format.md` | Format AQX d'AlpineQuest (import/export des sources de cartes) |
 | `docs/specs/p2p-sharing.md` | Partage de position : protocole commun (trames chiffrées, maillage, cadence) et mode direct WebRTC (appairage QR) |
+| `docs/specs/group-hierarchy.md` | **Groupes hiérarchiques du partage** (P39, conception privée, ADR-125) : moteur de `:core` `fr.toolmap.core.hierarchy` (ensemble, groupes, rôles, tables de droits et de visibilité, opérations, accord entre téléphones, format binaire, preuve d'auteur), ce qu'il reste à brancher, questions pour l'utilisateur |
 | `docs/specs/print-pdf.md` | Export PDF à l'échelle (maths, mise en page) |
 | `docs/specs/firebase-relay.md` | Serveur de coordination Firebase du partage de position, états des pairs, mise en place de la console (P13) |
 | `docs/specs/backup-format.md` | Format de l'archive de sauvegarde / restauration (P9.6) |
