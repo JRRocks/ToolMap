@@ -20,6 +20,36 @@
 
 ---
 
+## 2026-11-13 — Session 102 — [P39.4] [P39.5] Groupes hiérarchiques : précisions de l'utilisateur consignées, suite lancée
+- **Branche / commit** : `conception/groupes-hierarchiques` (poste Windows, session principale), partie de 0ec9403 (0.4.238) ; `.conception-privee` présent. Copies relevées (`git fetch`) : `conception/groupes-hierarchiques` = local = Drive = 0.4.238 (référence), `claude/clever-wozniak-s1k4i5` 0.4.237 et `claude/practical-ptolemy-kvydc9` 0.4.236 (déjà fusionnées), `claude/vibrant-galileo-q3s99n` 0.4.235, `main` 0.4.234.
+- **Objectif** : consigner les six précisions de l'utilisateur sur les groupes hiérarchiques et préparer la suite (moteur mis à ses règles, second tour de maquettes) ; aucune publication, rien de visible ne change dans l'application.
+- **Réalisé** :
+  - Spec `group-hierarchy.md` § 10 ter : les précisions P1 à P6 recopiées telles quelles, puis la lecture qu'en fait la session principale (deux modes durables, filtre hiérarchique du partage écrit pour N niveaux, nominations, adjoints, membre en attente fermé pour de bon, successeur ou dissolution au départ du créateur, signature en mode ensemble).
+  - Plan : P39.1 ✅ (maquettes du premier tour montrées, choix consignés) ; nouvelles tâches P39.4 (moteur aux règles de l'utilisateur) et P39.5 (second tour de maquettes), toutes deux confiées à des sessions cloud.
+  - L'utilisateur veut renommer les deux modes de partage : trois noms proposés pour chacun (plus son idée de départ). Choix du 2026-11-13 : « Entre amis » pour le mode simple, « Opération » pour le mode professionnel ; dans les écrans, « Chef de l'opération » et « Chef de groupe » à la place de « Leader » (spec § 10 ter, avec la lecture à confirmer sur les maquettes).
+  - `CLAUDE.md` (poste Windows) : règle de l'utilisateur du 2026-11-13, la mémoire du poste étant à 97 % : l'émulateur ne tourne que pendant un essai et se ferme aussitôt, `./gradlew --stop` en fin de travail.
+  - Session locale : le test instable `AppStartupTest` est réparé à la cause, sans nouvelle tentative ni test désactivé, les API 26 et 35 gardées (commit à part `[P1.1]`, tests seulement). Un `@Before` charge le moteur natif de Robolectric sur le fil du test (`DefaultNativeRuntimeLoader.injectAndLoad()`) : le chargeur est synchronisé, l'appel fait le chargement ou attend celui qui est en cours. Plan § 4 mis à jour.
+- **Décisions (ADR)** : aucune (les règles de l'utilisateur sont dans la spec ; l'ADR de la séparation cryptographique viendra avec P39.4).
+- **Tests / vérifications** :
+  - Premier `./gradlew check assembleDebug` de la session principale (0.4.239) : `AppStartupTest > the application starts and shows the map FAILED` (`FileSystemAlreadyExistsException`), puis `:app:testDebugUnitTest FAILED` ; non relancé.
+  - Reproduction, sur le poste Windows, avec une sonde temporaire (retirée). Elle surveillait le système de fichiers zip du jar `nativeruntime-dist-compat-1.0.19` par `FileSystems.getFileSystem` et relevait les fils à l'intérieur.
+    - Au moment de l'échec, le fil Room `arch_disk_io_*` du bac à sable API 26 copiait encore les polices (`maybeCopyFonts`) quand le fil principal du bac à sable API 35 a voulu ouvrir le même jar.
+    - Reproduction forcée : un seul cas court (`--tests 'fr.toolmap.AppStartupTest.a crash not yet seen*'`, puis l'API 35). Sans correctif : 3 échecs sur 3 avec la sonde, puis 3 sur 3 sans elle.
+    - Avec correctif : 3 sur 3 verts avec la sonde, qui montre la copie faite sur le fil du test API 26 et le jar refermé avant l'API 35. Puis, sans sonde, 10 sur 10 verts.
+    - Classe entière (`--tests 'fr.toolmap.AppStartupTest' --rerun`, 8 cas) : 20 sur 20 verts.
+  - Puis `./gradlew spotlessApply` seul (rien à changer), `./gradlew check assembleDebug` : **BUILD SUCCESSFUL in 2m 6s**, 2 034 tests, 97 ignorés, 0 échec ; 0.4.239, version inchangée (seuls un test et la doc ont changé depuis le build de la session principale) ; moteur natif absent du build local (Rust introuvable). `CI=true ./gradlew help` vert.
+  - `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` sur « Medium_Phone » (`ANDROID_SERIAL=emulator-5556`) : « OK: ToolMap started, in front, no crash, no ANR », 0.4.239 installée par-dessus 0.4.238. Le seuil de stockage bas a été abaissé le temps de l'installation (449 Mo libres), puis remis par défaut. L'émulateur a été fermé aussitôt (`emu kill`, absent d'`adb devices`), et les démons Gradle arrêtés avant l'essai.
+  - Aucun code de l'application modifié : `docs/`, `CLAUDE.md`, `version.properties` et un test (`AppStartupTest`).
+- **Problèmes / dette technique** :
+  - Cause de l'échec intermittent de `AppStartupTest`, vu en 0.4.166, 0.4.185, 0.4.197 et 0.4.239, et relancé jusqu'au vert jusqu'ici.
+    - Sous l'API 35, Robolectric 4.17 ne charge son moteur natif qu'au premier appel natif. Dans le bac à sable API 26, c'est l'ouverture SQLite du fil Room que l'application lance au démarrage.
+    - Ce fil copie les polices depuis un jar ouvert comme système de fichiers zip, commun à toute la JVM. Si les tests API 26 finissent avant cette copie, le bac à sable suivant échoue (`FileSystemAlreadyExistsException`), car l'API 35 charge le moteur dès sa mise en place.
+    - Ce bac à sable garde alors un moteur à moitié chargé, d'où l'`UnsatisfiedLinkError` de SQLite déjà vu ensuite. Cet enchaînement est déduit du code de Robolectric, pas reproduit.
+    - Le « dernier SDK de la série » qui échouait en session 3 (suite 18) relève de la même cause.
+  - L'émulateur « Medium_Phone » manque de place (session 101) : à nettoyer avant les prochains essais.
+  - Les commits de la session 101 portent une ligne de co-auteur différente de celle demandée par la session principale (sans effet sur le code).
+- **Prochaine étape recommandée** : lire les branches des deux sessions cloud (P39.4, P39.5) dès qu'elles poussent ; montrer les nouvelles maquettes à l'utilisateur et attendre son accord avant tout code d'écran ; faire fusionner et essayer par la session locale.
+
 ## 2026-11-13 — Session 101 — [P39.3] Groupes hiérarchiques : moteur et maquettes réunis, essais sur l'émulateur
 - **Branche / commit** : `conception/groupes-hierarchiques` (poste Windows, session lancée par la session principale), partie de 2806dc8 (0.4.236) ; `.conception-privee` présent. Copies relevées (`git fetch`) : `claude/clever-wozniak-s1k4i5` (moteur P39.2) = 0.4.237 (référence), `claude/practical-ptolemy-kvydc9` (maquettes P39.1) = `conception/groupes-hierarchiques` = local = 0.4.236, local sans changement ; Drive non relevé (le miroir est laissé à la session principale).
 - **Objectif** : réunir dans la branche de conception le moteur (P39.2) et les maquettes (P39.1), consigner les choix de l'utilisateur, compiler et vérifier sur l'émulateur que le partage actuel ne change pas ; aucune publication.

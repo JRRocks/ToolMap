@@ -364,6 +364,46 @@ R20 1 · Ensemble, Groupe, Leader d'ensemble, Leader de groupe, Administrateur, 
 - le membre en attente : vraiment fermé (aucun accès aux partages avant d'être réparti) ou simple filtre d'affichage (R1) ;
 - le départ du créateur (R9, R10).
 
+## 10 ter. Précisions de l'utilisateur (2026-11-13)
+
+Réponses aux six précisions demandées au § 10 bis (P1 à P6, dans l'ordre de la liste ci-dessus). Bloc recopié tel quel :
+
+```text
+P1 1 · Les deux restent pour de bon | précision : groupe simple sera le partage entre copain, l'ensemble sera le partage professionnel avec du monde et des chefs
+P2 2 · Croquis et waypoints, pas les messages | précision : Mettre en place un system qui pourra entreprendre les sous-groupes, un leader de sous-groupe peut partager dans les groupes, mais pas l'ensemble, un leader de groupe peut partager dans l'ensemble mais pas au dessus (si il y avait un au-dessus) toujours un ce système de filtre hiérachique
+P3 1 · Le créateur nomme les administrateurs ; les administrateurs nomment le reste
+P4 1 · Un adjoint par leader de groupe et un adjoint du leader d'ensemble
+P5 1 · Vraiment fermé | précision : le partage d'ensemble à pour but un utilisation professionnel, la sécurité est de mise pour se mode de partage
+P6 1 · Il désigne un successeur avant de partir | précision : Si il ne désigne personne, l'ensemble est dissous. Choix proposer lorsqu'il souhaite partir
+Remarques : Nous allons renommer les mode de partage pour plus de clareté.
+"Group d'ami" pour le mode simple
+"Communautaire" pour le grand nombre
+c'est une idée, fais moi 3 propositions par noms, tu trouvera peut être mieux
+```
+
+**Lecture de la session principale** (interprétation, à confirmer sur les maquettes du second tour ; le moteur est mis à ces règles par P39.4) :
+
+1. **Deux modes durables.** Le groupe simple (partage entre amis, sans exigence de sécurité nouvelle, code inchangé) et l'ensemble (usage professionnel, avec des chefs, sécurité exigée). Un téléphone est dans l'un ou dans l'autre (R15). Les deux modes seront renommés : noms proposés à l'utilisateur, non choisis à cette date.
+2. **Filtre hiérarchique du partage, écrit pour N niveaux** (deux aujourd'hui, R17) : un membre partage dans sa propre unité ; le leader d'une unité (et son adjoint) partage croquis et waypoints **un niveau au-dessus**, jamais plus haut. À deux niveaux : le leader de groupe partage croquis et waypoints à tout l'ensemble, pas de message ; les messages à tout l'ensemble restent au leader d'ensemble, à son adjoint et aux administrateurs (R6).
+3. **Nominations** : le créateur nomme et retire les administrateurs ; les administrateurs nomment le reste (leader d'ensemble, leaders de groupe, adjoints, répartition dans les groupes). Seul le créateur retire un membre (R9).
+4. **Adjoints** : un par leader de groupe, un pour le leader d'ensemble, avec les droits de leur leader (R8) ; les rôles se cumulent.
+5. **Membre en attente : fermé pour de bon.** Tant qu'il n'est pas réparti dans un groupe, son téléphone ne reçoit ni ne peut déchiffrer aucun partage (positions, croquis, waypoints, messages) : la séparation est cryptographique, pas un filtre d'affichage. Le créateur, les administrateurs et le leader d'ensemble gardent l'accès même sans groupe (déduction de la session principale, annoncée à l'utilisateur).
+6. **Départ du créateur** : au moment de quitter, l'application lui propose de désigner un successeur (qui devient le créateur) ; s'il ne désigne personne, l'ensemble est dissous pour tout le monde (R10).
+7. **Sécurité du mode ensemble** (R18, P5) : chaque téléphone signe ses changements (`OpAuth` activé dans ce mode seulement).
+8. **À prévoir sans le construire** : sous-groupes à plusieurs échelons (R17), plus de 30 membres et de 6 groupes (R19), mots de l'interface remplaçables (R20).
+
+**Noms des deux modes (réponses de l'utilisateur, 2026-11-13)**, à trois questions de la session principale :
+
+```text
+1. Nom du mode simple : Entre amis
+2. Nom du mode professionnel : Opération
+3. Le mot « Ensemble » suit-il le nom du mode professionnel ? Oui mais change pour "Chef de l'organisation" aulieu de leader, de même pour les groupes avec "chef de groupe"
+```
+
+Lecture de la session principale (la réponse 3 reprend le mot « organisation » de l'exemple donné dans la question, alors que le nom choisi en 2 est « Opération » : à confirmer sur les maquettes de P39.5) : mode simple « **Entre amis** » ; mode professionnel « **Opération** » ; dans les écrans, « Ensemble » devient « Opération » (« Toute l'opération »), « Leader d'ensemble » devient « **Chef de l'opération** », « Leader de groupe » devient « **Chef de groupe** » ; « Groupe », « Administrateur », « Membre » et « Adjoint » restent. Ces mots remplacent ceux de R20 dans l'interface ; dans le code et dans ce document, « ensemble » et « leader » restent les noms techniques.
+
+**Confirmé par l'utilisateur le 2026-11-13** (« Oui, opération ») : le chef de l'ensemble s'appelle « Chef de l'opération ».
+
 ## 11. Fichiers et tests
 
 | Fichier (`core/src/main/kotlin/fr/toolmap/core/hierarchy/`) | Contenu |
