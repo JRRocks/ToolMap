@@ -20,6 +20,28 @@
 
 ---
 
+## 2026-11-13 — Session 104 — [P39.4] [P39.5] Groupes hiérarchiques : moteur aux règles de l'utilisateur et maquettes du second tour réunis
+- **Branche / commit** : `conception/groupes-hierarchiques` (poste Windows, session locale lancée par la session principale), partie de 4ccaa03 (0.4.239) ; `.conception-privee` présent. Copies relevées (`git fetch`) : `claude/affectionate-dirac-mv4a6s` (moteur P39.4, 22187d9) = 0.4.240 (référence), `conception/groupes-hierarchiques` = local = 0.4.239, local sans changement, `claude/sleepy-gates-46lorp` (maquettes du tour 2, 85e4301) = 0.4.238 ; Drive non relevé (miroir laissé à la session principale).
+- **Objectif** : réunir dans la branche de conception le moteur mis aux règles de l'utilisateur (P39.4) et les maquettes du second tour (P39.5), consigner les choix de l'utilisateur sur ces maquettes, compiler et contrôler sur l'émulateur ; aucune publication.
+- **Réalisé** :
+  - Fusions `git merge --no-ff`, sans conflit : 5a2d582 (moteur), puis cd38d32 (maquettes). `git diff --stat 4ccaa03` : 65 fichiers, tous dans le paquet `hierarchy` de `:core` et ses tests, `docs/` et `version.properties` ; rien du groupe simple.
+  - Spec `group-hierarchy.md` § 10 quater (avant le § 11) : choix Q1 à Q20 de l'utilisateur recopiés tels quels, lecture de la session principale, précisions S1 à S7 demandées ; §§ 10, 10 bis, 10 ter, 12 et 13 inchangés.
+  - Plan : P39.4, moteur fusionné, mise à jour à suivre pour les choix du tour 2 ; P39.5, maquettes du tour 2 livrées (42 images), choix reçus, troisième passage après les précisions ; les deux restent 🔄.
+  - Ce qui manquait à l'entrée 102 : run « CI » n° 186 (43494764146, commit 4ccaa03) vert, contrôle sur émulateur réussi, étape « Publish the Android release » sautée, aucune release ; miroir Drive fait par la session principale le 2026-11-13.
+  - Contrôle des 42 images du tour 2 fait par la session principale : rien de bloquant. À corriger au prochain passage : l'encadré « sans chef », qui dit que personne du groupe ne peut partager vers le haut ; le bouton « Inviter », jamais dessiné ; quelques compteurs et noms qui diffèrent d'une image à l'autre.
+- **Décisions (ADR)** : aucune dans cette session (l'ADR-126 vient du moteur, session 103).
+- **Tests / vérifications** :
+  - Runs « CI » des deux branches avant la fusion : n° 187 (moteur, 22187d9) vert ; n° 185 (maquettes, 85e4301) vert, publication sautée.
+  - `./gradlew spotlessApply` seul : rien à changer. `./gradlew check assembleDebug` : **BUILD SUCCESSFUL in 5m 19s**, 2 084 tests, 97 ignorés, 0 échec, dont les 89 du paquet `hierarchy` (0 échec) ; 0.4.240 → **0.4.241** ; moteur natif absent du build local (Rust introuvable). `CI=true ./gradlew help` vert.
+  - `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` sur « Medium_Phone » (`ANDROID_SERIAL=emulator-5556`) : « OK: ToolMap started, in front, no crash, no ANR », 0.4.241 installée par-dessus 0.4.239. Le seuil de stockage bas a été abaissé le temps de l'installation, puis remis par défaut.
+  - Démarrage de l'émulateur : resté bloqué plus de 7 min au chargement de l'instantané `default_boot` (« offline ») ; arrêté, puis démarré à froid (`-no-snapshot-load -no-snapshot-save`), prêt en 44 s.
+  - Émulateur fermé juste après l'essai (`emu kill`, absent d'`adb devices`), démons Gradle arrêtés (`./gradlew --stop`).
+  - Rien d'autre n'a été essayé à la main : le moteur n'est branché à rien, aucun écran ne change.
+- **Problèmes / dette technique** :
+  - Les choix du tour 2 changent une partie des règles du moteur fusionné (partage vers le haut, alerte selon le rôle, adjoint qui devient chef, envoi à un groupe précis) : le moteur sera mis à jour après les précisions S1 à S7 (P39.4).
+  - L'émulateur « Medium_Phone » manque toujours de place, et son instantané `default_boot` ne se charge plus : le démarrer à froid (`-no-snapshot-load`).
+- **Prochaine étape recommandée** : obtenir de l'utilisateur les précisions S1 à S7 (spec § 10 quater), puis mettre le moteur à jour (P39.4) et faire le troisième passage de maquettes (P39.5) ; aucun code d'écran avant l'accord de l'utilisateur sur ces maquettes.
+
 ## 2026-11-13 — Session 103 — [P39.4] Groupes hiérarchiques : moteur aux règles de l'utilisateur, membre en attente fermé par les clés
 - **Branche / commit** : `claude/affectionate-dirac-mv4a6s` (session cloud lancée par la session principale), amenée par avance rapide sur `origin/conception/groupes-hierarchiques` (0ec9403, 0.4.238 au départ ; puis 4ccaa03, 0.4.239, dès que la session principale a poussé la spec § 10 ter) ; `.conception-privee` présent. Copies relevées (`git fetch`) : `conception/groupes-hierarchiques` = 0.4.239 (référence), `claude/clever-wozniak-s1k4i5` 0.4.237, `claude/practical-ptolemy-kvydc9` 0.4.236, `claude/vibrant-galileo-q3s99n` 0.4.235, `main` 0.4.234 (cette branche y était au départ, sans changement local) ; Drive non joignable depuis le cloud. Aucun push sur `main` ni sur la branche de conception, pas de PR.
 - **Objectif** : mettre le moteur des groupes hiérarchiques aux règles données par l'utilisateur le 2026-11-13 (membre en attente vraiment fermé, adjoints, créateur et successeur, dissolution, filtre hiérarchique du partage, signature des changements) ; toujours sans écran ni branchement : rien de visible ne change dans l'application, aucune publication.

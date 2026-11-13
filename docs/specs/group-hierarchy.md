@@ -520,6 +520,50 @@ Lecture de la session principale (la réponse 3 reprend le mot « organisation �
 
 **Confirmé par l'utilisateur le 2026-11-13** (« Oui, opération ») : le chef de l'ensemble s'appelle « Chef de l'opération ».
 
+## 10 quater. Choix du second tour de maquettes (2026-11-13)
+
+Choix faits par l'utilisateur sur les maquettes du second tour (`docs/previews/p39-groupes/tour2/`, questions Q1 à Q18 de son `REMONTEE.md` ; Q19 = l'écran principal d'une opération et la pastille de la carte, Q20 = tous les autres écrans dessinés en une seule version). Bloc recopié tel quel :
+
+```text
+Q1 A · La carte « Opération » a son propre bouton
+Q2 A · Sobre
+Q3 B · Deux lignes à cocher, avec le détail sous chacune | précision : Changement de plan, un chef de groupe peu remonter au chef d'opération, mais ne diffuse pas à tout le monde, seul le chef d'opération peut diffuser chez tout le monde
+Q4 A · Une fenêtre avec les deux sorties | précision : comme pour décrocher/raccrocher, un swipe de gauche à droite doit être effectué sur le choix de dissoudre, cela évite les miss clic sur une action avec de lourde conséquence
+Q5 1 · Les administrateurs et le créateur seulement
+Q6 (sans choix) | précision : Selon le rôle, un membre à son groupe, un chef de groupe à tout les chefs, le chefs d'opération à tout le monde
+Q7 B · Ils repassent « en attente »
+Q8 A · Une étiquette par rôle
+Q9 1 · Oui : il choisit son groupe en créant l'opération
+Q10 2 · Oui, aux administrateurs seulement
+Q11 1 · Oui : « Rejoindre l'opération ? » | précision : Avec proposition de choisir un nom en entrant "Avec le nom paramétrer par défaut"
+Q12 2 · Oui
+Q13 2 · Un administrateur seulement
+Q14 1 · Non : seul le créateur le lui retire
+Q15 2 · Oui : il choisit un groupe précis
+Q16 1 · Les membres de ce groupe seulement | précision : limite le trop d'information partager
+Q17 1 · Le nom pour son groupe et pour les chefs, des initiales pour les autres
+Q18 2 · L'adjoint devient chef automatiquement
+Q19 1 · Ça me va
+Q20 1 · D'accord pour tout
+```
+
+**Lecture de la session principale** (interprétation ; elle remplace, là où elle les contredit, les lectures du § 10 ter et celles du § 13) :
+
+1. **Le partage vers le haut change (Q3, remplace P2 et le point 2 du § 10 ter).** Un chef de groupe ne diffuse plus à toute l'opération : il remonte vers le niveau du dessus. Seul le chef de l'opération diffuse à tout le monde. Le choix de la destination se fait par deux lignes à cocher (variante B).
+2. **Alerte selon le rôle (Q6, répond à la question 5 du § 12)** : un membre alerte son groupe, un chef de groupe alerte tous les chefs, le chef de l'opération alerte tout le monde. Lecture : un adjoint fait comme son chef ; un administrateur sans poste de chef fait comme un membre.
+3. **Dissoudre se confirme par un glissement de gauche à droite (Q4)**, comme pour décrocher un appel : geste nouveau, à montrer en maquette avant tout code.
+4. **Supprimer un groupe remet ses membres en attente (Q7)** : c'est ce que fait déjà le moteur.
+5. **Celui qui attend** : il ne voit aucun nom (Q2 A, donc choix b de la question 2 du § 12 : la liste des membres n'arrive qu'au moment où il est placé) ; sa position part aux administrateurs seulement (Q10), lui ne reçoit toujours rien.
+6. **Entrée (Q11)** : « Rejoindre l'opération ? », avec un champ pour son nom, déjà rempli avec le nom réglé par défaut.
+7. **Un administrateur peut remettre un membre en attente (Q12, question 3 du § 12 : oui).**
+8. **Le successeur du créateur est un administrateur (Q13)** ; lecture : il devient créateur sans avoir à accepter, et il en est prévenu.
+9. **Le chef de l'opération peut envoyer à un groupe précis (Q15)**, en plus de son groupe et de toute l'opération.
+10. **Ce qui est partagé dans un groupe n'est vu que par ce groupe (Q16)**, administrateurs et chef de l'opération compris s'ils n'en font pas partie.
+11. **Quand un chef de groupe part, son adjoint devient chef automatiquement (Q18)** ; le poste d'adjoint devient vacant.
+12. **Validés comme dessinés** : Q1 A, Q5 (seuls le créateur et les administrateurs invitent), Q8 A, Q9 (le créateur choisit son groupe), Q14, Q17, Q19, Q20.
+
+**Précisions demandées à l'utilisateur (en attente, 2026-11-13)** : S1, qui reçoit ce qu'un chef de groupe remonte (tous les chefs, ou le chef de l'opération et son adjoint) ; S2, qui diffuse à toute l'opération (les administrateurs aussi, ou non) ; S3, les messages écrits suivent-ils le même chemin (un fil « Chefs ») ; S4, l'adjoint du chef de l'opération devient-il chef automatiquement ; S5, S6 et S7, les questions 1, 4 et 6 du § 12 (positions signées, ce que retrouve un arrivant, téléphone du créateur perdu). Le moteur et les maquettes ne sont mis à ces choix qu'après ces réponses ; aucun écran n'est codé avant l'accord de l'utilisateur sur les maquettes des écrans modifiés.
+
 ## 11. Fichiers et tests
 
 | Fichier (`core/src/main/kotlin/fr/toolmap/core/hierarchy/`) | Contenu |
