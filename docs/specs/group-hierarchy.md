@@ -323,6 +323,47 @@ Rien de ceci n'est fait.
     b. Une centaine (le moteur l'accepte ; le transport est à revoir : listes de membres, nombre de liaisons).
     c. Davantage (jusqu'à 256 pour le moteur ; transport à refaire).
 
+## 10 bis. Réponses de l'utilisateur (2026-11-13)
+
+Choix faits par l'utilisateur sur les maquettes de P39.1 (`docs/previews/p39-groupes/`) et sur les questions. **V1 à V5** : variantes des maquettes ; **R1 à R20** : fusion des questions de `docs/previews/p39-groupes/REMONTEE.md` (b) et de celles du § 10 ci-dessus (la numérotation R n'est donc pas celle du § 10 ; les intitulés complets sont dans ces deux documents). Bloc recopié tel quel :
+
+```text
+V1 A · Une carte « Ensemble » sous l'écran actuel
+V2 A · Toujours « sans groupe »
+V3 C · Par rôle et par groupe, façon Discord | précision : toujours avec 1 seul groupe final, donc une nouvelle attribution écrase l'ancienne
+V4 A · Le jeton prend la couleur du groupe
+V5 A · Deux étiquettes : groupe et rôle
+R1 2 · Oui, mais seulement en attente | précision : Et il n'a pas accès aux partages avant d'avoir été répartie dans un groupe
+R2 1 · Tout le monde voit tout le monde
+R3 1 · Seulement les administrateurs
+R4 (sans choix) | précision : Partager un croquis/waypoint/message à l'ensemble
+R5 1 · Rien de plus : c'est un titre
+R6 3 · Le leader d'ensemble et les administrateurs seulement
+R7 1 · Deux fils : « Mon groupe » et « Tout l'ensemble »
+R8 1 · Les rôles se cumulent | précision : En plus des adjoints de leader, avec les mêmes droits que le leader
+R9 2 · Seul le créateur de l'ensemble le peut
+R10 3 · L'ensemble est dissous pour tout le monde
+R11 1 · Le poste reste vacant jusqu'à ce qu'un administrateur nomme quelqu'un
+R12 1 · Permis : le groupe s'affiche « sans leader », rien n'est bloqué
+R13 1 · Il peut quitter l'ensemble, pas changer de groupe
+R14 (sans choix) | précision : le créateur de l'ensemble désigne les rôles
+R15 1 · Un seul : soit un groupe simple, soit un ensemble
+R16 (sans choix) | précision : Pas compris la question, développe
+R17 1 · Non : un seul groupe par membre, un seul niveau | précision : un modèle de sous-groupes avec plusieurs échellon reste à prévoir, mais on se tient à 2 échellons pour le moment
+R18 1 · Oui : chaque téléphone signe ses changements | précision : sécurité uniquement nécessaire en mode Ensemble, le partage de groupe classique reste un mode sans nécessité de sécurité
+R19 1 · Jusqu'à 30 membres et 6 groupes | précision : pour commencer, et si le modèle fonctionne bien durant les essaies terrain, on va monter en nombre, donc reste à prevoir.
+R20 1 · Ensemble, Groupe, Leader d'ensemble, Leader de groupe, Administrateur, Membre | précision : choix du moment, risque d'évoluer
+```
+
+**Précisions demandées (en attente)** : posées à l'utilisateur par la session principale ; le moteur n'est **pas** modifié pour ces réponses tant qu'elles ne sont pas reçues (tâche à part, avec de nouvelles maquettes avant tout code d'écran) :
+
+- le groupe actuel et l'ensemble (R16 : question à développer) ;
+- ce que le leader de groupe partage à tout l'ensemble, en regard de R6 (R4) ;
+- qui désigne les rôles (R14 : le créateur de l'ensemble, les administrateurs, ou les deux) ;
+- les adjoints (R8 : adjoints de leader avec les mêmes droits que le leader) ;
+- le membre en attente : vraiment fermé (aucun accès aux partages avant d'être réparti) ou simple filtre d'affichage (R1) ;
+- le départ du créateur (R9, R10).
+
 ## 11. Fichiers et tests
 
 | Fichier (`core/src/main/kotlin/fr/toolmap/core/hierarchy/`) | Contenu |

@@ -20,6 +20,26 @@
 
 ---
 
+## 2026-11-13 — Session 101 — [P39.3] Groupes hiérarchiques : moteur et maquettes réunis, essais sur l'émulateur
+- **Branche / commit** : `conception/groupes-hierarchiques` (poste Windows, session lancée par la session principale), partie de 2806dc8 (0.4.236) ; `.conception-privee` présent. Copies relevées (`git fetch`) : `claude/clever-wozniak-s1k4i5` (moteur P39.2) = 0.4.237 (référence), `claude/practical-ptolemy-kvydc9` (maquettes P39.1) = `conception/groupes-hierarchiques` = local = 0.4.236, local sans changement ; Drive non relevé (le miroir est laissé à la session principale).
+- **Objectif** : réunir dans la branche de conception le moteur (P39.2) et les maquettes (P39.1), consigner les choix de l'utilisateur, compiler et vérifier sur l'émulateur que le partage actuel ne change pas ; aucune publication.
+- **Réalisé** :
+  - Fusions sans conflit (`git merge --no-ff`, ni rebase ni force) : moteur (1628900), puis maquettes (39c9e6b).
+  - Choix de l'utilisateur du 2026-11-13 (V1 à V5 sur les maquettes, R1 à R20 sur les questions) recopiés tels quels dans la spec `group-hierarchy.md` § 10 bis, avec les précisions encore demandées (R16, R4 et R6, R14, R8, R1, R9 et R10). Le moteur n'est pas modifié pour ces réponses.
+  - Plan : en-tête de P39 (spec écrite), P39.0 ✅ (run 43436414792), P39.1 (maquettes livrées, variantes choisies, reste en cours), P39.3.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply` seul : vert, aucun fichier changé.
+  - `./gradlew check assembleDebug` (JDK d'Android Studio) : `BUILD SUCCESSFUL` en 13 min, 2 034 tests (dont les 39 du paquet `hierarchy`), 97 ignorés, 0 échec ; version 0.4.237 → **0.4.238** ; moteur natif absent de ce build (pas de Rust sur le poste) ; `ToolMap-debug-0.4.238.apk` (APK de debug, local).
+  - `CI=true ./gradlew help` : vert (0.4.238 correspond aux sources).
+  - Émulateur « Medium_Phone » (Android 16, `ANDROID_SERIAL=emulator-5556`, un autre émulateur tournant à côté) : il portait la 0.4.235 de release (clé de publication), que l'APK de debug ne remplace pas (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`) ; données de ToolMap sauvegardées par l'application (Sauvegarde et restauration, cartes hors ligne comprises, 23,5 Mo), application désinstallée, 0.4.236 de debug installée, sauvegarde restaurée (vue, favoris, traces, tuiles retrouvés ; le groupe de partage n'est pas dans la sauvegarde). Pour la 0.4.238, place insuffisante (`not enough space`, 371 Mo libres) : seuil de stockage bas abaissé le temps de l'installation (`settings put global sys_storage_threshold_max_bytes` et `…_percentage`), puis remis par défaut (`settings delete`).
+  - `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` : vert pour la 0.4.236 puis pour la **0.4.238** (« OK: ToolMap started, in front, no crash, no ANR »).
+  - Non-régression du partage actuel (0.4.238, captures hors dépôt) : « Partage de position » sans groupe, « Créer un groupe et inviter » (feuille « Invitation » avec son code), écran du groupe (« Groupe · 1 membre »), retour à la carte, « Plus d'options » ▸ « Quitter le groupe » ▸ confirmation, retour à « Aucun groupe » ; journal d'événements : `share.group.create`, `share.invite`, `share.group.leave`, `share.service.destroy` ; aucun plantage ni ANR (`logcat`). Mêmes écrans et mêmes textes que les captures prises avant P39 (0.4.235 et 0.4.236), à deux différences près, dues à l'environnement et non au code : pas de « Serveur joignable » (un build local n'a pas les clés du serveur de coordination, groupe créé en mode direct, `server=false`), pas de « Dans le groupe » (groupe neuf, rien de partagé).
+- **Problèmes / dette technique** :
+  - `adb emu avd snapshot save` fait planter l'émulateur (code 139, gfxstream) : ne pas sauvegarder d'instantané. Au démarrage à froid qui a suivi, la 0.4.235 a fait un ANR sur « Sauvegarde et restauration… » pendant que le système était saturé (charge 30, une autre application en ANR au même moment), non reproduit une fois le système calmé.
+  - Stockage de l'émulateur presque plein (≈ 370 Mo libres) : chaque installation demande le seuil abaissé ou un ménage.
+- **Prochaine étape recommandée** : obtenir de l'utilisateur les précisions du § 10 bis, puis mettre le moteur à jour (tâche à part) et faire les nouvelles maquettes avant tout code d'écran.
+
 ## 2026-11-13 — Session 100 — [P39.2] Groupes hiérarchiques du partage : moteur dans `:core`, sans interface
 - **Branche / commit** : `claude/clever-wozniak-s1k4i5`, partie de `conception/groupes-hierarchiques` (2806dc8, 0.4.236), jamais de `main` ; `.conception-privee` présent. Copies relevées (`git fetch`) : `conception/groupes-hierarchiques` et `claude/practical-ptolemy-kvydc9` (maquettes P39.1) = 0.4.236 (référence), `claude/vibrant-galileo-q3s99n` = 0.4.235, `main` = 0.4.234, deux anciennes branches 0.4.102 et 0.4.145 ; local de la session cloud sur `main` (0.4.234), sans changement, replacé sur la branche de conception avant tout travail ; Drive non relevé (session cloud).
 - **Objectif** : écrire la logique du nouveau système de groupes du partage de position (un ensemble, des groupes, des administrateurs, un leader d'ensemble, un leader par groupe), sans écran et sans rien brancher : le partage actuel ne change pas.
