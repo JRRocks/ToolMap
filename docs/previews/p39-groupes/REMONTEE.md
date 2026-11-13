@@ -125,4 +125,6 @@ La recommandation est toujours le choix 1. Les numéros Q2, Q3, Q5, Q6 et Q8 son
 ## (d) Branche et commit
 
 - Branche : `claude/practical-ptolemy-kvydc9`, partie de `origin/conception/groupes-hierarchiques` (`2806dc8`, 0.4.236) ; `.conception-privee` présent à la racine. Aucun push sur `main` ni sur `conception/groupes-hierarchiques`, pas de PR, pas de tag, pas de release.
-- Commit des maquettes et run CI : voir la fin de ce fichier (complétée après le run).
+- Commit des maquettes : `41ce597` (« [P39.1] Groupes hiérarchiques : maquettes de l'ensemble, des groupes et des rôles… »).
+- Run « CI » de ce commit : **n° 179, identifiant 43438861141**, vert (2026-11-13, 14:01 à 14:16 UTC) : style, lint, tests, APK de debug et de release, contrôle sur émulateur réussis ; étape **« Publish the Android release » sautée** (`skipped`) : aucune release publiée. L'empreinte des sources correspond donc à `version.properties` (0.4.236), ce que `./gradlew help` n'avait pas pu vérifier ici.
+- Le commit qui ajoute ces lignes ne touche que ce fichier ; son run CI n'est pas consigné ici.
