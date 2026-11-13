@@ -616,6 +616,7 @@ Pour la session principale (session 103, 2026-11-13, branche `claude/affectionat
 
 - `./gradlew :core:test --tests 'fr.toolmap.core.hierarchy.*'` : 89 tests, 0 échec (liste au § 11). Un test par règle ; les opérations refusées ont leurs tests (motifs compris) ; convergence dans les deux ordres pour chaque cas du § 6.2 et sur 50 tirages au hasard.
 - « Vraiment fermé » : `HierarchyKeysTest` essaie chaque copie de chaque lot de clés avec les clés d'un téléphone en attente (aucune ne s'ouvre), et vérifie qu'aucune trame partagée ne s'ouvre chez lui, avant comme après son affectation pour ce qui a été partagé avant.
+- `./gradlew check assembleDebug` vert en local (2 084 tests, 0 échec, 0.4.240). Run « CI » n° 187 (identifiant 43500262807) du commit 22187d9 : vert, contrôle sur émulateur compris, étape « Publish the Android release » sautée, aucune release nouvelle.
 - Commandes et résultats complets : journal, session 103.
 - Aucun fichier du groupe simple n'est modifié (`git diff --stat origin/conception/groupes-hierarchiques` : paquet `hierarchy`, ses tests, `docs/`, `version.properties`).
 
