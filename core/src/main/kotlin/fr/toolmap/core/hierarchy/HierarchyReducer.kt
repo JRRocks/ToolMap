@@ -11,11 +11,14 @@ enum class Rejection {
     /** A creation that is not the first operation of its author, or not for this ensemble's identifier. */
     BAD_GENESIS,
 
-    /** The ensemble asks for signed operations and this one has no valid proof of its author. */
+    /** No valid signature of its author, or not with the key the author was admitted with. */
     UNAUTHENTICATED,
 
-    /** The order puts it after a later operation of the same author: the clock of that author went backwards. */
+    /** Its clock does not pass the one of the operation its author wrote before it: nobody writes in its own past. */
     OUT_OF_ORDER,
+
+    /** The creator ended the ensemble: nothing applies any more. */
+    DISSOLVED,
 
     /** The author is not, or no longer, a member of the ensemble. */
     NOT_A_MEMBER,
@@ -23,30 +26,33 @@ enum class Rejection {
     /** No role of the author gives it this right over this target. */
     FORBIDDEN,
 
-    /** An identifier 0 or a name every phone refuses. */
+    /** An identifier 0, a name or keys every phone refuses. */
     MALFORMED,
     NO_SUCH_MEMBER,
     ALREADY_MEMBER,
     NOT_AN_ADMIN,
 
-    /** The ensemble always keeps one administrator. */
-    LAST_ADMIN,
+    /** The creator does not leave and is not put out: it first hands the ensemble over, or dissolves it. */
+    IS_CREATOR,
     NO_SUCH_GROUP,
     GROUP_EXISTS,
 
     /** The identifier of a deleted group never comes back. */
     GROUP_DELETED,
 
-    /** A group under another group: the model allows it, this version does not. */
-    UNSUPPORTED_DEPTH,
+    /** A group deeper than the limits of the ensemble allow ([HierarchyLimits.maxDepth]). */
+    TOO_DEEP,
 
-    /** A group leader is a member of its group. */
+    /** A group that still has groups under it is not deleted. */
+    HAS_SUBGROUPS,
+
+    /** The leader and the deputy of a group are members of that group. */
     NOT_IN_GROUP,
 
     /** Already so: nothing to change. */
     NO_CHANGE,
 
-    /** [HierarchyState.MAX_MEMBERS] or [HierarchyState.MAX_GROUPS] reached. */
+    /** The limits of the ensemble are reached ([HierarchyLimits.maxMembers], [HierarchyLimits.maxGroups]). */
     TOO_MANY,
 
     /** This phone can write no more operations (number, clock), or must first catch up with its own. */
@@ -70,11 +76,16 @@ object HierarchyReducer {
     ): Reduced {
         val change = op.change
         if (op.ensembleId != state.ensembleId || op.isMalformed) return Reduced(state, Rejection.MALFORMED)
-        val rules = if (change is Change.CreateEnsemble && !state.created) change.rules else state.rules
-        if (change is Change.CreateEnsemble && !state.created) {
-            if (!isGenesisOf(state.ensembleId, op)) return Reduced(state, Rejection.BAD_GENESIS)
+        // Every operation of an ensemble is signed by its author: nothing unsigned ever applies.
+        if (!op.authentic) return Reduced(state, Rejection.UNAUTHENTICATED)
+        val genesis = change is Change.CreateEnsemble && !state.created
+        if (genesis && !isGenesisOf(state.ensembleId, op)) return Reduced(state, Rejection.BAD_GENESIS)
+        // The key that signs is the very key the author came in with, not only one with the same fingerprint.
+        val creation = (change as? Change.CreateEnsemble).takeIf { genesis }
+        val registered = creation?.creatorKeys?.signing ?: state.members[op.author]?.keys?.signing
+        if (registered != null && !registered.contentEquals(op.proof?.publicKey)) {
+            return Reduced(state, Rejection.UNAUTHENTICATED)
         }
-        if (rules.signedOps && !op.authentic) return Reduced(state, Rejection.UNAUTHENTICATED)
         return decide(state, op.author, change)
     }
 
@@ -117,14 +128,14 @@ object HierarchyReducer {
             return yes(
                 state.copy(
                     name = change.name,
-                    leader = author,
+                    creator = author,
                     rules = change.rules,
-                    members = mapOf(author to Member(author, change.creatorName)),
-                    admins = setOf(author),
+                    members = mapOf(author to Member(author, change.creatorName, change.creatorKeys)),
                 ),
             )
         }
         if (!state.created) return no(Rejection.NO_ENSEMBLE)
+        if (state.dissolved) return no(Rejection.DISSOLVED)
         if (author !in state.members) return no(Rejection.NOT_A_MEMBER)
         if (!allowed(state, author, change)) return no(Rejection.FORBIDDEN)
         return when (change) {
@@ -138,27 +149,25 @@ object HierarchyReducer {
                         no(Rejection.ALREADY_MEMBER)
                     }
 
-                    state.members.size >= HierarchyState.MAX_MEMBERS -> {
+                    state.members.size >= state.rules.limits.maxMembers -> {
                         no(Rejection.TOO_MANY)
                     }
 
                     else -> {
-                        yes(
-                            state.copy(
-                                members =
-                                    state.members + (change.member to Member(change.member, change.name)),
-                            ),
-                        )
+                        val member = Member(change.member, change.name, change.keys)
+                        yes(state.copy(members = state.members + (member.id to member)))
                     }
                 }
             }
 
             is Change.RemoveMember -> {
                 val member = state.members[change.member] ?: return no(Rejection.NO_SUCH_MEMBER)
-                if (member.id in state.admins && state.admins.size == 1) return no(Rejection.LAST_ADMIN)
+                // There is always one creator: it hands the ensemble over before it goes, or it dissolves it.
+                if (member.id == state.creator) return no(Rejection.IS_CREATOR)
                 yes(
                     state.copy(
                         leader = state.leader.takeIf { it != member.id },
+                        deputy = state.deputy.takeIf { it != member.id },
                         members = state.members - member.id,
                         admins = state.admins - member.id,
                         groups = groupsWithout(state, member),
@@ -175,23 +184,22 @@ object HierarchyReducer {
             }
 
             is Change.RemoveAdmin -> {
-                when {
-                    change.member !in state.admins -> no(Rejection.NOT_AN_ADMIN)
-                    state.admins.size == 1 -> no(Rejection.LAST_ADMIN)
-                    else -> yes(state.copy(admins = state.admins - change.member))
-                }
+                if (change.member !in state.admins) return no(Rejection.NOT_AN_ADMIN)
+                yes(state.copy(admins = state.admins - change.member))
             }
 
             is Change.CreateGroup -> {
                 when {
-                    // Under the ensemble only: HierarchyState.MAX_DEPTH levels. A deeper tree starts by relaxing this.
-                    change.parent != HierarchyState.ROOT -> no(Rejection.UNSUPPORTED_DEPTH)
-
                     change.group in state.groups -> no(Rejection.GROUP_EXISTS)
 
                     change.group in state.deletedGroups -> no(Rejection.GROUP_DELETED)
 
-                    state.groups.size >= HierarchyState.MAX_GROUPS -> no(Rejection.TOO_MANY)
+                    !state.isUnit(change.parent) -> no(Rejection.NO_SUCH_GROUP)
+
+                    // As many levels as the limits of this ensemble say: one today, the rules hold for more.
+                    state.depthOf(change.parent) >= state.rules.limits.maxDepth -> no(Rejection.TOO_DEEP)
+
+                    state.groups.size >= state.rules.limits.maxGroups -> no(Rejection.TOO_MANY)
 
                     else -> yes(state.copy(groups = state.groups + (change.group to newGroup(change))))
                 }
@@ -205,17 +213,13 @@ object HierarchyReducer {
 
             is Change.DeleteGroup -> {
                 if (change.group !in state.groups) return no(Rejection.NO_SUCH_GROUP)
+                if (state.groups.values.any { it.parent == change.group }) return no(Rejection.HAS_SUBGROUPS)
                 yes(
                     state.copy(
                         members =
                             state.members.mapValues { (_, m) ->
-                                if (m.group ==
-                                    change.group
-                                ) {
-                                    m.copy(group = null)
-                                } else {
-                                    m
-                                }
+                                m.takeIf { it.group != change.group }
+                                    ?: m.copy(group = null)
                             },
                         groups = state.groups - change.group,
                         deletedGroups = state.deletedGroups + change.group,
@@ -227,6 +231,7 @@ object HierarchyReducer {
                 val member = state.members[change.member] ?: return no(Rejection.NO_SUCH_MEMBER)
                 if (change.group !in state.groups) return no(Rejection.NO_SUCH_GROUP)
                 if (member.group == change.group) return no(Rejection.NO_CHANGE)
+                // One group at most: the new one takes the place of the old one.
                 yes(
                     state.copy(
                         members = state.members + (member.id to member.copy(group = change.group)),
@@ -246,44 +251,83 @@ object HierarchyReducer {
                 )
             }
 
-            is Change.SetGroupLeader -> {
-                val group = state.groups[change.group] ?: return no(Rejection.NO_SUCH_GROUP)
+            is Change.SetPost -> {
+                val group = if (change.unit == HierarchyState.ROOT) null else state.groups[change.unit]
+                if (change.unit != HierarchyState.ROOT && group == null) return no(Rejection.NO_SUCH_GROUP)
                 val member = state.members[change.member] ?: return no(Rejection.NO_SUCH_MEMBER)
-                when {
-                    member.group != group.id -> no(Rejection.NOT_IN_GROUP)
-                    group.leader == member.id -> no(Rejection.NO_CHANGE)
-                    else -> yes(state.copy(groups = state.groups + (group.id to group.copy(leader = member.id))))
-                }
+                if (group != null && member.group != group.id) return no(Rejection.NOT_IN_GROUP)
+                val leader = state.leaderOf(change.unit)
+                val deputy = state.deputyOf(change.unit)
+                val holder = if (change.post == Post.LEADER) leader else deputy
+                if (holder == member.id) return no(Rejection.NO_CHANGE)
+                // One post of a unit at most: a deputy named leader leaves its post of deputy, and the reverse.
+                val newLeader = if (change.post == Post.LEADER) member.id else leader.takeIf { it != member.id }
+                val newDeputy = if (change.post == Post.DEPUTY) member.id else deputy.takeIf { it != member.id }
+                yes(withPosts(state, group, newLeader, newDeputy))
             }
 
-            is Change.ClearGroupLeader -> {
-                val group = state.groups[change.group] ?: return no(Rejection.NO_SUCH_GROUP)
-                if (group.leader == null) return no(Rejection.NO_CHANGE)
-                yes(state.copy(groups = state.groups + (group.id to group.copy(leader = null))))
+            is Change.ClearPost -> {
+                val group = if (change.unit == HierarchyState.ROOT) null else state.groups[change.unit]
+                if (change.unit != HierarchyState.ROOT && group == null) return no(Rejection.NO_SUCH_GROUP)
+                val leader = state.leaderOf(change.unit)
+                val deputy = state.deputyOf(change.unit)
+                if ((if (change.post == Post.LEADER) leader else deputy) == null) return no(Rejection.NO_CHANGE)
+                // A vacant post blocks nothing: the unit goes on without it.
+                yes(
+                    withPosts(
+                        state,
+                        group,
+                        leader.takeIf { change.post != Post.LEADER },
+                        deputy.takeIf { change.post != Post.DEPUTY },
+                    ),
+                )
             }
 
-            is Change.SetEnsembleLeader -> {
+            is Change.TransferCreator -> {
                 when (change.member) {
                     !in state.members -> no(Rejection.NO_SUCH_MEMBER)
-                    state.leader -> no(Rejection.NO_CHANGE)
-                    else -> yes(state.copy(leader = change.member))
+                    state.creator -> no(Rejection.NO_CHANGE)
+                    else -> yes(state.copy(creator = change.member))
                 }
+            }
+
+            Change.Dissolve -> {
+                yes(state.copy(dissolved = true))
             }
         }
     }
 
     private fun newGroup(change: Change.CreateGroup) = Group(change.group, change.parent, change.name)
 
-    /** The groups once [member] has left its own: a group it led has no leader any more. */
+    /** [state] with [leader] and [deputy] at the posts of [group], or of the ensemble when [group] is `null`. */
+    private fun withPosts(
+        state: HierarchyState,
+        group: Group?,
+        leader: Long?,
+        deputy: Long?,
+    ): HierarchyState =
+        if (group == null) {
+            state.copy(leader = leader, deputy = deputy)
+        } else {
+            state.copy(groups = state.groups + (group.id to group.copy(leader = leader, deputy = deputy)))
+        }
+
+    /** The groups once [member] has left its own: the post it held there is vacant. */
     private fun groupsWithout(
         state: HierarchyState,
         member: Member,
     ): Map<Long, Group> {
-        val group = state.groupOf(member.id)?.takeIf { it.leader == member.id } ?: return state.groups
-        return state.groups + (group.id to group.copy(leader = null))
+        val group = state.groupOf(member.id) ?: return state.groups
+        if (group.leader != member.id && group.deputy != member.id) return state.groups
+        val left =
+            group.copy(
+                leader = group.leader.takeIf { it != member.id },
+                deputy = group.deputy.takeIf { it != member.id },
+            )
+        return state.groups + (group.id to left)
     }
 
-    /** Whether one of the roles of [author] reaches [change] ([RightsTable]). */
+    /** Whether one of the roles of [author] reaches [change] ([RightsTable]); a deputy has its leader's rights. */
     private fun allowed(
         state: HierarchyState,
         author: Long,
@@ -294,29 +338,62 @@ object HierarchyReducer {
         val member = memberConcerned(state, change)
         val group = groupConcerned(state, change)
         return state.rolesOf(author).any { role ->
-            val mask = state.rules.rights.mask(operation, role)
+            val mask = state.rules.rights.effectiveMask(operation, role)
             mask and Reach.ANYONE.bit != 0 ||
                 (mask and Reach.SELF.bit != 0 && member == author) ||
                 (mask and Reach.OWN_GROUP.bit != 0 && own != null && group == own)
         }
     }
 
-    /** The member a change is about ([Reach.SELF]); for a group that loses its leader, that leader. */
+    /** The member a change is about ([Reach.SELF]); for a post left vacant, the one who held it. */
     private fun memberConcerned(
         state: HierarchyState,
         change: Change,
     ): Long? =
         when (change) {
-            is Change.AdmitMember -> change.member
-            is Change.RemoveMember -> change.member
-            is Change.AddAdmin -> change.member
-            is Change.RemoveAdmin -> change.member
-            is Change.AssignMember -> change.member
-            is Change.UnassignMember -> change.member
-            is Change.SetGroupLeader -> change.member
-            is Change.SetEnsembleLeader -> change.member
-            is Change.ClearGroupLeader -> state.groups[change.group]?.leader
-            is Change.CreateEnsemble, is Change.CreateGroup, is Change.RenameGroup, is Change.DeleteGroup -> null
+            is Change.AdmitMember -> {
+                change.member
+            }
+
+            is Change.RemoveMember -> {
+                change.member
+            }
+
+            is Change.AddAdmin -> {
+                change.member
+            }
+
+            is Change.RemoveAdmin -> {
+                change.member
+            }
+
+            is Change.AssignMember -> {
+                change.member
+            }
+
+            is Change.UnassignMember -> {
+                change.member
+            }
+
+            is Change.SetPost -> {
+                change.member
+            }
+
+            is Change.TransferCreator -> {
+                change.member
+            }
+
+            is Change.ClearPost -> {
+                if (change.post == Post.LEADER) state.leaderOf(change.unit) else state.deputyOf(change.unit)
+            }
+
+            is Change.CreateEnsemble, is Change.CreateGroup, is Change.RenameGroup, is Change.DeleteGroup -> {
+                null
+            }
+
+            Change.Dissolve -> {
+                null
+            }
         }
 
     /** The group a change is about ([Reach.OWN_GROUP]): the one named, or the one the member is taken out of. */
@@ -325,14 +402,40 @@ object HierarchyReducer {
         change: Change,
     ): Long? =
         when (change) {
-            is Change.RenameGroup -> change.group
-            is Change.DeleteGroup -> change.group
-            is Change.AssignMember -> change.group
-            is Change.SetGroupLeader -> change.group
-            is Change.ClearGroupLeader -> change.group
-            is Change.UnassignMember -> state.members[change.member]?.group
-            is Change.RemoveMember -> state.members[change.member]?.group
-            is Change.CreateEnsemble, is Change.AdmitMember, is Change.AddAdmin, is Change.RemoveAdmin -> null
-            is Change.CreateGroup, is Change.SetEnsembleLeader -> null
+            is Change.RenameGroup -> {
+                change.group
+            }
+
+            is Change.DeleteGroup -> {
+                change.group
+            }
+
+            is Change.AssignMember -> {
+                change.group
+            }
+
+            is Change.SetPost -> {
+                change.unit.takeIf { it != HierarchyState.ROOT }
+            }
+
+            is Change.ClearPost -> {
+                change.unit.takeIf { it != HierarchyState.ROOT }
+            }
+
+            is Change.UnassignMember -> {
+                state.members[change.member]?.group
+            }
+
+            is Change.RemoveMember -> {
+                state.members[change.member]?.group
+            }
+
+            is Change.CreateEnsemble, is Change.AdmitMember, is Change.AddAdmin, is Change.RemoveAdmin -> {
+                null
+            }
+
+            is Change.CreateGroup, is Change.TransferCreator, Change.Dissolve -> {
+                null
+            }
         }
 }

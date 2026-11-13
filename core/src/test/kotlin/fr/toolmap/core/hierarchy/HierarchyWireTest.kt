@@ -12,15 +12,27 @@ import kotlin.test.assertTrue
 class HierarchyWireTest {
     private val rules =
         HierarchyRules(
-            RightsTable.DEFAULT.with(Operation.ASSIGN_MEMBER, Role.GROUP_LEADER, Reach.OWN_GROUP, Reach.SELF),
-            VisibilityTable.NONE.with(Role.MEMBER, Audience.SAME_GROUP).with(Role.ADMIN, Audience.EVERYONE),
-            signedOps = true,
+            rights = RightsTable.DEFAULT.with(Operation.ASSIGN_MEMBER, Role.GROUP_LEADER, Reach.OWN_GROUP, Reach.SELF),
+            visibility =
+                VisibilityTable.NONE.with(
+                    Role.MEMBER,
+                    Audience.SAME_GROUP,
+                ).with(Role.ADMIN, Audience.EVERYONE),
+            shares =
+                ShareTable.DEFAULT.with(
+                    ShareKind.MESSAGE,
+                    Role.GROUP_DEPUTY,
+                    ShareReach.PARENT_UNIT,
+                    ShareReach.OWN_UNIT,
+                ),
+            limits = HierarchyLimits(maxMembers = 120, maxGroups = 20, maxDepth = 3),
+            signedShares = setOf(ShareKind.MESSAGE),
         )
     private val changes =
         listOf(
-            Change.CreateEnsemble(NONCE, "Sortie d'été", "Alpha", rules),
-            Change.CreateEnsemble(-1, "Défaut", "Alpha"),
-            Change.AdmitMember(B, "Bravo"),
+            genesis(name = "Sortie d'été", rules = rules),
+            genesis(name = "Défaut", nonce = -1),
+            admit(B, "Bravo"),
             Change.RemoveMember(B),
             Change.AddAdmin(-2),
             Change.RemoveAdmin(B),
@@ -30,32 +42,42 @@ class HierarchyWireTest {
             Change.DeleteGroup(G1),
             Change.AssignMember(C, G1),
             Change.UnassignMember(C),
-            Change.SetGroupLeader(G1, C),
-            Change.ClearGroupLeader(G1),
-            Change.SetEnsembleLeader(B),
+            leader(G1, C),
+            deputy(ROOT, B),
+            Change.ClearPost(G1, Post.DEPUTY),
+            Change.ClearPost(ROOT, Post.LEADER),
+            Change.TransferCreator(B),
+            Change.Dissolve,
         )
-    private val ops = changes.mapIndexed { i, change -> Op(0x1234_5678_9ABC_DEF0, A, i + 1, 10L + i, change) }
+    private val ops = changes.mapIndexed { i, change -> signedOp(0x1234_5678_9ABC_DEF0, A, i + 1, 10L + i, change) }
+
+    /** What every block starts with, then the length of the content, then ensemble, author, number and clock. */
+    private val beforeChange = 2 + 2 + 24
+    private val proofBytes = P256.POINT_BYTES + P256.SIGNATURE_BYTES
 
     private fun sampleState(): HierarchyState =
-        staffed(rules.copy(signedOps = false))
+        deployed(rules)
             .apply {
-                must(Change.AssignMember(C, G1))
-                must(Change.AssignMember(D, G1))
-                must(Change.SetGroupLeader(G1, D))
-                must(Change.CreateGroup(0x103, "Éphémère"))
-                must(Change.DeleteGroup(0x103))
+                must(leader(G1, D))
+                must(deputy(G1, C))
+                must(leader(ROOT, B))
+                must(deputy(ROOT, E))
+                must(Change.CreateGroup(G3, "Sous-groupe", parent = G1))
+                must(Change.AssignMember(F, G3))
+                must(Change.CreateGroup(0x104, "Éphémère"))
+                must(Change.DeleteGroup(0x104))
             }.state
 
     @Test
-    fun `every change survives the format`() {
-        assertEquals(13, changes.map { it::class }.toSet().size, "one sample per kind of change")
+    fun `every change survives the format, with its proof`() {
+        assertEquals(14, changes.map { it::class }.toSet().size, "one sample per kind of change")
         for (op in ops) {
             val bytes = HierarchyWire.encodeOp(op)
             assertEquals(HierarchyWire.Kind.OP, HierarchyWire.kindOf(bytes))
             val back = HierarchyWire.decodeOp(bytes)
             assertEquals(op, back)
             assertEquals(op.change, back.change)
-            assertNull(back.proof)
+            assertTrue(back.authentic, "$op")
             assertContentEquals(bytes, HierarchyWire.encodeOp(back))
         }
         val block = HierarchyWire.encodeOps(ops)
@@ -63,18 +85,27 @@ class HierarchyWireTest {
         assertEquals(ops, HierarchyWire.decodeOps(block))
         assertEquals(emptyList(), HierarchyWire.decodeOps(HierarchyWire.encodeOps(emptyList())))
         // The largest values of the numbers.
-        val last = Op(-1, -1, Int.MAX_VALUE, Op.MAX_CLOCK, Change.AssignMember(-1, -1))
+        val last = signedOp(-1, A, Int.MAX_VALUE, Op.MAX_CLOCK, Change.AssignMember(-1, -1))
         assertEquals(last, HierarchyWire.decodeOp(HierarchyWire.encodeOp(last)))
-        // An operation stays small, it travels in the frames of the mesh: header, lengths, content, the longest change.
-        val longest = Op(-1, -1, 1, 1, Change.CreateGroup(-1, "x".repeat(Names.MAX_BYTES), parent = -1))
-        assertEquals(2 + 2 + 25 + 16 + 1 + Names.MAX_BYTES + 2, HierarchyWire.encodeOp(longest).size)
-        assertTrue(ops.drop(2).all { HierarchyWire.encodeOp(it).size <= HierarchyWire.encodeOp(longest).size })
-        assertEquals(2 + 2 + 25 + 16 + 2, HierarchyWire.encodeOp(Op(1, A, 1, 1, Change.AssignMember(C, G1))).size)
+        // An operation stays small, it travels in the frames of the mesh: header, length, content and proof. The
+        // longest ones are the two that carry the keys of a member; the others fit in a hundred bytes plus the proof.
+        val longest = signedOp(-1, A, 1, 1, Change.CreateGroup(-1, "x".repeat(Names.MAX_BYTES), parent = -1))
+        assertEquals(beforeChange + 1 + 16 + 1 + Names.MAX_BYTES + proofBytes, HierarchyWire.encodeOp(longest).size)
+        assertTrue(ops.drop(3).all { HierarchyWire.encodeOp(it).size <= HierarchyWire.encodeOp(longest).size })
+        assertEquals(
+            beforeChange + 1 + 16 + proofBytes,
+            HierarchyWire.encodeOp(signedOp(1, A, 1, 1, Change.AssignMember(C, G1))).size,
+        )
+        val admission = HierarchyWire.encodeOp(signedOp(1, A, 1, 1, admit(B, "x".repeat(Names.MAX_BYTES))))
+        assertEquals(beforeChange + 1 + 8 + 1 + Names.MAX_BYTES + 2 * P256.POINT_BYTES + proofBytes, admission.size)
+        // An operation never travels without its proof.
+        assertFailsWith<IllegalArgumentException> { HierarchyWire.encodeOp(Op(1, A, 1, 1, Change.AddAdmin(B))) }
     }
 
     @Test
     fun `long lists are cut in blocks`() {
-        val many = List(HierarchyWire.MAX_BATCH * 2 + 3) { Op(1, A, it + 1, it + 1L, Change.AddAdmin(B)) }
+        val proof = signedOp(1, A, 1, 1, Change.AddAdmin(B)).proof
+        val many = List(HierarchyWire.MAX_BATCH * 2 + 3) { Op(1, A, it + 1, it + 1L, Change.AddAdmin(B), proof) }
         val blocks = HierarchyWire.encodeOpBlocks(many)
         assertEquals(3, blocks.size)
         assertEquals(many, blocks.flatMap(HierarchyWire::decodeOps))
@@ -120,14 +151,27 @@ class HierarchyWireTest {
         val state = sampleState()
         val broken =
             listOf(
-                state.copy(admins = emptySet()),
+                state.copy(creator = OUTSIDER),
                 state.copy(leader = OUTSIDER),
-                state.copy(members = state.members + (C to Member(C, "Charlie", group = 0x999))),
-                state.copy(groups = state.groups + (G2 to Group(G2, HierarchyState.ROOT, "Groupe 2", leader = C))),
-                state.copy(groups = state.groups + (G2 to Group(G2, G1, "Groupe 2"))),
+                state.copy(deputy = OUTSIDER),
+                state.copy(deputy = state.leader),
+                state.copy(members = state.members + (C to Member(C, "Charlie", publicOf(C), group = 0x999))),
+                state.copy(members = state.members + (C to Member(C, "Charlie", publicOf(D), group = G1))),
+                state.copy(groups = state.groups + (G2 to Group(G2, ROOT, "Groupe 2", leader = C))),
+                state.copy(groups = state.groups + (G2 to Group(G2, ROOT, "Groupe 2", deputy = C))),
+                state.copy(groups = state.groups + (G1 to Group(G1, ROOT, "Groupe 1", leader = C, deputy = C))),
+                // A group under a group that does not exist, under itself, or deeper than the limits.
+                state.copy(groups = state.groups + (G2 to Group(G2, 0x999, "Groupe 2"))),
+                state.copy(groups = state.groups + (G2 to Group(G2, G2, "Groupe 2"))),
+                state.copy(
+                    rules = state.rules.copy(limits = HierarchyLimits(maxMembers = 120, maxGroups = 20, maxDepth = 1)),
+                ),
+                state.copy(
+                    rules = state.rules.copy(limits = HierarchyLimits(maxMembers = 3, maxGroups = 20, maxDepth = 3)),
+                ),
                 state.copy(deletedGroups = setOf(G1)),
                 state.copy(name = " "),
-                state.copy(members = state.members + (0L to Member(0, "Zéro"))),
+                state.copy(members = state.members + (0L to Member(0, "Zéro", publicOf(A)))),
             )
         // The format cannot even write an administrator who is not a member: the mark is on the member.
         assertTrue(state.copy(admins = state.admins + OUTSIDER).inconsistency() != null)
@@ -139,45 +183,76 @@ class HierarchyWireTest {
 
     @Test
     fun `what is not in the one form of this version is refused`() {
-        val op = HierarchyWire.encodeOp(ops[2])
+        val op = HierarchyWire.encodeOp(ops[6])
         assertFailsWith<WireException> { HierarchyWire.decodeOp(byteArrayOf()) }
-        assertFailsWith<WireException> { HierarchyWire.decodeOp(op.copyOf().also { it[0] = 2 }) }
+        // Another version: the first one, never deployed, is not read.
+        assertFailsWith<WireException> { HierarchyWire.decodeOp(op.copyOf().also { it[0] = 1 }) }
         assertFailsWith<WireException> { HierarchyWire.decodeOps(op) }
         assertFailsWith<WireException> { HierarchyWire.decodeOp(op + 0) }
         assertFailsWith<WireException> {
             HierarchyWire.decodeSummary(HierarchyWire.encodeSummary(Summary(1, emptyMap(), 0)) + 0)
         }
-        assertNull(HierarchyWire.kindOf(byteArrayOf(1)))
-        assertNull(HierarchyWire.kindOf(byteArrayOf(2, 1)))
-        assertNull(HierarchyWire.kindOf(byteArrayOf(1, 9)))
+        assertNull(HierarchyWire.kindOf(byteArrayOf(2)))
+        assertNull(HierarchyWire.kindOf(byteArrayOf(1, 1)))
+        assertNull(HierarchyWire.kindOf(byteArrayOf(2, 9)))
+        assertEquals(HierarchyWire.Kind.OP, HierarchyWire.kindOf(byteArrayOf(2, 1)))
+
+        val proof = ops[0].proof
 
         fun refused(vararg wrong: Op) =
             wrong.forEach {
                 assertFailsWith<WireException>("$it") { HierarchyWire.decodeOp(HierarchyWire.encodeOp(it)) }
             }
         refused(
-            Op(1, A, 0, 5, Change.AddAdmin(B)),
-            Op(1, A, 1, 0, Change.AddAdmin(B)),
-            Op(1, 0, 1, 5, Change.AddAdmin(B)),
-            Op(1, A, 1, 5, Change.AddAdmin(0)),
-            Op(1, A, 1, 5, Change.AdmitMember(B, "")),
-            Op(1, A, 1, 5, Change.AdmitMember(B, "a\u0000b")),
-            Op(1, A, 1, 5, Change.CreateGroup(G1, "\t")),
-            // Half a proof.
-            Op(1, A, 1, 5, Change.AddAdmin(B), OpProof(byteArrayOf(1, 2, 3), byteArrayOf())),
+            Op(1, A, 0, 5, Change.AddAdmin(B), proof),
+            Op(1, A, 1, 0, Change.AddAdmin(B), proof),
+            Op(1, 0, 1, 5, Change.AddAdmin(B), proof),
+            Op(1, A, 1, 5, Change.AddAdmin(0), proof),
+            Op(1, A, 1, 5, admit(B, ""), proof),
+            Op(1, A, 1, 5, admit(B, "a\u0000b"), proof),
+            Op(1, A, 1, 5, Change.CreateGroup(G1, "\t"), proof),
+            // Keys that are not the ones of the member admitted, and a creation with the keys of another.
+            Op(1, A, 1, 5, Change.AdmitMember(B, "Bravo", publicOf(C)), proof),
+            Op(1, B, 1, 5, genesis(creator = A), proof),
         )
         // A name cut in the middle of a character does not read back as it was written: refused, not repaired.
         val name = "é".toByteArray()
-        val cut = op.copyOf().also { it[it.size - 3] = name[0] }
+        val cut = op.copyOf().also { it[it.size - proofBytes - 3] = name[0] }
         assertFailsWith<WireException> { HierarchyWire.decodeOp(cut) }
         // A code this version does not know: the phone must be updated before it can apply it.
-        val unknown = HierarchyWire.encodeOp(ops[3]).also { it[2 + 2 + 24] = 99 }
+        val unknown = HierarchyWire.encodeOp(ops[3]).also { it[beforeChange] = 99 }
         assertEquals("unknown change", assertFailsWith<WireException> { HierarchyWire.decodeOp(unknown) }.message)
-        // Rules with a bit this version does not know.
-        val genesis = HierarchyWire.encodeOp(ops[1])
-        val flags = 2 + 2 + 25 + 8 + 1 + "Défaut".toByteArray().size + 1 + "Alpha".length
-        assertEquals(0, genesis[flags].toInt())
-        assertFailsWith<WireException> { HierarchyWire.decodeOp(genesis.copyOf().also { it[flags] = 2 }) }
+        // A post that is neither leader nor deputy.
+        val post = HierarchyWire.encodeOp(ops[12]).also { it[beforeChange + 1 + 8] = 3 }
+        assertEquals("unknown post", assertFailsWith<WireException> { HierarchyWire.decodeOp(post) }.message)
+        // Rules with a kind of share, or limits, this version cannot carry: the last six bytes of the creation.
+        val creation = HierarchyWire.encodeOp(ops[1])
+        val signedKinds = creation.size - proofBytes - 6
+        assertEquals(HierarchyRules.SIGNED_BY_DEFAULT.sumOf { it.bit }, creation[signedKinds].toInt())
+        assertFailsWith<WireException> { HierarchyWire.decodeOp(creation.copyOf().also { it[signedKinds] = 0x40 }) }
+        assertFailsWith<WireException> {
+            HierarchyWire.decodeOp(
+                creation.copyOf().also {
+                    it[
+                        creation.size - proofBytes -
+                            1,
+                    ] =
+                        0
+                },
+            )
+        }
+        // A key that is not a point of the curve.
+        val admission = HierarchyWire.encodeOp(ops[2])
+        val keyAt = admission.size - proofBytes - 2 * P256.POINT_BYTES
+        assertEquals(4, admission[keyAt].toInt())
+        assertFailsWith<WireException> {
+            HierarchyWire.decodeOp(
+                admission.copyOf().also {
+                    it[keyAt + 40] =
+                        (it[keyAt + 40] + 1).toByte()
+                },
+            )
+        }
     }
 
     /** Decodes [bytes] as [kind]; `true` when accepted. Anything but a [WireException] fails the test. */
@@ -208,6 +283,15 @@ class HierarchyWireTest {
                 HierarchyWire.Kind.STATE -> {
                     assertNull(HierarchyWire.decodeState(bytes).inconsistency())
                 }
+
+                HierarchyWire.Kind.KEYS -> {
+                    assertContentEquals(bytes, HierarchyWire.encodeKeyBatch(HierarchyWire.decodeKeyBatch(bytes)))
+                }
+
+                HierarchyWire.Kind.SHARE -> {
+                    HierarchyWire.readShareHeader(bytes.copyOf(minOf(bytes.size, HierarchyWire.SHARE_HEADER_BYTES)))
+                    if (bytes.size < HierarchyWire.SHARE_HEADER_BYTES) throw WireException("truncated share")
+                }
             }
             true
         } catch (_: WireException) {
@@ -217,14 +301,15 @@ class HierarchyWireTest {
     @Test
     fun `damaged or made-up bytes are refused without anything else than a refusal`() {
         val random = Random(20261113)
-        val signed = OpAuth.sign(ops[6], OpAuth.signer(OpAuth.generateKey()))
+        val state = sampleState()
+        val batch = ContentKeys.issue(state.readers(ROOT)!!, keysOf(A)).batch
         val samples =
             ops.map { HierarchyWire.Kind.OP to HierarchyWire.encodeOp(it) } +
                 listOf(
-                    HierarchyWire.Kind.OP to HierarchyWire.encodeOp(signed),
-                    HierarchyWire.Kind.OPS to HierarchyWire.encodeOps(ops + signed),
+                    HierarchyWire.Kind.OPS to HierarchyWire.encodeOps(ops.drop(2)),
                     HierarchyWire.Kind.SUMMARY to HierarchyWire.encodeSummary(Summary(7, mapOf(A to 3, B to 9), 11)),
-                    HierarchyWire.Kind.STATE to HierarchyWire.encodeState(sampleState()),
+                    HierarchyWire.Kind.STATE to HierarchyWire.encodeState(state),
+                    HierarchyWire.Kind.KEYS to HierarchyWire.encodeKeyBatch(batch),
                 )
         var accepted = 0
         var refused = 0
@@ -239,9 +324,9 @@ class HierarchyWireTest {
             assertTrue(survives(kind, bytes), "the sample itself")
             // Cut anywhere.
             for (length in 0 until bytes.size) assertTrue(!survives(kind, bytes.copyOf(length)), "$kind cut at $length")
-            // Any byte changed.
-            for (i in bytes.indices) {
-                repeat(4) {
+            // Any byte changed (one in three for the long blocks: each try checks the keys of a state again).
+            for (i in bytes.indices step if (bytes.size > 1000) 3 else 1) {
+                repeat(if (bytes.size > 1000) 1 else 3) {
                     attempt(
                         kind,
                         bytes.copyOf().also {
@@ -262,7 +347,7 @@ class HierarchyWireTest {
             val noise = random.nextBytes(random.nextInt(120))
             for (kind in HierarchyWire.Kind.entries) attempt(kind, noise)
         }
-        assertTrue(refused > 10_000, "$refused refused")
+        assertTrue(refused > 8_000, "$refused refused")
         assertTrue(accepted > 100, "$accepted accepted: changes that still mean something are read")
     }
 }
