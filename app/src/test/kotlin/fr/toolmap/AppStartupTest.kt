@@ -11,6 +11,7 @@ import fr.toolmap.crash.CrashReporter
 import fr.toolmap.share.ShareEntryPoint
 import fr.toolmap.share.ShareProblem
 import org.junit.After
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.maplibre.android.maps.MapView
@@ -19,6 +20,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.nativeruntime.DefaultNativeRuntimeLoader
 import java.io.File
 import java.time.Duration
 import kotlin.test.assertEquals
@@ -36,6 +38,18 @@ import kotlin.test.assertTrue
 @Config(sdk = [26, 35], application = ToolMapApp::class, instrumentedPackages = ["org.maplibre.android"])
 class AppStartupTest {
     private val app: ToolMapApp get() = RuntimeEnvironment.getApplication() as ToolMapApp
+
+    /**
+     * Below API 35, Robolectric 4.17 loads its native runtime only at the first native call: here the SQLite open
+     * of the app's own Room thread, started at launch, which copies the runtime's fonts out of a jar opened as a
+     * JVM-wide zip file system. That copy could outlive a short test, and the next sandbox (API 35 loads at set-up)
+     * then failed to open the same jar (`FileSystemAlreadyExistsException`, then SQLite missing in that sandbox).
+     * The loader is synchronized: calling it on the test thread does the load, or waits for the one under way.
+     */
+    @Before
+    fun nativeRuntimeLoaded() {
+        DefaultNativeRuntimeLoader.injectAndLoad()
+    }
 
     @After
     fun tearDown() {
