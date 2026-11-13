@@ -4,18 +4,81 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 
-/** Identifiers of the tests: A < B < C < D in the order of the operations at equal clocks. */
-internal const val A = 0x10L
-internal const val B = 0x20L
-internal const val C = 0x30L
-internal const val D = 0x40L
-internal const val OUTSIDER = 0x99L
+/** One phone of the tests: its keys, and the member identifier that goes with them. */
+internal class Phone(
+    val keys: PhoneKeys,
+) {
+    val id: Long = keys.memberId
+}
+
+/**
+ * The phones of the tests. A member identifier is the fingerprint of a key, so it cannot be chosen: the phones are
+ * sorted by identifier, which gives the names below a known order whatever the keys drawn.
+ */
+private val PHONES: List<Phone> =
+    List(12) { Phone(OpAuth.memoryKeys()) }.sortedWith { a, b -> java.lang.Long.compareUnsigned(a.id, b.id) }
+private val BY_ID: Map<Long, Phone> = PHONES.associateBy { it.id }
+
+/** Smaller than every other identifier of the tests. */
+internal val FIRST = PHONES[0].id
+
+/** Identifiers of the tests: A < B < C < D < E… in the order of the operations at equal clocks. */
+internal val A = PHONES[1].id
+internal val B = PHONES[2].id
+internal val C = PHONES[3].id
+internal val D = PHONES[4].id
+internal val E = PHONES[5].id
+internal val F = PHONES[6].id
+internal val H = PHONES[7].id
+internal val I = PHONES[8].id
+internal val J = PHONES[9].id
+
+/** Never admitted by the fixtures, and greater than every other identifier. */
+internal val OUTSIDER = PHONES[11].id
 internal const val G1 = 0x101L
 internal const val G2 = 0x102L
+internal const val G3 = 0x103L
 internal const val NONCE = 7L
+internal const val ROOT = HierarchyState.ROOT
+
+internal fun keysOf(member: Long): PhoneKeys = BY_ID.getValue(member).keys
+
+internal fun publicOf(member: Long): MemberKeys = keysOf(member).public
+
+/** The admission of a phone of the tests, with its real keys. */
+internal fun admit(
+    member: Long,
+    name: String = "Membre",
+): Change.AdmitMember = Change.AdmitMember(member, name, publicOf(member))
+
+internal fun leader(
+    unit: Long,
+    member: Long,
+) = Change.SetPost(unit, Post.LEADER, member)
+
+internal fun deputy(
+    unit: Long,
+    member: Long,
+) = Change.SetPost(unit, Post.DEPUTY, member)
+
+internal fun genesis(
+    creator: Long = A,
+    name: String = "Sortie du jour",
+    rules: HierarchyRules = HierarchyRules.DEFAULT,
+    nonce: Long = NONCE,
+) = Change.CreateEnsemble(nonce, name, "Alpha", publicOf(creator), rules)
 
 internal fun newEnsemble(rules: HierarchyRules = HierarchyRules.DEFAULT): HierarchyReplica =
-    HierarchyReplica.create(A, "Alpha", "Sortie du jour", NONCE, rules)
+    HierarchyReplica.create(keysOf(A), "Alpha", "Sortie du jour", NONCE, rules)
+
+/** An operation written by hand and signed by its author: what a phone would not have written by itself. */
+internal fun signedOp(
+    ensembleId: Long,
+    author: Long,
+    seq: Int,
+    clock: Long,
+    change: Change,
+): Op = OpAuth.sign(Op(ensembleId, author, seq, clock, change), keysOf(author))
 
 /** Asks for [change] and expects it to be written. */
 internal fun HierarchyReplica.must(change: Change): Op = assertIs<IssueResult.Issued>(issue(change), "$change").op
@@ -25,7 +88,8 @@ internal fun HierarchyReplica.refused(change: Change): Rejection =
     assertIs<IssueResult.Refused>(issue(change), "$change").reason
 
 /** The copy of [self], a phone that received everything [this] holds. */
-internal fun HierarchyReplica.copyFor(self: Long): HierarchyReplica = HierarchyReplica.restore(ensembleId, self, ops())
+internal fun HierarchyReplica.copyFor(self: Long): HierarchyReplica =
+    HierarchyReplica.restore(ensembleId, self, ops(), keysOf(self))
 
 /** Why [op] changed nothing on this phone; `null` when it applied. */
 internal fun HierarchyReplica.rejectionOf(op: Op): Rejection? = history().single { it.op == op }.rejection
@@ -64,13 +128,115 @@ internal fun assertSame(
     assertNull(actual.state.inconsistency(), message)
 }
 
-/** An ensemble with A (creator, administrator), B (administrator), C and D, and the groups G1 and G2. */
+/**
+ * An ensemble with A (creator), B (administrator), C and D (admitted, waiting for a group), and the groups G1 and
+ * G2. Every post is vacant.
+ */
 internal fun staffed(rules: HierarchyRules = HierarchyRules.DEFAULT): HierarchyReplica =
     newEnsemble(rules).apply {
-        must(Change.AdmitMember(B, "Bravo"))
-        must(Change.AdmitMember(C, "Charlie"))
-        must(Change.AdmitMember(D, "Delta"))
+        must(admit(B, "Bravo"))
+        must(admit(C, "Charlie"))
+        must(admit(D, "Delta"))
         must(Change.AddAdmin(B))
         must(Change.CreateGroup(G1, "Groupe 1"))
         must(Change.CreateGroup(G2, "Groupe 2"))
+    }
+
+/** [staffed], then C and D in G1, E and F in G2: everyone has a group but A and B. */
+internal fun deployed(rules: HierarchyRules = HierarchyRules.DEFAULT): HierarchyReplica =
+    staffed(rules).apply {
+        must(admit(E, "Echo"))
+        must(admit(F, "Foxtrot"))
+        must(Change.AssignMember(C, G1))
+        must(Change.AssignMember(D, G1))
+        must(Change.AssignMember(E, G2))
+        must(Change.AssignMember(F, G2))
+    }
+
+/** Rules with two levels of groups, to try what holds for sub-groups. */
+internal val TWO_LEVELS = HierarchyRules(limits = HierarchyLimits(maxMembers = 30, maxGroups = 12, maxDepth = 2))
+
+/** One phone as it will be once wired: its copy of the operations, and the content keys it holds. */
+internal class Device(
+    val id: Long,
+    source: HierarchyReplica,
+) {
+    val replica: HierarchyReplica = source.copyFor(id)
+    val ring = KeyRing(source.ensembleId, keysOf(id))
+    val state: HierarchyState get() = replica.state
+
+    /** Receives [batch] as it travels: through the bytes of the format. */
+    fun take(batch: KeyBatch): KeyOffer =
+        ring.offer(HierarchyWire.decodeKeyBatch(HierarchyWire.encodeKeyBatch(batch)), replica)
+
+    /** Hands out a key for [unit]; fails when this phone may not. */
+    fun issue(unit: Long): KeyBatch = requireNotNull(ring.issue(state, unit)) { "this phone does not read the unit" }
+
+    fun seal(
+        kind: ShareKind,
+        unit: Long,
+        text: String,
+    ): SealResult = ShareSeal.seal(state, ring, keysOf(id), kind, unit, text.toByteArray())
+
+    /** Seals and expects a frame. */
+    fun frame(
+        kind: ShareKind,
+        unit: Long,
+        text: String,
+    ): ByteArray = assertIs<SealResult.Sealed>(seal(kind, unit, text), "$kind in $unit").frame
+
+    /** Tries to seal and expects a refusal. */
+    fun sealRefusal(
+        kind: ShareKind,
+        unit: Long,
+        text: String,
+    ): ShareRefusal = assertIs<SealResult.Refused>(seal(kind, unit, text), "$kind in $unit").reason
+
+    fun open(frame: ByteArray): OpenResult = ShareSeal.open(state, ring, frame)
+
+    /** Opens and expects the text that was sealed. */
+    fun read(frame: ByteArray): String = String(assertIs<OpenResult.Opened>(open(frame)).share.payload)
+
+    /** Opens and expects a refusal. */
+    fun refusal(frame: ByteArray): ShareRefusal = assertIs<OpenResult.Refused>(open(frame)).reason
+}
+
+/** Several phones of one ensemble. */
+internal class World(
+    val source: HierarchyReplica,
+    members: List<Long>,
+) {
+    val devices: Map<Long, Device> = members.associateWith { Device(it, source) }
+
+    operator fun get(member: Long): Device = devices.getValue(member)
+
+    /** Every phone but [away] hears of every operation, then tries again the key batches that waited. */
+    fun spread(vararg away: Long) {
+        val present = devices.values.filter { it.id !in away }
+        for (device in present) sync(device.replica, present.first().replica)
+        for (device in present) sync(device.replica, present.first().replica)
+        for (device in present) device.ring.retry(device.replica)
+    }
+
+    /** [issuer] hands out a key for [unit]; every phone but [away] receives the batch. */
+    fun handOut(
+        issuer: Long,
+        unit: Long,
+        vararg away: Long,
+    ): KeyBatch {
+        val batch = this[issuer].issue(unit)
+        for (device in devices.values) if (device.id != issuer && device.id !in away) device.take(batch)
+        return batch
+    }
+}
+
+/**
+ * The phones of [deployed] and of H, admitted and waiting: A creator, B administrator, C and D in G1, E and F in G2.
+ * Keys handed out for the ensemble (by A), G1 (by C) and G2 (by E).
+ */
+internal fun world(rules: HierarchyRules = HierarchyRules.DEFAULT): World =
+    World(deployed(rules).apply { must(admit(H, "Hotel")) }, listOf(A, B, C, D, E, F, H)).apply {
+        handOut(A, ROOT)
+        handOut(C, G1)
+        handOut(E, G2)
     }

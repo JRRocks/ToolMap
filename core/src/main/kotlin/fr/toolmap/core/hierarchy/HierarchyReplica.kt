@@ -26,6 +26,9 @@ enum class AddResult {
     /** No phone would accept it: not kept. */
     MALFORMED,
 
+    /** Not signed by its author: not kept. Every operation of an ensemble carries the proof of its author. */
+    UNAUTHENTICATED,
+
     /** This phone keeps no more operations ([HierarchyReplica.MAX_OPS]): not kept. */
     FULL,
 }
@@ -55,13 +58,17 @@ sealed interface IssueResult {
  * Knows nothing of the network nor of the disk: the caller sends the bytes of [HierarchyWire] and stores [ops].
  *
  * @param self the member identifier of this phone, author of what [issue] writes.
- * @param signer signs what [issue] writes; needed in an ensemble whose rules ask for signed operations.
+ * @param keys sign what [issue] writes; without them the copy only reads (a phone that relays, a test).
  */
 class HierarchyReplica(
     val ensembleId: Long,
     val self: Long,
-    private val signer: OpSigner? = null,
+    private val keys: PhoneKeys? = null,
 ) {
+    init {
+        require(keys == null || keys.memberId == self) { "the keys are not the ones of this member" }
+    }
+
     /** An operation in the order it was applied, and why it changed nothing when it did not. */
     class Entry(
         val op: Op,
@@ -76,10 +83,25 @@ class HierarchyReplica(
     private var maxClock = 0L
     private val applied = ArrayList<Entry>()
 
-    /** While applying in order: the number of the last operation of each author that was let through. */
-    private val reached = HashMap<Long, Int>()
+    /**
+     * For each author, the clock of its last operation that counts. An author's operations count in the order it
+     * numbered them, with a clock that only goes forward: one whose clock does not pass the one before it is
+     * refused ([Rejection.OUT_OF_ORDER]) wherever the order would put it. Nobody can write « before » what it
+     * already wrote, so nobody can undo its own handing over of the ensemble, nor its dissolution.
+     */
+    private val lastClock = HashMap<Long, Long>()
+
+    /** The operations refused for that reason, by author and number. */
+    private val outOfOrder = HashSet<Pair<Long, Int>>()
     private var current = HierarchyState.empty(ensembleId)
     private var digest: Long? = null
+
+    /**
+     * Every list of readers a unit had at some point of the operations held, by unit and tag, the most recent last:
+     * what a key batch is checked against ([KeyRing.offer]). A list that only existed before an operation arrived
+     * « in the past » stays: a key made for it is still wrapped to that list and to nobody else.
+     */
+    private val readersSeen = LinkedHashMap<ReadersRef, Readers>(16, 0.75f, true)
 
     val state: HierarchyState
         @Synchronized get() = current
@@ -90,6 +112,9 @@ class HierarchyReplica(
         if (op.ensembleId != ensembleId) return AddResult.WRONG_ENSEMBLE
         if (op.isMalformed) return AddResult.MALFORMED
         val known = byAuthor[op.author]?.get(op.seq)
+        // Already there, proven when it came in: a copy received again is not checked again.
+        if (known != null && known == op) return AddResult.DUPLICATE
+        if (!op.authentic) return AddResult.UNAUTHENTICATED
         if (known != null) return settle(known, op)
         if (stored >= MAX_OPS) return AddResult.FULL
         val ops = byAuthor.getOrPut(op.author) { TreeMap() }
@@ -101,6 +126,7 @@ class HierarchyReplica(
         var last = op.seq
         while (ops.containsKey(last + 1)) last++
         contiguous[op.author] = last
+        for (seq in op.seq..last) mark(ops.getValue(seq))
         digest = null
         val isLatest = applied.isEmpty() || Op.ORDER.compare(applied.last().op, op) < 0
         if (last == op.seq && isLatest) step(op) else replay()
@@ -125,11 +151,11 @@ class HierarchyReplica(
     @Synchronized
     fun issue(change: Change): IssueResult {
         val seq = (contiguous[self] ?: 0) + 1
-        val upToDate = (byAuthor[self]?.lastKey() ?: 0) == seq - 1 && (reached[self] ?: 0) == seq - 1
+        val upToDate = (byAuthor[self]?.lastKey() ?: 0) == seq - 1
         if (!upToDate || maxClock >= Op.MAX_CLOCK || stored >= MAX_OPS) return IssueResult.Refused(Rejection.LOG_FULL)
         val draft = Op(ensembleId, self, seq, maxClock + 1, change)
         if (draft.isMalformed) return IssueResult.Refused(Rejection.MALFORMED)
-        val op = signer?.let { OpAuth.sign(draft, it) } ?: draft
+        val op = keys?.let { OpAuth.sign(draft, it) } ?: return IssueResult.Refused(Rejection.UNAUTHENTICATED)
         HierarchyReducer.reduce(current, op).rejection?.let { return IssueResult.Refused(it) }
         check(add(op) == AddResult.ADDED) { "an operation checked here was not added" }
         return IssueResult.Issued(op)
@@ -167,25 +193,37 @@ class HierarchyReplica(
         return authors.flatMap { (author, ops) -> ops.tailMap(theirs.counts[author] ?: 0, false).values }.take(max)
     }
 
+    /**
+     * The readers the unit [unit] had under the tag [tag] at some point of the operations held; `null` when this
+     * phone never saw such a list (it may lack operations: a catch-up, then [KeyRing.retry]).
+     */
+    @Synchronized
+    fun readers(
+        unit: Long,
+        tag: ByteArray,
+    ): Readers? = readersSeen[ReadersRef(unit, tag.asList())]
+
     /** Same author, same number: one operation at most is kept, the same on every phone that saw both. */
     private fun settle(
         known: Op,
         op: Op,
     ): AddResult {
-        val same = known == op
-        // A copy with its proof replaces a copy without: stripping the proof must not hide the operation.
-        if (same && (known.authentic || !op.authentic)) return AddResult.DUPLICATE
-        if (!same && !wins(op, known)) return AddResult.CONFLICT_KEPT
-        byAuthor.getValue(op.author)[op.seq] = op
+        if (!wins(op, known)) return AddResult.CONFLICT_KEPT
+        val ops = byAuthor.getValue(op.author)
+        ops[op.seq] = op
         maxClock = maxOf(maxClock, op.clock)
         digest = null
+        // Which operations of this author count is read again from its first one.
+        lastClock.remove(op.author)
+        outOfOrder.removeAll { it.first == op.author }
+        for (one in ops.headMap(contiguous[op.author] ?: 0, true).values) mark(one)
         replay()
-        return if (same) AddResult.DUPLICATE else AddResult.CONFLICT_REPLACED
+        return AddResult.CONFLICT_REPLACED
     }
 
     /**
-     * The first operation of the ensemble wins over anything else under its number, then a proven operation over one
-     * that is not, then the one whose bytes come first.
+     * The first operation of the ensemble wins over anything else under its number, then the one whose bytes come
+     * first. Both are signed by their author: two operations under one number are its doing, not a forgery.
      */
     private fun wins(
         op: Op,
@@ -193,47 +231,80 @@ class HierarchyReplica(
     ): Boolean {
         val genesis = HierarchyReducer.isGenesisOf(ensembleId, op)
         if (genesis != HierarchyReducer.isGenesisOf(ensembleId, known)) return genesis
-        if (op.authentic != known.authentic) return op.authentic
         return compareBytes(op.content, known.content) < 0
     }
 
+    /** Says whether [op], the next one of its author, counts: its clock passes the one before it. */
+    private fun mark(op: Op) {
+        if (op.clock >
+            (lastClock[op.author] ?: 0L)
+        ) {
+            lastClock[op.author] = op.clock
+        } else {
+            outOfOrder.add(op.author to op.seq)
+        }
+    }
+
     private fun step(op: Op) {
-        // An author's operations count in the order it wrote them: one that the order puts after a later one of the
-        // same author (its clock went backwards) is refused, and the author goes on from the later one.
-        if (op.seq <= (reached[op.author] ?: 0)) {
+        if ((op.author to op.seq) in outOfOrder) {
             applied.add(Entry(op, Rejection.OUT_OF_ORDER))
             return
         }
-        reached[op.author] = op.seq
         val reduced = HierarchyReducer.reduce(current, op)
         current = reduced.state
         applied.add(Entry(op, reduced.rejection))
+        if (reduced.rejection == null && op.change.movesReaders) rememberReaders()
+    }
+
+    private fun rememberReaders() {
+        for (readers in current.allReaders()) readersSeen[ReadersRef(readers.unit, readers.tag.asList())] = readers
+        val eldest = readersSeen.keys.iterator()
+        while (readersSeen.size > MAX_READERS_SEEN) {
+            eldest.next()
+            eldest.remove()
+        }
     }
 
     private fun replay() {
         applied.clear()
-        reached.clear()
         current = HierarchyState.empty(ensembleId)
         val ops = byAuthor.flatMap { (author, ops) -> ops.headMap(contiguous[author] ?: 0, true).values }
         for (op in ops.sortedWith(Op.ORDER)) step(op)
     }
 
-    /** 8 bytes of the SHA-256 of the applied operations, by author then number, each with whether it is proven. */
+    /** 8 bytes of the SHA-256 of the applied operations, by author then number. */
     private fun computeDigest(): Long {
         val sha = MessageDigest.getInstance("SHA-256")
         for ((author, ops) in byAuthor.entries.sortedWith(BY_AUTHOR)) {
             for (op in ops.headMap(contiguous[author] ?: 0, true).values) {
                 sha.update(OpAuth.longBytes(op.content.size.toLong()))
                 sha.update(op.content)
-                sha.update(if (op.authentic) 1 else 0)
             }
         }
         return sha.digest().take(Long.SIZE_BYTES).fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xFF) }
     }
 
+    private data class ReadersRef(
+        val unit: Long,
+        val tag: List<Byte>,
+    )
+
     companion object {
         /** The most operations a phone keeps for one ensemble. */
         const val MAX_OPS = 20_000
+
+        /** The most lists of readers remembered: the ones of now, and enough of the past for late key batches. */
+        private const val MAX_READERS_SEEN = 1024
+
+        /** Whether a change may alter who reads a unit: who is in the ensemble, in which group, with which access. */
+        private val Change.movesReaders: Boolean
+            get() =
+                when (this) {
+                    is Change.RenameGroup, is Change.CreateGroup -> false
+                    is Change.SetPost -> unit == HierarchyState.ROOT
+                    is Change.ClearPost -> unit == HierarchyState.ROOT
+                    else -> true
+                }
 
         private val BY_AUTHOR: Comparator<Map.Entry<Long, *>> =
             Comparator { a, b -> java.lang.Long.compareUnsigned(a.key, b.key) }
@@ -250,19 +321,19 @@ class HierarchyReplica(
         }
 
         /**
-         * A new ensemble created by [creator]: the copy of its creator, first operation written. [nonce] is a random
-         * number that makes the identifier of the ensemble unique. Names must be [Names.valid].
+         * A new ensemble created by the phone that holds [keys]: the copy of its creator, first operation written.
+         * [nonce] is a random number that makes the identifier of the ensemble unique. Names must be [Names.valid].
          */
         fun create(
-            creator: Long,
+            keys: PhoneKeys,
             creatorName: String,
             name: String,
             nonce: Long,
             rules: HierarchyRules = HierarchyRules.DEFAULT,
-            signer: OpSigner? = null,
         ): HierarchyReplica {
-            val genesis = Change.CreateEnsemble(nonce, name, creatorName, rules)
-            val replica = HierarchyReplica(OpAuth.ensembleId(creator, genesis), creator, signer)
+            val creator = keys.memberId
+            val genesis = Change.CreateEnsemble(nonce, name, creatorName, keys.public, rules)
+            val replica = HierarchyReplica(OpAuth.ensembleId(creator, genesis), creator, keys)
             val result = replica.issue(genesis)
             require(result is IssueResult.Issued) { "ensemble not created: ${(result as IssueResult.Refused).reason}" }
             return replica
@@ -273,7 +344,7 @@ class HierarchyReplica(
             ensembleId: Long,
             self: Long,
             ops: List<Op>,
-            signer: OpSigner? = null,
-        ): HierarchyReplica = HierarchyReplica(ensembleId, self, signer).apply { addAll(ops) }
+            keys: PhoneKeys? = null,
+        ): HierarchyReplica = HierarchyReplica(ensembleId, self, keys).apply { addAll(ops) }
     }
 }
