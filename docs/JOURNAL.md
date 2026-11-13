@@ -20,6 +20,18 @@
 
 ---
 
+## 2026-11-13 — Session 99 — [P39.0] Groupes hiérarchiques du partage : branche de conception privée, sans publication
+- **Branche / commit** : `conception/groupes-hierarchiques`, partie de 50cd905 (0.4.235). Copies relevées : GitHub `claude/vibrant-galileo-q3s99n` = 0.4.235 (référence), `main` = 0.4.234, deux anciennes branches 0.4.102 et 0.4.145 ; local à 0.4.234 sans changement, mis à jour par avance rapide ; Drive à 0.4.205 (en retard, miroir à refaire après un run vert).
+- **Objectif** : demande de l'utilisateur : un nouveau système de groupe, indépendant de l'actuel, en parent-enfant (administrateurs qui répartissent les rôles, un groupe et un leader par membre, un ensemble et son leader), conçu par trois sessions coordonnées par la session principale, sans aucune publication pendant la conception.
+- **Réalisé** :
+  - `ci.yml` : l'étape « Publish the Android release » est sautée quand `.conception-privee` existe à la racine ; fichier posé sur cette branche (ADR-124, `release.md` § 1).
+  - Plan : phase P39 (P39.0 à P39.3).
+  - Répartition : démonstration visuelle (P39.1) et moteur dans `:core` (P39.2) en sessions cloud, assemblage et essais sur l'émulateur (P39.3) dans la session locale du poste.
+- **Décisions (ADR)** : ADR-124.
+- **Tests / vérifications** : `CI=true ./gradlew help` et run « CI » de la branche : résultat dans le dernier message de la session.
+- **Problèmes / dette technique** : le code poussé reste lisible sur le dépôt public ; seule la publication est suspendue. `main` ne porte pas encore la 0.4.235 (branche `claude/vibrant-galileo-q3s99n`).
+- **Prochaine étape recommandée** : montrer les aperçus de P39.1 à l'utilisateur et consigner ses choix ; relire la spec de P39.2 ; lancer P39.3 quand les deux branches cloud sont poussées.
+
 ## 2026-11-10 — Session 98 — [P3.1] Changement de carte selon le zoom : au zoom affiché sur la carte (« Rando été » aux zooms 18 et 19)
 - **Branche / commit** : `claude/vibrant-galileo-q3s99n`, après 6b6deac (0.4.234) ; poussée sur `JRRocks/ToolMap` (pas de PR ; `main` non touchée par cette session). Copies relevées (`git fetch`) : GitHub, cette branche = `main` = 0.4.234 (référence) ; local de la session cloud à 0.4.225, sans changement local, mis à jour par avance rapide avant tout travail ; les deux autres branches 0.4.102 et 0.4.145 ; Drive non relevé (session cloud).
 - **Objectif** : demande de l'utilisateur : « Le changement de carte selon le zoom ne semble pas fonctionner correctement sur "Rando été" en zoom 18 et 19 pourtant fonctionnelle entre le zoom 10 et 9. Pourquoi ? Et corrige ». Les cartes changent maintenant au zoom affiché sur la carte : au zoom 18 OpenStreetMap, à partir du zoom 19 les photos aériennes.

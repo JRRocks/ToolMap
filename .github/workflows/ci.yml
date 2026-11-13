@@ -188,13 +188,19 @@ jobs:
       # releases as its update (ADR-104); the Windows workstation copies them to the Drive (scripts/drive-mirror.ps1).
       # A version already published is kept as it is, and a version older than the two published ones is not published.
       # Release assets are not counted in the Actions storage quota.
+      # Private design work (ADR-124): a branch that carries the file .conception-privee at its root publishes nothing,
+      # whatever its name. Its APKs stay in the artifacts of the run. The file is removed when the work is merged.
       - name: Publish the Android release
         id: publish-apk
-        if: github.event_name == 'push' && !startsWith(github.ref_name, 'dependabot/') && env.APK_SIGNER == 'publication'
+        if: github.event_name == 'push' && !startsWith(github.ref_name, 'dependabot/') && env.APK_SIGNER == 'publication' && hashFiles('.conception-privee') == ''
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [ -e .conception-privee ]; then
+            echo "Private design branch (.conception-privee, ADR-124): nothing is published."
+            exit 0
+          fi
           apk="$(ls app/build/outputs/apk/release/ToolMap-release-*.apk)"
           version="$(basename "$apk" .apk)"
           version="${version#ToolMap-release-}"
