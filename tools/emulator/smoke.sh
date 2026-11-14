@@ -12,6 +12,8 @@
 # An APK that carries the native compute engine (Rust, ADR-119) must also have it in charge, checked against the Kotlin
 # code by its self-test; the app is then asked to time the engine against the Kotlin code on this emulator
 # (`dumpsys activity`, docs/specs/native-engine.md § 4), and a crash during that measure fails the check too.
+# Last, the keys of the « Opération » mode in the Keystore, made, read back after a restart of the process, and wiped
+# (hierarchy-keys.sh, P39.6, ADR-128): only an APK with the testing tools answers (debug), a release is skipped.
 # The APK is not debuggable since P36.7 (ADR-120): nothing here needs `run-as`.
 set -euo pipefail
 
@@ -117,3 +119,6 @@ if [[ "$engine_note" == *"in charge"* ]]; then
     echo "The engine measure is not offered by this APK (no answer to dumpsys)."
   fi
 fi
+
+# The keys of the « Opération » mode (P39.6): a failure fails the check, like a crash.
+bash "$(dirname "$0")/hierarchy-keys.sh" "$out" || fail "the check of the keys of the « Opération » mode failed"

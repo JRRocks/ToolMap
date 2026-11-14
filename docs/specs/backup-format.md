@@ -38,7 +38,7 @@ Le manifeste est en premier pour qu'une lecture séquentielle (le fichier vient 
 | `print` | `print/*.json` | `filesDir/print/` (mises en page) |
 | `tiles` (option) | `tiles/*.mbtiles` | dossier des cartes hors ligne (interne ou carte SD, ADR-042) ; un fichier par stockage de tuiles (ADR-031), seuls ceux choisis à l'écriture ; entrées non compressées |
 
-**Tout autre chemin est refusé**, que ce soit dans le manifeste ou dans l'archive : un chemin relatif sans `.`, `..`, segment vide, antislash, caractère de contrôle, segment commençant par `.`, et d'au plus un niveau de dossier. En particulier jamais `p2p/share.json` (la clé secrète du partage de position : deux téléphones ne doivent pas partager une identité), `recording/session.json` (reprise après plantage), `downloads/` (file d'attente liée à des tâches système), ni les journaux SQLite (`-wal`, `-shm`).
+**Tout autre chemin est refusé**, que ce soit dans le manifeste ou dans l'archive : un chemin relatif sans `.`, `..`, segment vide, antislash, caractère de contrôle, segment commençant par `.`, et d'au plus un niveau de dossier. En particulier jamais `p2p/share.json` (la clé secrète du partage de position : deux téléphones ne doivent pas partager une identité), `recording/session.json` (reprise après plantage), `downloads/` (file d'attente liée à des tâches système), ni les journaux SQLite (`-wal`, `-shm`), ni `hierarchy/` (les opérations du mode « Opération », scellées par des clés du Keystore qui ne quittent jamais le téléphone : P39.6, ADR-128 ; aussi exclu des sauvegardes d'Android).
 
 ## 4. Écriture
 

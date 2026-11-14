@@ -446,7 +446,7 @@ Testé (`NamesTest`, `HierarchyChoicesTest`) : empreintes, cartes, carnet, forma
 
 ## 9. Ce qu'il faudra pour brancher
 
-Rien de ceci n'est fait.
+**Fait (étape 1, P39.6, session 111, ADR-128)** : les clés du téléphone et le stockage, dans `:data` (paquet `fr.toolmap.data.hierarchy`), appelés par personne ; détail et vérifications au § 15. **Reste** : le transport, puis l'interface (ci-dessous), et le contrôle du vrai Keystore sur un émulateur par la session locale (§ 15).
 
 **Transport** (`Wire.kt`, `MeshNode.kt`, `:p2p`) :
 
@@ -462,9 +462,9 @@ Rien de ceci n'est fait.
 - Ce que `add`, `offer` et `accept` répondent sert au journal d'événements : `CONFLICT_…`, `UNAUTHENTICATED`, `MALFORMED`, `FULL`, `FORGED`, `WRONG_RECIPIENTS`, `DAMAGED`, `UNKNOWN_EDITOR` sont à signaler (`Problems.expected`) ; `HELD` et `UNKNOWN_READERS` déclenchent un rattrapage.
 - **Renouveler l'invitation** après un retrait (nouvelle clé de l'invitation, distribuée comme une clé de contenu à tous les membres admis) : à écrire, pour qu'un membre retiré ne suive plus la forme de la hiérarchie.
 
-**Clés du téléphone** (`:data` ou `:p2p`) : une implémentation de `PhoneKeys` avec la clé de signature dans le Keystore (non exportable) et la clé d'accord dans le Keystore à partir de l'API 31, sinon dans un fichier scellé par une clé du Keystore. Les clés ne vont pas dans la sauvegarde. **À mesurer sur un téléphone avant tout usage réel** : une signature par position envoyée et une vérification par position reçue (§ 8.5).
+**Clés du téléphone** (`:data`) — **fait** (§ 15) : `OperationStorage.create()` fait une identité par opération ; ses `PhoneKeys` ont la clé de signature dans le Keystore (non exportable) et la clé d'accord dans le Keystore à partir de l'API 31, sinon dans un fichier scellé par une clé du Keystore. Les clés ne vont dans aucune sauvegarde (testé). Une signature que le Keystore refuse lève `KeyVaultException` : le transport l'attrape autour de `issue`, `KeyRing.issue`, `ShareSeal.seal` et `SharedRecords.write`. **À mesurer sur un téléphone avant tout usage réel** : une signature par position envoyée et une vérification par position reçue (§ 8.5) ; l'émulateur donne un premier ordre de grandeur (§ 15).
 
-**Stockage** (`:data`) : garder les opérations (`HierarchyReplica.ops()` → `HierarchyWire.encodeOpBlocks`), relire par `HierarchyReplica.restore` ; l'état se recalcule. Garder les clés de contenu détenues (à protéger par le Keystore), les lots vérifiés, les cartes de noms et les enregistrements d'objets (`SharedRecords.encode`). Tout effacer en quittant l'ensemble, quand on en est retiré, ou à sa dissolution ; effacer ce qui tient à un canal quand on cesse de le lire.
+**Stockage** (`:data`) — **fait** (§ 15) : `StoredOperation.load()` / `save(contenu)` / `wipe()`. Gardés, scellés : les opérations (`HierarchySnapshot.encodeOps`, blocs de `HierarchyWire.encodeOpBlocks`), relues par `HierarchySnapshot.restoreReplica` (l'état se recalcule) ; les clés de contenu détenues, les lots vérifiés et en attente ; les cartes de noms ; les enregistrements d'objets. Tout est effacé quand on quitte l'ensemble, quand on en est retiré, ou à sa dissolution (vu à l'enregistrement ou au chargement) ; ce qui tient à un canal (clés, objets, lots qui redonneraient la clé) est oublié à l'enregistrement qui suit l'arrêt de sa lecture. Ce que le transport devra faire avec : ouvrir ou créer le stockage au démarrage du partage en mode « Opération », `save` après chaque changement (opération reçue ou écrite, lot accepté, carte apprise, objet accepté), `wipe` quand l'utilisateur quitte.
 
 **Interface** (après validation des maquettes de P39.5, `CLAUDE.md` § « aperçu validé avant le code ») : tout se lit dans `HierarchyState` (`rolesOf`, `isWaiting`, `waiting`, `groupOf`, `membersOf`, `visibleTo`, `nameLabel`, `shareChannels`, `channelsReadBy`) et dans `NameBook` (un nom peut ne pas être encore connu : prévoir de quoi l'écrire en attendant), se demande par `issue`, se grise par `HierarchyReducer.check`, et les refus arrivés après coup se lisent dans `history()`. Un bouton ne doit jamais supposer qu'un changement écrit est définitif. « Quitter » pour le créateur propose : désigner un successeur parmi les administrateurs (`TransferCreator` puis `RemoveMember` de lui-même), ou dissoudre (`Dissolve`, confirmé par un glissement, Q4) ; si le passage de main a perdu contre un départ simultané du successeur, le départ du créateur est refusé et l'écran le lui dit.
 
@@ -950,3 +950,90 @@ Aujourd'hui : règle d'affichage. Tout membre placé détient tous les noms, et 
    Il ne voit aucun nom de personne ni de groupe : c'est acquis.
    a. Oui, le nom de l'opération seulement (recommandé) : l'écran « Rejoindre l'opération ? » peut le montrer ; il suffit que l'invitation le porte.
    b. Non (aujourd'hui) : rien du tout, pas même le nom de l'opération, tant qu'il n'est pas placé.
+
+## 15. Remontée du 2026-11-14 : branchement, étape 1 — clés du téléphone et stockage (P39.6)
+
+Pour la session principale (session 111, branche `claude/optimistic-maxwell-sw423w`, partie de `conception/groupes-hierarchiques` dbd5829). Décision d'architecture : ADR-128. Si une autre session a pris ce numéro de paragraphe ou d'ADR, la session qui fusionne renumérote. Les §§ 10 à 10 sexies et 12 à 14 ne sont pas modifiés ; le § 9 dit ce qui est fait et ce qui reste.
+
+### Ce qui est fait
+
+- **Clés du téléphone** : chaque opération que rejoint ou crée ce téléphone a sa propre identité (deux paires de clés). La clé de signature est faite dans le Keystore et n'en sort jamais. La clé d'accord aussi à partir d'Android 12 (API 31) ; avant, elle est tirée par l'application et gardée dans un fichier scellé par une clé du Keystore.
+- **Stockage d'une opération** : un dossier `files/hierarchy/operations/<identifiant>/` ; tout ce que le téléphone tient de l'opération (journal des opérations, clés de contenu, lots de clés, noms, waypoints et croquis) y est scellé, et se relit à l'identique après un redémarrage ; l'état se recalcule à partir des opérations.
+- **Effacement** : tout est effacé (clés du Keystore d'abord, puis fichiers) quand le téléphone quitte l'opération, en est retiré, ou qu'elle est dissoute ; ce qui tient à un canal qu'il ne lit plus (clés, objets, lots qui redonneraient la clé) est oublié à l'enregistrement suivant.
+- **Données abîmées** : un fichier abîmé, coupé, absent ou venu d'une autre opération est refusé, signalé (`Problems.expected`), lu vide et réécrit au prochain enregistrement ; jamais de plantage. Une identité illisible est refusée proprement (`open` rend `null`).
+- **Façade** pour l'étape suivante : `OperationStorage` (`ids`, `create`, `open`, `wipe`, `wipeAll`) et `StoredOperation` (`join`, `load`, `save`, `wipe`), fournis par Hilt (`HierarchyModule`) et **appelés par personne**.
+- **Contrôle du vrai Keystore** prêt pour un émulateur : `tools/emulator/hierarchy-keys.sh`, appelé aussi par `smoke.sh` (donc par la CI, sur son émulateur API 34).
+
+Fichiers : `data/src/main/kotlin/fr/toolmap/data/hierarchy/` (`KeyVault`, `AndroidKeyVault`, `OperationStorage`, `StoredOperation`, `SealedFile`, `HierarchyKeysCheck`) ; dans `:core`, un fichier nouveau `hierarchy/HierarchySnapshot.kt` (les octets de ce qu'on garde) et dix membres passés de `private` à `internal` : huit dans `HierarchyKeys.kt` (`ContentKey.secret`, `KeyRing.held`, `checked`, `pending`, `keep`, `hold`, `BatchRef`, `MAX_PENDING`), `Names.kt` (`NameBook.cards`) et `SharedObjects.kt` (`SharedObjects.held`), sans autre changement ni aucune règle changée ; dans `:app`, `di/HierarchyModule.kt`, trois lignes dans `MainActivity.dump` (debug seulement) et une ligne d'exclusion dans chacune des deux règles de sauvegarde (`res/xml/`) ; `tools/emulator/hierarchy-keys.sh` et quatre lignes de `smoke.sh`.
+
+### Les choix (une ligne chacun)
+
+1. Une identité par opération, pas une par téléphone : deux opérations ne se relient pas, quitter l'une n'efface rien des autres.
+2. Clé d'accord dans le Keystore dès l'API 31, sinon fichier scellé par le Keystore ; la manière choisie à la création est gardée même après une mise à jour d'Android.
+3. Aucune clé ne demande le déverrouillage du téléphone (le partage tourne écran éteint).
+4. Fichiers scellés (AES-256-GCM) plutôt que Room : rien à interroger, et c'est la convention du partage actuel (`ShareStore`).
+5. Une clé de stockage par opération, scellée par le Keystore : un seul appel au matériel par processus, au lieu d'un par lecture et par écriture.
+6. Les opérations sont relues dans l'ordre où tous les téléphones les appliquent (`Op.ORDER`) : même résultat, environ trois fois plus vite qu'en les rendant par auteur ; chaque signature est revérifiée.
+7. L'oubli d'un canal se fait à l'enregistrement, et seulement quand le téléphone est membre (avant d'être admis, ou pendant un rattrapage après un fichier abîmé, il ne lit aucun canal et oublierait tout) ; les noms ne sont pas oubliés (ils ne tiennent à aucun canal).
+8. L'effacement en fin d'opération est automatique, à l'enregistrement ou au chargement.
+9. Une signature refusée par le Keystore lève `KeyVaultException` (signalée) : le moteur n'a pas d'autre moyen de dire « rien n'est signé » ; un accord refusé rend « pas de clé ».
+10. `hierarchy/` exclu des deux règles de sauvegarde d'Android : sans cela, le transfert d'appareil à appareil (qui ne dépend pas de `allowBackup="false"` sur Android 12 et plus) l'aurait copié ; inutilisable ailleurs, mais copié.
+11. Le contrôle sur émulateur passe par le point d'entrée existant (`dumpsys`, debug seulement) plutôt que par des tests instrumentés que le dépôt n'a pas.
+
+### Ce qui est vérifié, et comment
+
+- `./gradlew :core:test --tests 'fr.toolmap.core.hierarchy.HierarchySnapshotTest' :data:testDebugUnitTest --tests 'fr.toolmap.data.hierarchy.*'` : **25 tests, 0 échec** (`HierarchySnapshotTest` 3, `StoredOperationTest` 16, `HierarchyKeysCheckTest` 4, `HierarchyBackupTest` 2), sur la JVM, avec un coffre logiciel (`SoftwareKeyVault`, sources de test) qui fait ce que fait le Keystore.
+  - Aller-retour d'une opération réaliste écrite par le moteur (créateur, un administrateur, quatre membres, deux groupes, chef de groupe, adjoint, chef de l'opération, clés de tous les canaux lus, un lot gardé pour un autre, un lot en attente, dix noms dont un arrivé avant son opération, trois waypoints et croquis dont un retiré) : enregistrée, puis relue par un stockage neuf sur le même dossier et le même coffre (« redémarrage ») : même état (octet pour octet), même résumé, mêmes refus, mêmes opérations, mêmes clés, lots, noms et objets (octet pour octet) ; un partage scellé après le redémarrage s'ouvre chez un autre membre ; ce qu'il écrit ensuite est signé par la même clé. Les deux manières de garder la clé d'accord ; un arrivant avant puis après son admission.
+  - Toute signature passe par le coffre ; aucun fichier ne contient un nom ni une clé de contenu en clair.
+  - Effacement : départ (`wipe`), retrait par le créateur, dissolution sur deux téléphones ; plus de dossier, plus de clé dans le coffre, et le stockage du créateur intact. Par canal : un chef de groupe remis en attente ne garde, après relecture, ni la clé de son groupe, ni ses objets, ni les lots qui la redonneraient ; il garde les noms.
+  - Données abîmées : pour chacune des quatre parties, octet changé, fichier coupé, absent, bruit, vide (20 cas) : partie refusée, signalée, le reste lu ; après rattrapage, l'enregistrement suivant la réécrit et la relecture est propre. Partie d'une autre opération ou d'une autre partie : refusée. Clé de stockage abîmée : tout refusé, rien ne plante, tout repart. En-tête abîmé ou absent, fichier de la clé d'accord abîmé, clé perdue par le coffre : identité refusée proprement, effacée sur demande. Coffre en panne : pas d'identité, rien laissé derrière, et tout revient quand le coffre revient. Tous les signalements sont des échecs prévus, aucun n'est un bogue (vérifié dans chaque test).
+  - Deux opérations côte à côte : identités différentes, aucun mélange (enregistrer l'une dans l'autre est refusé), effacer l'une laisse l'autre entière. `wipeAll` n'efface pas les clés d'un autre stockage.
+  - Sauvegardes : l'archive de l'application, toutes rubriques cochées, ne contient aucun fichier ni aucun octet du stockage ; `BackupPaths.areaOf` refuse chacun de ses chemins ; les règles de sauvegarde d'Android excluent `hierarchy/` du transfert et de la sauvegarde d'Android 11 et moins, et la sauvegarde en ligne ne prend aucun fichier.
+  - Le contrôle de l'émulateur lui-même, joué sur la JVM : les deux phases passent, pour l'API 34 (deux manières) et l'API 28 (fichier scellé seulement) ; un coffre en panne donne une ligne `FAIL` sans plantage ; il n'efface jamais une vraie opération.
+- Temps sur la JVM de la machine de build (pas un téléphone ; `data/build/hierarchy-store-cost.txt`) pour une opération de 617 opérations : revérifier les signatures 78 ms ; relire dans l'ordre des horloges 94 ms (contre 316 ms par auteur) ; enregistrer après un changement 2 ms ; relire et tout comparer 124 ms.
+- Application inchangée : rien n'appelle `OperationStorage` (seul `HierarchyModule` le nomme, et personne ne le demande) ; le contrôle ne répond qu'au `dumpsys` d'un APK de debug ; ni le manifeste, ni `strings.xml`, ni une ressource visible, ni le code du partage « Entre amis » ne changent (`git diff --stat`, journal). Le build complet est vert (journal, session 111).
+
+### Ce qui n'a pas pu être vérifié en session cloud (à faire par la session locale)
+
+Le vrai Keystore ne tourne pas sur la JVM. Sur l'émulateur du poste, APK de debug de ce commit installé :
+
+```bash
+bash tools/emulator/smoke.sh app/build/outputs/apk/debug emulator-check
+```
+
+ou, l'application déjà installée et lancée, le contrôle seul :
+
+```bash
+bash tools/emulator/hierarchy-keys.sh emulator-check
+```
+
+À y lire (`emulator-check/hierarchy-keys.txt`, et la dernière ligne « OK: keys of the « Opération » mode (API …) ») :
+
+- `phase=create api=… agreement-in-keystore=true` (API 31 et plus) puis, pour `agreement=keystore` **et** `agreement=file` : `identity made in … ms`, `sign median=…us verify median=…us agree median=…us`, puis `PASS phase=create` ;
+- après le redémarrage du processus : `reloaded in a new process: same member, state, keys, objects` pour les deux, les temps de nouveau, `wiped: no key left in the Keystore, no folder left`, `PASS phase=reload` ;
+- aucune ligne `FAIL`, aucun plantage ;
+- **branche « API < 31 »** : sur l'émulateur API 34 elle est jouée en forçant le fichier scellé (`agreement=file`) ; sur un émulateur API 26 à 30, s'il y en a un, la même commande doit donner `agreement-in-keystore=false` et la seule manière `agreement=file`.
+- Noter au journal les temps d'une signature, d'une vérification et d'un accord, et le numéro d'API.
+
+La CI joue aussi ce contrôle sur son émulateur (API 34) dans le contrôle de l'APK de debug : les lignes sont dans le journal du job « CI » (« Keys of the « Opération » mode on this emulator »). Résultat du run de ce push : journal, entrée suivante, ou message de fin de la session 111.
+
+### Ce qui reste pour l'étape suivante (transport)
+
+- Ouvrir ou créer le stockage quand le partage démarre en mode « Opération » ; `save` après chaque changement (opération reçue ou écrite, lot accepté ou émis, carte apprise, objet accepté), hors du fil principal ; `wipe` quand l'utilisateur quitte ; réagir à `SaveResult.Ended` et `LoadResult.Ended` (l'écran dira « opération dissoute » ou « vous n'en faites plus partie »).
+- Attraper `KeyVaultException` autour de ce qui fait signer (`issue`, `KeyRing.issue`, `ShareSeal.seal`, `SharedRecords.write`).
+- Après un chargement : `KeyRing.retry(replica)` pour les lots en attente, puis le rattrapage par le réseau (§ 6.3) pour les parties refusées.
+- Mesurer sur un vrai téléphone (signatures par position, relecture d'un long journal).
+
+### Limites connues
+
+- Relire revérifie une signature par opération : à mesurer sur un téléphone pour un journal de plusieurs milliers d'opérations (le moteur n'a pas de relecture « de confiance » ; l'ajouter changerait une règle du moteur).
+- Un enregistrement réécrit une partie entière (quelques Mo d'opérations au pire, 20 000 opérations) ; les octets anciens peuvent rester sur la mémoire flash, inutiles une fois les clés du Keystore effacées.
+- L'effacement en fin d'opération est sans retour (question 1).
+- Un téléphone dont le Keystore perd ses clés (réinitialisation du verrouillage sur certains appareils) perd l'opération : il la rejoint comme un membre neuf.
+- Le contrôle sur émulateur ne vaut pas un téléphone (TEE ou StrongBox réels).
+
+### Questions pour l'utilisateur
+
+1. **Quand votre téléphone apprend que vous avez été retiré d'une opération, ou qu'elle est dissoute, faut-il tout effacer aussitôt ?**
+   a. Oui, aussitôt (recommandé, ce qui est fait) : plus rien de l'opération ne reste sur le téléphone. Dans un cas rare (deux décisions prises en même temps sur deux téléphones), le retrait peut être annulé ensuite par les autres : le téléphone devra alors rejoindre l'opération comme un nouveau membre.
+   b. Garder l'opération fermée (illisible) quelques minutes avant d'effacer, le temps que les autres téléphones confirment.

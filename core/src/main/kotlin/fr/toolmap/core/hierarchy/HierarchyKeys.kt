@@ -104,7 +104,7 @@ class ContentKey internal constructor(
     val ensembleId: Long,
     val channel: Channel,
     val readersTag: ByteArray,
-    private val secret: ByteArray,
+    internal val secret: ByteArray,
 ) {
     val id: Long = OpAuth.fingerprint(KEY_TAG, context() + secret)
 
@@ -309,13 +309,13 @@ class KeyRing(
     val self: Long = keys.memberId
 
     /** Per channel, the keys held, oldest first. */
-    private val held = HashMap<Channel, LinkedHashMap<Long, ContentKey>>()
+    internal val held = HashMap<Channel, LinkedHashMap<Long, ContentKey>>()
 
     /** The checked batches, oldest first: what a phone that was away is given. */
-    private val checked = LinkedHashMap<BatchRef, KeyBatch>()
+    internal val checked = LinkedHashMap<BatchRef, KeyBatch>()
 
     /** Batches for readers this phone does not know yet. */
-    private val pending = ArrayDeque<KeyBatch>()
+    internal val pending = ArrayDeque<KeyBatch>()
 
     /**
      * Takes in a batch received from another phone. [replica] says which lists of readers existed: a batch for a
@@ -455,7 +455,7 @@ class KeyRing(
         pending.clear()
     }
 
-    private fun keep(batch: KeyBatch) {
+    internal fun keep(batch: KeyBatch) {
         checked[BatchRef(batch)] = batch
         val eldest = checked.keys.iterator()
         while (checked.size > MAX_BATCHES) {
@@ -464,7 +464,7 @@ class KeyRing(
         }
     }
 
-    private fun hold(key: ContentKey) {
+    internal fun hold(key: ContentKey) {
         val ofChannel = held.getOrPut(key.channel) { LinkedHashMap() }
         ofChannel[key.id] = key
         // Older keys still open what a phone that had not heard of a change sealed; not for ever.
@@ -476,7 +476,7 @@ class KeyRing(
     }
 
     /** What names a batch: a key identifier alone is chosen by whoever makes the batch. */
-    private data class BatchRef(
+    internal data class BatchRef(
         val channel: Channel,
         val keyId: Long,
         val readers: List<Byte>,
@@ -488,7 +488,7 @@ class KeyRing(
         /** The most keys kept per channel: the one of now and older ones. */
         const val KEPT_KEYS = 16
         private const val MAX_BATCHES = 256
-        private const val MAX_PENDING = 64
+        internal const val MAX_PENDING = 64
     }
 }
 

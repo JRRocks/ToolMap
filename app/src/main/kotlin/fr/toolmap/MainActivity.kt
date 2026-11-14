@@ -63,6 +63,7 @@ import fr.toolmap.core.track.NameDates
 import fr.toolmap.core.track.TrackImporter
 import fr.toolmap.crash.CrashActivity
 import fr.toolmap.crash.CrashReporter
+import fr.toolmap.data.hierarchy.HierarchyKeysCheck
 import fr.toolmap.data.sources.SourceRepository
 import fr.toolmap.data.tiles.OfflineMode
 import fr.toolmap.data.tiles.TileLocation
@@ -799,6 +800,13 @@ class MainActivity : ComponentActivity() {
         if (BuildConfig.PERF_LOG && args?.contains(EngineBench.DUMP_ARGUMENT) == true) {
             val started = EngineBench.start()
             writer.println("$prefix${EngineBench.DUMP_ARGUMENT} ${if (started) "started" else "already running"}")
+        }
+        // `… hierarchy-keys`: the check of the Keystore keys of the « Opération » mode (P39.6, ADR-128), debug only.
+        if (BuildConfig.DEV_TOOLS && args?.contains(HierarchyKeysCheck.DUMP_ARGUMENT) == true) {
+            val started = HierarchyKeysCheck.start(this)
+            writer.println(
+                "$prefix${HierarchyKeysCheck.DUMP_ARGUMENT} ${if (started) "started" else "already running"}",
+            )
         }
     }
 
