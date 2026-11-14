@@ -1076,7 +1076,7 @@ const othersSeeHandover = () => handover(() => opMain(7, { noMsg: true, sub: 'Op
  * 20 members placed in 4 groups (17 online: 16 others for whoever holds the phone), 2 people waiting: 22 on 30.
  * The creator (Membre 1) is in Groupe Est. One last message per group thread, always from the same author. */
 const N_PLACED = 20, N_WAIT = 2, N_ALL = 22;
-const THREAD_LAST = { nord: [4, 'On attend au pont'], sud: [9, 'Sud en place au gué'], est: [14, 'Est au point haut'], ouest: [6, 'Ouest longe la crête'] };
+const THREAD_LAST = { nord: [4, 'On attend au pont.'], sud: [9, 'Pause au gué.'], est: [14, 'On repart à 10 h.'], ouest: [6, 'On longe la crête.'] };
 function lastMsg(me) { const x = THREAD_LAST[me.g] || THREAD_LAST.nord; return (x[0] === me.n ? 'Vous' : 'Membre ' + x[0]) + ' : ' + x[1]; }
 /** Measures of a member sheet: different for each member, always the same for one member. */
 function statsOf(n) {
@@ -1243,7 +1243,11 @@ function opAlertReceived(viewer, from, text, kind) {
     const words = roleWords(m, true).filter((w) => w !== 'Administrateur' && w !== 'Créateur');
     const chips = `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px">${labelChip(gname(m.g), c, { filled: true, icon: 'group' })}${words.map((w) => labelChip(w, /groupe/.test(w) ? c : (t.night ? t.on : '#163A4A'), { icon: /opération/.test(w) ? 'crown' : /Adjoint/.test(w) ? 'star_border' : 'star' })).join('')}</div>`;
     const sent = m.chefOp || m.adjOp ? "Envoyée à toute l'opération" : m.chef || m.adj ? (ALERT_KIND === 'A' ? 'Envoyée à son groupe et à tous les chefs' : 'Envoyée à tous les chefs') : 'Envoyée à votre groupe';
-    const dist = ['350 m au nord-est', '1,2 km au nord', '820 m au sud-ouest'][from % 3];
+    // Distance and direction read on the map of the mock-ups (500 m for 36 px), so that they match its images.
+    const [x1, y1] = XY3[viewer], [x2, y2] = XY3[from], m0 = Math.hypot(x2 - x1, y2 - y1) * 500 / 36;
+    const dirs = ['au nord', 'au nord-est', "à l'est", 'au sud-est', 'au sud', 'au sud-ouest', "à l'ouest", 'au nord-ouest'];
+    const dir = dirs[((Math.round(Math.atan2(x2 - x1, y1 - y2) / (Math.PI / 4)) % 8) + 8) % 8];
+    const dist = (m0 < 1000 ? Math.round(m0 / 10) * 10 + ' m ' : (Math.round(m0 / 100) / 10).toString().replace('.', ',') + ' km ') + dir;
     return opMain(viewer, { over: dialog(`<span style="color:${ALERT_RED()}">Alerte de ${m.name}</span>`, `${chips}<div style="font-size:16px;line-height:24px;font-weight:500;color:${t.on}">${text}</div><div style="margin-top:4px">${posOf(from)}</div><div style="margin-top:4px">Dernière position il y a 20 secondes · ${dist}</div><div style="display:flex;gap:8px;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid ${t.line};font-size:12.5px;line-height:17px">${ic('emergency_share', t.on2, 16)}<span>${sent}</span></div>`, [tbtn('Voir sur la carte'), tbtn('Vu')], { top: 200 }) });
   });
 }
@@ -1268,13 +1272,13 @@ const who3 = (m, n) => (m.n === n ? 'Moi' : 'Membre ' + n);
 function threadGroup(m) {
   return msg(who3(m, 4), '09:02', 'Groupe Nord : départ du parking dans dix minutes.') + msg(who3(m, 7), '09:05', 'Bien reçu.') +
     notice('place', `${m.n === 4 ? 'Vous avez' : 'Membre 4 a'} partagé un waypoint « Point de rendez-vous »`) +
-    msg(who3(m, 8), '09:31', 'Je vous rejoins par le sentier du bas.') + msg(who3(m, 4), '09:40', 'On attend au pont');
+    msg(who3(m, 8), '09:31', 'Je vous rejoins par le sentier du bas.') + msg(who3(m, 4), '09:40', 'On attend au pont.');
 }
 /** « Toute l'opération »: written by the chef de l'opération, his deputy and the administrators only. */
 function threadAll(m) {
   return msg(who3(m, 2), '08:50', "Bonjour à tous. Début de l'exercice à 9 h.") +
     notice('draw', `${m.n === 2 ? 'Vous avez' : 'Membre 2 a'} partagé un croquis « Secteurs de recherche »`) +
-    msg(who3(m, 1), '09:10', 'Deux personnes viennent d\'entrer : elles attendent un groupe.') +
+    msg(who3(m, 1), '09:10', 'Trois groupes sont en place ; le Groupe Ouest part à 9 h 30.') +
     notice('place', `${m.n === 3 ? 'Vous avez' : 'Membre 3 a'} partagé un waypoint « Poste de secours »`) +
     msg(who3(m, 3), '09:35', 'Point de situation à 10 h.');
 }
@@ -1289,8 +1293,8 @@ function threadUp(m, g) {
 }
 /** Reading B: one thread shared by all the chiefs. */
 function threadChiefs(m) {
-  return msg(who3(m, 2), '09:05', 'Point de situation à 10 h pour tous les chefs.') + msg(who3(m, 9), '09:14', 'Sud en place au gué. Rien à signaler.') +
-    msg(who3(m, 4), '09:16', 'Nord au pont. Le gué ne passe pas.') + msg(who3(m, 14), '09:22', 'Est au point haut, vue dégagée.') +
+  return msg(who3(m, 2), '09:05', 'Point de situation à 10 h pour tous les chefs.') + msg(who3(m, 4), '09:12', 'Nord au pont. Le gué ne passe pas.') +
+    msg(who3(m, 9), '09:14', 'Sud en place au gué. Rien à signaler.') + msg(who3(m, 14), '09:22', 'Est au point haut, vue dégagée.') +
     msg(who3(m, 2), '09:30', 'Nord : contournez par la piste haute.');
 }
 const threadInfo = (text) => `<div style="align-self:stretch;display:flex;gap:8px;align-items:flex-start;padding:8px 12px;border-radius:12px;background:${t.tile};color:${t.onTile};font-size:12.5px;line-height:17px">${ic('info', t.onTile, 16)}<span>${text}</span></div>`;
@@ -1303,7 +1307,7 @@ function opMsg3(who, thread, o) {
   if (thread === 'all') return screen(msgTop3(m, three ? 2 : 1, three ? { 1: 1 } : {}), col(threadAll(m), '16px', 10), canAll ? msgInput("Écrire à toute l'opération") : readOnly3());
   if (thread === 'chiefs') return screen(msgTop3(m, 1, { 2: 2 }), col(threadInfo('Tous les chefs lisent et écrivent ici : chef de l\'opération, chefs de groupe, adjoints, administrateurs.') + threadChiefs(m), '16px', 10), msgInput('Écrire aux chefs'));
   /* 'up', reading A, seen by the chief of a group or his deputy */
-  return screen(msgTop3(m, 1, { 2: 2 }), col(threadInfo(`${gname(m.g)} et le commandement : vous, votre ${m.chef ? 'adjoint' : 'chef'}, le chef de l'opération, son adjoint, les administrateurs. Les autres groupes ne lisent pas ce fil.`) + threadUp(m, m.g), '16px', 10), msgInput(o.input || 'Écrire au commandement'));
+  return screen(msgTop3(m, 1, { 2: 2 }), col(threadInfo(`${gname(m.g)} : vous, votre ${m.chef ? 'adjoint' : 'chef'}, le chef de l'opération, son adjoint et les administrateurs. Les autres groupes ne lisent pas ce fil.`) + threadUp(m, m.g), '16px', 10), msgInput(o.input || 'Écrire au commandement'));
 }
 /** Reading A, seen by the command: the middle tab lists one thread per group. */
 function opMsgUpList(who) {
@@ -1339,7 +1343,7 @@ function slideTrack(state, o) {
   const red = t.night ? '#FF6B5E' : '#C62828', onRed = t.night ? '#3A0906' : '#fff';
   const W = o.w || 280, H = 56, K0 = 48, x = state === 'mid' ? Math.round((W - K0 - 8) * 0.4) : state === 'end' ? W - K0 - 8 : 0;
   const label = state === 'end' ? 'Relâchez pour dissoudre' : 'Glisser pour dissoudre';
-  const arrows = state === 'rest' ? `<div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);display:flex;opacity:.55">${ic('keyboard_double_arrow_right', red, 22)}</div>` : '';
+  const arrows = state === 'rest' ? `<div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);display:flex;opacity:${t.night ? 0.9 : 0.55}">${ic('keyboard_double_arrow_right', red, 22)}</div>` : '';
   const fill = state === 'rest' ? '' : `<div style="position:absolute;left:0;top:0;bottom:0;width:${x + K0 + 4}px;background:${red};border-radius:${H / 2}px"></div>`;
   const touch = state === 'mid' ? `<div style="position:absolute;left:${x + 4 - 9}px;top:${(H - K0) / 2 - 9}px;width:${K0 + 18}px;height:${K0 + 18}px;border-radius:50%;background:${t.night ? 'rgba(255,255,255,.22)' : 'rgba(18,32,39,.16)'}"></div>` : '';
   const text = state === 'mid'
@@ -1487,7 +1491,7 @@ function otherGroupPage(viewer, g, kind) {
     const named = m.chef || m.adj || m.chefOp || m.adjOp;
     const name = named || kind !== 'B' ? m.name : 'M ' + m.n;
     const rw = roleWords(m).filter((w) => w !== 'Administrateur' && w !== 'Créateur').slice(0, 1);
-    return `<div style="display:flex;align-items:center;gap:14px;min-height:56px;padding:6px 0 6px 16px">${tok(m, 40)}<div style="flex:1;min-width:0"><div style="font-size:16px;line-height:22px">${name}</div><div style="font-size:12px;line-height:16px;color:${t.on2}">${(m.adjOp && m.st === 'on' ? rw : rw.concat([STW[m.st] + (m.st === 'on' ? '' : ' · ' + m.age)])).join(' · ')}</div></div>${trailSt(m)}</div>`;
+    return `<div style="display:flex;align-items:center;gap:14px;min-height:56px;padding:6px 0 6px 16px">${tok(m, 40)}<div style="flex:1;min-width:0"><div style="font-size:16px;line-height:22px">${name}${m.creator ? keyIc() : m.admin ? shield() : ''}</div><div style="font-size:12px;line-height:16px;color:${t.on2}">${(m.adjOp && m.st === 'on' ? rw : rw.concat([STW[m.st] + (m.st === 'on' ? '' : ' · ' + m.age)])).join(' · ')}</div></div>${trailSt(m)}</div>`;
   };
   const foot = kind === 'B'
     ? `<div style="display:flex;gap:8px;align-items:flex-start;padding:0 4px;font-size:12.5px;line-height:17px;color:${t.on2}">${ic('visibility_off', t.on2, 16)}<span>Hors de votre groupe, seuls les chefs et leurs adjoints ont leur nom écrit.</span></div>` : '';
@@ -1567,9 +1571,9 @@ function sharedThings() {
     pin(322, 152, op) + lab('Poste de secours', 250, 131, op) + pin(156, 308, nord) + lab('Point de rendez-vous', 150, 312, nord);
 }
 const arrivantMap = () => placed21(() => opMap3(21, { extra: sharedThings() }));
-const arrivantThread = () => placed21(() => screen(msgTop3(P[21], 0, {}), col(sysLine('Vous avez rejoint le Groupe Nord à 09:52') +
+const arrivantThread = () => placed21(() => screen(msgTop3(P[21], 0, {}), col(sysLine('Vous avez rejoint le Groupe Nord à 09:38') +
   threadInfo("Les messages envoyés avant votre arrivée ne sont pas repris. Les croquis et les waypoints encore affichés sont sur votre carte.") +
-  msg('Membre 4', '09:53', 'Bienvenue. On se retrouve au pont.') + msg('Moi', '09:54', "Bien reçu, j'arrive."), '16px', 10), msgInput('Écrire à mon groupe')));
+  msg('Membre 4', '09:39', 'Bienvenue. On se retrouve au pont.') + msg('Moi', '09:40', "Bien reçu, j'arrive."), '16px', 10), msgInput('Écrire à mon groupe')));
 function arrivantShares() {
   return placed21(() => {
     const before = `<span style="color:${t.night ? t.sec : '#0B5B57'};font-weight:500">avant votre arrivée</span>`;
@@ -1587,7 +1591,7 @@ const creatorRemindA = () => freshOp(() => opMain(1, { sub: 'Opération · 1 mem
 function creatorPage() {
   return screen(topBar('Créateur', OP, []), col(
     infoBox('key', `Le créateur ${b5('nomme et retire les administrateurs')}, retire un membre de l'opération et peut la dissoudre. Il y en a toujours un, et un seul.`) +
-    `<div>${secHead('Créateur')}${group([postRow(P[1], 'Groupe Est · administrateur', { you: true, trail: '' })], { m: '0' })}</div>` +
+    `<div>${secHead('Créateur')}${group([postRow(P[1], 'Groupe Est · Administrateur', { you: true, trail: '' })], { m: '0' })}</div>` +
     `<div style="border-radius:14px;background:${t.terC};color:${t.onTerC};padding:12px;display:flex;gap:12px;align-items:flex-start">${ic('smartphone', t.onTerC)}<div style="flex:1;min-width:0"><div style="font-size:15px;line-height:20px;font-weight:500">Avant de changer de téléphone</div><div style="font-size:13.5px;line-height:19px;margin-top:2px">Votre rôle est attaché à ce téléphone : désignez d'abord un successeur. Sinon l'opération continue avec ses administrateurs, sans créateur, jusqu'à sa fin.</div></div></div>` +
     `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">${btn('Désigner un successeur', 'outlined', { icon: 'key', h: 44 })}${btn("Dissoudre l'opération…", 'text', { h: 44, css: `color:${t.err};` })}</div>`, '12px'));
 }
@@ -1621,8 +1625,8 @@ shot('01-envoi-chef-operation', '1', "Envoyer · chef de l'opération et son adj
   ph(RECO, 'reco', sendCommand(2, 'A', 2), "Ici « Toute l'opération » est cochée. « Mon groupe » est coché à l'ouverture, pour qu'un envoi à tous soit toujours voulu."),
   ph(NEW + ' · A · un groupe', 'reco', sendCommand(2, 'A', 1), '« Un groupe » cochée : les autres groupes apparaissent en pastilles, on en touche un. Ici le Groupe Sud.')));
 shot('01-envoi-groupe-precis-BC', '1', 'Choisir le groupe précis · variantes B et C', 'Même vue (Membre 2), envoi au Groupe Sud.', duo(
-  ph(NEW + ' · B', 'new', sendCommand(2, 'B', 1), "Une ligne par groupe : tout se lit d'un coup, mais la fenêtre s'allonge (huit lignes avec six groupes)."),
-  ph(NEW + ' · C', 'new', sendCommand(2, 'C', 1), 'Une liste déroulante sous la ligne cochée : compact, mais un toucher de plus, et les groupes ne se voient pas tous.')));
+  ph(NEW + ' · B', 'new', sendCommand(2, 'B', 1), "Une ligne par groupe : tout se lit d'un coup, mais la fenêtre s'allonge (sept lignes avec six groupes)."),
+  ph(NEW + ' · C', 'new', sendCommand(2, 'C', 1), 'Une liste déroulante sous la ligne cochée : la fenêtre reste courte, mais il faut un toucher de plus, et les groupes ne se voient pas tous.')));
 shot('01-envoi-administrateur', '1', 'Envoyer · un administrateur, et le thème de nuit', 'À gauche Membre 1, créateur et administrateur, du Groupe Est, sans poste de chef.', duo(
   ph(NEW + ' · administrateur', 'new', sendCommand(1, 'A', 0), "Lecture actuelle : un administrateur a les trois mêmes lignes que le chef de l'opération, groupe précis compris. À confirmer (question T2)."),
   phN(NEW + ' · chef de groupe', () => sendChefGroupe(4, 'A', 1), 'La fenêtre du chef de groupe, variante A.')));
@@ -1640,7 +1644,7 @@ shot('02-alerte-chef-operation', '2', "Alerte · chef de l'opération", "À gauc
   ph(NEW + ' · reçue', 'new', opAlertReceived(15, 2, 'Accident au pont. Arrêtez tout mouvement.'), "La fenêtre d'aujourd'hui, avec en plus le groupe et le rôle de celui qui alerte, et à qui l'alerte est partie.")));
 shot('02-alerte-recue', '2', "L'alerte vue par celui qui la reçoit", null, duo(
   ph(AVJ, 'cur', curAlertReceived(), "Entre amis, aujourd'hui : le nom, le message, la position, la distance."),
-  ph(NEW + " · alerte d'un membre", 'new', opAlertReceived(8, 7, 'Cheville tordue, je ne peux plus avancer.'), "Membre 8 reçoit l'alerte de Membre 7, de son groupe. Les autres groupes ne la reçoivent pas.")));
+  ph(NEW + " · alerte d'un membre", 'new', opAlertReceived(4, 7, 'Cheville tordue, je ne peux plus avancer.'), "Membre 4 reçoit l'alerte de Membre 7, de son groupe. Les autres groupes ne la reçoivent pas.")));
 shot('02-alerte-nuit', '2', "L'alerte d'un chef de groupe · reçue, et le thème de nuit", "Variante A de l'alerte d'un chef de groupe.", duo(
   ph(NEW + ' · reçue par un chef', 'new', opAlertReceived(9, 4, "Blessé léger au pont, il faut une trousse."), 'Membre 9, chef du Groupe Sud, reçoit l\'alerte de Membre 4, chef du Groupe Nord.'),
   phN(NEW + ' · envoi', () => opAlertSheet(4, 'A'), 'La feuille de Membre 4.')));
@@ -1666,7 +1670,7 @@ shot('03-fil-milieu-noms', '3', 'Le nom du fil du milieu · variantes B et C', '
   ph(NEW + ' · B · « Liaison »', 'new', withMid('Liaison', () => opMsg3(4, 'up', { input: 'Écrire à la liaison' })), "« Liaison » : neutre ; le chef de l'opération lirait « Liaison Nord », « Liaison Sud »."),
   ph(NEW + ' · C · « Remontée »', 'new', withMid('Remontée', () => opMsg3(4, 'up', { input: 'Écrire en remontée' })), "« Remontée » : le mot de la ligne d'envoi dans sa variante C ; il dit mal que le commandement y répond.")));
 shot('03-messages-nuit', '3', 'Messages · thème de nuit', null, duo(
-  phN(NEW + ' · A · chef de groupe', () => opMsg3(4, 'up')), phN(NEW + ' · membre', () => opMsg3(7, 'all'))));
+  phN(NEW + ' · A · chef de groupe', () => opMsg3(4, 'up'), 'Le fil du milieu de Membre 4, lecture A.'), phN(NEW + ' · membre', () => opMsg3(7, 'all'), "« Toute l'opération » chez Membre 7, en lecture seule.")));
 
 /* 4 */
 chapter(4, "Entrer : « Rejoindre l'opération ? », avec son nom", "Un champ pour son nom, déjà rempli avec celui réglé dans l'application (votre précision Q11).");
@@ -1675,7 +1679,7 @@ shot('04-entree-nom', '4', "Rejoindre l'opération : le nom", "La personne vient
   ph(NEW, 'new', joinConfirm3('ok'), "Un champ « Votre nom », déjà rempli. Le texte dit aussi ce qui a changé depuis : en attente, les administrateurs voient son nom et sa position.")));
 shot('04-entree-nom-etats', '4', 'Le nom effacé, et le thème de nuit', null, duo(
   ph(NEW + ' · nom effacé', 'new', joinConfirm3('empty'), 'Sans nom, « Rejoindre » est grisé et le champ dit pourquoi.'),
-  phN(NEW, () => joinConfirm3('ok'))));
+  phN(NEW, () => joinConfirm3('ok'), 'La fenêtre avec le nom déjà rempli.')));
 
 /* 5 */
 chapter(5, 'Le créateur quitte', "La fenêtre aux deux sorties (votre choix Q4 A). « Dissoudre » se confirme par un glissement de gauche à droite, comme pour décrocher un appel ; le successeur est un administrateur (Q13).");
@@ -1692,8 +1696,8 @@ shot('05-successeur', '5', 'Désigner un successeur : un administrateur seulemen
   ph(AV2, 'cur', avant(() => successorSheet()), 'Tour 2 : les administrateurs en tête, puis « Autres membres ».'),
   ph(NEW, 'new', successor3(), "Seuls les administrateurs sont proposés. Pour quelqu'un d'autre, une ligne dit comment faire : le nommer d'abord administrateur.")));
 shot('05-successeur-aucun', '5', 'Aucun autre administrateur, et le thème de nuit', null, duo(
-  ph(NEW + ' · aucun administrateur', 'new', successorNone3(), 'Le créateur est le seul administrateur : la feuille le dit et mène à « Nommer un administrateur ».'),
-  phN(NEW + ' · A · au repos', () => creatorLeave3A('rest'))));
+  ph(NEW + ' · aucun administrateur', 'new', successorNone3(), "Cas d'une opération où le créateur n'a nommé aucun administrateur : la feuille le dit et mène à « Nommer un administrateur »."),
+  phN(NEW + ' · A · au repos', () => creatorLeave3A('rest'), 'La fenêtre aux deux sorties, variante A.')));
 
 /* 6 */
 chapter(6, 'Supprimer un groupe', 'Ses membres repassent « en attente » (votre choix Q7 B).');
@@ -1729,7 +1733,7 @@ shot('08-inviter-complet', '8', '30 membres sur 30 : « Inviter » est grisé, e
   ph(NEW + ' · B · complet', 'new', withFull(() => withInvite('B', () => opMain(1))), 'Le bouton flottant est grisé et porte la raison. Il recouvre toujours le bas de la liste.')));
 shot('08-inviter-invitation', '8', "L'invitation, et le thème de nuit", null, duo(
   ph(NEW + ' · invitation', 'new', inviteSheet3(), "On touche « Inviter » : le code, ce qui attend l'arrivant, et le compte détaillé."),
-  phN(NEW + ' · A · complet', () => withFull(() => opMain(1)))));
+  phN(NEW + ' · A · complet', () => withFull(() => opMain(1)), "L'écran du créateur, opération complète.")));
 
 /* 9 */
 chapter(9, 'Un chef part : son adjoint prend sa place', "L'adjoint devient chef automatiquement, pour un groupe (votre choix Q18) comme pour l'opération (réponse S4).");
@@ -1747,7 +1751,7 @@ shot('09-promotion-operation', '9', "De même pour le chef de l'opération", "Me
   ph(NEW + ' · les autres', 'new', promotedOpSeen(), "Tout le monde est prévenu par un message en bas de l'écran.")));
 shot('09-chef-operation-quitte', '9', "Le chef de l'opération quitte, et le thème de nuit", null, duo(
   ph(NEW + " · chef de l'opération", 'new', chefLeave3(2), "La même fenêtre que pour un chef de groupe, avec son poste."),
-  phN(NEW + ' · les autres', () => promotedGroupSeen(), "Le Groupe Nord après le départ de son chef.")));
+  phN(NEW + ' · les autres', () => promotedOpSeen(), "Après son départ : tout le monde est prévenu, Membre 3 est chef de l'opération.")));
 
 /* 10 */
 chapter(10, "En attente d'un groupe", "La version sobre (votre choix Q2 A) : aucun nom n'est montré. Sa position n'est visible que des administrateurs (Q10).");
@@ -1761,7 +1765,7 @@ shot('10-attente-admin', '10', 'Côté administrateur : la carte, avec ceux qui 
   ph(NEW + ' · sa carte', 'new', opMap3(5), "Ce que voit un administrateur : tout le monde, plus les deux personnes en attente, en gris pointillé, avec un sablier. Les autres membres ne les voient pas."),
   ph(NEW + ' · une personne en attente', 'new', ficheWaiting(5, 21), 'On touche son jeton : sa fiche, et « Placer dans un groupe ».')));
 shot('10-attente-nuit', '10', 'En attente · thème de nuit', null, duo(
-  phN(NEW + ' · en attente', () => waiting3(21)), phN(NEW + ' · administrateur', () => opMap3(5))));
+  phN(NEW + ' · en attente', () => waiting3(21), "L'écran de Membre 21."), phN(NEW + ' · administrateur', () => opMap3(5), 'La carte de Membre 5, avec les deux personnes en attente.')));
 
 /* 11 */
 chapter(11, 'Un membre tout juste placé ; le rappel au créateur', "Ce que retrouve un arrivant (réponse S6). Le rappel de désigner un successeur avant de changer de téléphone (réponse S7).");
@@ -1776,7 +1780,7 @@ shot('11-createur-rappel-A', '11', 'Rappel au créateur · variante A : une fen�
   ph(NEW + ' · A · ensuite', 'reco', creatorPage(), "Le rappel reste écrit sur la page « Créateur » d'« Administrer », avec le bouton pour désigner un successeur.")));
 shot('11-createur-rappel-B', '11', "Rappel au créateur · variante B : un bandeau sur l'écran de l'opération", null, duo(
   ph(NEW + ' · B', 'new', creatorRemindB(), "Un bandeau en tête de l'écran, à chaque ouverture, jusqu'à « Compris ». Plus visible, mais il prend de la place tous les jours pour un cas rare."),
-  phN(NEW + ' · A · à la création', () => creatorRemindA())));
+  phN(NEW + ' · A · à la création', () => creatorRemindA(), 'La fenêtre de la variante A.')));
 
 /* 12 */
 chapter(12, 'Les noms sur la carte, dans les fiches et les listes', 'Le nom entier pour son groupe et pour les chefs, des initiales pour les autres (votre choix Q17).');
@@ -1785,7 +1789,7 @@ shot('12-noms-carte', '12', 'Les noms sur la carte', 'Téléphone de Membre 7, d
   ph(NEW, 'new', opMap3(7), 'Noms écrits : son groupe (bleu), les chefs et leurs adjoints. Les autres jetons ne portent que leurs initiales. Aucune étiquette ne touche le bord.')));
 shot('12-noms-carte-vues', '12', "La même carte depuis un autre groupe, et de nuit", null, duo(
   ph(NEW + ' · vue du Groupe Sud', 'new', opMap3(13), 'Membre 13, du Groupe Sud : ce sont les noms du Sud qui sont écrits, avec ceux des chefs.'),
-  phN(NEW + ' · vue du Groupe Nord', () => opMap3(7))));
+  phN(NEW + ' · vue du Groupe Nord', () => opMap3(7), 'La carte de Membre 7.')));
 shot('12-noms-fiche', '12', "La fiche d'un membre d'un autre groupe", 'Membre 7 touche le jeton « 13 » : un membre du Groupe Sud, sans poste.', duo(
   ph(RECO, 'reco', fiche3(7, 13, 'A'), 'Le nom entier se lit dans la fiche : c\'est ce que disait le choix Q17 (« le nom se lit en touchant le jeton »).'),
   ph(NEW + ' · B', 'new', fiche3(7, 13, 'B'), 'Les initiales seulement, même dans la fiche : hors de son groupe, on ne connaît par leur nom que les chefs.')));

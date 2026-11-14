@@ -6,7 +6,7 @@ Pour la session principale, qui montre les images à l'utilisateur. Ce ne sont q
 - Images : `docs/previews/p39-groupes/tour3/img/*.png` (52 images, 1320 px de large, 5,6 Mo en tout). Chacune montre deux téléphones côte à côte, avec son titre, ses légendes et son nom de fichier en bas à droite.
 - Seuls les écrans que changent les choix Q1 à Q20 et les réponses S1 à S7 sont redessinés. Le reste du tour 2 (création, administration, limites, fiche aux rôles cumulés…) tient toujours.
 - Étiquettes : « Avant · tour 2 » = le dessin du tour 2, redessiné ici avec le même fond de carte et les mêmes nombres que le reste ; « Avant · aujourd'hui » = l'écran de l'application (entre amis) ; « Proposé » = le nouveau dessin ; « A (recommandée) », « B », « C » = un choix à faire ; « nuit » = thème de nuit (au moins un téléphone par partie).
-- Toutes les images ont été ouvertes et relues après le dernier rendu, et un contrôle automatique passe sur chaque téléphone (texte coupé par un bord, par une fenêtre ou par l'écran, étiquette de carte hors de l'écran ou sur un jeton).
+- Toutes les images ont été ouvertes et relues après rendu, puis relues une seconde fois par une relecture indépendante (un défaut et une vingtaine de détails repris : un téléphone qui ne montrait pas ce que disait son titre, heures et distances mises en accord avec la carte, légendes ajoutées aux téléphones de nuit). Un contrôle automatique passe sur chaque téléphone (texte coupé par un bord, par une fenêtre ou par l'écran, étiquette de carte hors de l'écran ou sur un jeton) : rien au dernier rendu.
 
 ## Les mêmes faits sur toutes les images
 
@@ -14,7 +14,7 @@ Pour la session principale, qui montre les images à l'utilisateur. Ce ne sont q
 - **20 membres placés**, dont 17 en ligne ; la pastille de la carte dit « 16 connectés » (les autres que soi, comme aujourd'hui). **2 personnes en attente** (Membre 21, Membre 22). Le compte contre la limite est donc **22 sur 30**, toujours écrit avec son détail (« 20 placés, 2 en attente »). La barre du haut dit « 20 membres » (au tour 2 : « 22 membres » à un endroit, « 20 » à un autre).
 - Le créateur, Membre 1, est dans le **Groupe Est** partout. (Sur l'écran de création du tour 2, non redessiné, la case cochée était « Groupe Nord » : à corriger au moment de coder cet écran.)
 - Membre 2 chef de l'opération (Nord), Membre 3 son adjoint (Sud), Membre 4 chef du Nord, Membre 5 adjoint du Nord et administrateur, Membre 9 chef du Sud et administrateur, Membre 10 adjoint du Sud, Membre 14 chef de l'Est.
-- Le dernier message de chaque fil de groupe a toujours le même auteur (Nord : « Membre 4 : On attend au pont » ; « Vous : … » sur le téléphone de Membre 4).
+- Le dernier message de chaque fil de groupe a toujours le même auteur (Nord : « Membre 4 : On attend au pont. » ; « Vous : … » sur le téléphone de Membre 4).
 - Les mesures des fiches (altitude, vitesse, batterie, précision, coordonnées) diffèrent d'un membre à l'autre.
 - Fond de carte inventé (aucun lieu réel, aucun nom), coordonnées inventées (« 31T IO … » : les lettres I et O n'existent pas dans une grille MGRS), noms inventés, code QR sans lien.
 
@@ -69,7 +69,7 @@ Pour la session principale, qui montre les images à l'utilisateur. Ce ne sont q
 | `09-promotion-groupe.png` | Les autres membres du groupe : avant (tour 2, « Sans chef »), puis l'adjoint devenu chef |
 | `09-promotion-adjoint.png` | L'adjoint devenu chef ; la page du groupe chez un administrateur |
 | `09-promotion-operation.png` | De même pour le chef de l'opération : l'adjoint devenu chef, et les autres |
-| `09-chef-operation-quitte.png` | Le chef de l'opération quitte ; le groupe après le départ de son chef, de nuit |
+| `09-chef-operation-quitte.png` | Le chef de l'opération quitte ; ce que voient les autres ensuite, de nuit |
 | **10 · En attente** | |
 | `10-attente.png` | L'écran d'attente : avant (tour 2), puis « Votre position n'est visible que des administrateurs », aucun nom |
 | `10-attente-carte.png` | Sa carte : avant (tour 2), puis avec la pastille « Position visible des administrateurs » |
