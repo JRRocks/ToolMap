@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
 
 /**
  * The key scheme that really closes out whoever waits for a group (`docs/specs/group-hierarchy.md` § 8, answer R1):
- * one content key per unit and per list of readers, wrapped to each reader and to nobody else.
+ * one content key per channel and per list of readers, wrapped to each reader and to nobody else.
  */
 class HierarchyKeysTest {
     private val problems = ArrayList<Problem>()
@@ -39,8 +39,8 @@ class HierarchyKeysTest {
         val w = world()
         val state = w[H].state
         assertTrue(state.isWaiting(H))
-        // No list of readers holds it.
-        assertTrue(state.allReaders().none { H in it })
+        // No list of readers holds it but the one of its own waiting lane, where only its position goes (Q10).
+        assertEquals(listOf(Channel.waiting(H)), state.allReaders().filter { H in it }.map { it.channel })
         assertEquals(emptyList(), w[H].ring.missing(state))
         // Positions, sketches, waypoints, messages: sealed for the readers, opened by them.
         val frames =
@@ -71,18 +71,22 @@ class HierarchyKeysTest {
     fun `R1 really closed - no wrapped copy of a key opens with the keys of a waiting phone`() {
         val w = world()
         val batches = w[A].ring.batchesFor(w[A].state)
-        assertEquals(setOf(ROOT, G1, G2), batches.map { it.unit }.toSet())
-        for (batch in batches) {
+        val own = Channel.waiting(H)
+        assertEquals(
+            setOf(Channel.ENSEMBLE, Channel.unit(G1), Channel.unit(G2), Channel.down(G1), Channel.down(G2), own),
+            batches.map { it.channel }.toSet(),
+        )
+        for (batch in batches.filter { it.channel != own }) {
             // The phone that waits takes the batch: checked, kept to pass on, and that is all.
             assertEquals(KeyOffer.DUPLICATE, w[H].take(batch))
             assertTrue(batch.wraps.none { it.recipient == H })
-            assertNull(w[H].ring.find(batch.unit, batch.keyId))
+            assertNull(w[H].ring.find(batch.channel, batch.keyId))
             // A modified phone tries every copy as if it were its own: none opens.
             for (wrap in batch.wraps) {
                 val stolen =
                     KeyBatch(
                         batch.ensembleId,
-                        batch.unit,
+                        batch.channel,
                         batch.readersTag,
                         batch.keyId,
                         batch.issuer,
@@ -111,14 +115,18 @@ class HierarchyKeysTest {
         w[B].replica.must(Change.AssignMember(H, G1))
         w.spread()
         // The readers of the ensemble and of G1 changed: their keys are no longer the keys to seal with.
-        assertEquals(listOf(G1, ROOT), w[C].ring.missing(w[C].state))
+        assertEquals(
+            listOf(Channel.ENSEMBLE, Channel.unit(G1), Channel.down(G1)),
+            w[C].ring.missing(w[C].state),
+        )
         assertEquals(ShareRefusal.NO_KEY, w[C].sealRefusal(ShareKind.POSITION, ROOT, "trop tôt"))
         // G2 did not change: same key, nothing to hand out.
         assertEquals(oldG2, w[E].ring.sealingKey(w[E].state, G2)?.id)
-        assertEquals(listOf(ROOT), w[E].ring.missing(w[E].state))
+        assertEquals(listOf(Channel.ENSEMBLE), w[E].ring.missing(w[E].state))
 
         val root = w.handOut(A, ROOT)
         val g1 = w.handOut(C, G1)
+        w.handOutMissing()
         assertNotEquals(oldRoot, root.keyId)
         assertTrue(root.wraps.any { it.recipient == H } && g1.wraps.any { it.recipient == H })
         assertEquals(emptyList(), w[H].ring.missing(w[H].state))
@@ -210,10 +218,14 @@ class HierarchyKeysTest {
             assertEquals(ShareRefusal.NO_KEY, w[member].refusal(message), "$member")
             assertEquals(ShareRefusal.NO_KEY, w[member].refusal(sketch), "$member")
         }
-        // The leader of the group sends its sketch one level up: sealed again, for the readers of the ensemble.
+        // The leader of the group sends its sketch up: sealed again, for those who command the ensemble only (S1).
         w[B].replica.must(leader(G1, C))
         w.spread()
-        assertEquals("croquis remonté", w[E].read(w[C].frame(ShareKind.SKETCH, ROOT, "croquis remonté")))
+        w.handOut(C, Channel.up(G1))
+        val up = w[C].frame(ShareKind.SKETCH, Channel.up(G1), "croquis remonté")
+        for (member in listOf(A, B)) assertEquals("croquis remonté", w[member].read(up), "$member")
+        for (member in listOf(D, E, F)) assertEquals(ShareRefusal.NO_KEY, w[member].refusal(up), "$member")
+        assertEquals(ShareRefusal.NOT_ALLOWED, w[C].sealRefusal(ShareKind.SKETCH, ROOT, "pas à tout le monde"))
         // An administrator cannot hand out the key of a group it does not read.
         assertNull(w[B].ring.issue(w[B].state, G1))
         assertFailsWith<IllegalArgumentException> { ContentKeys.issue(w[B].state.readers(G1)!!, keysOf(B)) }
@@ -224,21 +236,24 @@ class HierarchyKeysTest {
         val sub = 0x201L
         val source =
             deployed(TWO_LEVELS).apply {
-                must(Change.CreateGroup(sub, "Sous-groupe", parent = G1))
+                must(Change.CreateGroup(sub, hidden("Sous-groupe"), parent = G1))
                 must(Change.AssignMember(D, sub))
                 must(leader(sub, D))
+                must(leader(G1, C))
             }
         val w = World(source, listOf(A, C, D, E))
         w.handOut(A, ROOT)
         w.handOut(C, G1)
         w.handOut(D, sub)
+        w.handOutMissing()
         // D, in the sub-group, reads its sub-group, the group above and the ensemble.
         assertEquals(emptyList(), w[D].ring.missing(w[D].state))
         assertEquals("du groupe", w[D].read(w[C].frame(ShareKind.MESSAGE, G1, "du groupe")))
-        // Its leader sends a sketch one level up: the group reads it, the ensemble does not.
-        val up = w[D].frame(ShareKind.SKETCH, G1, "croquis du sous-groupe")
+        // Its leader sends a sketch up: the leader of the group above reads it, nobody higher, nobody else.
+        val up = w[D].frame(ShareKind.SKETCH, Channel.up(sub), "croquis du sous-groupe")
         assertEquals("croquis du sous-groupe", w[C].read(up))
         assertEquals(ShareRefusal.NO_KEY, w[E].refusal(up))
+        assertEquals(ShareRefusal.NO_KEY, w[A].refusal(up))
         assertEquals(ShareRefusal.NOT_ALLOWED, w[D].sealRefusal(ShareKind.SKETCH, ROOT, "trop haut"))
         // C, in the group itself, does not read the thread of the sub-group.
         assertEquals(ShareRefusal.NO_KEY, w[C].refusal(w[D].frame(ShareKind.MESSAGE, sub, "entre nous")))
@@ -252,7 +267,7 @@ class HierarchyKeysTest {
         w.spread(F)
         w.handOut(A, ROOT, F)
         w.handOut(E, G2, F)
-        w[B].replica.must(Change.RenameGroup(G2, "Arrière"))
+        w[B].replica.must(Change.RenameGroup(G2, hidden("Arrière")))
         w[A].replica.must(Change.RemoveMember(C))
         w.spread(F)
         val root = w.handOut(B, ROOT, F)
@@ -262,20 +277,23 @@ class HierarchyKeysTest {
         assertEquals(ShareRefusal.NO_KEY, w[F].refusal(message))
         // F comes back near D, who reads neither G2 nor anything of F's group: D kept the batches all the same.
         val kept = w[D].ring.batchesFor(w[D].state)
-        assertEquals(setOf(ROOT, G1, G2), kept.map { it.unit }.toSet())
+        assertEquals(setOf(Channel.ENSEMBLE, Channel.unit(G1), Channel.unit(G2)), kept.map { it.channel }.toSet())
         assertTrue(root.keyId in kept.map { it.keyId })
         // The batches before the operations: F does not know those readers yet, they wait.
-        for (batch in kept.filter { it.unit != G1 }) assertEquals(KeyOffer.UNKNOWN_READERS, w[F].take(batch))
+        for (batch in kept.filter { it.channel != Channel.unit(G1) }) {
+            assertEquals(KeyOffer.UNKNOWN_READERS, w[F].take(batch))
+        }
         assertEquals(1, sync(w[F].replica, w[D].replica))
         assertEquals(2, w[F].ring.retry(w[F].replica))
-        assertEquals(emptyList(), w[F].ring.missing(w[F].state))
+        // Its two units have their keys; the lane down to its group waits until someone has something to send.
+        assertEquals(listOf(Channel.down(G2)), w[F].ring.missing(w[F].state))
         assertEquals("F, tu nous lis ?", w[F].read(message))
         assertEquals("position de E", w[F].read(position))
         assertEquals("oui", w[H].read(w[F].frame(ShareKind.MESSAGE, G2, "oui")))
         // In the other order (operations, then batches) nothing waits.
         val late = Device(F, w[D].replica)
-        for (batch in kept.filter { it.unit != G1 }) assertEquals(KeyOffer.ACCEPTED, late.take(batch))
-        assertEquals(KeyOffer.NOT_FOR_ME, late.take(kept.single { it.unit == G1 }))
+        for (batch in kept.filter { it.channel != Channel.unit(G1) }) assertEquals(KeyOffer.ACCEPTED, late.take(batch))
+        assertEquals(KeyOffer.NOT_FOR_ME, late.take(kept.single { it.channel == Channel.unit(G1) }))
         assertEquals("position de E", late.read(position))
     }
 
@@ -316,7 +334,7 @@ class HierarchyKeysTest {
             wraps: List<KeyBatch.Wrap> = good.wraps,
             signature: ByteArray = good.signature,
             ensembleId: Long = good.ensembleId,
-        ) = KeyBatch(ensembleId, good.unit, good.readersTag, keyId, issuer, good.ephemeral, wraps, signature)
+        ) = KeyBatch(ensembleId, good.channel, good.readersTag, keyId, issuer, good.ephemeral, wraps, signature)
 
         // Not signed by its issuer: signature damaged, or content changed after it was signed.
         val damaged = good.signature.copyOf().also { it[10] = (it[10] + 1).toByte() }
@@ -339,7 +357,7 @@ class HierarchyKeysTest {
         // For readers that never were: G1 plus an administrator who is not in it. It waits, for ever.
         val state = w[C].state
         val withB = (state.readersOf(G1) + state.members.getValue(B)).sortedBy { it.id.toULong() }
-        val invented = Readers(state.ensembleId, G1, withB)
+        val invented = Readers(state.ensembleId, Channel.unit(G1), withB)
         val fake = ContentKeys.issue(invented, keysOf(B)).batch
         assertEquals(KeyOffer.UNKNOWN_READERS, w[D].take(fake))
         assertEquals(0, w[D].ring.retry(w[D].replica))
@@ -359,11 +377,11 @@ class HierarchyKeysTest {
     @Test
     fun `a key batch survives the format, and what is not one is refused`() {
         val w = world()
-        val batch = w[A].ring.batchesFor(w[A].state).first { it.unit == ROOT }
+        val batch = w[A].ring.batchesFor(w[A].state).first { it.channel == Channel.ENSEMBLE }
         val bytes = HierarchyWire.encodeKeyBatch(batch)
         assertEquals(HierarchyWire.Kind.KEYS, HierarchyWire.kindOf(bytes))
-        // Header, ensemble, unit, readers, key, issuer, ephemeral key, count, one copy per reader, signature.
-        assertEquals(2 + 8 + 8 + 16 + 8 + 8 + 65 + 2 + 6 * (8 + 48) + 64, bytes.size)
+        // Header, ensemble, channel, readers, key, issuer, ephemeral key, count, one copy per reader, signature.
+        assertEquals(2 + 8 + 9 + 16 + 8 + 8 + 65 + 2 + 6 * (8 + 48) + 64, bytes.size)
         val back = HierarchyWire.decodeKeyBatch(bytes)
         assertContentEquals(bytes, HierarchyWire.encodeKeyBatch(back))
         assertEquals(KeyOffer.ACCEPTED, ContentKeys.check(back, w[A].state.readers(ROOT)!!))
@@ -377,47 +395,70 @@ class HierarchyKeysTest {
             wraps: List<KeyBatch.Wrap> = batch.wraps,
             issuer: Long = batch.issuer,
             ephemeral: ByteArray = batch.ephemeral,
-        ) = with(batch) { KeyBatch(ensembleId, unit, readersTag, keyId, issuer, ephemeral, wraps, signature) }
+        ) = with(batch) { KeyBatch(ensembleId, channel, readersTag, keyId, issuer, ephemeral, wraps, signature) }
         refused(copy(wraps = emptyList()))
         refused(copy(wraps = batch.wraps.reversed()))
         refused(copy(wraps = batch.wraps + batch.wraps.last()))
         refused(copy(issuer = 0))
         refused(copy(ephemeral = ByteArray(P256.POINT_BYTES)))
+        // A lane that cannot be: the lane of the leaders of a group, a lane up from nothing.
+        for (channel in listOf(Channel(Lane.LEADERS, G1), Channel.up(ROOT), Channel.down(ROOT), Channel.waiting(0))) {
+            refused(
+                with(batch) {
+                    KeyBatch(ensembleId, channel, readersTag, keyId, issuer, ephemeral, wraps, signature)
+                },
+            )
+        }
         assertFailsWith<WireException> { HierarchyWire.decodeKeyBatch(bytes + 0) }
         assertFailsWith<WireException> { HierarchyWire.decodeKeyBatch(bytes.copyOf(bytes.size - 1)) }
     }
 
     @Test
-    fun `the readers of a unit have one name, which changes with every change of the list`() {
+    fun `the readers of a channel have one name, which changes with every change of the list`() {
         val a = deployed()
         val state = a.state
         val root = state.readers(ROOT)!!
         assertEquals(listOf(A, B, C, D, E, F), root.members.map { it.id })
         assertEquals(Readers.TAG_BYTES, root.tag.size)
         assertEquals(root, a.copyFor(B).state.readers(ROOT))
-        assertEquals(listOf(ROOT, G1, G2), state.allReaders().map { it.unit })
+        // Every channel that has readers: the ensemble, each group and the lane down to it. No group has a leader
+        // yet (nothing goes up, no lane of the leaders) and nobody waits.
+        assertEquals(
+            listOf(Channel.ENSEMBLE, Channel.unit(G1), Channel.down(G1), Channel.unit(G2), Channel.down(G2)),
+            state.allReaders().map { it.channel },
+        )
         assertFalse(root.tag.contentEquals(state.readers(G1)!!.tag))
+        // Two lanes with the same readers still have two names, so two keys.
+        val alone = a.copyFor(A).apply { must(Change.AssignMember(A, G1)) }.state
+        assertEquals(alone.readerIds(Channel.unit(G1)), alone.readerIds(Channel.down(G1)).filter { it != B })
+        assertFalse(alone.readers(G1)!!.tag.contentEquals(alone.readers(Channel.down(G1))!!.tag))
         assertNull(state.readers(G3), "no such unit")
-        assertNull(a.copyFor(A).apply { must(Change.CreateGroup(G3, "Vide")) }.state.readers(G3), "nobody in it")
+        assertNull(
+            a.copyFor(A).apply {
+                must(Change.CreateGroup(G3, hidden("Vide")))
+            }.state.readers(G3),
+            "nobody in it",
+        )
         // Someone comes in, someone goes out: another name. Back to the same list: the same name again.
         val grown = a.copyFor(A).apply { must(admit(H)) }
-        assertEquals(root, grown.state.readers(ROOT), "who waits is not a reader")
+        assertEquals(root, grown.state.readers(ROOT), "who waits is not a reader of the ensemble")
+        assertEquals(listOf(A, B, H), grown.state.readerIds(Channel.waiting(H)))
         grown.must(Change.AssignMember(H, G1))
         assertNotEquals(root, grown.state.readers(ROOT))
         grown.must(Change.UnassignMember(H))
         assertEquals(root, grown.state.readers(ROOT))
         // The copy of the operations remembers the lists it went through: a late batch is checked against them.
-        assertNotNull(grown.readers(ROOT, root.tag))
+        assertNotNull(grown.readers(Channel.ENSEMBLE, root.tag))
         val withH = a.copyFor(A)
         withH.must(admit(H))
         withH.must(Change.AssignMember(H, G1))
-        assertEquals(7, grown.readers(ROOT, withH.state.readers(ROOT)!!.tag)?.members?.size)
-        assertNull(grown.readers(G1, root.tag))
-        assertNull(grown.readers(ROOT, ByteArray(Readers.TAG_BYTES)))
+        assertEquals(7, grown.readers(Channel.ENSEMBLE, withH.state.readers(ROOT)!!.tag)?.members?.size)
+        assertNull(grown.readers(Channel.unit(G1), root.tag))
+        assertNull(grown.readers(Channel.ENSEMBLE, ByteArray(Readers.TAG_BYTES)))
     }
 
     @Test
-    fun `who hands out the key of a unit first - its leader, its deputy, then the others`() {
+    fun `who hands out the key of a channel first - those who write there, then the others`() {
         val state =
             deployed()
                 .apply {
@@ -433,6 +474,13 @@ class HierarchyKeysTest {
         assertEquals(listOf(E, F), state.keyIssuers(G2))
         assertEquals(emptyList(), state.keyIssuers(G3))
         assertFalse(H in state.keyIssuers(ROOT))
+        // Up from a group: its leader, then those who command the ensemble. Down to it: those who command first.
+        assertEquals(listOf(D, E, F, A, B), state.keyIssuers(Channel.up(G1)))
+        assertEquals(listOf(E, F, A, B, D, C), state.keyIssuers(Channel.down(G1)))
+        assertEquals(listOf(E, F, A, B, D), state.keyIssuers(Channel.LEADERS))
+        // The lane of who waits: itself first (it is the one who has something to send), then the administrators.
+        assertEquals(listOf(H, A, B, D), state.keyIssuers(Channel.waiting(H)))
+        assertEquals(emptyList(), state.keyIssuers(Channel.up(G2)), "no leader, nothing goes up, no key")
     }
 
     @Test

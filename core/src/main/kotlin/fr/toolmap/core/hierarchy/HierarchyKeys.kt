@@ -9,24 +9,24 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * The members who read what is shared in one unit (the ensemble or a group) at one moment
- * ([HierarchyState.readersOf]), with the keys they have. A content key is made for exactly one such list and wrapped
- * to each of its members, to nobody else: whoever waits for a group is in no list, so no key ever reaches its phone
- * (`docs/specs/group-hierarchy.md` § 8).
+ * The members who read what is shared in one [Channel] at one moment ([HierarchyState.readersOf]), with the keys
+ * they have. A content key is made for exactly one such list and wrapped to each of its members, to nobody else:
+ * whoever waits for a group is in no list but the one of its own waiting lane, so no other key ever reaches its
+ * phone (`docs/specs/group-hierarchy.md` § 8).
  *
- * [tag] names the list: the unit, who is in it and with which agreement key. Any change of the list gives another
- * tag, so another key.
+ * [tag] names the list: the channel, who is in it and with which agreement key. Any change of the list gives
+ * another tag, so another key.
  */
 class Readers internal constructor(
     val ensembleId: Long,
-    val unit: Long,
+    val channel: Channel,
     /** Ordered by identifier; never empty. */
     val members: List<Member>,
 ) {
     private val byId = members.associateBy { it.id }
 
     val tag: ByteArray by lazy {
-        var data = OpAuth.longBytes(ensembleId) + OpAuth.longBytes(unit) + OpAuth.longBytes(members.size.toLong())
+        var data = OpAuth.longBytes(ensembleId) + channel.bytes() + OpAuth.longBytes(members.size.toLong())
         for (member in members) data += OpAuth.longBytes(member.id) + member.keys.agreement
         OpAuth.sha256(READERS_TAG, data).copyOf(TAG_BYTES)
     }
@@ -36,52 +36,73 @@ class Readers internal constructor(
     fun member(id: Long): Member? = byId[id]
 
     override fun equals(other: Any?): Boolean =
-        other is Readers && ensembleId == other.ensembleId && unit == other.unit && tag.contentEquals(other.tag)
+        other is Readers && ensembleId == other.ensembleId && channel == other.channel && tag.contentEquals(other.tag)
 
     override fun hashCode(): Int = tag.contentHashCode()
 
-    override fun toString(): String =
-        "Readers(unit ${java.lang.Long.toUnsignedString(unit, 16)}, ${members.size} members)"
+    override fun toString(): String = "Readers($channel, ${members.size} members)"
 
     companion object {
         const val TAG_BYTES = 16
-        private val READERS_TAG = "toolmap-hierarchy-readers-v2".toByteArray(Charsets.US_ASCII)
+        private val READERS_TAG = "toolmap-hierarchy-readers-v3".toByteArray(Charsets.US_ASCII)
     }
 }
 
-/** The readers of [unit] now; `null` when nobody reads it (no such unit, nobody in it, ensemble dissolved). */
-fun HierarchyState.readers(unit: Long): Readers? =
-    readersOf(unit).takeIf { it.isNotEmpty() }?.let { Readers(ensembleId, unit, it) }
+/** The lane and the scope of a channel, as every fingerprint and derivation takes them: 9 bytes. */
+internal fun Channel.bytes(): ByteArray = byteArrayOf(lane.code.toByte()) + OpAuth.longBytes(scope)
 
-/** The readers of every unit that has some: the ensemble first, then the groups by identifier. */
-fun HierarchyState.allReaders(): List<Readers> =
-    (listOf(HierarchyState.ROOT) + groups.keys.sortedWith(HierarchyWire.UNSIGNED)).mapNotNull(::readers)
+/** The readers of [channel] now; `null` when nobody reads it (no such channel, nobody in it, ensemble dissolved). */
+fun HierarchyState.readers(channel: Channel): Readers? =
+    readersOf(channel).takeIf { it.isNotEmpty() }?.let { Readers(ensembleId, channel, it) }
+
+/** The readers of the own channel of [unit] now, or `null`. */
+fun HierarchyState.readers(unit: Long): Readers? = readers(Channel.unit(unit))
+
+/** The readers of every channel that has some, in the order of [HierarchyState.channels]. */
+fun HierarchyState.allReaders(): List<Readers> = channels().mapNotNull(::readers)
 
 /**
- * The readers of [unit] in the order they should hand out its content key when it has none: its leader, its deputy,
- * (for the ensemble) the creator and the administrators, then the others by identifier. Any reader may do it; the
- * order only avoids that all do it at once (the caller waits a little longer the further down it is).
+ * The readers of [channel] in the order they should hand out its content key when it has none. Any reader may do
+ * it; the order only avoids that all do it at once (the caller waits a little longer the further down it is). First
+ * the ones who write there: the member who waits for its own lane; the leader and the deputy of the group for its
+ * own channel and its lane up; those who command the unit above for a lane down; then, for whatever touches the
+ * ensemble, its leader, its deputy, the creator and the administrators; then the others by identifier.
  */
-fun HierarchyState.keyIssuers(unit: Long): List<Long> {
-    val readers = readersOf(unit).map { it.id }
-    val first = ArrayList<Long>()
-    leaderOf(unit)?.let(first::add)
-    deputyOf(unit)?.let(first::add)
-    if (unit == HierarchyState.ROOT) {
-        creator?.let(first::add)
-        first.addAll(admins.sortedWith(HierarchyWire.UNSIGNED))
-    }
+fun HierarchyState.keyIssuers(channel: Channel): List<Long> {
+    val readers = readersOf(channel).map { it.id }
+    val scope = channel.scope
+
+    fun posts(unit: Long) = listOfNotNull(leaderOf(unit), deputyOf(unit))
+
+    fun command(unit: Long) =
+        if (unit == HierarchyState.ROOT) {
+            posts(unit) + listOfNotNull(creator) + admins.sortedWith(HierarchyWire.UNSIGNED)
+        } else {
+            posts(unit)
+        }
+    val above = parentOf(scope) ?: HierarchyState.ROOT
+    val first =
+        when (channel.lane) {
+            Lane.UNIT -> command(scope)
+            Lane.UP -> posts(scope) + command(above)
+            Lane.DOWN -> command(above)
+            Lane.LEADERS -> command(HierarchyState.ROOT)
+            Lane.WAITING -> listOf(scope) + command(HierarchyState.ROOT)
+        }
     return (first.filter { it in readers } + readers).distinct()
 }
 
+/** The order for the own channel of [unit]. */
+fun HierarchyState.keyIssuers(unit: Long): List<Long> = keyIssuers(Channel.unit(unit))
+
 /**
- * A key that seals what is shared in [unit] for one list of readers ([readersTag]). [id] names it in what it seals:
+ * A key that seals what is shared in [channel] for one list of readers ([readersTag]). [id] names it in what it seals:
  * a fingerprint of the key and of what it is for, so that a phone that unwraps another key than the one announced
  * knows it.
  */
 class ContentKey internal constructor(
     val ensembleId: Long,
-    val unit: Long,
+    val channel: Channel,
     val readersTag: ByteArray,
     private val secret: ByteArray,
 ) {
@@ -89,18 +110,18 @@ class ContentKey internal constructor(
 
     /** Whether this key was made for [readers]. */
     fun isFor(readers: Readers?): Boolean =
-        readers != null && ensembleId == readers.ensembleId && unit == readers.unit &&
+        readers != null && ensembleId == readers.ensembleId && channel == readers.channel &&
             readersTag.contentEquals(readers.tag)
 
     /** One sealing key per author: two authors never draw their random nonces under the same key. */
     internal fun sealingKey(author: Long): ByteArray =
         GroupCrypto.hkdfSha256(secret, ByteArray(0), SHARE_INFO + OpAuth.longBytes(author), Aead.KEY_BYTES)
 
-    private fun context(): ByteArray = OpAuth.longBytes(ensembleId) + OpAuth.longBytes(unit) + readersTag
+    private fun context(): ByteArray = OpAuth.longBytes(ensembleId) + channel.bytes() + readersTag
 
     companion object {
-        private val KEY_TAG = "toolmap-hierarchy-key-v2".toByteArray(Charsets.US_ASCII)
-        private val SHARE_INFO = "toolmap-hierarchy-share-key-v2".toByteArray(Charsets.US_ASCII)
+        private val KEY_TAG = "toolmap-hierarchy-key-v3".toByteArray(Charsets.US_ASCII)
+        private val SHARE_INFO = "toolmap-hierarchy-share-key-v3".toByteArray(Charsets.US_ASCII)
     }
 }
 
@@ -114,7 +135,7 @@ class ContentKey internal constructor(
  */
 class KeyBatch(
     val ensembleId: Long,
-    val unit: Long,
+    val channel: Channel,
     val readersTag: ByteArray,
     val keyId: Long,
     val issuer: Long,
@@ -169,8 +190,8 @@ enum class KeyOffer {
 
 /** How content keys are made, wrapped, checked and unwrapped. Pure: no network, no disk. */
 object ContentKeys {
-    private val KEYS_TAG = "toolmap-hierarchy-keys-v2".toByteArray(Charsets.US_ASCII)
-    private val WRAP_INFO = "toolmap-hierarchy-wrap-v2".toByteArray(Charsets.US_ASCII)
+    private val KEYS_TAG = "toolmap-hierarchy-keys-v3".toByteArray(Charsets.US_ASCII)
+    private val WRAP_INFO = "toolmap-hierarchy-wrap-v3".toByteArray(Charsets.US_ASCII)
 
     /** The key is used once: a fixed nonce is safe, and the same on every phone. */
     private val WRAP_NONCE = ByteArray(Aead.NONCE_BYTES)
@@ -189,17 +210,18 @@ object ContentKeys {
         val issuer = keys.memberId
         require(issuer in readers) { "only a reader hands out the key of a unit" }
         val secret = ByteArray(Aead.KEY_BYTES).also(random::nextBytes)
-        val key = ContentKey(readers.ensembleId, readers.unit, readers.tag, secret)
+        val key = ContentKey(readers.ensembleId, readers.channel, readers.tag, secret)
         val pair = P256.generate()
         val ephemeral = P256.encode(pair.public)
         val wraps =
             readers.members.map { member ->
                 val shared = requireNotNull(P256.agree(pair.private, member.keys.agreement)) { "reader without a key" }
-                val context = wrapContext(readers.ensembleId, readers.unit, readers.tag, key.id, ephemeral, member.id)
+                val context =
+                    wrapContext(readers.ensembleId, readers.channel, readers.tag, key.id, ephemeral, member.id)
                 KeyBatch.Wrap(member.id, Aead.seal(wrapKey(shared, context), WRAP_NONCE, context, secret))
             }
         val unsigned =
-            KeyBatch(readers.ensembleId, readers.unit, readers.tag, key.id, issuer, ephemeral, wraps, ByteArray(0))
+            KeyBatch(readers.ensembleId, readers.channel, readers.tag, key.id, issuer, ephemeral, wraps, ByteArray(0))
         return Issued(key, signed(unsigned, keys))
     }
 
@@ -210,7 +232,7 @@ object ContentKeys {
     ): KeyBatch =
         KeyBatch(
             batch.ensembleId,
-            batch.unit,
+            batch.channel,
             batch.readersTag,
             batch.keyId,
             batch.issuer,
@@ -228,7 +250,9 @@ object ContentKeys {
         readers: Readers,
     ): KeyOffer {
         if (batch.ensembleId != readers.ensembleId) return KeyOffer.WRONG_ENSEMBLE
-        if (batch.unit != readers.unit || !batch.readersTag.contentEquals(readers.tag)) return KeyOffer.UNKNOWN_READERS
+        if (batch.channel != readers.channel || !batch.readersTag.contentEquals(readers.tag)) {
+            return KeyOffer.UNKNOWN_READERS
+        }
         val issuer = readers.member(batch.issuer) ?: return KeyOffer.ISSUER_NOT_A_READER
         if (!P256.verify(issuer.keys.signing, KEYS_TAG + batch.body, batch.signature)) return KeyOffer.FORGED
         if (batch.wraps.map { it.recipient } != readers.members.map { it.id }) return KeyOffer.WRONG_RECIPIENTS
@@ -246,9 +270,10 @@ object ContentKeys {
         val self = keys.memberId
         val wrap = batch.wraps.firstOrNull { it.recipient == self } ?: return null
         val shared = keys.agree(batch.ephemeral) ?: return null
-        val context = wrapContext(batch.ensembleId, batch.unit, batch.readersTag, batch.keyId, batch.ephemeral, self)
+        val context =
+            wrapContext(batch.ensembleId, batch.channel, batch.readersTag, batch.keyId, batch.ephemeral, self)
         val secret = Aead.open(wrapKey(shared, context), WRAP_NONCE, context, wrap.sealed) ?: return null
-        return ContentKey(batch.ensembleId, batch.unit, batch.readersTag, secret).takeIf { it.id == batch.keyId }
+        return ContentKey(batch.ensembleId, batch.channel, batch.readersTag, secret).takeIf { it.id == batch.keyId }
     }
 
     private fun wrapKey(
@@ -259,13 +284,13 @@ object ContentKeys {
     /** Everything a wrapped copy is tied to: it opens for this reader of this batch and for nothing else. */
     private fun wrapContext(
         ensembleId: Long,
-        unit: Long,
+        channel: Channel,
         readersTag: ByteArray,
         keyId: Long,
         ephemeral: ByteArray,
         recipient: Long,
     ): ByteArray =
-        OpAuth.longBytes(ensembleId) + OpAuth.longBytes(unit) + readersTag + OpAuth.longBytes(keyId) + ephemeral +
+        OpAuth.longBytes(ensembleId) + channel.bytes() + readersTag + OpAuth.longBytes(keyId) + ephemeral +
             OpAuth.longBytes(recipient)
 }
 
@@ -274,7 +299,7 @@ object ContentKeys {
  * network nor of the disk: the caller hands it the batches it receives ([offer]) and sends the ones it makes
  * ([issue]) or keeps for others ([batchesFor]).
  *
- * What it guarantees: a key is held only if it came in a batch made by a reader of the unit, for a list of readers
+ * What it guarantees: a key is held only if it came in a batch made by a reader of the channel, for a list of readers
  * that existed at some point of the operations this phone holds, and wrapped to exactly that list.
  */
 class KeyRing(
@@ -283,8 +308,8 @@ class KeyRing(
 ) {
     val self: Long = keys.memberId
 
-    /** Per unit, the keys held, oldest first. */
-    private val held = HashMap<Long, LinkedHashMap<Long, ContentKey>>()
+    /** Per channel, the keys held, oldest first. */
+    private val held = HashMap<Channel, LinkedHashMap<Long, ContentKey>>()
 
     /** The checked batches, oldest first: what a phone that was away is given. */
     private val checked = LinkedHashMap<BatchRef, KeyBatch>()
@@ -303,7 +328,7 @@ class KeyRing(
     ): KeyOffer {
         if (batch.ensembleId != ensembleId || replica.ensembleId != ensembleId) return KeyOffer.WRONG_ENSEMBLE
         if (BatchRef(batch) in checked) return KeyOffer.DUPLICATE
-        val readers = replica.readers(batch.unit, batch.readersTag)
+        val readers = replica.readers(batch.channel, batch.readersTag)
         if (readers == null) {
             if (pending.none { BatchRef(it) == BatchRef(batch) }) {
                 pending.addLast(batch)
@@ -337,65 +362,89 @@ class KeyRing(
     }
 
     /**
-     * A new key for the readers of [unit] in [state], held at once; the batch is to send to the others. `null` when
-     * this phone does not read [unit]: it cannot hand out its key.
+     * A new key for the readers of [channel] in [state], held at once; the batch is to send to the others. `null`
+     * when this phone does not read [channel]: it cannot hand out its key.
      */
     @Synchronized
     fun issue(
         state: HierarchyState,
-        unit: Long,
+        channel: Channel,
         random: SecureRandom = SecureRandom(),
     ): KeyBatch? {
-        val readers = state.readers(unit)?.takeIf { self in it } ?: return null
+        val readers = state.readers(channel)?.takeIf { self in it } ?: return null
         val issued = ContentKeys.issue(readers, keys, random)
         keep(issued.batch)
         hold(issued.key)
         return issued.batch
     }
 
+    /** A new key for the own channel of [unit]. */
+    fun issue(
+        state: HierarchyState,
+        unit: Long,
+    ): KeyBatch? = issue(state, Channel.unit(unit))
+
     /**
-     * The key this phone seals with in [unit]: one made for exactly the readers [unit] has in [state]. When several
-     * were handed out at once, the one with the smallest identifier: every phone that holds them picks the same.
-     * `null` when it holds none: it waits for a batch, or hands out a key itself ([issue]).
+     * The key this phone seals with in [channel]: one made for exactly the readers [channel] has in [state]. When
+     * several were handed out at once, the one with the smallest identifier: every phone that holds them picks the
+     * same. `null` when it holds none: it waits for a batch, or hands out a key itself ([issue]).
      */
     @Synchronized
     fun sealingKey(
         state: HierarchyState,
-        unit: Long,
+        channel: Channel,
     ): ContentKey? {
-        val readers = state.readers(unit) ?: return null
-        return held[unit]?.values?.filter { it.isFor(readers) }?.minWithOrNull {
-            a,
-            b,
-            ->
+        val readers = state.readers(channel) ?: return null
+        return held[channel]?.values?.filter { it.isFor(readers) }?.minWithOrNull { a, b ->
             java.lang.Long.compareUnsigned(a.id, b.id)
         }
     }
 
-    /** The key [keyId] of [unit], current or older; `null` when this phone does not hold it. */
+    fun sealingKey(
+        state: HierarchyState,
+        unit: Long,
+    ): ContentKey? = sealingKey(state, Channel.unit(unit))
+
+    /** The key [keyId] of [channel], current or older; `null` when this phone does not hold it. */
     @Synchronized
+    fun find(
+        channel: Channel,
+        keyId: Long,
+    ): ContentKey? = held[channel]?.get(keyId)
+
     fun find(
         unit: Long,
         keyId: Long,
-    ): ContentKey? = held[unit]?.get(keyId)
-
-    /** The units this phone reads in [state] and has no key to seal with, nearest first. */
-    @Synchronized
-    fun missing(state: HierarchyState): List<Long> = state.unitsReadBy(self).filter { sealingKey(state, it) == null }
+    ): ContentKey? = find(Channel.unit(unit), keyId)
 
     /**
-     * The batches to give a phone that catches up: for every unit of [state], the ones made for its readers of now.
+     * The channels this phone reads in [state] and has no key to seal with, in the order of
+     * [HierarchyState.channels]. The own channels of the units are worth a key at once; a lane (up, down, leaders,
+     * waiting) may wait until someone has something to share there.
+     */
+    @Synchronized
+    fun missing(state: HierarchyState): List<Channel> =
+        state.channelsReadBy(self).filter { sealingKey(state, it) == null }
+
+    /**
+     * The batches to give a phone that catches up: for every channel of [state], the ones made for its readers of now.
      * Any phone can pass them on, reader or not; only the readers can open them.
      */
     @Synchronized
     fun batchesFor(state: HierarchyState): List<KeyBatch> {
         val now = state.allReaders()
         return checked.values.filter { batch ->
-            now.any {
-                it.unit == batch.unit &&
-                    it.tag.contentEquals(batch.readersTag)
-            }
+            now.any { it.channel == batch.channel && it.tag.contentEquals(batch.readersTag) }
         }
+    }
+
+    /**
+     * Forgets the keys of the channels this phone no longer reads in [state]: it left a group, lost a post, was put
+     * back to waiting. Its phone then no longer opens what it kept of them.
+     */
+    @Synchronized
+    fun prune(state: HierarchyState) {
+        held.keys.retainAll(state.channelsReadBy(self).toSet())
     }
 
     /** Forgets everything: the phone left the ensemble, was put out of it, or the ensemble is dissolved. */
@@ -416,11 +465,11 @@ class KeyRing(
     }
 
     private fun hold(key: ContentKey) {
-        val ofUnit = held.getOrPut(key.unit) { LinkedHashMap() }
-        ofUnit[key.id] = key
+        val ofChannel = held.getOrPut(key.channel) { LinkedHashMap() }
+        ofChannel[key.id] = key
         // Older keys still open what a phone that had not heard of a change sealed; not for ever.
-        val eldest = ofUnit.keys.iterator()
-        while (ofUnit.size > KEPT_KEYS) {
+        val eldest = ofChannel.keys.iterator()
+        while (ofChannel.size > KEPT_KEYS) {
             eldest.next()
             eldest.remove()
         }
@@ -428,15 +477,15 @@ class KeyRing(
 
     /** What names a batch: a key identifier alone is chosen by whoever makes the batch. */
     private data class BatchRef(
-        val unit: Long,
+        val channel: Channel,
         val keyId: Long,
         val readers: List<Byte>,
     ) {
-        constructor(batch: KeyBatch) : this(batch.unit, batch.keyId, batch.readersTag.asList())
+        constructor(batch: KeyBatch) : this(batch.channel, batch.keyId, batch.readersTag.asList())
     }
 
     companion object {
-        /** The most keys kept per unit: the one of now and older ones. */
+        /** The most keys kept per channel: the one of now and older ones. */
         const val KEPT_KEYS = 16
         private const val MAX_BATCHES = 256
         private const val MAX_PENDING = 64

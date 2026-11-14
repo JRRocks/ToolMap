@@ -48,8 +48,8 @@ class OpAuthTest {
             listOf(
                 OpAuth.ensembleId(B, first),
                 OpAuth.ensembleId(A, first.copy(nonce = NONCE + 1)),
-                OpAuth.ensembleId(A, first.copy(name = "Sortie 2")),
-                OpAuth.ensembleId(A, first.copy(creatorName = "Alpha 2")),
+                OpAuth.ensembleId(A, first.copy(name = hidden("Sortie 2"))),
+                OpAuth.ensembleId(A, first.copy(creatorName = hidden("Alpha 2"))),
                 OpAuth.ensembleId(A, first.copy(creatorKeys = publicOf(B))),
                 OpAuth.ensembleId(A, first.copy(rules = HierarchyRules(limits = HierarchyLimits(maxMembers = 31)))),
                 OpAuth.ensembleId(A, first.copy(rules = HierarchyRules(signedShares = emptySet()))),
@@ -209,7 +209,16 @@ class OpAuthTest {
     @Test
     fun `R18 the key that signs is the one the member was admitted with`() {
         val a = staffed()
-        val op = signedOp(a.ensembleId, B, a.ops().count { it.author == B } + 1, 50, Change.CreateGroup(G3, "Groupe 3"))
+        val op =
+            signedOp(
+                a.ensembleId,
+                B,
+                a.ops().count {
+                    it.author == B
+                } + 1,
+                50,
+                Change.CreateGroup(G3, hidden("Groupe 3")),
+            )
         assertNull(HierarchyReducer.reduce(a.state, op).rejection)
         // A state where B was admitted with another signing key: the signature, valid for B's identifier, is not
         // the one of the member this ensemble knows. (Two keys with one identifier: what a long computation finds.)

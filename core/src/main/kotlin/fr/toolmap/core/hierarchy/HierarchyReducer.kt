@@ -30,6 +30,8 @@ enum class Rejection {
     MALFORMED,
     NO_SUCH_MEMBER,
     ALREADY_MEMBER,
+
+    /** Not an administrator: the role to take away is not held, or the one the ensemble is handed to has to be one. */
     NOT_AN_ADMIN,
 
     /** The creator does not leave and is not put out: it first hands the ensemble over, or dissolves it. */
@@ -162,12 +164,15 @@ object HierarchyReducer {
 
             is Change.RemoveMember -> {
                 val member = state.members[change.member] ?: return no(Rejection.NO_SUCH_MEMBER)
-                // There is always one creator: it hands the ensemble over before it goes, or it dissolves it.
+                // There is always one creator: it hands the ensemble over before it goes, or it dissolves it. Its
+                // plain leaving is refused rather than read as a dissolution: a handing over that lost against the
+                // leaving of the successor would otherwise end the ensemble for everyone by surprise.
                 if (member.id == state.creator) return no(Rejection.IS_CREATOR)
+                val (leader, deputy) = postsWithout(state, state.leader, state.deputy, member.id)
                 yes(
                     state.copy(
-                        leader = state.leader.takeIf { it != member.id },
-                        deputy = state.deputy.takeIf { it != member.id },
+                        leader = leader,
+                        deputy = deputy,
                         members = state.members - member.id,
                         admins = state.admins - member.id,
                         groups = groupsWithout(state, member),
@@ -286,7 +291,12 @@ object HierarchyReducer {
             is Change.TransferCreator -> {
                 when (change.member) {
                     !in state.members -> no(Rejection.NO_SUCH_MEMBER)
+
                     state.creator -> no(Rejection.NO_CHANGE)
+
+                    // The successor is an administrator (the user's answer Q13); it does not have to accept.
+                    !in state.admins -> no(Rejection.NOT_AN_ADMIN)
+
                     else -> yes(state.copy(creator = change.member))
                 }
             }
@@ -312,20 +322,34 @@ object HierarchyReducer {
             state.copy(groups = state.groups + (group.id to group.copy(leader = leader, deputy = deputy)))
         }
 
-    /** The groups once [member] has left its own: the post it held there is vacant. */
+    /** The groups once [member] has left its own: it no longer holds a post there ([postsWithout]). */
     private fun groupsWithout(
         state: HierarchyState,
         member: Member,
     ): Map<Long, Group> {
         val group = state.groupOf(member.id) ?: return state.groups
         if (group.leader != member.id && group.deputy != member.id) return state.groups
-        val left =
-            group.copy(
-                leader = group.leader.takeIf { it != member.id },
-                deputy = group.deputy.takeIf { it != member.id },
-            )
-        return state.groups + (group.id to left)
+        val (leader, deputy) = postsWithout(state, group.leader, group.deputy, member.id)
+        return state.groups + (group.id to group.copy(leader = leader, deputy = deputy))
     }
+
+    /**
+     * The leader and the deputy of a unit once [gone] has left it. When the leader goes, its deputy becomes the
+     * leader and the post of deputy is vacant (the user's answers Q18 and S4, [HierarchyRules.deputySucceeds]);
+     * without a deputy the post of leader stays vacant. Part of the operation that makes the leader go, so the same
+     * on every phone whatever the order the operations arrived in.
+     */
+    private fun postsWithout(
+        state: HierarchyState,
+        leader: Long?,
+        deputy: Long?,
+        gone: Long,
+    ): Pair<Long?, Long?> =
+        when (gone) {
+            leader -> if (state.rules.deputySucceeds) deputy to null else null to deputy
+            deputy -> leader to null
+            else -> leader to deputy
+        }
 
     /** Whether one of the roles of [author] reaches [change] ([RightsTable]); a deputy has its leader's rights. */
     private fun allowed(

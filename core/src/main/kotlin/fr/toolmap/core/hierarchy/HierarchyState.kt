@@ -23,10 +23,13 @@ class MemberKeys(
     override fun toString(): String = "MemberKeys(${java.lang.Long.toUnsignedString(OpAuth.memberId(signing), 16)})"
 }
 
-/** A member of the ensemble: the stable identifier of its phone, the name shown, its keys, its group if it has one. */
+/**
+ * A member of the ensemble: the stable identifier of its phone, its name as the operations carry it (hidden: a phone
+ * that waits for a group learns no name, [NameBook]), its keys, its group if it has one.
+ */
 data class Member(
     val id: Long,
-    val name: String,
+    val name: HiddenName,
     val keys: MemberKeys,
     val group: Long? = null,
 )
@@ -38,7 +41,7 @@ data class Member(
 data class Group(
     val id: Long,
     val parent: Long,
-    val name: String,
+    val name: HiddenName,
     val leader: Long? = null,
     val deputy: Long? = null,
 )
@@ -47,12 +50,14 @@ data class Group(
  * The hierarchy at one moment: the ensemble, its groups, its members and who holds which post. Immutable; a change
  * goes through an [Op] and [HierarchyReducer]. Before the first operation the state is [empty]: nothing is [created].
  *
- * A « unit » is the ensemble itself ([ROOT]) or a group: both have a leader and a deputy, both are a place where
- * things are shared.
+ * A « unit » is the ensemble itself ([ROOT]) or a group: both have a leader and a deputy. Things are shared in
+ * [Channel]s: the unit itself, and the lanes that go up from a group, down to it, between the leaders, and from
+ * someone who waits to the administrators.
  */
 data class HierarchyState(
     val ensembleId: Long,
-    val name: String,
+    /** The name of the ensemble, hidden like every name; `null` only before the ensemble exists. */
+    val name: HiddenName?,
     /** The one creator; `null` only before the ensemble exists. */
     val creator: Long?,
     /** The leader of the ensemble; `null` when the post is vacant. */
@@ -83,13 +88,15 @@ data class HierarchyState(
         val group = known.group?.let { groups[it] }
         if (group?.leader == member) roles.add(Role.GROUP_LEADER)
         if (group?.deputy == member) roles.add(Role.GROUP_DEPUTY)
+        if (isWaiting(member)) roles.add(Role.WAITING)
         return roles
     }
 
     /**
      * Whether [member] waits for a group: admitted, in no group, and holding none of the posts that give access
-     * without one (creator, administrator, leader of the ensemble or its deputy). Someone who waits shares nothing,
-     * reads nothing, and no content key is wrapped to its phone ([readersOf]).
+     * without one (creator, administrator, leader of the ensemble or its deputy). Someone who waits reads nothing of
+     * what the others share and learns no name; the one thing its phone sends is what the cells of [Role.WAITING]
+     * say (its position, to the administrators only), in a lane of its own ([Lane.WAITING]).
      */
     fun isWaiting(member: Long): Boolean {
         val known = members[member] ?: return false
@@ -148,8 +155,23 @@ data class HierarchyState(
     fun deputyOf(unit: Long): Long? = if (unit == ROOT) deputy else groups[unit]?.deputy
 
     /**
-     * The units whose shares [member] reads, nearest first: its group, the units above it, the ensemble. Only the
-     * ensemble for a creator, administrator or ensemble leader without a group; nothing for someone who waits.
+     * Those who command [unit]: its leader and its deputy; for the ensemble, the administrators and the creator too
+     * (the user's answers S1 and S2: « le chef de l'opération, son adjoint et les administrateurs »).
+     */
+    fun commandOf(unit: Long): Set<Long> {
+        val command = LinkedHashSet<Long>()
+        leaderOf(unit)?.let(command::add)
+        deputyOf(unit)?.let(command::add)
+        if (unit == ROOT) {
+            creator?.let(command::add)
+            command.addAll(admins)
+        }
+        return command
+    }
+
+    /**
+     * The units whose own channel [member] reads, nearest first: its group, the units above it, the ensemble. Only
+     * the ensemble for a creator, administrator or ensemble leader without a group; nothing for someone who waits.
      */
     fun unitsReadBy(member: Long): List<Long> {
         if (!hasAccess(member)) return emptyList()
@@ -157,48 +179,174 @@ data class HierarchyState(
         return pathToRoot(group)
     }
 
-    /**
-     * Who reads what is shared in [unit], ordered by identifier: for a group, its members and the members of the
-     * groups under it; for the ensemble, every member who [hasAccess]. These are the phones a content key of the
-     * unit is wrapped to, and no other ([KeyBatch]): someone who waits is in none of these lists.
-     */
-    fun readersOf(unit: Long): List<Member> =
-        when {
-            dissolved || !isUnit(unit) -> emptyList()
-            unit == ROOT -> members.values.filter { hasAccess(it.id) }
-            else -> members.values.filter { it.group != null && isWithin(it.group, unit) }
-        }.sortedWith(BY_MEMBER_ID)
+    /** Whether [channel] is a place of this ensemble now (it may still have no reader). */
+    fun isChannel(channel: Channel): Boolean =
+        when (channel.lane) {
+            Lane.UNIT -> isUnit(channel.scope)
+            Lane.UP, Lane.DOWN -> channel.scope in groups
+            Lane.LEADERS -> channel.scope == ROOT
+            Lane.WAITING -> isWaiting(channel.scope)
+        }
 
     /**
-     * Whether [author] may share something of [kind] into [unit] ([ShareTable]). Someone who waits shares nothing,
-     * whatever the table says.
+     * Who reads what is shared in [channel], ordered by identifier. These are the phones a content key of the
+     * channel is wrapped to, and no other ([KeyBatch]): the closing is done by the keys, not by the display. One
+     * line per lane, the readings of the user's answers:
+     *
+     * - [Lane.UNIT] of the ensemble: every member who [hasAccess]; of a group: its members and the members of the
+     *   groups under it, and nobody else, administrators and leader of the ensemble included (Q16) ;
+     * - [Lane.UP] of a group: its leader, its deputy, and those who command the unit above (S1) ;
+     * - [Lane.DOWN] of a group: its members, and those who command the unit above, who write there (Q15) ;
+     * - [Lane.LEADERS]: the leader and the deputy of every unit, the administrators and the creator (Q6) ;
+     * - [Lane.WAITING] of a member who waits: that member, the administrators and the creator (Q10).
+     *
+     * A lane nobody would write in has no reader, so no key is made for it: the lane up of a group without leader
+     * nor deputy, the lane down of a group without member, the lane of the leaders while no group has one.
+     */
+    fun readersOf(channel: Channel): List<Member> {
+        if (dissolved || !isChannel(channel)) return emptyList()
+        val scope = channel.scope
+        val ids: Collection<Long> =
+            when (channel.lane) {
+                Lane.UNIT -> {
+                    return unitReaders(scope)
+                }
+
+                Lane.UP -> {
+                    groupPosts(scope).ifEmpty { return emptyList() } + commandOf(parentOf(scope) ?: ROOT)
+                }
+
+                Lane.DOWN -> {
+                    val inside = unitReaders(scope).map { it.id }.ifEmpty { return emptyList() }
+                    inside + commandOf(parentOf(scope) ?: ROOT)
+                }
+
+                Lane.LEADERS -> {
+                    groups.keys.flatMap(::groupPosts).ifEmpty { return emptyList() } + commandOf(ROOT)
+                }
+
+                Lane.WAITING -> {
+                    listOf(scope) + admins + listOfNotNull(creator)
+                }
+            }
+        return ids.distinct().mapNotNull { members[it] }.sortedWith(BY_MEMBER_ID)
+    }
+
+    /** The readers of the own channel of [unit]. */
+    fun readersOf(unit: Long): List<Member> = readersOf(Channel.unit(unit))
+
+    private fun unitReaders(unit: Long): List<Member> =
+        if (unit == ROOT) {
+            members.values.filter { hasAccess(it.id) }
+        } else {
+            members.values.filter { it.group != null && isWithin(it.group, unit) }
+        }.sortedWith(BY_MEMBER_ID)
+
+    /** The leader and the deputy of [group], when it has them. */
+    private fun groupPosts(group: Long): List<Long> = listOfNotNull(groups[group]?.leader, groups[group]?.deputy)
+
+    /**
+     * Every channel of the ensemble, whether someone reads it or not: the ensemble, the lane of the leaders, then
+     * for each group (by identifier) its own channel and its lanes up and down, then the lane of each member who
+     * waits (by identifier).
+     */
+    fun channels(): List<Channel> {
+        val all = ArrayList<Channel>()
+        all.add(Channel.ENSEMBLE)
+        all.add(Channel.LEADERS)
+        for (group in groups.keys.sortedWith(HierarchyWire.UNSIGNED)) {
+            all.add(Channel.unit(group))
+            all.add(Channel.up(group))
+            all.add(Channel.down(group))
+        }
+        for (member in waiting()) all.add(Channel.waiting(member.id))
+        return all
+    }
+
+    /** The channels [member] reads, in the order of [channels]. Empty for who is not in the ensemble. */
+    fun channelsReadBy(member: Long): List<Channel> =
+        if (member in
+            members
+        ) {
+            channels().filter { channel -> readersOf(channel).any { it.id == member } }
+        } else {
+            emptyList()
+        }
+
+    /**
+     * Whether [author] may share something of [kind] into [channel] ([ShareTable]). Whatever the table says: only
+     * in a channel the author reads (it needs its key), and someone who waits only has the cells of [Role.WAITING].
      */
     fun mayShare(
         author: Long,
         kind: ShareKind,
-        unit: Long,
+        channel: Channel,
     ): Boolean {
-        if (!hasAccess(author) || !isUnit(unit)) return false
-        val own = members.getValue(author).group
-        val above = own?.let(::parentOf)
-        return rolesOf(author).any { role ->
+        val known = members[author] ?: return false
+        if (readersOf(channel).none { it.id == author }) return false
+        val own = known.group
+        val roles = if (isWaiting(author)) setOf(Role.WAITING) else rolesOf(author)
+        val scope = channel.scope
+        return roles.any { role ->
             val mask = rules.shares.effectiveMask(kind, role)
-            (mask and ShareReach.ENSEMBLE.bit != 0 && unit == ROOT) ||
-                (mask and ShareReach.OWN_UNIT.bit != 0 && unit == own) ||
-                (mask and ShareReach.PARENT_UNIT.bit != 0 && unit == above)
+
+            fun has(reach: ShareReach) = mask and reach.bit != 0
+            // The unit this role commands: the groups just under it are the ones it sends down to, and answers.
+            val commanded = if (role.commandsEnsemble) ROOT else own.takeIf { role.commandsGroup }
+            val below = commanded != null && parentOf(scope) == commanded
+            when (channel.lane) {
+                Lane.UNIT -> (has(ShareReach.ENSEMBLE) && scope == ROOT) || (has(ShareReach.OWN_UNIT) && scope == own)
+                Lane.UP -> (has(ShareReach.UP) && scope == own) || (has(ShareReach.UP_BELOW) && below)
+                Lane.DOWN -> has(ShareReach.GROUP_BELOW) && below
+                Lane.LEADERS -> has(ShareReach.LEADERS)
+                Lane.WAITING -> has(ShareReach.WAITING) && scope == author
+            }
         }
     }
 
-    /** The units [author] may share something of [kind] into, nearest first. */
-    fun shareUnits(
+    /** Whether [author] may share something of [kind] into the own channel of [unit]. */
+    fun mayShare(
         author: Long,
         kind: ShareKind,
-    ): List<Long> = unitsReadBy(author).filter { mayShare(author, kind, it) }
+        unit: Long,
+    ): Boolean = mayShare(author, kind, Channel.unit(unit))
+
+    /** The channels [author] may share something of [kind] into, in the order of [channels]. */
+    fun shareChannels(
+        author: Long,
+        kind: ShareKind,
+    ): List<Channel> = channelsReadBy(author).filter { mayShare(author, kind, it) }
+
+    /**
+     * For each channel, the readers it has now that it did not have in [before]: who just arrived there (placed in
+     * a group, named to a post, let back in). What is still shown in the channel is to be sent to them again, and
+     * the names to who arrives in the whole ensemble ([SharedObjects.resend], [NameBook.cardsFor]). Channels
+     * without an arrival are left out.
+     */
+    fun arrivals(before: HierarchyState): Map<Channel, List<Long>> {
+        val arrived = LinkedHashMap<Channel, List<Long>>()
+        for (channel in channels()) {
+            val known = before.readersOf(channel).mapTo(HashSet()) { it.id }
+            val new = readersOf(channel).map { it.id }.filter { it !in known }
+            if (new.isNotEmpty()) arrived[channel] = new
+        }
+        return arrived
+    }
+
+    /**
+     * The readers of [channel] who may share [kind] there, in the order they should send again what is still shown
+     * to someone who arrives or comes back ([SharedObjects]): like [keyIssuers], the order only avoids that all do
+     * it at once.
+     */
+    fun resenders(
+        kind: ShareKind,
+        channel: Channel,
+    ): List<Long> = keyIssuers(channel).filter { mayShare(it, kind, channel) }
 
     /**
      * Whether [viewer] may see the position of [target] on the map ([VisibilityTable]). Pure: the transport and the
      * map ask it, it never asks them. Someone who is not in the ensemble, or who waits for a group, sees nobody but
-     * itself and is seen by nobody.
+     * itself; someone who waits is seen only by those its position is sealed for (the administrators).
      */
     fun canSee(
         viewer: Long,
@@ -207,7 +355,12 @@ data class HierarchyState(
         val seer = members[viewer] ?: return false
         val seen = members[target] ?: return false
         if (viewer == target) return true
-        if (!hasAccess(viewer) || !hasAccess(target)) return false
+        if (!hasAccess(viewer)) return false
+        if (isWaiting(target)) {
+            return !dissolved && mayShare(target, ShareKind.POSITION, Channel.waiting(target)) &&
+                readersOf(Channel.waiting(target)).any { it.id == viewer }
+        }
+        if (!hasAccess(target)) return false
         var audiences = Audience.EVERYONE.bit
         if (seer.group != null && seer.group == seen.group) audiences = audiences or Audience.SAME_GROUP.bit
         val roles = rolesOf(target)
@@ -222,17 +375,47 @@ data class HierarchyState(
         members.values.filter { it.id != viewer && canSee(viewer, it.id) }.sortedWith(BY_MEMBER_ID)
 
     /**
+     * How the name of [target] is written on the map of [viewer] (the user's answer Q17): in full for oneself, for
+     * the members of one's own group and for whoever holds a post of leader or deputy; as initials for the others.
+     * A rule of the display, not of the keys: everyone who has access knows every name ([NameBook]), and reads it in
+     * full by touching the marker.
+     */
+    fun nameLabel(
+        viewer: Long,
+        target: Long,
+    ): NameLabel {
+        val seer = members[viewer] ?: return NameLabel.INITIALS
+        val seen = members[target] ?: return NameLabel.INITIALS
+        val sameGroup = seer.group != null && seer.group == seen.group
+        val holdsPost =
+            rolesOf(target).any {
+                it.commandsGroup || it == Role.ENSEMBLE_LEADER ||
+                    it == Role.ENSEMBLE_DEPUTY
+            }
+        return if (viewer == target || sameGroup || holdsPost) NameLabel.FULL else NameLabel.INITIALS
+    }
+
+    /** Every hidden name this state carries: the ensemble, its groups, its members. */
+    fun hiddenNames(): Set<HiddenName> {
+        val all = LinkedHashSet<HiddenName>()
+        name?.let(all::add)
+        groups.values.mapTo(all) { it.name }
+        members.values.mapTo(all) { it.name }
+        return all
+    }
+
+    /**
      * What is wrong with this state, or `null`: a state built by [HierarchyReducer] never has anything wrong; one
      * decoded from bytes might. In English, for the logs.
      */
     fun inconsistency(): String? {
         if (!created) {
             val blank = members.isEmpty() && groups.isEmpty() && deletedGroups.isEmpty() && admins.isEmpty()
-            val bare = leader == null && deputy == null && !dissolved && name.isEmpty()
+            val bare = leader == null && deputy == null && !dissolved && name == null
             return if (blank && bare) null else "content before the ensemble exists"
         }
         if (ensembleId == 0L) return "no ensemble identifier"
-        if (!Names.valid(name)) return "bad ensemble name"
+        if (name?.valid != true) return "bad ensemble name"
         if (!rules.limits.valid) return "limits the format cannot carry"
         if (members.size > rules.limits.maxMembers || groups.size > rules.limits.maxGroups) {
             return "more members or groups than the limits of the ensemble"
@@ -243,7 +426,7 @@ data class HierarchyState(
         if (deputy != null && deputy !in members) return "ensemble deputy who is not a member"
         if (leader != null && leader == deputy) return "ensemble leader who is its own deputy"
         for ((id, member) in members) {
-            if (id == 0L || id != member.id || !Names.valid(member.name)) return "bad member"
+            if (id == 0L || id != member.id || !member.name.valid) return "bad member"
             if (!member.keys.valid ||
                 OpAuth.memberId(member.keys.signing) != id
             ) {
@@ -252,7 +435,7 @@ data class HierarchyState(
             if (member.group != null && member.group !in groups) return "member in a group that does not exist"
         }
         for ((id, group) in groups) {
-            if (id == ROOT || id != group.id || !Names.valid(group.name)) return "bad group"
+            if (id == ROOT || id != group.id || !group.name.valid) return "bad group"
             if (id in deletedGroups) return "deleted group still there"
             val depth = depthOf(id)
             if (depth < 1) return "group that hangs under nothing"
@@ -274,7 +457,7 @@ data class HierarchyState(
         fun empty(ensembleId: Long) =
             HierarchyState(
                 ensembleId = ensembleId,
-                name = "",
+                name = null,
                 creator = null,
                 leader = null,
                 deputy = null,
@@ -288,11 +471,8 @@ data class HierarchyState(
     }
 }
 
-/** The names of ensembles, groups and members: what every phone accepts. */
-object Names {
-    /** In UTF-8 bytes, so that a name always fits its field of the binary format. */
-    const val MAX_BYTES = 64
-
-    fun valid(name: String): Boolean =
-        name.isNotBlank() && name.none { it.isISOControl() } && name.toByteArray(Charsets.UTF_8).size <= MAX_BYTES
+/** How a name is written on the map ([HierarchyState.nameLabel]). */
+enum class NameLabel {
+    FULL,
+    INITIALS,
 }

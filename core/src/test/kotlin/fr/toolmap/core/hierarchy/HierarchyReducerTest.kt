@@ -7,8 +7,9 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The rules of the user, one test each (`docs/specs/group-hierarchy.md` § 10 bis: V1 to V5, R1 to R20, and § 10 ter).
- * The name of a test starts with the answer it checks.
+ * The rules of the user, one test each (`docs/specs/group-hierarchy.md` § 10 bis: V1 to V5, R1 to R20, § 10 ter, and
+ * what § 10 quater changed in them). The name of a test starts with the answer it checks. The answers of the second
+ * round (Q1 to Q20, S1 to S7) have their own tests in [HierarchyChoicesTest].
  */
 class HierarchyReducerTest {
     private fun HierarchyState.ids(members: List<Member>) = members.map { it.id }
@@ -21,12 +22,12 @@ class HierarchyReducerTest {
         val state = a.state
         assertTrue(state.created)
         assertEquals(OpAuth.ensembleId(A, genesis()), state.ensembleId)
-        assertEquals("Sortie du jour", state.name)
+        assertEquals(hidden("Sortie du jour"), state.name)
         assertEquals(A, state.creator)
         assertNull(state.leader)
         assertNull(state.deputy)
         assertEquals(emptySet(), state.admins)
-        assertEquals(Member(A, "Alpha", publicOf(A)), state.members[A])
+        assertEquals(Member(A, hidden("Alpha"), publicOf(A)), state.members[A])
         assertEquals(setOf(Role.CREATOR, Role.MEMBER), state.rolesOf(A))
         assertEquals(emptySet(), state.rolesOf(OUTSIDER))
         assertTrue(state.hasAccess(A))
@@ -49,9 +50,11 @@ class HierarchyReducerTest {
                 for (unit in listOf(ROOT, G1, G2)) assertFalse(state.mayShare(member, kind, unit), "$kind in $unit")
             }
         }
-        // No list of readers holds them: no content key is ever wrapped to their phone.
+        // No list of readers holds them but the one of their own waiting lane: no other key reaches their phone.
         assertEquals(listOf(A, B), state.readerIds(ROOT))
         assertEquals(emptyList(), state.readerIds(G1))
+        assertEquals(listOf(Channel.waiting(C)), state.channelsReadBy(C))
+        assertEquals(setOf(Role.MEMBER, Role.WAITING), state.rolesOf(C))
 
         val b = a.copyFor(B)
         b.must(Change.AssignMember(C, G1))
@@ -105,27 +108,30 @@ class HierarchyReducerTest {
         assertEquals(G2, state.groupOf(C)?.id)
         assertEquals(listOf(D), state.ids(state.membersOf(G1)))
         assertEquals(listOf(C), state.ids(state.membersOf(G2)))
-        // The post it held in the group it leaves is vacant; it brings no post into the new one.
-        assertNull(state.groups.getValue(G1).leader)
-        assertEquals(D, state.groups.getValue(G1).deputy)
+        // It no longer holds a post in the group it leaves (its deputy took its place there, Q18); it brings no
+        // post into the new one.
+        assertEquals(D, state.groups.getValue(G1).leader)
+        assertNull(state.groups.getValue(G1).deputy)
         assertEquals(setOf(Role.MEMBER), state.rolesOf(C))
         a.must(Change.AssignMember(D, G2))
         state = a.state
-        assertNull(state.groups.getValue(G1).deputy)
+        assertNull(state.groups.getValue(G1).leader)
         assertEquals(emptyList(), state.membersOf(G1))
         assertEquals(Rejection.NO_CHANGE, a.refused(Change.AssignMember(D, G2)))
         assertNull(state.inconsistency())
     }
 
     @Test
-    fun `R2 among the members who have access everyone sees everyone, who waits sees nobody and is seen by nobody`() {
+    fun `R2 among the members who have access everyone sees everyone, who waits sees nobody`() {
         val state = deployed().apply { must(admit(H)) }.state
         val inside = listOf(A, B, C, D, E, F)
         for (viewer in inside) for (target in inside) assertTrue(state.canSee(viewer, target), "$viewer $target")
-        assertEquals(inside - A, state.ids(state.visibleTo(A)))
+        assertEquals(inside - A + H, state.ids(state.visibleTo(A)))
+        assertEquals(inside - C, state.ids(state.visibleTo(C)))
         assertEquals(emptyList(), state.visibleTo(H))
         for (member in inside) {
-            assertFalse(state.canSee(member, H))
+            // Q10: who waits is seen by the creator and the administrators only.
+            assertEquals(member == A || member == B, state.canSee(member, H), "$member")
             assertFalse(state.canSee(H, member))
         }
         assertTrue(state.canSee(H, H), "everyone sees oneself")
@@ -179,12 +185,12 @@ class HierarchyReducerTest {
     }
 
     @Test
-    fun `R4 the leader of a group and its deputy share sketches and waypoints one level up, never higher`() {
+    fun `P2 Q3 the leader of a unit and its deputy send up one level, to those who command the unit above`() {
         val sub = 0x201L
         val state =
             deployed(TWO_LEVELS)
                 .apply {
-                    must(Change.CreateGroup(sub, "Sous-groupe", parent = G1))
+                    must(Change.CreateGroup(sub, hidden("Sous-groupe"), parent = G1))
                     must(admit(H))
                     must(admit(I))
                     must(admit(J))
@@ -196,25 +202,33 @@ class HierarchyReducerTest {
                     must(leader(sub, H))
                     must(deputy(sub, I))
                 }.state
-        for (kind in listOf(ShareKind.SKETCH, ShareKind.WAYPOINT)) {
-            // The leader of a sub-group and its deputy: into the group, not into the ensemble.
-            assertEquals(listOf(sub, G1), state.shareUnits(H, kind), "$kind")
-            assertEquals(listOf(sub, G1), state.shareUnits(I, kind), "$kind")
-            assertFalse(state.mayShare(H, kind, ROOT))
-            // The leader of a group and its deputy: into the ensemble, and there is nothing above.
-            assertEquals(listOf(G1, ROOT), state.shareUnits(C, kind), "$kind")
-            assertEquals(listOf(G1, ROOT), state.shareUnits(D, kind), "$kind")
+        for (kind in listOf(ShareKind.SKETCH, ShareKind.WAYPOINT, ShareKind.MESSAGE)) {
+            // The leader of a sub-group and its deputy: their unit, and up to the two posts of the group above.
+            assertEquals(listOf(Channel.unit(sub), Channel.up(sub)), state.shareChannels(H, kind), "$kind")
+            assertEquals(listOf(Channel.unit(sub), Channel.up(sub)), state.shareChannels(I, kind), "$kind")
+            // The leader of a group and its deputy: their unit, and up to those who command the ensemble.
+            assertEquals(listOf(Channel.unit(G1), Channel.up(G1)), state.shareChannels(D, kind), "$kind")
             // A plain member: its own unit.
-            assertEquals(listOf(sub), state.shareUnits(J, kind), "$kind")
-            assertEquals(listOf(G2), state.shareUnits(E, kind), "$kind")
-            // Never downwards, never sideways.
-            assertFalse(state.mayShare(C, kind, sub))
+            assertEquals(listOf(Channel.unit(sub)), state.shareChannels(J, kind), "$kind")
+            assertEquals(listOf(Channel.unit(G2)), state.shareChannels(E, kind), "$kind")
+            // Nobody below the command of the ensemble shares into a unit above its own, nor sideways.
+            for (author in listOf(C, D, H, I, J)) assertFalse(state.mayShare(author, kind, ROOT), "$kind $author")
+            assertFalse(state.mayShare(H, kind, G1))
             assertFalse(state.mayShare(C, kind, G2))
-            assertFalse(state.mayShare(H, kind, G2))
+            assertFalse(state.mayShare(H, kind, Channel.up(G1)))
         }
-        // Messages do not go up with the leaders.
-        assertEquals(listOf(sub), state.shareUnits(H, ShareKind.MESSAGE))
-        assertEquals(listOf(G1), state.shareUnits(C, ShareKind.MESSAGE))
+        // What goes up is read by the two posts of the unit and by those who command the unit above, nobody else.
+        assertEquals(listOf(C, D, H, I), state.readerIds(Channel.up(sub)))
+        assertEquals(listOf(A, B, C, D), state.readerIds(Channel.up(G1)))
+        // The leader of a group that has sub-groups sends down to one of them, and answers what it sends up.
+        val leaderOfGroup = state.shareChannels(C, ShareKind.MESSAGE)
+        assertEquals(listOf(Channel.unit(G1), Channel.up(G1)), leaderOfGroup)
+        assertFalse(state.mayShare(C, ShareKind.SKETCH, Channel.down(sub)), "no cell for it in the table of the start")
+        val wider =
+            ShareTable.DEFAULT.with(ShareKind.SKETCH, Role.GROUP_LEADER, ShareReach.UP, ShareReach.GROUP_BELOW)
+        val other = state.copy(rules = state.rules.copy(shares = wider))
+        assertTrue(other.mayShare(C, ShareKind.SKETCH, Channel.down(sub)))
+        assertFalse(other.mayShare(C, ShareKind.SKETCH, Channel.down(G2)), "not a group under its own")
     }
 
     @Test
@@ -232,8 +246,8 @@ class HierarchyReducerTest {
                 Change.RemoveMember(F),
                 Change.AddAdmin(F),
                 Change.RemoveAdmin(B),
-                Change.CreateGroup(G3, "Groupe 3"),
-                Change.RenameGroup(G1, "Mon groupe"),
+                Change.CreateGroup(G3, hidden("Groupe 3")),
+                Change.RenameGroup(G1, hidden("Mon groupe")),
                 Change.DeleteGroup(G2),
                 Change.AssignMember(H, G1),
                 Change.UnassignMember(F),
@@ -241,7 +255,7 @@ class HierarchyReducerTest {
                 deputy(G1, D),
                 leader(ROOT, F),
                 deputy(ROOT, F),
-                Change.TransferCreator(C),
+                Change.TransferCreator(B),
                 Change.Dissolve,
             )
         assertEquals(Operation.entries.toSet(), changes.map { it.operation }.toSet(), "one change per operation")
@@ -266,7 +280,7 @@ class HierarchyReducerTest {
             assertEquals(expected, HierarchyReducer.check(a.state, B, change), "$change")
         }
         // Someone who is not in the ensemble may do nothing.
-        assertEquals(Rejection.NOT_A_MEMBER, a.copyFor(OUTSIDER).refused(Change.CreateGroup(G3, "Groupe 3")))
+        assertEquals(Rejection.NOT_A_MEMBER, a.copyFor(OUTSIDER).refused(Change.CreateGroup(G3, hidden("Groupe 3"))))
     }
 
     @Test
@@ -339,9 +353,9 @@ class HierarchyReducerTest {
         val d = a.copyFor(D)
         assertEquals(Rejection.FORBIDDEN, d.refused(Change.AssignMember(H, G2)))
         d.must(Change.AssignMember(H, G1))
-        a.copyFor(F).must(Change.CreateGroup(G3, "Groupe 3"))
-        // The same for what is shared: one level up for the deputy of a group, the whole ensemble for the other.
-        assertTrue(a.state.mayShare(D, ShareKind.SKETCH, ROOT))
+        a.copyFor(F).must(Change.CreateGroup(G3, hidden("Groupe 3")))
+        // The same for what is shared: up for the deputy of a group, the whole ensemble for the other.
+        assertTrue(a.state.mayShare(D, ShareKind.SKETCH, Channel.up(G1)))
         assertTrue(a.state.mayShare(F, ShareKind.MESSAGE, ROOT))
         assertEquals(emptySet(), ShareTable.DEFAULT.reach(ShareKind.SKETCH, Role.GROUP_DEPUTY))
 
@@ -350,7 +364,7 @@ class HierarchyReducerTest {
         a.must(deputy(G1, H))
         assertEquals(H, a.state.groups.getValue(G1).deputy)
         assertEquals(setOf(Role.MEMBER), a.state.rolesOf(D))
-        assertFalse(a.state.mayShare(D, ShareKind.SKETCH, ROOT))
+        assertFalse(a.state.mayShare(D, ShareKind.SKETCH, Channel.up(G1)))
         assertEquals(Rejection.NO_CHANGE, a.refused(deputy(G1, H)))
         // One post of a unit at most: the deputy named leader is no longer the deputy, and the reverse.
         a.must(leader(G1, H))
@@ -360,7 +374,7 @@ class HierarchyReducerTest {
         a.must(deputy(G1, H))
         assertNull(a.state.groups.getValue(G1).leader)
         // A deputy whose leader's post is vacant keeps the rights.
-        assertTrue(a.state.mayShare(H, ShareKind.WAYPOINT, ROOT))
+        assertTrue(a.state.mayShare(H, ShareKind.WAYPOINT, Channel.up(G1)))
         a.must(leader(ROOT, F))
         assertNull(a.state.deputy)
         assertEquals(F, a.state.leader)
@@ -391,35 +405,44 @@ class HierarchyReducerTest {
         assertNull(state.inconsistency())
         // Someone removed may be admitted again: it waits, like a newcomer.
         a.must(admit(F, "Foxtrot"))
-        assertEquals(setOf(Role.MEMBER), a.state.rolesOf(F))
+        assertEquals(setOf(Role.MEMBER, Role.WAITING), a.state.rolesOf(F))
         assertTrue(a.state.isWaiting(F))
     }
 
     @Test
-    fun `R10 the creator who leaves names a successor, who becomes the creator`() {
+    fun `R10 Q13 the creator who leaves names a successor among the administrators, who becomes the creator`() {
         val a = deployed()
         assertEquals(Rejection.NO_SUCH_MEMBER, a.refused(Change.TransferCreator(OUTSIDER)))
         assertEquals(Rejection.NO_CHANGE, a.refused(Change.TransferCreator(A)))
-        a.must(Change.TransferCreator(C))
+        // Q13: an administrator only.
+        assertEquals(Rejection.NOT_AN_ADMIN, a.refused(Change.TransferCreator(C)))
+        a.must(Change.TransferCreator(B))
         val state = a.state
-        assertEquals(C, state.creator)
-        assertEquals(setOf(Role.CREATOR, Role.MEMBER), state.rolesOf(C))
-        // The one who handed over is a member like another: no right left, and it leaves like any member.
-        assertEquals(setOf(Role.MEMBER), state.rolesOf(A))
+        // At once: the successor has nothing to accept.
+        assertEquals(B, state.creator)
+        assertEquals(setOf(Role.CREATOR, Role.ADMIN, Role.MEMBER), state.rolesOf(B))
+        // The one who handed over is a member like another: no right left; without a group nor a post, it waits.
+        assertEquals(setOf(Role.MEMBER, Role.WAITING), state.rolesOf(A))
         assertEquals(Rejection.FORBIDDEN, a.refused(Change.AddAdmin(D)))
         assertEquals(Rejection.FORBIDDEN, a.refused(Change.TransferCreator(A)))
+        assertEquals(Rejection.FORBIDDEN, a.refused(Change.Dissolve))
+        // It leaves like any member, and the ensemble goes on.
         a.must(Change.RemoveMember(A))
-        val c = a.copyFor(C)
-        c.must(Change.AddAdmin(D))
-        c.must(Change.RemoveMember(F))
-        assertEquals(Rejection.IS_CREATOR, c.refused(Change.RemoveMember(C)))
-        assertNull(c.state.inconsistency())
+        assertFalse(a.state.dissolved)
+        val b = a.copyFor(B)
+        b.must(Change.AddAdmin(D))
+        b.must(Change.RemoveMember(F))
+        assertEquals(Rejection.IS_CREATOR, b.refused(Change.RemoveMember(B)))
+        assertNull(b.state.inconsistency())
     }
 
     @Test
     fun `R10 the creator neither leaves nor is removed while it is the creator`() {
         val a = staffed()
+        // Its leaving is one of two things the screen offers: a successor, then leaving; or the end for everyone.
         assertEquals(Rejection.IS_CREATOR, a.refused(Change.RemoveMember(A)))
+        assertEquals(Rejection.IS_CREATOR, HierarchyReducer.check(a.state, A, Change.RemoveMember(A)))
+        assertNull(HierarchyReducer.check(a.state, A, Change.Dissolve))
         // Even in an ensemble whose table lets the administrators remove members.
         val open =
             staffed(
@@ -444,9 +467,10 @@ class HierarchyReducerTest {
             assertFalse(state.hasAccess(member))
             assertEquals(emptyList(), state.unitsReadBy(member))
             assertEquals(emptyList(), state.visibleTo(member))
-            for (kind in ShareKind.entries) assertEquals(emptyList(), state.shareUnits(member, kind))
+            for (kind in ShareKind.entries) assertEquals(emptyList(), state.shareChannels(member, kind))
+            assertEquals(emptyList(), state.channelsReadBy(member))
         }
-        for (unit in listOf(ROOT, G1, G2)) assertEquals(emptyList(), state.readersOf(unit))
+        for (channel in state.channels()) assertEquals(emptyList(), state.readersOf(channel))
         assertEquals(emptyList(), state.allReaders())
         // Terminal: nothing applies any more, for anyone, not even the creator.
         val later =
@@ -466,27 +490,43 @@ class HierarchyReducerTest {
     }
 
     @Test
-    fun `R11 the post of ensemble leader stays vacant until an administrator names someone`() {
-        val a =
-            deployed().apply {
-                must(leader(ROOT, C))
-                must(deputy(ROOT, D))
-            }
-        // The leader leaves: the post is vacant, the deputy is still the deputy, nobody is promoted.
+    fun `R11 without a deputy the post of ensemble leader stays vacant until an administrator names someone`() {
+        val a = deployed().apply { must(leader(ROOT, C)) }
+        // The leader leaves and has no deputy: the post is vacant, nobody is promoted.
         val c = a.copyFor(C)
         c.must(Change.RemoveMember(C))
         assertNull(c.state.leader)
-        assertEquals(D, c.state.deputy)
+        assertNull(c.state.deputy)
         assertNull(c.state.inconsistency())
         // Nothing is blocked meanwhile, and an administrator names whom it wants.
         val b = c.copyFor(B)
         b.must(Change.AssignMember(E, G1))
         b.must(leader(ROOT, E))
         assertEquals(E, b.state.leader)
-        // An administrator may also leave the post vacant.
+        // An administrator may also leave the post vacant: the deputy then stays the deputy.
+        a.must(deputy(ROOT, D))
         a.must(Change.ClearPost(ROOT, Post.LEADER))
         assertNull(a.state.leader)
+        assertEquals(D, a.state.deputy)
         assertEquals(Rejection.NO_CHANGE, a.refused(Change.ClearPost(ROOT, Post.LEADER)))
+    }
+
+    @Test
+    fun `R11 an ensemble made with the rule of the first round keeps the post vacant and the deputy a deputy`() {
+        val a =
+            deployed(HierarchyRules(deputySucceeds = false)).apply {
+                must(leader(ROOT, C))
+                must(deputy(ROOT, D))
+                must(leader(G2, E))
+                must(deputy(G2, F))
+            }
+        a.must(Change.RemoveMember(C))
+        a.must(Change.UnassignMember(E))
+        assertNull(a.state.leader)
+        assertEquals(D, a.state.deputy)
+        assertNull(a.state.groups.getValue(G2).leader)
+        assertEquals(F, a.state.groups.getValue(G2).deputy)
+        assertNull(a.state.inconsistency())
     }
 
     @Test
@@ -494,7 +534,7 @@ class HierarchyReducerTest {
         val a = deployed()
         assertNull(a.state.groups.getValue(G1).leader)
         assertTrue(a.state.mayShare(C, ShareKind.MESSAGE, G1))
-        a.must(Change.RenameGroup(G1, "Reconnaissance"))
+        a.must(Change.RenameGroup(G1, hidden("Reconnaissance")))
         a.must(admit(H))
         a.must(Change.AssignMember(H, G1))
         a.must(leader(G1, C))
@@ -542,7 +582,7 @@ class HierarchyReducerTest {
         assertEquals(Rejection.NOT_AN_ADMIN, a.refused(Change.RemoveAdmin(B)))
         // An ensemble may have no administrator at all: its creator does what they do.
         assertEquals(emptySet(), a.state.admins)
-        a.must(Change.CreateGroup(G3, "Groupe 3"))
+        a.must(Change.CreateGroup(G3, hidden("Groupe 3")))
         a.must(Change.AssignMember(C, G3))
     }
 
@@ -592,24 +632,24 @@ class HierarchyReducerTest {
             }
         for (author in listOf(C, D, E)) {
             val phone = a.copyFor(author)
-            assertEquals(Rejection.FORBIDDEN, phone.refused(Change.CreateGroup(G3, "Groupe 3")), "$author")
-            assertEquals(Rejection.FORBIDDEN, phone.refused(Change.RenameGroup(G1, "Mon groupe")), "$author")
+            assertEquals(Rejection.FORBIDDEN, phone.refused(Change.CreateGroup(G3, hidden("Groupe 3"))), "$author")
+            assertEquals(Rejection.FORBIDDEN, phone.refused(Change.RenameGroup(G1, hidden("Mon groupe"))), "$author")
             assertEquals(Rejection.FORBIDDEN, phone.refused(Change.DeleteGroup(G1)), "$author")
         }
         val b = a.copyFor(B)
-        b.must(Change.CreateGroup(G3, "Groupe 3"))
-        b.must(Change.RenameGroup(G3, "Reconnaissance"))
-        assertEquals("Reconnaissance", b.state.groups.getValue(G3).name)
+        b.must(Change.CreateGroup(G3, hidden("Groupe 3")))
+        b.must(Change.RenameGroup(G3, hidden("Reconnaissance")))
+        assertEquals(hidden("Reconnaissance"), b.state.groups.getValue(G3).name)
         b.must(Change.DeleteGroup(G3))
-        a.must(Change.RenameGroup(G1, "Tête"))
+        a.must(Change.RenameGroup(G1, hidden("Tête")))
     }
 
     @Test
     fun `R17 one level of groups today - a group under a group is refused`() {
         val a = staffed()
         assertEquals(1, a.state.rules.limits.maxDepth)
-        assertEquals(Rejection.TOO_DEEP, a.refused(Change.CreateGroup(G3, "Sous-groupe", parent = G1)))
-        assertEquals(Rejection.NO_SUCH_GROUP, a.refused(Change.CreateGroup(G3, "Orphelin", parent = 0x999)))
+        assertEquals(Rejection.TOO_DEEP, a.refused(Change.CreateGroup(G3, hidden("Sous-groupe"), parent = G1)))
+        assertEquals(Rejection.NO_SUCH_GROUP, a.refused(Change.CreateGroup(G3, hidden("Orphelin"), parent = 0x999)))
     }
 
     @Test
@@ -617,9 +657,9 @@ class HierarchyReducerTest {
         val s1 = 0x201L
         val s2 = 0x202L
         val a = deployed(TWO_LEVELS)
-        a.must(Change.CreateGroup(s1, "Sous-groupe 1", parent = G1))
-        a.must(Change.CreateGroup(s2, "Sous-groupe 2", parent = G1))
-        assertEquals(Rejection.TOO_DEEP, a.refused(Change.CreateGroup(0x301, "Trop profond", parent = s1)))
+        a.must(Change.CreateGroup(s1, hidden("Sous-groupe 1"), parent = G1))
+        a.must(Change.CreateGroup(s2, hidden("Sous-groupe 2"), parent = G1))
+        assertEquals(Rejection.TOO_DEEP, a.refused(Change.CreateGroup(0x301, hidden("Trop profond"), parent = s1)))
         // C stays in the group itself, D goes into the first sub-group, E and F move under G1 too.
         a.must(Change.AssignMember(D, s1))
         a.must(Change.AssignMember(E, s1))
@@ -657,7 +697,7 @@ class HierarchyReducerTest {
         assertEquals(listOf(C, D, E, F), state.ids(state.waiting()))
         assertEquals(
             Rejection.NO_SUCH_GROUP,
-            a.refused(Change.CreateGroup(0x203, "Sous un groupe supprimé", parent = G1)),
+            a.refused(Change.CreateGroup(0x203, hidden("Sous un groupe supprimé"), parent = G1)),
         )
         assertNull(state.inconsistency())
     }
@@ -667,14 +707,14 @@ class HierarchyReducerTest {
         assertEquals(HierarchyLimits(maxMembers = 30, maxGroups = 6, maxDepth = 1), HierarchyRules.DEFAULT.limits)
         val a = newEnsemble()
         val others = List(30) { OpAuth.memoryKeys() }
-        for (keys in others.take(29)) a.must(Change.AdmitMember(keys.memberId, "Membre", keys.public))
+        for (keys in others.take(29)) a.must(Change.AdmitMember(keys.memberId, hidden("Membre"), keys.public))
         assertEquals(30, a.state.members.size)
         assertEquals(
             Rejection.TOO_MANY,
-            a.refused(Change.AdmitMember(others[29].memberId, "De trop", others[29].public)),
+            a.refused(Change.AdmitMember(others[29].memberId, hidden("De trop"), others[29].public)),
         )
-        for (i in 1..6) a.must(Change.CreateGroup(2000L + i, "Groupe $i"))
-        assertEquals(Rejection.TOO_MANY, a.refused(Change.CreateGroup(3000, "De trop")))
+        for (i in 1..6) a.must(Change.CreateGroup(2000L + i, hidden("Groupe $i")))
+        assertEquals(Rejection.TOO_MANY, a.refused(Change.CreateGroup(3000, hidden("De trop"))))
         assertNull(a.state.inconsistency())
 
         // Another ensemble, other limits: nothing else changes.
@@ -682,9 +722,9 @@ class HierarchyReducerTest {
         small.must(admit(B))
         small.must(admit(C))
         assertEquals(Rejection.TOO_MANY, small.refused(admit(D)))
-        small.must(Change.CreateGroup(G1, "Groupe 1"))
-        small.must(Change.CreateGroup(G2, "Groupe 2"))
-        assertEquals(Rejection.TOO_MANY, small.refused(Change.CreateGroup(G3, "Groupe 3")))
+        small.must(Change.CreateGroup(G1, hidden("Groupe 1")))
+        small.must(Change.CreateGroup(G2, hidden("Groupe 2")))
+        assertEquals(Rejection.TOO_MANY, small.refused(Change.CreateGroup(G3, hidden("Groupe 3"))))
         // A member who leaves, a group deleted, free a place.
         small.copyFor(C).also { c ->
             c.must(Change.RemoveMember(C))
@@ -692,7 +732,7 @@ class HierarchyReducerTest {
         }
         small.must(admit(D))
         small.must(Change.DeleteGroup(G1))
-        small.must(Change.CreateGroup(G3, "Groupe 3"))
+        small.must(Change.CreateGroup(G3, hidden("Groupe 3")))
         val big = newEnsemble(HierarchyRules(limits = HierarchyLimits(maxMembers = 300, maxGroups = 40, maxDepth = 3)))
         assertEquals(300, big.state.rules.limits.maxMembers)
         // Limits the format cannot carry are no limits: no phone takes such an ensemble.
@@ -714,13 +754,13 @@ class HierarchyReducerTest {
         val state = a.state
         assertFalse(G1 in state.groups)
         assertEquals(listOf(C, D), state.ids(state.waiting()))
-        assertEquals(setOf(Role.MEMBER), state.rolesOf(D))
+        assertEquals(setOf(Role.MEMBER, Role.WAITING), state.rolesOf(D))
         assertEquals(listOf(A, B, E, F), state.readerIds(ROOT))
         assertNull(state.inconsistency())
         // The identifier of a deleted group never comes back, and nothing can be done with it.
-        assertEquals(Rejection.GROUP_DELETED, a.refused(Change.CreateGroup(G1, "Revenant")))
+        assertEquals(Rejection.GROUP_DELETED, a.refused(Change.CreateGroup(G1, hidden("Revenant"))))
         assertEquals(Rejection.NO_SUCH_GROUP, a.refused(Change.AssignMember(C, G1)))
-        assertEquals(Rejection.NO_SUCH_GROUP, a.refused(Change.RenameGroup(G1, "Revenant")))
+        assertEquals(Rejection.NO_SUCH_GROUP, a.refused(Change.RenameGroup(G1, hidden("Revenant"))))
     }
 
     @Test
@@ -732,24 +772,24 @@ class HierarchyReducerTest {
         val refusals =
             listOf(
                 admit(C, "Charlie") to Rejection.ALREADY_MEMBER,
-                Change.AdmitMember(0, "Zéro", publicOf(E)) to Rejection.MALFORMED,
-                admit(E, " ") to Rejection.MALFORMED,
-                admit(E, "x".repeat(Names.MAX_BYTES + 1)) to Rejection.MALFORMED,
-                admit(E, "deux\nlignes") to Rejection.MALFORMED,
+                Change.AdmitMember(0, hidden("Zéro"), publicOf(E)) to Rejection.MALFORMED,
+                // A name that is not hidden the way every phone hides it.
+                Change.AdmitMember(E, HiddenName(ByteArray(HiddenName.BYTES - 1)), publicOf(E)) to Rejection.MALFORMED,
+                Change.CreateGroup(G3, HiddenName("Groupe 3".toByteArray())) to Rejection.MALFORMED,
                 // Keys that are the ones of another phone, or that are no keys.
-                Change.AdmitMember(E, "Echo", publicOf(F)) to Rejection.MALFORMED,
-                Change.AdmitMember(E, "Echo", notAKey) to Rejection.MALFORMED,
+                Change.AdmitMember(E, hidden("Echo"), publicOf(F)) to Rejection.MALFORMED,
+                Change.AdmitMember(E, hidden("Echo"), notAKey) to Rejection.MALFORMED,
                 Change.RemoveMember(OUTSIDER) to Rejection.NO_SUCH_MEMBER,
                 Change.RemoveMember(A) to Rejection.IS_CREATOR,
                 Change.AddAdmin(OUTSIDER) to Rejection.NO_SUCH_MEMBER,
                 Change.AddAdmin(B) to Rejection.NO_CHANGE,
                 Change.RemoveAdmin(C) to Rejection.NOT_AN_ADMIN,
-                Change.CreateGroup(G1, "Encore") to Rejection.GROUP_EXISTS,
-                Change.CreateGroup(0, "Zéro") to Rejection.MALFORMED,
-                Change.CreateGroup(G3, "Sous-groupe", parent = G1) to Rejection.TOO_DEEP,
-                Change.CreateGroup(G3, "Orphelin", parent = 0x999) to Rejection.NO_SUCH_GROUP,
-                Change.RenameGroup(G3, "Rien") to Rejection.NO_SUCH_GROUP,
-                Change.RenameGroup(G1, "Groupe 1") to Rejection.NO_CHANGE,
+                Change.CreateGroup(G1, hidden("Encore")) to Rejection.GROUP_EXISTS,
+                Change.CreateGroup(0, hidden("Zéro")) to Rejection.MALFORMED,
+                Change.CreateGroup(G3, hidden("Sous-groupe"), parent = G1) to Rejection.TOO_DEEP,
+                Change.CreateGroup(G3, hidden("Orphelin"), parent = 0x999) to Rejection.NO_SUCH_GROUP,
+                Change.RenameGroup(G3, hidden("Rien")) to Rejection.NO_SUCH_GROUP,
+                Change.RenameGroup(G1, hidden("Groupe 1")) to Rejection.NO_CHANGE,
                 Change.DeleteGroup(G3) to Rejection.NO_SUCH_GROUP,
                 Change.AssignMember(OUTSIDER, G1) to Rejection.NO_SUCH_MEMBER,
                 Change.AssignMember(C, G3) to Rejection.NO_SUCH_GROUP,
@@ -767,6 +807,7 @@ class HierarchyReducerTest {
                 Change.ClearPost(G3, Post.LEADER) to Rejection.NO_SUCH_GROUP,
                 Change.TransferCreator(OUTSIDER) to Rejection.NO_SUCH_MEMBER,
                 Change.TransferCreator(A) to Rejection.NO_CHANGE,
+                Change.TransferCreator(C) to Rejection.NOT_AN_ADMIN,
                 Change.TransferCreator(0) to Rejection.MALFORMED,
             )
         for ((change, reason) in refusals) {
@@ -804,8 +845,8 @@ class HierarchyReducerTest {
         assertEquals(Rejection.FORBIDDEN, c.refused(Change.AssignMember(B, G2)))
         assertEquals(Rejection.FORBIDDEN, c.refused(Change.UnassignMember(E)))
         c.must(Change.UnassignMember(D))
-        c.must(Change.RenameGroup(G1, "Tête"))
-        assertEquals(Rejection.FORBIDDEN, c.refused(Change.RenameGroup(G2, "Queue")))
+        c.must(Change.RenameGroup(G1, hidden("Tête")))
+        assertEquals(Rejection.FORBIDDEN, c.refused(Change.RenameGroup(G2, hidden("Queue"))))
         assertEquals(Rejection.FORBIDDEN, c.refused(Change.DeleteGroup(G1)))
 
         // A plain member leaves its group by itself; it cannot take another member out.
@@ -815,7 +856,7 @@ class HierarchyReducerTest {
 
         // The leader of the ensemble creates groups and nothing else.
         val d = c.copyFor(D)
-        d.must(Change.CreateGroup(G3, "Groupe 3"))
+        d.must(Change.CreateGroup(G3, hidden("Groupe 3")))
         assertEquals(Rejection.FORBIDDEN, d.refused(Change.DeleteGroup(G3)))
 
         // The leader of a group steps down by itself; nobody but an administrator can do it for it.
@@ -826,26 +867,35 @@ class HierarchyReducerTest {
     }
 
     @Test
-    fun `the share table is data, but who waits shares nothing whatever the table`() {
+    fun `the share table is data, but who waits only has the cells of its own role`() {
         val shares =
             ShareTable.DEFAULT
-                .with(ShareKind.MESSAGE, Role.GROUP_LEADER, ShareReach.PARENT_UNIT)
+                .with(ShareKind.MESSAGE, Role.GROUP_LEADER, ShareReach.LEADERS)
                 .with(ShareKind.SKETCH, Role.MEMBER, ShareReach.OWN_UNIT, ShareReach.ENSEMBLE)
         assertEquals(setOf(ShareReach.OWN_UNIT, ShareReach.ENSEMBLE), shares.reach(ShareKind.SKETCH, Role.MEMBER))
-        assertEquals(setOf(ShareReach.ENSEMBLE), shares.reach(ShareKind.MESSAGE, Role.ADMIN))
+        assertEquals(setOf(ShareReach.ENSEMBLE, ShareReach.UP_BELOW), shares.reach(ShareKind.MESSAGE, Role.ADMIN))
         val state =
             deployed(HierarchyRules(shares = shares))
                 .apply {
                     must(leader(G1, C))
                     must(admit(H))
                 }.state
-        // In this ensemble the leader of a group messages the whole ensemble, and every member sketches for all.
-        assertEquals(listOf(G1, ROOT), state.shareUnits(C, ShareKind.MESSAGE))
-        assertEquals(listOf(G1), state.shareUnits(D, ShareKind.MESSAGE))
-        assertEquals(listOf(G1, ROOT), state.shareUnits(D, ShareKind.SKETCH))
-        // The role « member » has a cell for the whole ensemble; someone who waits is a member, and shares nothing.
+        // In this ensemble the leader of a group writes to every leader, and every member sketches for all.
+        assertEquals(listOf(Channel.LEADERS, Channel.unit(G1)), state.shareChannels(C, ShareKind.MESSAGE))
+        assertEquals(listOf(Channel.unit(G1)), state.shareChannels(D, ShareKind.MESSAGE))
+        assertEquals(listOf(Channel.ENSEMBLE, Channel.unit(G1)), state.shareChannels(D, ShareKind.SKETCH))
+        // The role « member » has a cell for the whole ensemble; someone who waits is a member too, and yet only
+        // has the cells of who waits: its own lane, to the administrators.
         assertTrue(Role.MEMBER in state.rolesOf(H))
-        for (kind in ShareKind.entries) assertEquals(emptyList(), state.shareUnits(H, kind), "$kind")
+        for (kind in ShareKind.entries) {
+            val expected =
+                if (kind == ShareKind.POSITION || kind == ShareKind.ROSTER) listOf(Channel.waiting(H)) else emptyList()
+            assertEquals(expected, state.shareChannels(H, kind), "$kind")
+        }
+        // An ensemble may close that too.
+        val closed = state.copy(rules = state.rules.copy(shares = shares.with(ShareKind.POSITION, Role.WAITING)))
+        assertEquals(emptyList(), closed.shareChannels(H, ShareKind.POSITION))
+        assertFalse(closed.canSee(B, H))
         assertEquals(
             ShareTable.NONE,
             ShareKind.entries.fold(shares) { t, k ->
@@ -874,8 +924,9 @@ class HierarchyReducerTest {
                 }.state
 
         fun seenBy(viewer: Long) = state.visibleTo(viewer).map { it.id }
-        // B, administrator without a group: everyone who has access; I, who waits, is not shown even to it.
-        assertEquals(listOf(A, C, D, E, F, H), seenBy(B))
+        // B, administrator without a group: everyone who has access, and I, who waits (Q10, whatever the table:
+        // its position is sealed for the administrators).
+        assertEquals(listOf(A, C, D, E, F, H, I), seenBy(B))
         // H, leader of the ensemble: the group leaders and the administrators.
         assertEquals(listOf(B, C, E), seenBy(H))
         // C, leader of G1: its group, the leader of the ensemble, the other group leaders.
@@ -883,8 +934,8 @@ class HierarchyReducerTest {
         // D, member of G1: its group and the leader of the ensemble.
         assertEquals(listOf(C, H), seenBy(D))
         assertEquals(listOf(E, H), seenBy(F))
-        // A, the creator, in no group: as a member, the leader of the ensemble.
-        assertEquals(listOf(H), seenBy(A))
+        // A, the creator, in no group: as a member, the leader of the ensemble; and who waits.
+        assertEquals(listOf(H, I), seenBy(A))
         assertEquals(emptyList(), seenBy(I))
         assertTrue(state.canSee(D, D))
     }
