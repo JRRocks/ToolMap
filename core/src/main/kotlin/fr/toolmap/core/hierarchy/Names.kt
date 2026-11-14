@@ -102,7 +102,7 @@ class NameCard(
  * ensemble, which was never wrapped to it.
  */
 class NameBook {
-    private val cards = LinkedHashMap<HiddenName, NameCard>()
+    internal val cards = LinkedHashMap<HiddenName, NameCard>()
 
     /** Keeps [card]; `false` when it is not a card every phone accepts, or when the book is full. */
     @Synchronized

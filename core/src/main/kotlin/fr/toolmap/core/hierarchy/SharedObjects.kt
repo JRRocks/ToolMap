@@ -211,7 +211,7 @@ object SharedRecords {
 class SharedObjects(
     val ensembleId: Long,
 ) {
-    private val held = HashMap<Channel, LinkedHashMap<ObjectRef, SharedRecord>>()
+    internal val held = HashMap<Channel, LinkedHashMap<ObjectRef, SharedRecord>>()
 
     /**
      * Takes in a share of a kind that stays, once opened. [signingKeyOf] gives the signing key a member was let in
