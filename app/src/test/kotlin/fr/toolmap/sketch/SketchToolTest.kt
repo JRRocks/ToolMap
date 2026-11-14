@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
+import com.sun.management.OperatingSystemMXBean
 import fr.toolmap.core.geo.LonLat
 import fr.toolmap.core.sketch.RawStroke
 import fr.toolmap.core.sketch.Sketch
@@ -43,6 +44,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Before
@@ -52,6 +54,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.lang.management.ManagementFactory
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -162,10 +165,50 @@ class SketchToolTest {
             assertTrue(repo.sketches.first().isEmpty())
         }
 
+    /**
+     * « Enregistrer », waited for at most 5 s. The save usually answers in a few milliseconds; it once missed the 5 s
+     * (2026-11-14, local check) and could not be made to again, even under load. If it happens again, the failure says
+     * what the JVM did meanwhile: whether it ran (CPU time), collected (GC time) or stood still, and where each thread was.
+     */
     private suspend fun SketchViewModel.saveNow(): Long? {
         val done = CompletableDeferred<Long?>()
+        val before = JvmClock.now()
         save { done.complete(it) }
-        return withTimeout(5_000) { done.await() }
+        withTimeoutOrNull(5_000) { done.await() }
+        if (!done.isCompleted) {
+            throw AssertionError(
+                "The save did not answer within 5 s: ${JvmClock.now().since(before)}",
+            )
+        }
+        return done.await()
+    }
+
+    /** Wall, GC and process CPU times at one moment, to tell a busy, collecting or frozen JVM apart. */
+    private class JvmClock(
+        val wallNanos: Long,
+        val gcMillis: Long,
+        val cpuNanos: Long,
+    ) {
+        fun since(start: JvmClock): String {
+            val runtime = Runtime.getRuntime()
+            val threads =
+                ManagementFactory.getThreadMXBean().dumpAllThreads(true, true).joinToString("") { it.toString() }
+            val waitedMs = (wallNanos - start.wallNanos) / 1_000_000
+            val cpuMs = (cpuNanos - start.cpuNanos) / 1_000_000
+            val usedMb = (runtime.totalMemory() - runtime.freeMemory()) shr 20
+            return "waited $waitedMs ms; GC ${gcMillis - start.gcMillis} ms; " +
+                "process CPU $cpuMs ms on ${runtime.availableProcessors()} cores; " +
+                "heap $usedMb of ${runtime.maxMemory() shr 20} MB\n" + threads
+        }
+
+        companion object {
+            fun now() =
+                JvmClock(
+                    System.nanoTime(),
+                    ManagementFactory.getGarbageCollectorMXBeans().sumOf { it.collectionTime.coerceAtLeast(0) },
+                    (ManagementFactory.getOperatingSystemMXBean() as? OperatingSystemMXBean)?.processCpuTime ?: 0,
+                )
+        }
     }
 
     private fun saved(
