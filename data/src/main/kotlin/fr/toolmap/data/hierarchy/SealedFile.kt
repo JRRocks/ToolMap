@@ -3,6 +3,8 @@ package fr.toolmap.data.hierarchy
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.GeneralSecurityException
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -31,7 +33,14 @@ internal object SealedFile {
                 it.write(bytes)
                 it.fd.sync()
             }
-            if (!temp.renameTo(target)) throw IOException("cannot replace a stored file")
+            // Not File.renameTo: on Windows (the unit tests of a workstation) it refuses to replace an existing file.
+            // A failure is an IOException, like any other write of this storage.
+            Files.move(
+                temp.toPath(),
+                target.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE,
+            )
         } finally {
             if (temp.exists()) temp.delete()
         }
