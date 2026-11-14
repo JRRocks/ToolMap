@@ -8,6 +8,15 @@ Pour la session principale, qui montre les images à l'utilisateur. Ce ne sont q
 - Étiquettes : « Avant · tour 2 » = le dessin du tour 2, redessiné ici avec le même fond de carte et les mêmes nombres que le reste ; « Avant · aujourd'hui » = l'écran de l'application (entre amis) ; « Proposé » = le nouveau dessin ; « A (recommandée) », « B », « C » = un choix à faire ; « nuit » = thème de nuit (au moins un téléphone par partie).
 - Toutes les images ont été ouvertes et relues après rendu, puis relues une seconde fois par une relecture indépendante (un défaut et une vingtaine de détails repris : un téléphone qui ne montrait pas ce que disait son titre, heures et distances mises en accord avec la carte, légendes ajoutées aux téléphones de nuit). Un contrôle automatique passe sur chaque téléphone (texte coupé par un bord, par une fenêtre ou par l'écran, étiquette de carte hors de l'écran ou sur un jeton) : rien au dernier rendu.
 
+## Branche, commits, CI
+
+- Branche : `claude/loving-cori-40xg11`, posée sur `conception/groupes-hierarchiques` a88f111 (0.4.242) ; `.conception-privee` présent. Version : **0.4.243**.
+- Commits : 65ae3c7 (maquettes, journal, plan, version), 48f1321 (reprises après la relecture indépendante : maquettes et journal seulement), puis le commit qui ajoute cette section (ce fichier seulement).
+- Run « CI » **n° 192** (43576741849, commit 48f1321) : **vert**. « Style, lint, unit tests, debug APK, release APK » réussi, « Check the APK on an emulator » réussi, **« Publish the Android release » sautée** (skipped). Le run n° 191 (commit 65ae3c7) a été annulé par la CI à l'arrivée du commit suivant (un seul run à la fois par branche) : ce n'est pas un échec.
+- Releases et étiquettes après ce run : aucune nouvelle. La dernière release reste `android-0.4.235` (2026-11-10) ; étiquettes : `android-0.4.235`, `android-0.4.234`, `android-0.4.231`, `debug-f335585`, `ios-0.2.1`, `ios-0.2.0`.
+- Le run du commit qui ajoute cette section est à lire sur GitHub (onglet Actions de la branche) : il ne peut pas se citer lui-même.
+- Rien n'a été poussé sur `main` ni sur `conception/groupes-hierarchiques` ; pas de pull request.
+
 ## Les mêmes faits sur toutes les images
 
 - Opération « Exercice Vallon », 4 groupes : Nord (bleu, 5 membres), Sud (orange, 6), Est (vert, 5), Ouest (violet, 4, sans chef).
