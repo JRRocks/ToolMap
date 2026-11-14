@@ -921,14 +921,14 @@ Aujourd'hui : règle d'affichage. Tout membre placé détient tous les noms, et 
 À poser par la session principale. Le premier choix est le choix recommandé ; « aujourd'hui » marque ce que fait le moteur.
 
 1. **Un administrateur (ou le créateur) qui n'est dans aucun groupe et n'est pas chef : à qui part son alerte ?**
-   Vous avez répondu qu'un administrateur sans poste de chef alerte comme un membre, donc son groupe. S'il n'a pas de groupe, son alerte ne part aujourd'hui à personne.
+   Vous avez répondu : un membre alerte son groupe, un chef de groupe alerte tous les chefs, le chef de l'opération alerte tout le monde. Un administrateur qui n'est pas chef a été traité comme un membre : il alerte son groupe. S'il n'a pas de groupe, son alerte ne part aujourd'hui à personne.
    a. À tous les chefs (recommandé) : il lit déjà leurs alertes, et ce sont eux qui peuvent agir.
    b. À toute l'opération.
    c. À personne (aujourd'hui) : un administrateur doit être placé dans un groupe pour pouvoir alerter.
 
 2. **Quand un chef de groupe déclenche une alerte, son propre groupe la reçoit-il aussi ?**
    Vous avez répondu : un chef de groupe alerte tous les chefs. Ses équipiers sont souvent les plus proches de lui.
-   a. Oui : tous les chefs et son groupe (recommandé). Le moteur le permet déjà.
+   a. Oui : tous les chefs et son groupe (recommandé).
    b. Non : tous les chefs seulement.
    c. Il choisit au moment de l'envoi.
 
