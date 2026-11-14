@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-11-14 — Session 108 — [P39.4] [P39.5] Groupes hiérarchiques : moteur et maquettes du troisième tour réunis
+- **Branche / commit** : `conception/groupes-hierarchiques` (poste Windows, session locale lancée par la session principale), partie de a88f111 (0.4.242) ; `.conception-privee` présent. Copies relevées (`git fetch`) : `claude/jolly-ptolemy-3u4uvx` (moteur, 3e10e2b) = `claude/loving-cori-40xg11` (maquettes du troisième passage, c65a162) = 0.4.243 (références, toutes deux posées sur a88f111) ; `conception/groupes-hierarchiques` = local = Drive = 0.4.242, local sans changement.
+- **Objectif** : réunir dans la branche de conception le moteur mis aux choix du second tour et aux précisions S1 à S7 (P39.4) et le troisième passage de maquettes (P39.5), compiler et contrôler sur l'émulateur ; aucune publication.
+- **Réalisé** :
+  - Fusions `git merge --no-ff`, le moteur d'abord : 28fc2ed (3e10e2b, sans conflit), puis 9f745d1 (c65a162). Conflits de la seconde : `version.properties` (laissé au build), le haut du journal (entrées 107 et 106 gardées entières, 107 au-dessus, texte inchangé), `docs/PLAN.md` (ligne P39.4 du moteur et ligne P39.5 des maquettes, chacune telle que sa branche l'avait écrite). Ni le moteur ni les maquettes n'ont été modifiés.
+  - `git diff --stat a88f111` : 82 fichiers, tous dans le paquet `hierarchy` de `:core` (code et tests), `docs/` (spec § 14, ADR-127, plan, journal, `docs/previews/p39-groupes/tour3/` : 52 images, `index.html`, `REMONTEE.md`) et `version.properties` ; rien du groupe simple ni de l'application.
+  - Plan : P39.4 et P39.5 restent 🔄 (moteur fait pour Q1 à Q20 et S1 à S7, non branché ; maquettes du troisième passage livrées, choix attendus).
+  - Ce qui manquait à l'entrée 105 : run « CI » n° 190 (43575767515, commit a88f111) vert, contrôle sur émulateur réussi, étape « Publish the Android release » sautée, aucune release ; miroir Drive fait par la session principale après ce run.
+- **Décisions (ADR)** : aucune dans cette session (l'ADR-127 vient du moteur, session 106).
+- **Tests / vérifications** :
+  - Runs « CI » des deux branches avant la fusion : n° 194 (moteur, 3e10e2b, 43576912040) et n° 195 (maquettes, c65a162, 43578757201), verts, contrôle sur émulateur réussi, publication sautée.
+  - `./gradlew spotlessApply` seul : rien à changer. `./gradlew check assembleDebug` : **BUILD SUCCESSFUL in 5m 28s**, 2 116 tests, 97 ignorés, 0 échec, dont les 121 du paquet `hierarchy` (0 échec) et `SketchToolTest` 9 sur 9 ; 0.4.243 → **0.4.244** ; moteur natif absent du build local (Rust introuvable). `CI=true ./gradlew help` vert.
+  - `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` sur « Medium_Phone » (`ANDROID_SERIAL=emulator-5556`, démarré à froid pour l'essai, prêt en 40 s) : « OK: ToolMap started, in front, no crash, no ANR », 0.4.244 installée par-dessus 0.4.242 ; seuil de stockage bas abaissé le temps de l'installation, puis remis par défaut ; émulateur fermé aussitôt (`emu kill`, absent d'`adb devices`), celui de l'autre projet laissé tel quel ; démons Gradle arrêtés en fin de travail (`./gradlew --stop`).
+  - Rien d'autre n'a été essayé à la main : le moteur n'est branché à rien, aucun écran ne change. Run « CI » de ce push : à noter dans l'entrée suivante.
+- **Problèmes / dette technique** : aucun nouveau.
+- **Prochaine étape recommandée** : la session principale demande à l'utilisateur ses choix du troisième tour : questions T1 à T12 de `docs/previews/p39-groupes/tour3/REMONTEE.md` et questions 1 à 6 du § 14 de la spec ; aucun écran n'est codé avant son accord.
+
 ## 2026-11-14 — Session 107 — [P39.5] Opération : troisième passage de maquettes, les écrans que les derniers choix changent
 - **Branche / commit** : `claude/loving-cori-40xg11` (session cloud lancée par la session principale), replacée sur `origin/conception/groupes-hierarchiques` : d40d7a0 (0.4.241) au départ, puis a88f111 (0.4.242) par avance rapide dès que la session 105 l'a poussé ; `.conception-privee` présent. Copies relevées (`git fetch`) : `conception/groupes-hierarchiques` = 0.4.242 (référence), `claude/affectionate-dirac-mv4a6s` 0.4.240, `claude/sleepy-gates-46lorp` 0.4.238, `claude/clever-wozniak-s1k4i5` 0.4.237, `claude/practical-ptolemy-kvydc9` 0.4.236, `claude/vibrant-galileo-q3s99n` 0.4.235, `main` 0.4.234 (cette branche y était au départ, sans changement local) ; Drive non joignable depuis le cloud. Aucun push sur `main` ni sur la branche de conception, pas de PR.
 - **Objectif** : redessiner en maquettes, sans rien coder, les écrans du mode « Opération » que changent les choix du second tour et les sept précisions du 14 novembre ; rien de visible ne change dans l'application, aucune publication.
