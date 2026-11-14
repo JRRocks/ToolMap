@@ -564,6 +564,37 @@ Q20 1 · D'accord pour tout
 
 **Précisions demandées à l'utilisateur (en attente, 2026-11-13)** : S1, qui reçoit ce qu'un chef de groupe remonte (tous les chefs, ou le chef de l'opération et son adjoint) ; S2, qui diffuse à toute l'opération (les administrateurs aussi, ou non) ; S3, les messages écrits suivent-ils le même chemin (un fil « Chefs ») ; S4, l'adjoint du chef de l'opération devient-il chef automatiquement ; S5, S6 et S7, les questions 1, 4 et 6 du § 12 (positions signées, ce que retrouve un arrivant, téléphone du créateur perdu). Le moteur et les maquettes ne sont mis à ces choix qu'après ces réponses ; aucun écran n'est codé avant l'accord de l'utilisateur sur les maquettes des écrans modifiés.
 
+## 10 quinquies. Précisions du troisième tour (2026-11-14)
+
+Réponses de l'utilisateur aux sept précisions S1 à S7 demandées à la fin du § 10 quater. Bloc recopié tel quel :
+
+```text
+Précisions P39 tour 3 (opération)
+S1 3 · Le chef de l'opération, son adjoint et les administrateurs
+S2 2 · Le chef de l'opération, son adjoint et les administrateurs
+S3 1 · Oui : trois fils
+S4 1 · Oui : même règle que pour un groupe
+S5 1 · Oui : les positions sont signées aussi
+S6 1 · Les waypoints et croquis encore affichés chez les autres
+S7 1 · L'opération continue avec ses administrateurs, puis on en crée une nouvelle
+```
+
+Questions posées, pour mémoire : S1, quand un chef de groupe « remonte » un croquis ou un waypoint, qui le reçoit ; S2, qui peut diffuser à toute l'opération ; S3, les messages écrits suivent-ils le même chemin (trois fils : « Mon groupe », « Chefs », « Toute l'opération ») ; S4, quand le chef de l'opération part, son adjoint devient-il chef automatiquement ; S5, faut-il empêcher qu'un membre envoie une fausse position au nom d'un autre ; S6, que retrouve un membre qui vient d'être placé ou qui revient après une longue absence ; S7, que se passe-t-il si le créateur perd son téléphone ou en change.
+
+**Lecture de la session principale** (interprétation ; elle remplace, là où elle les contredit, les lectures des §§ 10 ter, 10 quater et 13) :
+
+1. **Ce qu'un chef de groupe remonte (S1)** est reçu par le chef de l'opération, son adjoint et les administrateurs. Les autres chefs de groupe ne le voient pas. Lecture : l'adjoint d'un chef de groupe remonte comme son chef, et voit ce que son chef a remonté.
+2. **Diffusent à toute l'opération (S2)** : le chef de l'opération, son adjoint et les administrateurs (le créateur en est un). Personne d'autre.
+3. **Trois fils de messages (S3)** : « Mon groupe » ; un fil du milieu, par lequel un chef de groupe écrit vers le haut ; « Toute l'opération », où seuls ceux du point 2 écrivent et que tout le monde lit. **Point ouvert**, né de S1 : puisque les autres chefs de groupe ne voient pas ce qu'un chef remonte, le fil du milieu ne peut pas être un fil commun à tous les chefs. Lecture retenue en attendant : un fil par groupe, entre le chef du groupe, son adjoint et ceux du point 1, qui y répondent ; l'autre lecture (un seul fil commun à tous les chefs) et le nom de ce fil (« Chefs » ne convient plus tel quel) sont à trancher par l'utilisateur sur les maquettes du troisième passage.
+4. **Alerte (Q6 du § 10 quater, inchangée)** : un membre alerte son groupe, un chef de groupe alerte tous les chefs, le chef de l'opération alerte tout le monde. Lecture : les administrateurs reçoivent aussi l'alerte d'un chef de groupe, puisqu'ils reçoivent ce qu'il remonte ; à confirmer sur les maquettes.
+5. **Envoi à un groupe précis (Q15)** : lecture, ceux qui diffusent à toute l'opération (point 2) peuvent aussi viser un groupe précis ; à confirmer sur les maquettes pour les administrateurs.
+6. **Quand le chef de l'opération part (S4)**, son adjoint devient chef automatiquement et le poste d'adjoint devient vacant ; sans adjoint, le poste de chef reste vacant jusqu'à ce qu'un administrateur nomme quelqu'un. Même règle que pour un groupe (Q18).
+7. **Les positions sont signées (S5)**. Chaque position pèse environ le double et demande un calcul de plus : l'effet sur la batterie n'est mesuré sur aucun téléphone à ce jour, il le sera avant tout usage réel.
+8. **Ce que retrouve un arrivant (S6)** : un membre qui vient d'être placé, ou qui revient après une longue absence, reçoit les waypoints et les croquis encore affichés chez les autres, dans la limite de ce que sa place lui laisse voir. Ni les anciens messages, ni les anciennes positions. Celui qui attend ne reçoit toujours rien.
+9. **Téléphone du créateur perdu ou changé (S7)** : ni sauvegarde de son identité, ni remplaçant de secours, aucune porte dérobée. L'opération continue avec ses administrateurs, puis on en crée une nouvelle. L'application rappelle au créateur de désigner un successeur avant de changer de téléphone (texte visible : à montrer en maquette avant tout code).
+
+Le moteur (P39.4) et le troisième passage de maquettes (P39.5) sont relancés sur ces choix le 2026-11-14, en sessions cloud. Aucun écran n'est codé avant l'accord de l'utilisateur sur les maquettes des écrans modifiés.
+
 ## 11. Fichiers et tests
 
 | Fichier (`core/src/main/kotlin/fr/toolmap/core/hierarchy/`) | Contenu |
