@@ -26,6 +26,7 @@ class HierarchyWireTest {
             limits = HierarchyLimits(maxMembers = 120, maxGroups = 20, maxDepth = 3),
             signedShares = setOf(ShareKind.MESSAGE, ShareKind.ALERT),
             deputySucceeds = false,
+            singleDestination = setOf(ShareKind.SKETCH, ShareKind.ALERT),
         )
     private val changes =
         listOf(
@@ -102,7 +103,7 @@ class HierarchyWireTest {
         val bravo = HierarchyWire.encodeOp(signedOp(1, A, 1, 1, admit(B, "Bravo-en-clair")))
         assertEquals(-1, String(bravo, Charsets.ISO_8859_1).indexOf("Bravo-en-clair"))
         // The first operation of an ensemble, with the rules of the start: the largest of all.
-        assertEquals(530, HierarchyWire.encodeOp(ops[1]).size)
+        assertEquals(537, HierarchyWire.encodeOp(ops[1]).size)
         assertEquals(beforeChange + 1 + 16 + proofBytes + HiddenName.BYTES, 206)
         assertEquals(328, admission.size)
         // An operation never travels without its proof.
@@ -197,8 +198,8 @@ class HierarchyWireTest {
     fun `what is not in the one form of this version is refused`() {
         val op = HierarchyWire.encodeOp(ops[6])
         assertFailsWith<WireException> { HierarchyWire.decodeOp(byteArrayOf()) }
-        // Another version: the first two, never deployed, are not read; nor one to come.
-        for (version in listOf(1, 2, 4)) {
+        // Another version: the first three, never deployed, are not read; nor one to come.
+        for (version in listOf(1, 2, 3, 5)) {
             val other = op.copyOf().also { it[0] = version.toByte() }
             assertEquals("unknown version", assertFailsWith<WireException> { HierarchyWire.decodeOp(other) }.message)
             assertNull(HierarchyWire.kindOf(other))
@@ -208,11 +209,12 @@ class HierarchyWireTest {
         assertFailsWith<WireException> {
             HierarchyWire.decodeSummary(HierarchyWire.encodeSummary(Summary(1, emptyMap(), 0)) + 0)
         }
-        assertNull(HierarchyWire.kindOf(byteArrayOf(3)))
+        assertNull(HierarchyWire.kindOf(byteArrayOf(4)))
         assertNull(HierarchyWire.kindOf(byteArrayOf(1, 1)))
         assertNull(HierarchyWire.kindOf(byteArrayOf(2, 1)))
-        assertNull(HierarchyWire.kindOf(byteArrayOf(3, 9)))
-        assertEquals(HierarchyWire.Kind.OP, HierarchyWire.kindOf(byteArrayOf(3, 1)))
+        assertNull(HierarchyWire.kindOf(byteArrayOf(3, 1)))
+        assertNull(HierarchyWire.kindOf(byteArrayOf(4, 9)))
+        assertEquals(HierarchyWire.Kind.OP, HierarchyWire.kindOf(byteArrayOf(4, 1)))
 
         val proof = ops[0].proof
 
@@ -239,14 +241,16 @@ class HierarchyWireTest {
         // A post that is neither leader nor deputy.
         val post = HierarchyWire.encodeOp(ops[12]).also { it[beforeChange + 1 + 8] = 3 }
         assertEquals("unknown post", assertFailsWith<WireException> { HierarchyWire.decodeOp(post) }.message)
-        // Rules with a kind of share, a rule or limits this version cannot carry: the last seven bytes of the
-        // creation (signed kinds, flags, limits).
+        // Rules with a kind of share, a rule or limits this version cannot carry: the last eight bytes of the
+        // creation (signed kinds, kinds with one destination, flags, limits).
         val creation = HierarchyWire.encodeOp(ops[1])
-        val signedKinds = creation.size - proofBytes - 7
+        val signedKinds = creation.size - proofBytes - 8
         assertEquals(HierarchyRules.SIGNED_BY_DEFAULT.sumOf { it.bit }, creation[signedKinds].toInt())
         assertFailsWith<WireException> { HierarchyWire.decodeOp(creation.copyOf().also { it[signedKinds] = 0x40 }) }
-        assertEquals(1, creation[signedKinds + 1].toInt(), "the deputy takes the place of a leader who goes")
-        assertFailsWith<WireException> { HierarchyWire.decodeOp(creation.copyOf().also { it[signedKinds + 1] = 2 }) }
+        assertEquals(ShareKind.ALERT.bit, creation[signedKinds + 1].toInt(), "the alert has one destination")
+        assertFailsWith<WireException> { HierarchyWire.decodeOp(creation.copyOf().also { it[signedKinds + 1] = 0x40 }) }
+        assertEquals(1, creation[signedKinds + 2].toInt(), "the deputy takes the place of a leader who goes")
+        assertFailsWith<WireException> { HierarchyWire.decodeOp(creation.copyOf().also { it[signedKinds + 2] = 2 }) }
         assertFailsWith<WireException> {
             HierarchyWire.decodeOp(
                 creation.copyOf().also {

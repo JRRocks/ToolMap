@@ -49,6 +49,15 @@ enum class Role(
 
     companion object {
         fun of(code: Int): Role? = entries.firstOrNull { it.code == code }
+
+        /**
+         * For a kind of share that has one destination per person ([HierarchyRules.singleDestination]): the roles
+         * from the one that decides first to the one that decides last. Of the roles a member holds, the first one
+         * here whose cell is not empty decides alone: the post held in the ensemble, then its administration, then
+         * the post held in a group, then being a member.
+         */
+        internal val DESTINATION_ORDER: List<Role> =
+            listOf(ENSEMBLE_LEADER, ENSEMBLE_DEPUTY, CREATOR, ADMIN, GROUP_LEADER, GROUP_DEPUTY, MEMBER, WAITING)
     }
 }
 
@@ -283,7 +292,10 @@ enum class ShareKind(
     WAYPOINT(3),
     MESSAGE(4),
 
-    /** A call for help. Where it goes depends on the role of who sends it (the user's answer Q6). */
+    /**
+     * A call for help. Where it goes depends on the role of who sends it (the user's answers Q6, T4 and T13), and
+     * it goes to one place only ([HierarchyRules.singleDestination], [HierarchyState.alertChannel]).
+     */
     ALERT(5),
 
     /** Names: the cards that open the hidden names of the operations ([NameCard]). */
@@ -331,7 +343,7 @@ enum class ShareReach(
     /** The [Lane.UP] of a group just under the unit the author commands: answering what that group sends up. */
     UP_BELOW(16),
 
-    /** Every leader, deputy and administrator ([Channel.LEADERS]). */
+    /** Every leader and deputy, the administrators and the creator ([Channel.LEADERS]). */
     LEADERS(32),
 
     /** The author's own waiting lane ([Lane.WAITING]): to the administrators, while it waits for a group. */
@@ -428,10 +440,16 @@ class ShareTable private constructor(
                 // and in place of UP_BELOW below).
                 .with(ShareKind.MESSAGE, Role.GROUP_LEADER, ShareReach.UP)
                 // Q6: a member alerts its group, the leader of a group every leader, the leader of the ensemble
-                // everyone. An administrator without a post of leader has no cell: it alerts as a member.
+                // everyone. An alert has one destination (HierarchyRules.singleDestination): of these cells, only
+                // the one of the first role the sender holds counts (Role.DESTINATION_ORDER), so the leader of a
+                // group does not alert its own group (T4).
                 .with(ShareKind.ALERT, Role.MEMBER, ShareReach.OWN_UNIT)
                 .with(ShareKind.ALERT, Role.GROUP_LEADER, ShareReach.LEADERS)
                 .with(ShareKind.ALERT, Role.ENSEMBLE_LEADER, ShareReach.ENSEMBLE)
+                // T13: an administrator, or the creator, who leads nothing alerts every leader, with or without a
+                // group, and not its group. Without these two cells it alerts as a member.
+                .with(ShareKind.ALERT, Role.ADMIN, ShareReach.LEADERS)
+                .with(ShareKind.ALERT, Role.CREATOR, ShareReach.LEADERS)
                 // Names go to everyone who has a group or a post; the name of someone who waits, to the administrators.
                 .with(ShareKind.ROSTER, Role.MEMBER, ShareReach.ENSEMBLE)
                 .with(ShareKind.ROSTER, Role.WAITING, ShareReach.WAITING)
@@ -483,6 +501,10 @@ data class HierarchyLimits(
  * @property deputySucceeds when a leader goes (leaves the ensemble, is put out of it, leaves its group or is put
  * back to waiting), its deputy becomes the leader and the post of deputy is vacant (the user's answers Q18 and S4).
  * `false`: the post of leader stays vacant and the deputy stays deputy.
+ * @property singleDestination the kinds of share that go to one place per person, with no choice when sending: the
+ * alert (the user's answers T4 and T13). For such a kind the roles of the author do not add up: the first role it
+ * holds, in [Role.DESTINATION_ORDER], whose cell of the [ShareTable] is not empty decides alone. A kind left out
+ * goes wherever one of the roles of its author allows, like the others.
  */
 data class HierarchyRules(
     val rights: RightsTable = RightsTable.DEFAULT,
@@ -491,9 +513,11 @@ data class HierarchyRules(
     val limits: HierarchyLimits = HierarchyLimits.DEFAULT,
     val signedShares: Set<ShareKind> = SIGNED_BY_DEFAULT,
     val deputySucceeds: Boolean = true,
+    val singleDestination: Set<ShareKind> = SINGLE_BY_DEFAULT,
 ) {
     companion object {
         val SIGNED_BY_DEFAULT: Set<ShareKind> = ShareKind.entries.toSet()
+        val SINGLE_BY_DEFAULT: Set<ShareKind> = setOf(ShareKind.ALERT)
         val DEFAULT = HierarchyRules()
     }
 }

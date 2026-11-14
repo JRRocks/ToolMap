@@ -15,7 +15,7 @@ enum class Post(
 
 /**
  * What an operation changes. Identifiers are 64-bit values, never 0. Names are hidden ([HiddenName]): an operation
- * is read by every phone that was let in, and a phone that waits for a group must learn no name.
+ * is read by every phone that was let in, and a phone that waits for a group must learn no name from it.
  */
 sealed interface Change {
     /** The line of the [RightsTable] this change is checked against; `null` for the creation of the ensemble. */

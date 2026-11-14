@@ -49,8 +49,9 @@ object Names {
 /**
  * A name as the operations carry it: a commitment (SHA-256 of a random salt and of the name) that says nothing of
  * the name. The operations are read by every phone that was let in, the ones that wait for a group too: those must
- * learn no name (the user's answer Q2). The name itself travels apart, sealed for who has access ([NameCard],
- * [NameBook]).
+ * learn no name of a person nor of a group (the user's answer Q2). The name itself travels apart, sealed for who has
+ * access ([NameCard], [NameBook]); the name of the ensemble alone also travels in the invitation, for who waits (the
+ * user's answer T14).
  */
 class HiddenName(
     val commitment: ByteArray,
@@ -87,7 +88,7 @@ class NameCard(
 
     companion object {
         const val SALT_BYTES = 16
-        private val NAME_TAG = "toolmap-hierarchy-name-v3".toByteArray(Charsets.US_ASCII)
+        private val NAME_TAG = "toolmap-hierarchy-name-v4".toByteArray(Charsets.US_ASCII)
     }
 }
 
@@ -96,8 +97,9 @@ class NameCard(
  * nothing of the network: the caller hands it the [ShareKind.ROSTER] shares it opened ([accept]) and shares the cards
  * of [cardsFor] with whoever arrives.
  *
- * A phone that waits for a group holds none but its own: the cards travel sealed with the key of the whole ensemble,
- * which was never wrapped to it.
+ * A phone that waits for a group holds its own name and the name of the ensemble, which its invitation carried
+ * ([learnEnsembleName], the user's answer T14), and no other: the cards travel sealed with the key of the whole
+ * ensemble, which was never wrapped to it.
  */
 class NameBook {
     private val cards = LinkedHashMap<HiddenName, NameCard>()
@@ -125,6 +127,24 @@ class NameBook {
         return received.count { it.hidden !in cards && learn(it) }
     }
 
+    /**
+     * The card of the name of the ensemble, when this phone knows it: what an invitation carries, so that who is let
+     * in reads the name of the ensemble it joins, while it waits too (the user's answer T14). Whoever holds the
+     * invitation reads that name; the card opens no other.
+     */
+    @Synchronized
+    fun ensembleCard(state: HierarchyState): NameCard? = state.name?.let { cards[it] }
+
+    /**
+     * Takes in the [card] an invitation carried: kept only when it opens the name of the ensemble of [state], the
+     * name its first operation committed to. `false` for any other card, and before the first operation is there.
+     */
+    @Synchronized
+    fun learnEnsembleName(
+        state: HierarchyState,
+        card: NameCard,
+    ): Boolean = card.valid && card.hidden == state.name && learn(card)
+
     /** The name [hidden] stands for; `null` when this phone was not told. */
     @Synchronized
     fun nameOf(hidden: HiddenName?): String? = hidden?.let { cards[it]?.name }
@@ -149,7 +169,19 @@ class NameBook {
         cards.keys.retainAll(state.hiddenNames())
     }
 
-    /** Forgets everything: the phone left the ensemble, was put out of it or back to waiting, or it is dissolved. */
+    /**
+     * Forgets what the phone of [self] may no longer read ([HierarchyState.namesFor]): put back to waiting, every
+     * name but the one of the ensemble and its own; out of the ensemble or after its end, everything.
+     */
+    @Synchronized
+    fun prune(
+        state: HierarchyState,
+        self: Long,
+    ) {
+        cards.keys.retainAll(state.namesFor(self))
+    }
+
+    /** Forgets everything: the phone left the ensemble or was put out of it, or the ensemble is dissolved. */
     @Synchronized
     fun clear() = cards.clear()
 

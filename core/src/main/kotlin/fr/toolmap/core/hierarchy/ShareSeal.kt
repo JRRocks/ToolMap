@@ -79,7 +79,7 @@ sealed interface OpenResult {
 object ShareSeal {
     /** A share fits one frame of the mesh. */
     const val MAX_PAYLOAD = 12 * 1024
-    private val SHARE_TAG = "toolmap-hierarchy-share-v3".toByteArray(Charsets.US_ASCII)
+    internal val SHARE_TAG = "toolmap-hierarchy-share-v4".toByteArray(Charsets.US_ASCII)
 
     /**
      * Seals [payload] as a share of [kind] in [channel] by the phone that holds [keys]. Checked first: what this

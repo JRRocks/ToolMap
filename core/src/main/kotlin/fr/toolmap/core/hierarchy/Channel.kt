@@ -17,7 +17,10 @@ enum class Lane(
     /** Down to one precise group: its members, with those who command the unit above, who write there. */
     DOWN(3),
 
-    /** Between the leaders: the leader and the deputy of every unit, the administrators and the creator. */
+    /**
+     * Between the leaders: the leader and the deputy of every unit, the administrators and the creator. Where the
+     * alert of any of them goes, but for the leader of the ensemble and its deputy, who alert everyone.
+     */
     LEADERS(4),
 
     /** From one member who waits for a group to the administrators. */

@@ -25,7 +25,7 @@ class MemberKeys(
 
 /**
  * A member of the ensemble: the stable identifier of its phone, its name as the operations carry it (hidden: a phone
- * that waits for a group learns no name, [NameBook]), its keys, its group if it has one.
+ * that waits for a group learns no name of a person, [NameBook]), its keys, its group if it has one.
  */
 data class Member(
     val id: Long,
@@ -95,8 +95,9 @@ data class HierarchyState(
     /**
      * Whether [member] waits for a group: admitted, in no group, and holding none of the posts that give access
      * without one (creator, administrator, leader of the ensemble or its deputy). Someone who waits reads nothing of
-     * what the others share and learns no name; the one thing its phone sends is what the cells of [Role.WAITING]
-     * say (its position, to the administrators only), in a lane of its own ([Lane.WAITING]).
+     * what the others share and learns no name but the one of the ensemble; the one thing its phone sends is what
+     * the cells of [Role.WAITING] say (its position, to the administrators only), in a lane of its own
+     * ([Lane.WAITING]).
      */
     fun isWaiting(member: Long): Boolean {
         val known = members[member] ?: return false
@@ -197,11 +198,12 @@ data class HierarchyState(
      *   groups under it, and nobody else, administrators and leader of the ensemble included (Q16) ;
      * - [Lane.UP] of a group: its leader, its deputy, and those who command the unit above (S1) ;
      * - [Lane.DOWN] of a group: its members, and those who command the unit above, who write there (Q15) ;
-     * - [Lane.LEADERS]: the leader and the deputy of every unit, the administrators and the creator (Q6) ;
+     * - [Lane.LEADERS]: the leader and the deputy of every unit, the administrators and the creator (Q6, T5) ;
      * - [Lane.WAITING] of a member who waits: that member, the administrators and the creator (Q10).
      *
      * A lane nobody would write in has no reader, so no key is made for it: the lane up of a group without leader
-     * nor deputy, the lane down of a group without member, the lane of the leaders while no group has one.
+     * nor deputy, the lane down of a group without member. The lane of the leaders always has the creator, who
+     * alerts there (T13).
      */
     fun readersOf(channel: Channel): List<Member> {
         if (dissolved || !isChannel(channel)) return emptyList()
@@ -222,7 +224,7 @@ data class HierarchyState(
                 }
 
                 Lane.LEADERS -> {
-                    groups.keys.flatMap(::groupPosts).ifEmpty { return emptyList() } + commandOf(ROOT)
+                    groups.keys.flatMap(::groupPosts) + commandOf(ROOT)
                 }
 
                 Lane.WAITING -> {
@@ -276,6 +278,8 @@ data class HierarchyState(
     /**
      * Whether [author] may share something of [kind] into [channel] ([ShareTable]). Whatever the table says: only
      * in a channel the author reads (it needs its key), and someone who waits only has the cells of [Role.WAITING].
+     * For a kind that has one destination ([HierarchyRules.singleDestination]: the alert), one role of the author
+     * decides alone ([destinationRole]); for the others, any of its roles allows.
      */
     fun mayShare(
         author: Long,
@@ -285,7 +289,8 @@ data class HierarchyState(
         val known = members[author] ?: return false
         if (readersOf(channel).none { it.id == author }) return false
         val own = known.group
-        val roles = if (isWaiting(author)) setOf(Role.WAITING) else rolesOf(author)
+        val roles =
+            if (kind in rules.singleDestination) listOfNotNull(destinationRole(author, kind)) else sharingRoles(author)
         val scope = channel.scope
         return roles.any { role ->
             val mask = rules.shares.effectiveMask(kind, role)
@@ -303,6 +308,33 @@ data class HierarchyState(
             }
         }
     }
+
+    /** The roles that count for what [member] shares: only [Role.WAITING] for someone who waits. */
+    private fun sharingRoles(member: Long): Set<Role> = if (isWaiting(member)) setOf(Role.WAITING) else rolesOf(member)
+
+    /**
+     * The one role of [member] that says where its shares of [kind] go, for a kind that has one destination
+     * ([HierarchyRules.singleDestination]): the first of [Role.DESTINATION_ORDER] it holds whose cell is not empty
+     * (a deputy has the cell of its leader). `null` when none of its roles shares this kind, or when the kind has
+     * no single destination.
+     */
+    fun destinationRole(
+        member: Long,
+        kind: ShareKind,
+    ): Role? {
+        if (kind !in rules.singleDestination) return null
+        val held = sharingRoles(member)
+        return Role.DESTINATION_ORDER.firstOrNull { it in held && rules.shares.effectiveMask(kind, it) != 0 }
+    }
+
+    /**
+     * Where the alert of [author] goes: one channel, with no choice when sending (the user's answers Q6, T4, T13).
+     * With the rules of the start: everyone who has access for the leader of the ensemble and its deputy; else
+     * every leader ([Channel.LEADERS]) for the leader or the deputy of a group, an administrator, the creator; else
+     * its group for a member; `null` for someone who waits, who alerts nobody. An alert sealed for another channel
+     * is refused by every phone ([ShareSeal]). With other rules, the first channel of [shareChannels].
+     */
+    fun alertChannel(author: Long): Channel? = shareChannels(author, ShareKind.ALERT).firstOrNull()
 
     /** Whether [author] may share something of [kind] into the own channel of [unit]. */
     fun mayShare(
@@ -403,6 +435,19 @@ data class HierarchyState(
         members.values.mapTo(all) { it.name }
         return all
     }
+
+    /**
+     * The hidden names [member] may be told: all of them when it has access; the name of the ensemble (the
+     * invitation carries its card, the user's answer T14) and its own when it waits for a group; none when it is
+     * not in the ensemble or the ensemble is dissolved. For someone who waits this is what an honest phone keeps
+     * ([NameBook.prune]); what closes the other names to it is the keys: their cards are sealed for who has access.
+     */
+    fun namesFor(member: Long): Set<HiddenName> =
+        when {
+            hasAccess(member) -> hiddenNames()
+            !dissolved && isWaiting(member) -> setOfNotNull(name, members[member]?.name)
+            else -> emptySet()
+        }
 
     /**
      * What is wrong with this state, or `null`: a state built by [HierarchyReducer] never has anything wrong; one

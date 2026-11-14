@@ -19,16 +19,17 @@ data class Summary(
  * block starts with `version (1) | kind (1)`. Not tied to a transport: these bytes are the payload a later message
  * type of the mesh will carry.
  *
- * Version 3 (P39.4, 2026-11-14): names are hidden (a commitment of 32 bytes in place of the text), content keys and
- * shares name a channel (a lane and its scope) where version 2 named a unit, the rules carry two more kinds of
- * share, the role of who waits, the wider share reaches and the succession of the deputy. Versions 1 and 2 were
+ * Version 4 (P39.4, 2026-11-14): the rules carry the kinds of share that have one destination per person (the
+ * alert). Version 3, the same day: names are hidden (a commitment of 32 bytes in place of the text), content keys
+ * and shares name a channel (a lane and its scope) where version 2 named a unit, the rules carry two more kinds of
+ * share, the role of who waits, the wider share reaches and the succession of the deputy. Versions 1 to 3 were
  * never deployed (private design branch): they are not read, a block of another version is refused as such.
  *
  * Decoding refuses with a [WireException], and nothing else, whatever the bytes: truncated, too long, unknown codes,
  * or an operation not written the one way this version writes it (the proof of an operation signs its exact bytes).
  */
 object HierarchyWire {
-    const val VERSION = 3
+    const val VERSION = 4
 
     /** The most operations in one block; a longer catch-up takes several exchanges. */
     const val MAX_BATCH = 512
@@ -441,9 +442,10 @@ object HierarchyWire {
 
     /**
      * `n (1) | n × (operation, role, reach bits) | m (1) | m × (role, audience bits) |
-     * k (1) | k × (kind of share, role, share reach bits) | signed kinds of share (1) | flags (1) |
-     * most members (2) | most groups (2) | most levels (1)`: only the cells that are not empty, in the order of the
-     * codes. Flags: bit 0, the deputy takes the place of a leader who goes.
+     * k (1) | k × (kind of share, role, share reach bits) | signed kinds of share (1) |
+     * kinds of share with one destination (1) | flags (1) | most members (2) | most groups (2) | most levels (1)`:
+     * only the cells that are not empty, in the order of the codes. Flags: bit 0, the deputy takes the place of a
+     * leader who goes.
      */
     private fun rules(
         w: ByteWriter,
@@ -468,6 +470,7 @@ object HierarchyWire {
         w.u8(shared.size)
         for ((kind, role, mask) in shared) w.u8(kind.code).u8(role.code).u8(mask)
         w.u8(rules.signedShares.fold(0) { bits, kind -> bits or kind.bit })
+        w.u8(rules.singleDestination.fold(0) { bits, kind -> bits or kind.bit })
         w.u8(if (rules.deputySucceeds) DEPUTY_SUCCEEDS else 0)
         w.u16(rules.limits.maxMembers).u16(rules.limits.maxGroups).u8(rules.limits.maxDepth)
     }
@@ -499,6 +502,8 @@ object HierarchyWire {
         }
         val signed = r.u8()
         if (signed and ShareKind.ALL_BITS.inv() != 0) throw WireException("unknown signed kind of share")
+        val single = r.u8()
+        if (single and ShareKind.ALL_BITS.inv() != 0) throw WireException("unknown kind of share with one destination")
         val flags = r.u8()
         if (flags and DEPUTY_SUCCEEDS.inv() != 0) throw WireException("unknown rule")
         val limits = HierarchyLimits(r.u16(), r.u16(), r.u8())
@@ -510,6 +515,7 @@ object HierarchyWire {
             limits = limits,
             signedShares = ShareKind.entries.filter { signed and it.bit != 0 }.toSet(),
             deputySucceeds = flags and DEPUTY_SUCCEEDS != 0,
+            singleDestination = ShareKind.entries.filter { single and it.bit != 0 }.toSet(),
         )
     }
 

@@ -1,8 +1,8 @@
 # Groupes hiérarchiques du partage de position (P39)
 
 > Demande de l'utilisateur (2026-11-13) : `docs/PLAN.md` § P39. Décisions d'architecture : ADR-125 (journal d'opérations), ADR-126 (clés de contenu et signatures), ADR-127 (canaux, noms cachés, objets durables).
-> Ce document décrit le **moteur** (P39.2, mis aux règles de l'utilisateur par P39.4, puis à ses choix du second tour et à ses précisions S1 à S7 le 2026-11-14) : la logique, dans `:core`, paquet `fr.toolmap.core.hierarchy`. Rien n'est branché : ni transport, ni stockage, ni écran. Le système de groupe actuel (`fr.toolmap.core.p2p`, `docs/specs/p2p-sharing.md`) n'est pas modifié.
-> Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14.
+> Ce document décrit le **moteur** (P39.2, mis aux règles de l'utilisateur par P39.4, puis à ses choix du second tour et à ses précisions S1 à S7 le 2026-11-14, puis à ses réponses du troisième tour, T1 à T17, le même jour) : la logique, dans `:core`, paquet `fr.toolmap.core.hierarchy`. Rien n'est branché : ni transport, ni stockage, ni écran. Le système de groupe actuel (`fr.toolmap.core.p2p`, `docs/specs/p2p-sharing.md`) n'est pas modifié.
+> Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15.
 > Mots : dans les écrans, « ensemble » se dit « opération » et « leader » se dit « chef » (§ 10 ter) ; dans le code et dans ce document, `ensemble` et `leader` restent les noms techniques.
 
 ## 1. Vocabulaire
@@ -32,7 +32,7 @@
 - **Membres** : identifiant, nom, clés publiques, groupe (**un seul, ou aucun** : une nouvelle affectation remplace l'ancienne, V3).
 - **Limites, en données** (`HierarchyLimits`, dans les règles de l'ensemble) : 30 membres, 6 groupes, 1 niveau de groupes au départ (R17, R19). Un ensemble créé avec d'autres limites (jusqu'à 4 096 membres, 1 024 groupes, 8 niveaux : ce que le format porte) suit les mêmes règles, sans autre moteur. Les limites d'un ensemble sont fixées à sa création.
 - **Parent-enfant, écrit pour N niveaux** : chaque groupe porte son parent (`Group.parent`), l'ensemble ou un autre groupe. Les règles ci-dessous (postes, canaux, lecteurs, suppression) sont écrites pour une profondeur quelconque et testées à deux niveaux de groupes ; avec la limite de départ (1 niveau), créer un groupe dans un groupe est refusé (`TOO_DEEP`). Un membre appartient à un groupe précis, feuille ou non ; le leader d'un groupe est un membre de ce groupe même, pas d'un de ses sous-groupes.
-- **Noms** (ensemble, groupe, membre) : non vides, sans caractère de contrôle, 64 octets UTF-8 au plus (`Names`). **Les opérations et l'état ne portent pas le nom mais son empreinte** (`HiddenName`, § 8.8) : un téléphone en attente détient les opérations et ne doit lire aucun nom (Q2).
+- **Noms** (ensemble, groupe, membre) : non vides, sans caractère de contrôle, 64 octets UTF-8 au plus (`Names`). **Les opérations et l'état ne portent pas le nom mais son empreinte** (`HiddenName`, § 8.8) : un téléphone en attente détient les opérations et ne doit y lire aucun nom (Q2). Le seul nom qu'il lit, celui de l'ensemble, lui vient de son invitation (T14).
 - L'identifiant d'un groupe supprimé ne revient jamais (`deletedGroups`). Un groupe qui a encore des sous-groupes ne se supprime pas (`HAS_SUBGROUPS`) : on supprime d'abord ce qui est dessous.
 
 Un état construit par le moteur est toujours cohérent ; `HierarchyState.inconsistency()` le vérifie (tests, et lecture d'un état venu d'octets).
@@ -42,9 +42,11 @@ Un état construit par le moteur est toujours cohérent ; `HierarchyState.incons
 Un arrivant est admis **sans groupe** (V2) : il est « en attente » jusqu'à ce qu'un administrateur l'affecte à un groupe (R1). Tant qu'il attend :
 
 - il n'est lecteur d'**aucun canal des autres** : aucune de leurs clés de contenu n'est enveloppée pour son téléphone, il ne peut donc rien déchiffrer de ce qu'ils partagent (§ 8), et le transport n'a rien à lui adresser ;
-- il ne lit **aucun nom** (Q2) : les opérations qu'il détient ne portent que des empreintes ; les noms voyagent scellés avec la clé de tout l'ensemble, qu'il n'a pas (§ 8.8) ;
-- **sa position part aux administrateurs seulement** (Q10) : il a une voie à lui (`Lane.WAITING`), lue par lui, les administrateurs et le créateur. Il y envoie sa position et le nom qu'il a choisi, rien d'autre ; personne d'autre n'a le droit d'y écrire : rien ne lui arrive ;
+- il ne lit **aucun nom de personne ni de groupe** (Q2) : les opérations qu'il détient ne portent que des empreintes ; les noms voyagent scellés avec la clé de tout l'ensemble, qu'il n'a pas (§ 8.8) ;
+- il lit **le nom de l'ensemble, et aucun autre** (T14) : son invitation en porte la carte, que son téléphone vérifie contre la première opération (§ 8.8) ;
+- **sa position part aux administrateurs seulement** (Q10) : il a une voie à lui (`Lane.WAITING`), lue par lui, les administrateurs et le créateur. Il y envoie sa position et le nom qu'il a choisi, rien d'autre ; personne d'autre n'a le droit d'y écrire : rien ne lui arrive. Tant qu'il attend, les administrateurs le voient toujours (T15) : l'écran ne lui offre pas de quoi couper sa position (§ 9) ;
 - il ne voit personne sur la carte ; seuls les administrateurs et le créateur l'y voient (`canSee`) ;
+- il n'alerte personne et ne reçoit aucune alerte, pas même celle du leader d'ensemble (§ 4.2) ;
 - il peut quitter l'ensemble, rien d'autre.
 
 Gardent l'accès **sans groupe** : le créateur, les administrateurs, le leader d'ensemble et son adjoint (§ 10 ter, point 5 ; l'adjoint parce qu'il a les droits de son leader). L'accès suit le poste : un administrateur sans groupe à qui le créateur retire son rôle attend un groupe.
@@ -124,10 +126,10 @@ Six sortes de partage (`ShareKind`) : position, croquis, waypoint, message, **al
 | `UNIT` | Un groupe | Ses membres et ceux des groupes qui sont dessous ; **personne d'autre**, administrateurs et leader d'ensemble compris s'ils n'en sont pas membres | Q16 |
 | `UP` | Ce qui remonte d'un groupe | Son leader, son adjoint, et le commandement de l'unité du dessus (pour un groupe sous l'ensemble : leader d'ensemble, son adjoint, administrateurs, créateur). Pas les autres leaders de groupe, pas les membres du groupe | Q3, S1 |
 | `DOWN` | Ce qui descend vers un groupe précis | Ses membres (et dessous), et le commandement de l'unité du dessus, qui y écrit | Q15 |
-| `LEADERS` | Entre tous les chefs | Le leader et l'adjoint de chaque unité (ensemble et groupes), les administrateurs, le créateur | Q6 |
+| `LEADERS` | Entre tous les chefs | Le leader et l'adjoint de chaque unité (ensemble et groupes), les administrateurs, le créateur | Q6, T5 |
 | `WAITING` | La voie d'un membre en attente | Ce membre, les administrateurs, le créateur | Q10 |
 
-Une voie où personne n'écrirait n'a pas de lecteurs, donc pas de clé : la voie montante d'un groupe sans leader ni adjoint, la voie descendante d'un groupe sans membre, la voie des chefs tant qu'aucun groupe n'a de leader ni d'adjoint.
+Une voie où personne n'écrirait n'a pas de lecteurs, donc pas de clé : la voie montante d'un groupe sans leader ni adjoint, la voie descendante d'un groupe sans membre. La voie des chefs a toujours au moins un lecteur, le créateur, qui y alerte (T13) ; comme toute voie, elle n'a besoin de sa clé qu'au premier usage (§ 9).
 
 **Qui écrit où** (`ShareTable`) : une case par sorte et par rôle contient des **portées**, chacune désignant un canal vu de l'auteur :
 
@@ -141,7 +143,7 @@ Une voie où personne n'écrirait n'a pas de lecteurs, donc pas de clé : la voi
 | `LEADERS` | La voie des chefs |
 | `WAITING` | Sa propre voie d'attente |
 
-« L'unité que son rôle commande » : l'ensemble pour le créateur, un administrateur, le leader d'ensemble et son adjoint ; son groupe pour un leader de groupe et son adjoint. Deux règles tiennent quelle que soit la table : **on n'écrit que dans un canal qu'on lit** (il en faut la clé), et **qui attend n'a que les cases du rôle « en attente »** (le rôle « membre », qu'il tient aussi, ne lui donne rien à partager).
+« L'unité que son rôle commande » : l'ensemble pour le créateur, un administrateur, le leader d'ensemble et son adjoint ; son groupe pour un leader de groupe et son adjoint. Trois règles tiennent quelle que soit la table : **on n'écrit que dans un canal qu'on lit** (il en faut la clé) ; **qui attend n'a que les cases du rôle « en attente »** (le rôle « membre », qu'il tient aussi, ne lui donne rien à partager) ; et, pour une sorte **à destination unique** (`HierarchyRules.singleDestination`, une donnée de l'ensemble : l'alerte), **un seul rôle de l'auteur décide** (ci-dessous), là où pour les autres sortes les rôles s'additionnent.
 
 **Table de départ** (`ShareTable.DEFAULT`, une ligne de code par réponse) :
 
@@ -150,7 +152,7 @@ Une voie où personne n'écrirait n'a pas de lecteurs, donc pas de clé : la voi
 | Position | (comme membre) | (comme membre) | tout l'ensemble | sa voie d'attente |
 | Croquis, waypoint | tout l'ensemble ; un groupe précis | remonter | son groupe | — |
 | Message | tout l'ensemble ; répondre dans le fil du milieu d'un groupe | le fil du milieu de son groupe | son groupe | — |
-| Alerte | leader d'ensemble seulement : tout l'ensemble | tous les chefs | son groupe | — |
+| Alerte (une seule destination) | leader d'ensemble : tout l'ensemble ; créateur, administrateur : tous les chefs | tous les chefs | son groupe | — |
 | Noms | (comme membre) | (comme membre) | tout l'ensemble | sa voie d'attente |
 
 Ce que cela donne :
@@ -160,11 +162,24 @@ Ce que cela donne :
 - **Remontée** (Q3, S1) : le leader d'un groupe et son adjoint font remonter croquis et waypoints ; les reçoivent le leader d'ensemble, son adjoint et les administrateurs (le créateur en est), pas les autres leaders de groupe. L'adjoint remonte comme son leader et lit ce que son leader a remonté. Plus aucun leader de groupe ne diffuse à tout l'ensemble.
 - **Diffusion à tout l'ensemble** (S2) : le leader d'ensemble, son adjoint, les administrateurs, le créateur. Personne d'autre.
 - **Envoi à un groupe précis** (Q15) : croquis et waypoints, par ceux qui diffusent à tout l'ensemble. Le groupe lit cette voie et n'y écrit pas : ce qu'il partage reste chez lui.
-- **Alerte selon le rôle** (Q6) : un membre alerte son groupe ; un leader de groupe ou son adjoint alerte tous les chefs (et peut alerter son groupe, dont il est membre) ; le leader d'ensemble ou son adjoint alerte tout le monde ; un administrateur sans poste de chef alerte comme un membre (donc personne, s'il n'a pas de groupe : § 14, question 1).
+- **Alerte selon le rôle, une seule destination par personne** (Q6, T4, T13) : détail ci-dessous.
 - **Messages : trois fils** (S3) : « mon groupe » (le canal du groupe) ; le **fil du milieu** (la voie montante du groupe : son leader, son adjoint et le commandement de l'ensemble, qui y répond) ; « tout l'ensemble » (écrit par le commandement, lu par tous). Un fil du milieu par groupe, parce que les autres leaders de groupe ne doivent pas lire ce qu'un leader remonte (S1). L'autre lecture, un fil commun à tous les chefs, est un changement de deux cases (`LEADERS` à la place de `UP` et de `UP_BELOW`) : un test le montre.
 - **Avec des sous-groupes** : les mêmes règles un niveau plus bas. Le leader d'un sous-groupe remonte au leader et à l'adjoint du groupe qui le contient, jamais plus haut.
 
-`HierarchyState.mayShare(auteur, sorte, canal)`, `shareChannels(auteur, sorte)` et `channelsReadBy(membre)` répondent sans rien écrire.
+**L'alerte : une seule destination par personne, sans choix à l'envoi** (Q6, T4, T5, T13, T16). Les rôles se cumulent ; pour l'alerte ils ne s'additionnent pas. Parmi les rôles que tient l'auteur, **le premier dont la case « alerte » n'est pas vide décide seul**, dans cet ordre (`Role.DESTINATION_ORDER`) : leader d'ensemble, son adjoint, créateur, administrateur, leader de groupe, son adjoint, membre. Avec la table de départ :
+
+| L'auteur est | Son alerte part | Qui la lit |
+|---|---|---|
+| Leader d'ensemble ou son adjoint, quoi qu'il soit d'autre (membre d'un groupe, leader de groupe, administrateur, créateur) | À tout l'ensemble (`Channel.ENSEMBLE`) | Tous les membres placés ; pas ceux qui attendent (T16) |
+| Sinon leader de groupe, adjoint de groupe, administrateur ou créateur, avec ou sans groupe | À tous les chefs (`Channel.LEADERS`), **et pas à son propre groupe** (T4, T13) | Le leader d'ensemble, son adjoint, les leaders de groupe, leurs adjoints, les administrateurs, le créateur (T5) |
+| Sinon membre d'un groupe | À son groupe | Les membres de ce groupe, son leader et son adjoint compris |
+| En attente | Nulle part | — |
+
+`HierarchyState.alertChannel(auteur)` donne ce canal (`null` pour qui attend), `destinationRole(auteur, sorte)` le rôle qui a décidé. Une alerte scellée pour un autre canal est refusée par le téléphone de l'auteur (`mayShare`), et par tous ceux qui la reçoivent si un téléphone modifié la scelle quand même (`ShareSeal.open` : `NOT_ALLOWED`). La destination suit le rôle du moment : un membre nommé leader de son groupe alerte désormais les chefs, plus son groupe (conséquence : § 8.6). Un créateur seul, sans administrateur ni aucun chef, a bien une destination (la voie des chefs) mais personne d'autre ne la lit : l'écran doit compter les lecteurs (`readersOf`) avant de promettre que l'alerte arrive à quelqu'un.
+
+Tout cela est en données : la lecture de T13 tient en une case par rôle (sans les cases « alerte » du créateur et de l'administrateur, ils alertent comme des membres : leur groupe, ou personne) ; l'autre réponse à T4 (« tous les chefs et son groupe ») est une case, les deux portées dans celle du leader de groupe ; un ensemble créé sans l'alerte dans `singleDestination` retrouve l'addition des rôles (l'auteur aurait alors un choix à faire à l'envoi). Un test par cas (`HierarchyAlertTest`).
+
+`HierarchyState.mayShare(auteur, sorte, canal)`, `shareChannels(auteur, sorte)`, `alertChannel(auteur)` et `channelsReadBy(membre)` répondent sans rien écrire.
 
 ### 4.3 Qui voit la position de qui (`VisibilityTable`)
 
@@ -174,7 +189,7 @@ Pour chaque rôle de celui qui regarde, les **publics** qu'il voit (`SAME_GROUP`
 
 ### 4.4 Comment un nom s'écrit sur la carte (`nameLabel`)
 
-Q17 : le nom est écrit **en entier** sur son propre jeton, sur ceux des membres de son groupe et sur ceux de quiconque tient un poste de leader ou d'adjoint (d'un groupe ou de l'ensemble) ; les autres jetons portent des **initiales** (`Names.initials` : première lettre des deux premiers mots, ou deux premières lettres d'un mot seul, en capitales), le nom entier se lit en touchant le jeton. C'est une **règle d'affichage**, pas une fermeture : tout membre qui a l'accès détient tous les noms (§ 8.8). Ce que coûterait de le garantir par les clés : § 14.
+Q17 : le nom est écrit **en entier** sur son propre jeton, sur ceux des membres de son groupe et sur ceux de quiconque tient un poste de leader ou d'adjoint (d'un groupe ou de l'ensemble) ; les autres jetons portent des **initiales** (`Names.initials` : première lettre des deux premiers mots, ou deux premières lettres d'un mot seul, en capitales), le nom entier se lit en touchant le jeton. C'est une **règle d'affichage**, pas une fermeture : tout membre qui a l'accès détient tous les noms (§ 8.8). L'utilisateur l'a confirmé (T11 : c'est pour la lisibilité, la fiche et la liste donnent le nom entier) : rien n'est à fermer par les clés. Ce que cela aurait coûté : § 14.
 
 ## 5. Opérations
 
@@ -269,9 +284,9 @@ Le téléphone revenu peut avoir écrit des opérations hors réseau : elles pre
 
 ## 7. Format binaire (`HierarchyWire`)
 
-Gros-boutiste, comme `Wire`. Tout bloc commence par `version (1) = 3 | genre (1)`. Clé publique : point P-256 non compressé, 65 octets (`0x04 | X | Y`). Signature : `r (32) | s (32)`. Nom caché : 32 octets. Canal : `voie (1) | portée (8)`. Le format n'est **pas** branché au transport.
+Gros-boutiste, comme `Wire`. Tout bloc commence par `version (1) = 4 | genre (1)`. Clé publique : point P-256 non compressé, 65 octets (`0x04 | X | Y`). Signature : `r (32) | s (32)`. Nom caché : 32 octets. Canal : `voie (1) | portée (8)`. Le format n'est **pas** branché au transport.
 
-**Version 3 (2026-11-14).** Par rapport à la version 2 : les noms sont des empreintes de 32 octets et non plus du texte ; les lots de clés et les partages nomment un canal (une voie et sa portée) là où la version 2 nommait une unité ; les règles portent deux sortes de partage de plus, le rôle « en attente », les nouvelles portées de partage et la succession de l'adjoint. **Les versions 1 et 2 n'ont jamais été déployées** (branche de conception privée, rien de publié) : elles ne sont pas lues, aucune compatibilité n'est gardée. Un bloc d'une autre version est refusé proprement (`WireException` « unknown version », `kindOf` rend `null`) ; les étiquettes de toutes les signatures et dérivations portent `v3`, de sorte qu'une signature faite pour la version 2 ne vaut rien ici.
+**Version 4 (2026-11-14).** Par rapport à la version 3 : les règles portent un octet de plus, les sortes de partage **à destination unique** (l'alerte, § 4.2) ; un ensemble créé avec les règles de la version 3 n'aurait pas été lu de la même façon par ce moteur, d'où le changement de version. Version 3 (le même jour), par rapport à la version 2 : les noms sont des empreintes de 32 octets et non plus du texte ; les lots de clés et les partages nomment un canal (une voie et sa portée) là où la version 2 nommait une unité ; les règles portent deux sortes de partage de plus, le rôle « en attente », les nouvelles portées de partage et la succession de l'adjoint. **Les versions 1 à 3 n'ont jamais été déployées** (branche de conception privée, rien de publié) : elles ne sont pas lues, aucune compatibilité n'est gardée. Un bloc d'une autre version est refusé proprement (`WireException` « unknown version », `kindOf` rend `null`) ; les étiquettes de toutes les signatures et dérivations portent `v4`, de sorte qu'une signature faite pour la version 3 ne vaut rien ici.
 
 | Genre | Contenu |
 |---|---|
@@ -303,7 +318,7 @@ Gros-boutiste, comme `Wire`. Tout bloc commence par `version (1) = 3 | genre (1)
 
 **Clés d'un membre** : `clé de signature (65) | clé d'accord (65)`.
 
-**Règles** : `n (1) | n × (opération (1), rôle (1), portées (1))` pour les cases non vides des droits, dans l'ordre des codes ; `m (1) | m × (rôle (1), publics (1))` ; `k (1) | k × (sorte de partage (1), rôle (1), portées de partage (1))` ; `sortes signées (1)` ; `drapeaux (1 ; bit 0 : l'adjoint succède au leader qui s'en va)` ; `membres au plus (2) | groupes au plus (2) | niveaux au plus (1)`. Codes : rôles 1 à 8 (`Role`), opérations 1 à 15 (`Operation`), portées en bits 1 / 2 / 4 (`Reach`), publics en bits 1 à 16 (`Audience`), sortes de partage 1 à 6 (`ShareKind`, en bits 1 à 32 pour les sortes signées), portées de partage en bits 1 à 64 (`ShareReach`), voies 1 à 5 (`Lane`).
+**Règles** : `n (1) | n × (opération (1), rôle (1), portées (1))` pour les cases non vides des droits, dans l'ordre des codes ; `m (1) | m × (rôle (1), publics (1))` ; `k (1) | k × (sorte de partage (1), rôle (1), portées de partage (1))` ; `sortes signées (1)` ; `sortes à destination unique (1)` ; `drapeaux (1 ; bit 0 : l'adjoint succède au leader qui s'en va)` ; `membres au plus (2) | groupes au plus (2) | niveaux au plus (1)`. Codes : rôles 1 à 8 (`Role`), opérations 1 à 15 (`Operation`), portées en bits 1 / 2 / 4 (`Reach`), publics en bits 1 à 16 (`Audience`), sortes de partage 1 à 6 (`ShareKind`, en bits 1 à 32 pour les sortes signées et pour les sortes à destination unique), portées de partage en bits 1 à 64 (`ShareReach`), voies 1 à 5 (`Lane`).
 
 **État** : `ensemble (8) | nom caché (32) | drapeaux (1 ; bit 0 : dissous) | créateur (8) | leader (8 ; 0 : vacant) | adjoint (8 ; 0 : aucun) | règles | n (2) | n × (membre (8), nom caché (32), clés (130), groupe (8 ; 0 : aucun), administrateur (1))` puis `g (2) | g × (groupe (8), parent (8), nom caché (32), leader (8), adjoint (8))` puis `d (2) | d × groupe supprimé (8)`, tout par identifiant croissant : un même état donne toujours les mêmes octets. Il sert à garder l'état sur le disque pour un démarrage rapide ; l'accord entre téléphones passe par les opérations, jamais par l'état.
 
@@ -313,7 +328,7 @@ Gros-boutiste, comme `Wire`. Tout bloc commence par `version (1) = 3 | genre (1)
 
 **Charges utiles définies par le moteur** (à l'intérieur de la partie scellée) : pour un croquis ou un waypoint, un **enregistrement d'objet** (§ 8.7) : `auteur (8) | objet (8) | révision (4) | éditeur (8) | drapeaux (1 ; bit 0 : retiré) | signature de l'éditeur (64) | corps` ; pour des noms, des **cartes** (§ 8.8) : `n (2) | n × (sel (16), nom)`, le nom en longueur sur 1 octet puis UTF-8, 128 cartes au plus par partage. Les autres sortes (position, message, alerte) portent ce que l'application y met.
 
-**Tailles** : une opération fait 158 octets de plus que le corps de son changement (en-tête, longueur, ensemble, auteur, numéro, horloge, code, preuve) : 174 octets pour une affectation, 206 pour une création de groupe, 328 pour une admission (un nom pèse 32 octets quelle que soit sa longueur), 530 pour la création de l'ensemble avec les règles de départ. Un lot de clés : 182 octets plus 56 par lecteur (518 pour 6 lecteurs, 1 862 pour 30). Un partage : 64 octets de plus que sa charge utile, 128 quand il est signé ; une position de 32 octets signée : 160 octets (96 sans signature). Un objet durable : 93 octets de plus que son corps, dans un partage signé. Une carte de nom : 17 octets plus le nom.
+**Tailles** : une opération fait 158 octets de plus que le corps de son changement (en-tête, longueur, ensemble, auteur, numéro, horloge, code, preuve) : 174 octets pour une affectation, 206 pour une création de groupe, 328 pour une admission (un nom pèse 32 octets quelle que soit sa longueur), 537 pour la création de l'ensemble avec les règles de départ (530 en version 3 : deux cases de plus pour l'alerte du créateur et de l'administrateur, un octet pour les sortes à destination unique). Un lot de clés : 182 octets plus 56 par lecteur (518 pour 6 lecteurs, 1 862 pour 30). Un partage : 64 octets de plus que sa charge utile, 128 quand il est signé ; une position de 32 octets signée : 160 octets (96 sans signature). Un objet durable : 93 octets de plus que son corps, dans un partage signé. Une carte de nom : 17 octets plus le nom.
 
 **Entrées invalides** : le décodage ne lève qu'une `WireException`, quels que soient les octets (testé : coupures à chaque longueur, octets modifiés, bruit, bloc lu comme un autre genre). Sont refusés : version ou genre inconnu, données tronquées ou en trop, code inconnu, identifiant 0, clé qui n'est pas un point de la courbe ou qui n'est pas celle du membre, règle, voie ou limite inconnue, voie qui ne peut pas exister (voie des chefs d'un groupe, voie montante de l'ensemble), état incohérent, lot de clés sans lecteur ou mal ordonné, carte dont le nom est refusé par `Names`, et toute opération qui n'est pas écrite de **la seule façon** dont cette version l'écrit (le décodeur réécrit l'opération et compare : la signature porte sur ces octets exacts).
 
@@ -351,9 +366,9 @@ Besoin (R1, § 10 ter point 5, puis Q3, Q15, Q16, Q6, Q10, S1 à S3) : le télé
 
 **Qui détient quoi.**
 
-- **Clé de l'invitation** (à brancher, § 9) : portée par le lien ou le QR d'invitation ; elle scelle les trames qui transportent les opérations et les lots de clés. Tout membre admis l'a, **en attente compris** : c'est ce qui lui permet de recevoir le journal des changements, donc de savoir qu'il est admis, à qui envoyer sa position, puis qu'il est placé. Elle n'ouvre **aucun partage** et ne donne **aucun nom**.
-- **Ce que détient un membre en attente** : sa propre identité (ses deux paires de clés), la clé de l'invitation, le journal des opérations (sans aucun nom : des identifiants, des clés publiques, la forme de la hiérarchie, qui tient quel poste), et la clé de sa propre voie d'attente. Aucune autre clé de contenu : aucune n'a jamais été enveloppée pour lui, et les lots qu'il voit passer ne contiennent aucune copie qu'il puisse ouvrir (testé : chaque copie de chaque lot essayée avec ses clés).
-- **Clés de contenu** : une par canal et par liste de lecteurs. Un membre placé détient celles de son groupe, de chaque unité au-dessus, de l'ensemble, et de la voie descendante de son groupe ; un leader de groupe ou son adjoint, en plus, celles de la voie montante de son groupe et de la voie des chefs ; le commandement de l'ensemble, celles de l'ensemble, de toutes les voies montantes et descendantes, de la voie des chefs ; les administrateurs et le créateur, en plus, celles des voies d'attente. **Aucun d'eux ne détient la clé d'un groupe dont il n'est pas membre.**
+- **Clé de l'invitation** (à brancher, § 9) : portée par le lien ou le QR d'invitation ; elle scelle les trames qui transportent les opérations et les lots de clés. Tout membre admis l'a, **en attente compris** : c'est ce qui lui permet de recevoir le journal des changements, donc de savoir qu'il est admis, à qui envoyer sa position, puis qu'il est placé. Elle n'ouvre **aucun partage** et ne donne **aucun nom** ; l'invitation porte, à côté d'elle, la carte du nom de l'ensemble, et de lui seul (T14, § 8.8).
+- **Ce que détient un membre en attente** : sa propre identité (ses deux paires de clés), la clé de l'invitation, le journal des opérations (sans aucun nom : des identifiants, des clés publiques, la forme de la hiérarchie, qui tient quel poste), la carte du nom de l'ensemble venue de son invitation (T14), et la clé de sa propre voie d'attente. Aucune autre clé de contenu : aucune n'a jamais été enveloppée pour lui, et les lots qu'il voit passer ne contiennent aucune copie qu'il puisse ouvrir (testé : chaque copie de chaque lot essayée avec ses clés).
+- **Clés de contenu** : une par canal et par liste de lecteurs. Un membre placé détient celles de son groupe, de chaque unité au-dessus, de l'ensemble, et de la voie descendante de son groupe ; un leader de groupe ou son adjoint, en plus, celles de la voie montante de son groupe et de la voie des chefs ; le commandement de l'ensemble (administrateurs et créateur compris, chefs ou non), celles de l'ensemble, de toutes les voies montantes et descendantes, de la voie des chefs ; les administrateurs et le créateur, en plus, celles des voies d'attente. **Aucun d'eux ne détient la clé d'un groupe dont il n'est pas membre.**
 
 **Comment une clé est faite** (`ContentKeys.issue`, `KeyRing.issue`).
 
@@ -376,7 +391,7 @@ Besoin (R1, § 10 ter point 5, puis Q3, Q15, Q16, Q6, Q10, S1 à S3) : le télé
 
 ### 8.4 Pourquoi une clé par canal
 
-Le fil « mon groupe » (R7) et tout ce qu'un groupe partage ne doivent être lus que dans ce groupe (Q16) ; ce qu'un chef remonte, que par le commandement (S1) ; l'alerte d'un chef, que par les chefs (Q6) ; la position de qui attend, que par les administrateurs (Q10). Avec une seule clé pour tout l'ensemble, ou une seule par groupe, ce ne seraient que des filtres d'affichage : tout membre placé pourrait lire le reste avec une application modifiée. La sécurité étant exigée dans ce mode, chaque canal a sa clé. C'est le même code pour toutes les voies ; un lot de voie est petit.
+Le fil « mon groupe » (R7) et tout ce qu'un groupe partage ne doivent être lus que dans ce groupe (Q16) ; ce qu'un chef remonte, que par le commandement (S1) ; l'alerte d'un chef, d'un administrateur ou du créateur, que par les chefs, et pas par le groupe de celui qui alerte (Q6, T4, T13) ; la position de qui attend, que par les administrateurs (Q10). Avec une seule clé pour tout l'ensemble, ou une seule par groupe, ce ne seraient que des filtres d'affichage : tout membre placé pourrait lire le reste avec une application modifiée. La sécurité étant exigée dans ce mode, chaque canal a sa clé. C'est le même code pour toutes les voies ; un lot de voie est petit.
 
 La voie descendante existe pour concilier Q15 et Q16 : le commandement doit pouvoir **écrire à** un groupe sans pouvoir **lire** ce groupe. Avec une clé commune il faut la détenir pour sceller ; lui donner la clé du groupe lui ouvrirait le groupe. La voie descendante a donc ses propres lecteurs (le groupe et le commandement) et sa propre clé, et le groupe n'a pas le droit d'y écrire : rien de ce qu'il partage n'y passe.
 
@@ -386,19 +401,23 @@ La voie descendante existe pour concilier Q15 et Q16 : le commandement doit pouv
 - **Signature de l'auteur**, à l'intérieur de la partie scellée, pour les sortes que les règles nomment (`HierarchyRules.signedShares`) : **toutes, positions comprises** (S5). Sans elle, n'importe quel lecteur d'un canal pourrait partager au nom d'un autre : une clé commune dit seulement « un des lecteurs ». C'est ce qui rend les filtres du § 4.2 réels : un membre a la clé de l'ensemble (pour les positions), il ne peut pas pour autant y écrire un message au nom du leader.
 - **Ouvrir**, dans l'ordre : le téléphone détient la clé nommée (sinon `NO_KEY`) ; il lit encore ce canal (`NOT_A_READER`) ; la clé ouvre (`UNDECIPHERABLE`) ; **l'auteur a le droit, dans l'état du moment**, de partager cette sorte dans ce canal (`NOT_ALLOWED` : qui a été retiré, a changé de groupe ou a perdu son poste ne partage plus, même avec une clé qu'il a gardée) ; puis, pour une sorte signée, la signature est celle de l'auteur avec la clé de son admission (`FORGED`) ; pour une sorte non signée, la clé doit être celle des lecteurs du moment (`STALE_KEY`), puisque seule la clé dit alors qui a scellé.
 - Un partage signé, scellé avec la clé précédente par un téléphone qui n'avait pas encore appris un changement, est donc encore lu par ceux qui détiennent cette clé : rien ne se perd pendant qu'un changement se propage.
+- **Une alerte n'a qu'une destination** (§ 4.2) : le droit vérifié à l'ouverture est celui-là. L'alerte qu'un téléphone modifié scelle ailleurs (un leader de groupe dans son propre groupe, un administrateur dans le sien, quiconque dans tout l'ensemble sans le mener) est refusée par tous ses lecteurs (`NOT_ALLOWED`), signée ou non (testé avec une trame bien faite, signée de la clé de son auteur).
 
 **Positions signées (S5) : ce que cela coûte.** Format : celui de tout partage signé ; la signature (64 octets) est dans la partie scellée, après la position. Vérification : à l'ouverture, avec la clé de signature inscrite à l'admission de l'auteur ; une position dont la signature n'est pas celle de son auteur est refusée (`FORGED`), sur tous les téléphones, y compris quand elle est scellée avec la bonne clé par un autre lecteur (testé). Taille, pour une position de 32 octets : **96 octets sans signature, 160 avec** (+ 64, soit + 67 %). Temps, **mesuré sur la JVM de la machine de build** (OpenJDK 21, 4 processeurs, `PositionCostTest`, 400 tours après échauffement, écrit dans `core/build/hierarchy-position-cost.txt`), deux passages, le premier seul, le second pendant le build complet : sceller une position, 14 à 30 µs sans signature et 0,2 à 0,4 ms avec (la signature seule : 198 à 373 µs) ; l'ouvrir, 10 à 24 µs sans et 0,7 à 1 ms avec (la vérification seule : 706 à 901 µs). Signer coûte donc une quinzaine de fois plus que sceller, et vérifier une quarantaine de fois plus qu'ouvrir, sur des durées qui restent sous la milliseconde ici. **Rien n'est mesuré sur un téléphone** : un téléphone est plus lent, une clé de signature gardée dans le Keystore plus lente encore (un appel au matériel par signature), et l'effet sur la batterie n'est pas connu. À 30 membres qui envoient chacun une position toutes les quelques secondes, chaque téléphone vérifie une trentaine de signatures par période : à mesurer sur le terrain avant un usage réel. Le choix reste une donnée de l'ensemble (`signedShares`) : un ensemble créé sans les positions dans cette liste a des positions légères et la limite connue (un lecteur peut forger la position d'un autre, testé).
 
-Testé (`ShareSealTest`, `HierarchyKeysTest`, `HierarchyChoicesTest`, `PositionCostTest`) : allers-retours des six sortes dans les cinq voies, tailles ; partage qu'un téléphone modifié scelle sans en avoir le droit, ou au nom d'un autre : refusé partout ; octets abîmés, coupés, bruit : toujours un refus, jamais autre chose.
+Testé (`ShareSealTest`, `HierarchyKeysTest`, `HierarchyChoicesTest`, `HierarchyAlertTest`, `PositionCostTest`) : allers-retours des six sortes dans les cinq voies, tailles ; partage qu'un téléphone modifié scelle sans en avoir le droit, ou au nom d'un autre : refusé partout ; octets abîmés, coupés, bruit : toujours un refus, jamais autre chose.
 
 ### 8.6 Ce que ce schéma ne fait pas
 
 - **Recevoir.** Le moteur dit à qui adresser (`readersOf`) ; empêcher un téléphone en attente de **recevoir** les octets chiffrés dépend du transport : sur une liaison directe on n'envoie qu'aux lecteurs ; par le serveur de coordination, qui relaie à tous ceux qui ont la clé de l'invitation, il verra passer des octets qu'il ne peut pas ouvrir. La fermeture garantie est celle du déchiffrement.
 - **Pendant qu'un changement se propage**, un téléphone qui ne l'a pas appris scelle encore pour l'ancienne liste : celui qui vient d'en sortir lit ces partages-là. Cela dure le temps que l'opération arrive.
 - **Un membre placé malveillant** peut toujours recopier ce qu'il lit, et remettre un lot ou une clé à qui il veut : aucune cryptographie ne l'empêche.
-- **Ce qu'un téléphone en attente apprend sans les noms** : combien il y a de membres et de groupes, leurs identifiants et leurs clés publiques, qui (par identifiant) tient quel poste, quand la hiérarchie change. Aucun nom de personne, de groupe ni de l'ensemble. Cacher aussi cette forme demanderait de ne pas lui donner le journal, donc de lui faire croire sur parole qui est administrateur : écarté.
+- **Ce qu'un téléphone en attente apprend sans les noms** : combien il y a de membres et de groupes, leurs identifiants et leurs clés publiques, qui (par identifiant) tient quel poste, quand la hiérarchie change. Aucun nom de personne ni de groupe ; le nom de l'ensemble, par son invitation (T14). Cacher aussi cette forme demanderait de ne pas lui donner le journal, donc de lui faire croire sur parole qui est administrateur : écarté.
+- **Quiconque détient l'invitation lit le nom de l'ensemble** (T14, § 8.8) : celui à qui elle est destinée, mais aussi celui à qui on l'a transmise, qui a photographié le QR, ou un membre retiré qui l'a gardée. Rien d'autre : aucun nom de personne ni de groupe, aucun partage.
 - **Quiconque détient encore la clé de l'invitation** (un membre retiré, tant que l'invitation n'est pas renouvelée) continue de lire la forme de la hiérarchie, pas les noms nouveaux ni aucun partage.
-- **Téléphone du créateur perdu** (S7). L'ensemble **continue** avec ses administrateurs : admettre, créer, renommer et supprimer des groupes, placer, changer de groupe, remettre en attente (ce qui coupe un accès), nommer à tous les postes ; les membres partagent, partent d'eux-mêmes. **Plus personne ne peut** : retirer un membre de l'ensemble, nommer ou retirer un administrateur, passer la main, dissoudre. Un administrateur qui part n'est pas remplacé ; quand il n'en reste plus, plus personne n'admet, ne place ni ne nomme : l'ensemble ne fait plus que partager jusqu'à ce qu'on en crée un autre. **Le téléphone perdu reste le créateur** : il garde l'accès sans groupe, personne ne peut le retirer ni le remettre en attente, et chaque clé neuve de l'ensemble, des voies montantes et descendantes, de la voie des chefs et des voies d'attente est encore enveloppée pour lui. Qui trouve ce téléphone déverrouillé lit donc tout cela jusqu'à la fin de l'ensemble. La seule parade est celle que l'utilisateur a choisie : créer une nouvelle opération (testé : `HierarchyChoicesTest`, S7).
+- **Une alerte partie juste avant un changement de rôle de son auteur.** La destination d'une alerte suit le rôle du moment, et le droit se vérifie à l'ouverture, dans l'état du moment : si un membre alerte son groupe puis est nommé leader (ou l'inverse) avant que l'alerte soit arrivée partout, les téléphones qui apprennent la nomination d'abord refusent l'alerte (`NOT_ALLOWED`) ; ceux qui l'ont déjà ouverte l'ont eue (testé). C'est la règle de tout partage, mais une alerte ne doit pas se perdre : au branchement, une alerte déjà affichée reste affichée, et le téléphone d'un auteur dont la destination change pendant que son alerte court la renvoie dans la nouvelle (§ 9).
+- **Un membre remis en attente garde ce qu'il avait reçu** (accepté par l'utilisateur, T16) : les noms appris, les clés et les objets reçus jusque-là, qu'un téléphone honnête oublie (`KeyRing.prune`, `SharedObjects.prune`, `NameBook.prune`). Il n'apprend plus rien de nouveau.
+- **Téléphone du créateur perdu** (S7). L'ensemble **continue** avec ses administrateurs : admettre, créer, renommer et supprimer des groupes, placer, changer de groupe, remettre en attente (ce qui coupe un accès), nommer à tous les postes ; les membres partagent, partent d'eux-mêmes. **Plus personne ne peut** : retirer un membre de l'ensemble, nommer ou retirer un administrateur, passer la main, dissoudre. Un administrateur qui part n'est pas remplacé ; quand il n'en reste plus, plus personne n'admet, ne place ni ne nomme : l'ensemble ne fait plus que partager jusqu'à ce qu'on en crée un autre. **Le téléphone perdu reste le créateur** : il garde l'accès sans groupe, personne ne peut le retirer ni le remettre en attente, et chaque clé neuve de l'ensemble, des voies montantes et descendantes, de la voie des chefs et des voies d'attente est encore enveloppée pour lui. Qui trouve ce téléphone déverrouillé lit donc tout cela jusqu'à la fin de l'ensemble (accepté par l'utilisateur, T16). La seule parade est celle que l'utilisateur a choisie : créer une nouvelle opération (testé : `HierarchyChoicesTest`, S7).
 - **Rejeu.** Une trame captée et renvoyée plus tard par quelqu'un qui n'a pas la clé reste valable tant que son auteur a le droit : la date ou le numéro du partage est dans la charge utile, à contrôler au branchement (comme le maillage le fait déjà pour les messages). Les objets durables portent leur révision : un état plus ancien ne remplace jamais un plus récent.
 - **Anciens messages et anciennes positions** : jamais renvoyés (S6).
 - **Téléphone perdu, changé ou restauré** : nouvelles clés, donc nouveau membre.
@@ -430,19 +449,23 @@ Testé (`SharedObjectsTest`) : l'arrivant placé dans un groupe, canal par canal
 
 ### 8.8 Noms cachés (`HiddenName`, `NameCard`, `NameBook` ; Q2, Q11)
 
-**Le besoin.** Qui attend ne doit lire aucun nom (Q2 : « sobre »). Or il détient le journal des opérations, et il en a besoin : c'est ce qui lui dit qui est administrateur, donc à qui sceller sa position, et ce qui lui permet de vérifier les lots de clés. Les noms sortent donc des opérations.
+**Le besoin.** Qui attend ne doit lire aucun nom de personne ni de groupe (Q2 : « sobre ») ; il lit le nom de l'ensemble, et lui seul (T14). Or il détient le journal des opérations, et il en a besoin : c'est ce qui lui dit qui est administrateur, donc à qui sceller sa position, et ce qui lui permet de vérifier les lots de clés. Les noms sortent donc des opérations.
 
 **Ce que porte une opération.** À la place d'un nom, son **empreinte** : SHA-256 d'un sel de 16 octets tiré au hasard et du nom (`HiddenName`, 32 octets). Elle ne dit rien du nom (le sel empêche d'essayer des noms), et elle l'engage : le nom ne peut pas être changé après coup sans une nouvelle opération. L'état ne porte que des empreintes.
 
 **La carte.** Ce qui ouvre une empreinte : le sel et le nom (`NameCard`). Une carte **se prouve elle-même** (son empreinte est dans une opération signée par qui avait le droit de l'écrire) : n'importe quel téléphone qui en détient une peut la transmettre, sans rien avoir à garantir.
 
-**Comment les noms voyagent.** Dans un partage de la sorte « noms » (`ShareKind.ROSTER`), scellé avec la clé de **tout l'ensemble** : tous ceux qui ont l'accès le lisent, qui attend ne peut pas (testé : la trame ne s'ouvre pas chez lui, et ni les opérations ni l'état qu'il détient ne contiennent un nom, pas même le sien). Chaque téléphone garde ses cartes dans un carnet (`NameBook`) ; à l'arrivée d'un membre dans l'ensemble, un téléphone présent lui partage les cartes des noms que porte l'état (`NameBook.cardsFor`), comme il lui renvoie les objets durables.
+**Comment les noms voyagent.** Dans un partage de la sorte « noms » (`ShareKind.ROSTER`), scellé avec la clé de **tout l'ensemble** : tous ceux qui ont l'accès le lisent, qui attend ne peut pas (testé : la trame ne s'ouvre pas chez lui, et ni les opérations ni l'état qu'il détient ne contiennent un nom, pas même le sien ni celui de l'ensemble). Chaque téléphone garde ses cartes dans un carnet (`NameBook`) ; à l'arrivée d'un membre dans l'ensemble, un téléphone présent lui partage les cartes des noms que porte l'état (`NameBook.cardsFor`), comme il lui renvoie les objets durables.
 
 **Le nom de celui qui entre** (Q11). Il choisit son nom ; son téléphone en fait la carte, et l'empreinte va dans l'opération qui l'admet. Tant qu'il attend, il envoie sa carte dans sa voie d'attente : les administrateurs savent qui ils placent, les autres non.
 
-**Ce que le moteur garantit pour les noms** : par les clés, aucun nom à qui attend ni à qui est hors de l'ensemble. Entre membres qui ont l'accès, tous les noms sont connus de tous ; la règle « en entier ou en initiales » (Q17, § 4.4) est une règle d'affichage.
+**Le nom de l'ensemble, pour qui attend** (T14). L'invitation porte la **carte du nom de l'ensemble** (`NameBook.ensembleCard`, donnée par le téléphone qui invite : il a l'accès, donc la carte). Le téléphone invité s'en sert pour écrire « Rejoindre l'opération “…” ? », puis, dès qu'il détient la première opération, la vérifie : `NameBook.learnEnsembleName` ne garde la carte que si elle ouvre l'empreinte que cette opération a signée (et l'identifiant de l'ensemble, que l'invitation porte aussi, n'admet qu'une première opération, § 5) ; une carte qui ouvrirait un autre nom, de personne ou de groupe, est refusée. Avant cette vérification, le nom affiché n'est que ce que dit l'invitation. `HierarchyState.namesFor(membre)` dit quels noms un membre a le droit de connaître : tous s'il a l'accès ; le nom de l'ensemble et le sien s'il attend ; aucun s'il est dehors ou après la dissolution. Remis en attente, un téléphone honnête oublie les autres (`NameBook.prune(état, soi)`) ; retiré, il oublie tout.
 
-Testé (`NamesTest`, `HierarchyChoicesTest`) : empreintes, cartes, carnet, format, bruit ; le téléphone en attente et ce qu'il détient.
+**Ce que cela donne à quiconque détient l'invitation.** Le nom de l'ensemble, en clair, et rien de plus : le sel de la carte ne sert qu'à cette empreinte-là, les autres noms ont chacun le leur. Détiennent l'invitation : celui qu'on invite, toute personne à qui le lien est transmis ou qui voit le QR, et un membre retiré qui l'a gardée. Le nom d'une opération n'est donc pas un secret : il ne faut rien y écrire de confidentiel (à dire sur l'écran de création, § 9). Il ne change pas après coup (pas d'opération pour renommer l'ensemble) : l'invitation ne peut pas devenir fausse.
+
+**Ce que le moteur garantit pour les noms** : par les clés, aucun nom de personne ni de groupe à qui attend ni à qui est hors de l'ensemble ; le nom de l'ensemble à qui détient l'invitation. Entre membres qui ont l'accès, tous les noms sont connus de tous ; la règle « en entier ou en initiales » (Q17, T11, § 4.4) est une règle d'affichage.
+
+Testé (`NamesTest`, `HierarchyChoicesTest`) : empreintes, cartes, carnet, format, bruit ; le téléphone en attente et ce qu'il détient (les octets de ses opérations, de son état et de son carnet ne contiennent que le nom de l'ensemble ; chacun des neuf autres noms y est cherché) ; la carte d'un autre nom refusée ; ce qu'il oublie remis en attente, puis retiré.
 
 ## 9. Ce qu'il faudra pour brancher
 
@@ -450,14 +473,15 @@ Rien de ceci n'est fait.
 
 **Transport** (`Wire.kt`, `MeshNode.kt`, `:p2p`) :
 
-- Un ensemble est un partage **à part** du groupe actuel : sa propre invitation, ses propres trames. L'invitation porte l'identifiant de l'ensemble et la **clé de l'invitation** ; celle-ci scelle (comme `GroupCrypto` aujourd'hui) les trames de quatre genres nouveaux : opérations (`OPS`), résumé (`SUMMARY`), lot de clés (`KEYS`), partage (`SHARE`). Les versions qui ne les connaissent pas les écartent déjà. Pour afficher « Rejoindre l'opération “…” ? » (Q11), l'invitation peut porter la carte du nom de l'ensemble : c'est un choix d'écran, qui donne ce nom à quiconque a l'invitation.
+- Un ensemble est un partage **à part** du groupe actuel : sa propre invitation, ses propres trames. L'invitation porte l'identifiant de l'ensemble et la **clé de l'invitation** ; celle-ci scelle (comme `GroupCrypto` aujourd'hui) les trames de quatre genres nouveaux : opérations (`OPS`), résumé (`SUMMARY`), lot de clés (`KEYS`), partage (`SHARE`). Les versions qui ne les connaissent pas les écartent déjà. **L'invitation porte aussi la carte du nom de l'ensemble** (T14 ; `NameBook.ensembleCard` sur le téléphone qui invite) : elle sert à afficher « Rejoindre l'opération “…” ? » (Q11) et reste le seul nom que lit celui qui attend ; elle donne ce nom à quiconque a l'invitation (§ 8.8). Dès que le téléphone invité détient la première opération, il vérifie la carte (`learnEnsembleName`) ; si elle ne correspond pas, il n'affiche plus ce nom et le signale (`Problems.expected`).
 - **Arrivée** : le nouveau téléphone montre ses deux clés publiques et l'empreinte du nom qu'il a choisi (une demande d'entrée signée, à écrire ; **pas le nom en clair** : la demande voyage sous la clé de l'invitation, que tout téléphone en attente détient) ; un administrateur écrit `AdmitMember` avec ces clés et cette empreinte. L'arrivant rattrape alors le journal, y lit qui sont les administrateurs, **émet lui-même la clé de sa voie d'attente** (il en est lecteur, et le premier de `keyIssuers`), puis y envoie la carte de son nom et sa position. Il attend ensuite d'être placé.
 - À l'ouverture d'une liaison, après `HELLO` : envoyer son résumé, répondre par `missingFor`, puis les lots de `batchesFor`, puis ce qui est encore affiché (ci-dessous). Refaire de temps en temps.
-- **Après chaque changement d'état** : `KeyRing.retry` ; `KeyRing.prune`, `SharedObjects.prune` et `NameBook.prune` (oublier ce qu'on ne lit plus) ; pour chaque canal de `KeyRing.missing`, attendre un délai selon son rang dans `keyIssuers`, puis `KeyRing.issue` si aucun lot n'est arrivé. **Tout de suite pour le canal d'une unité ; pour une voie (montante, descendante, des chefs, d'attente), seulement quand ce téléphone a quelque chose à y partager** : cela évite de refaire treize lots à chaque changement d'administrateur. Les partages durables (messages, croquis, waypoints, alertes) en attente de clé se gardent et se scellent quand elle arrive ; une position se saute.
+- **Après chaque changement d'état** : `KeyRing.retry` ; `KeyRing.prune`, `SharedObjects.prune` et `NameBook.prune(état, soi)` (oublier ce qu'on ne lit plus ; remis en attente, le carnet ne garde que le nom de l'ensemble et le sien) ; pour chaque canal de `KeyRing.missing`, attendre un délai selon son rang dans `keyIssuers`, puis `KeyRing.issue` si aucun lot n'est arrivé. **Tout de suite pour le canal d'une unité ; pour une voie (montante, descendante, des chefs, d'attente), seulement quand ce téléphone a quelque chose à y partager** : cela évite de refaire treize lots à chaque changement d'administrateur. Les partages durables (messages, croquis, waypoints, alertes) en attente de clé se gardent et se scellent quand elle arrive ; une position se saute.
 - **Renvoyer à qui arrive** (S6, § 8.7 et 8.8) : après un changement d'état, `état.arrivals(étatPrécédent)` donne, canal par canal, qui vient d'y entrer. Pour chaque canal où quelqu'un arrive, et une fois sa clé du moment disponible, un téléphone de `resenders(sorte, canal)` attend un délai selon son rang, puis scelle de nouveau chaque enregistrement de `SharedObjects.resend(canal)` ; pour une arrivée dans l'ensemble, un téléphone qui a l'accès partage aussi les cartes de `NameBook.cardsFor`. Pour ne pas le faire plusieurs fois, celui qui voit passer le renvoi d'un autre (mêmes enregistrements : `DUPLICATE`) annule le sien.
 - **Renvoyer à qui revient** : à l'ouverture d'une liaison, après les opérations et les clés, les deux téléphones échangent, pour chaque canal qu'ils lisent tous les deux, l'empreinte `SharedObjects.digest(canal)` (elle ne dit rien des objets ; elle peut voyager sous la clé de l'invitation) et le nombre de noms qui leur manquent (`NameBook.missing`). Là où les empreintes diffèrent, celui des deux qui a le droit de partager dans le canal renvoie ce qu'il détient ; l'autre aussi s'il en a le droit. Un téléphone qui n'en a pas le droit attend de croiser quelqu'un qui l'a. À écrire plus tard si les volumes le demandent : échanger l'inventaire (objet, révision) pour ne renvoyer que ce qui manque.
 - **Adresser** : un partage ne s'envoie qu'aux lecteurs de son canal là où le transport le permet (§ 8.6).
-- **Alerte** : `shareChannels(auteur, ALERT)` donne les canaux où l'auteur a le droit d'alerter ; lequel ou lesquels utiliser au moment de l'envoi est un choix d'écran (§ 14, question 2). Le moteur ne porte que le droit et la fermeture.
+- **Alerte** : `alertChannel(auteur)` donne **le** canal où part l'alerte de l'auteur, sans choix à l'envoi (§ 4.2) ; `null` : pas d'alerte (qui attend). L'écran écrit à qui elle part d'après `readersOf` de ce canal (l'auteur ôté ; personne, pour un créateur seul). Une alerte ne doit pas se perdre dans un changement de rôle (§ 8.6) : une alerte déjà affichée chez un lecteur le reste, et quand `alertChannel` de l'auteur change pendant que son alerte court, son téléphone la renvoie dans le nouveau canal. Ce qu'une alerte contient, comment on y répond et comment elle finit restent à définir.
+- **Celui qui attend ne coupe pas sa position** (T15) : tant qu'il attend, les administrateurs le voient toujours. C'est l'écran qui n'offre pas l'interrupteur, et le service qui envoie sa position dans sa voie d'attente tant que `isWaiting` ; le moteur n'a rien à porter (il ne connaît pas d'interrupteur). Il lui reste « Quitter l'opération ».
 - Taille : une trame fait 16 Kio au plus, et une trame de contrôle du serveur de coordination 4 096 octets : `missingFor(résumé, max)` avec `max` ≈ 12 opérations par trame du serveur ; un lot de clés tient dans une trame du serveur jusqu'à 69 lecteurs, dans une trame directe jusqu'à 289 ; au-delà il faudra le couper (à écrire quand les limites monteront). Un objet durable tient dans un partage jusqu'à 12 195 octets de corps.
 - Ce que `add`, `offer` et `accept` répondent sert au journal d'événements : `CONFLICT_…`, `UNAUTHENTICATED`, `MALFORMED`, `FULL`, `FORGED`, `WRONG_RECIPIENTS`, `DAMAGED`, `UNKNOWN_EDITOR` sont à signaler (`Problems.expected`) ; `HELD` et `UNKNOWN_READERS` déclenchent un rattrapage.
 - **Renouveler l'invitation** après un retrait (nouvelle clé de l'invitation, distribuée comme une clé de contenu à tous les membres admis) : à écrire, pour qu'un membre retiré ne suive plus la forme de la hiérarchie.
@@ -466,7 +490,7 @@ Rien de ceci n'est fait.
 
 **Stockage** (`:data`) : garder les opérations (`HierarchyReplica.ops()` → `HierarchyWire.encodeOpBlocks`), relire par `HierarchyReplica.restore` ; l'état se recalcule. Garder les clés de contenu détenues (à protéger par le Keystore), les lots vérifiés, les cartes de noms et les enregistrements d'objets (`SharedRecords.encode`). Tout effacer en quittant l'ensemble, quand on en est retiré, ou à sa dissolution ; effacer ce qui tient à un canal quand on cesse de le lire.
 
-**Interface** (après validation des maquettes de P39.5, `CLAUDE.md` § « aperçu validé avant le code ») : tout se lit dans `HierarchyState` (`rolesOf`, `isWaiting`, `waiting`, `groupOf`, `membersOf`, `visibleTo`, `nameLabel`, `shareChannels`, `channelsReadBy`) et dans `NameBook` (un nom peut ne pas être encore connu : prévoir de quoi l'écrire en attendant), se demande par `issue`, se grise par `HierarchyReducer.check`, et les refus arrivés après coup se lisent dans `history()`. Un bouton ne doit jamais supposer qu'un changement écrit est définitif. « Quitter » pour le créateur propose : désigner un successeur parmi les administrateurs (`TransferCreator` puis `RemoveMember` de lui-même), ou dissoudre (`Dissolve`, confirmé par un glissement, Q4) ; si le passage de main a perdu contre un départ simultané du successeur, le départ du créateur est refusé et l'écran le lui dit.
+**Interface** (après validation des maquettes de P39.5, `CLAUDE.md` § « aperçu validé avant le code ») : tout se lit dans `HierarchyState` (`rolesOf`, `isWaiting`, `waiting`, `groupOf`, `membersOf`, `visibleTo`, `nameLabel`, `shareChannels`, `alertChannel`, `channelsReadBy`, `namesFor`) et dans `NameBook` (un nom peut ne pas être encore connu : prévoir de quoi l'écrire en attendant), se demande par `issue`, se grise par `HierarchyReducer.check`, et les refus arrivés après coup se lisent dans `history()`. Un bouton ne doit jamais supposer qu'un changement écrit est définitif. « Quitter » pour le créateur propose : désigner un successeur parmi les administrateurs (`TransferCreator` puis `RemoveMember` de lui-même), ou dissoudre (`Dissolve`, confirmé par un glissement, Q4) ; si le passage de main a perdu contre un départ simultané du successeur, le départ du créateur est refusé et l'écran le lui dit. L'écran de création dit que le nom de l'opération est lu par quiconque reçoit l'invitation (§ 8.8) : texte visible, à montrer en maquette avant tout code.
 
 **Fil d'exécution** : `HierarchyReplica`, `KeyRing`, `NameBook` et `SharedObjects` sont synchronisés ; `HierarchyState` est immuable, on peut la donner telle quelle à l'interface.
 
@@ -698,33 +722,34 @@ Le moteur (P39.4) et le troisième passage de maquettes (P39.5) sont relancés s
 |---|---|
 | `HierarchyRules.kt` | `Role`, `Operation`, `Reach`, `RightsTable`, `Audience`, `VisibilityTable`, `ShareKind`, `ShareReach`, `ShareTable`, `HierarchyLimits`, `HierarchyRules` |
 | `Channel.kt` | `Lane`, `Channel` : les lieux où l'on partage |
-| `HierarchyState.kt` | `MemberKeys`, `Member`, `Group`, `HierarchyState` (`rolesOf`, `isWaiting`, `hasAccess`, `commandOf`, `channels`, `readersOf`, `channelsReadBy`, `mayShare`, `shareChannels`, `resenders`, `arrivals`, `canSee`, `nameLabel`, `hiddenNames`, `pathToRoot`, `inconsistency`), `NameLabel` |
+| `HierarchyState.kt` | `MemberKeys`, `Member`, `Group`, `HierarchyState` (`rolesOf`, `isWaiting`, `hasAccess`, `commandOf`, `channels`, `readersOf`, `channelsReadBy`, `mayShare`, `shareChannels`, `destinationRole`, `alertChannel`, `resenders`, `arrivals`, `canSee`, `nameLabel`, `hiddenNames`, `namesFor`, `pathToRoot`, `inconsistency`), `NameLabel` |
 | `Op.kt` | `Post`, `Change`, `Op` (ordre `Op.ORDER`), `OpProof` |
 | `HierarchyReducer.kt` | `HierarchyReducer.reduce` / `check` (dont la succession de l'adjoint), `Rejection` |
 | `HierarchyReplica.kt` | `HierarchyReplica` (`add`, `issue`, `summary`, `missingFor`, `history`, `ops`, `readers`, `signingKeyOf`, `create`, `restore`), `AddResult`, `IssueResult` |
-| `HierarchyWire.kt` | Format binaire version 3, `Summary` |
+| `HierarchyWire.kt` | Format binaire version 4, `Summary` |
 | `OpAuth.kt` | `PhoneKeys`, `P256` (clés et signatures sous une seule forme, accord de clés), `OpAuth` (identifiants par empreinte, signature des opérations) |
 | `HierarchyKeys.kt` | `Readers`, `ContentKey`, `KeyBatch`, `KeyOffer`, `ContentKeys` (émettre, vérifier, ouvrir un lot), `KeyRing` (les clés d'un téléphone, par canal), `keyIssuers` |
 | `ShareSeal.kt` | `Share`, `ShareSeal.seal` / `open`, `ShareRefusal` |
 | `SharedObjects.kt` | `SharedRecord`, `ObjectRef`, `SharedRecords` (écrire, retirer, signer, format), `SharedObjects` (ce qui est encore affiché, ce qu'on renvoie), `ObjectVerdict` |
-| `Names.kt` | `Names` (noms acceptés, initiales), `HiddenName`, `NameCard`, `NameBook` |
+| `Names.kt` | `Names` (noms acceptés, initiales), `HiddenName`, `NameCard`, `NameBook` (dont `ensembleCard`, `learnEnsembleName` : le nom de l'ensemble porté par l'invitation) |
 
-Tests (`core/src/test/kotlin/fr/toolmap/core/hierarchy/`, 121 tests) :
+Tests (`core/src/test/kotlin/fr/toolmap/core/hierarchy/`, 140 tests) :
 
 | Fichier | Ce qu'il vérifie |
 |---|---|
 | `HierarchyReducerTest` (33) | Une règle de l'utilisateur par test, le nom du test commence par la réponse vérifiée (V3, R1 à R19, P2, Q3, Q13) ; refus et leurs motifs ; tables en données ; limites ; sous-groupes à deux niveaux |
-| `HierarchyChoicesTest` (17) | Les choix du second tour, un test par choix, par les clés quand il s'agit d'une fermeture : Q3 / S1, S2, Q15, Q16, Q6, S3, Q2, Q10, Q12, Q7, Q18 / S4, Q5, Q9, Q14 / P3, P4, Q11 / Q17, S7 |
+| `HierarchyChoicesTest` (17) | Les choix du second et du troisième tour, un test par choix, par les clés quand il s'agit d'une fermeture : Q3 / S1, S2, Q15, Q16, Q6 / T4 / T13, S3, Q2 / T14, Q10, Q12, Q7, Q18 / S4, Q5, Q9, Q14 / P3, P4, Q11 / Q17, S7 |
+| `HierarchyAlertTest` (18) | § 4.2 : une seule destination d'alerte par personne, un test par combinaison de rôles (membre ; leader de groupe ; adjoint de groupe ; administrateur avec ou sans groupe ; créateur avec ou sans groupe, seul ; leader d'ensemble et son adjoint ; leader de groupe et leader d'ensemble ; administrateur ou créateur et leader d'ensemble ; administrateur ou créateur et leader de groupe ; en attente ; sous-groupes) ; par les clés (T4, T13, T16) ; alerte scellée ailleurs par un téléphone modifié, refusée partout ; la destination qui suit le rôle ; le même résultat dans les ordres d'arrivée ; les cases et la règle en données |
 | `HierarchyReplicaTest` (25) | Cas du § 6.2 dans les deux ordres d'arrivée (attente, adjoints, promotion de l'adjoint, retrait, passage de main, dissolution compris), rattrapage, stockage, deux opérations sous un numéro, convergence sur 50 graines |
 | `OpAuthTest` (6) | § 8.1 : signature obligatoire, refus des opérations non ou mal signées, forme unique des clés et des signatures |
 | `HierarchyKeysTest` (14) | § 8.3 et 8.4 : membre en attente fermé, arrivée, sortie (quatre façons, téléphone informé ou non), clé par canal, sous-groupes, retour d'un absent, deux émetteurs à la fois, lots refusés, ordre des émetteurs, dissolution |
 | `ShareSealTest` (8) | § 8.5 : sceller et ouvrir les six sortes dans les cinq voies, partages forgés ou hors droits refusés, téléphone en retard, octets abîmés |
 | `SharedObjectsTest` (6) | § 8.7 (S6) : l'arrivant, le revenant, l'objet d'un membre parti, enregistrements forgés, format, borne |
-| `NamesTest` (3) | § 8.8 : empreintes, cartes, carnet, format |
+| `NamesTest` (4) | § 8.8 : empreintes, cartes, carnet, format ; le nom de l'ensemble, seul nom donné à qui attend (T14) |
 | `PositionCostTest` (2) | § 8.5 (S5) : taille d'une position signée, refus d'une position abîmée, temps mesurés sur la JVM |
-| `HierarchyWireTest` (7) | § 7 : allers-retours, refus (dont les versions 1 et 2), octets abîmés, pour tous les genres de blocs |
+| `HierarchyWireTest` (7) | § 7 : allers-retours, refus (dont les versions 1 à 3), octets abîmés, pour tous les genres de blocs |
 
-Commande : `./gradlew :core:test --tests 'fr.toolmap.core.hierarchy.*'` (≈ 40 s).
+Commande : `./gradlew :core:test --tests 'fr.toolmap.core.hierarchy.*'` (≈ 45 s).
 
 Utilise de l'existant, sans le modifier : `ByteWriter` / `ByteReader` / `WireException` (`p2p/Bytes.kt`), `GroupCrypto.hkdfSha256` (`p2p/GroupCrypto.kt`), `Problems` / `catchExpected` (`problem/`). Aucune dépendance nouvelle.
 
@@ -950,3 +975,77 @@ Aujourd'hui : règle d'affichage. Tout membre placé détient tous les noms, et 
    Il ne voit aucun nom de personne ni de groupe : c'est acquis.
    a. Oui, le nom de l'opération seulement (recommandé) : l'écran « Rejoindre l'opération ? » peut le montrer ; il suffit que l'invitation le porte.
    b. Non (aujourd'hui) : rien du tout, pas même le nom de l'opération, tant qu'il n'est pas placé.
+
+## 15. Remontée du 2026-11-14 : moteur aux réponses du troisième tour (T1 à T17)
+
+Pour la session principale (session 110, 2026-11-14, branche `claude/laughing-dijkstra-yz3opa`, partie de `conception/groupes-hierarchiques` dbd5829, 0.4.244). Les §§ 1 à 9 et 11 décrivent le moteur tel qu'il est après ce passage ; les §§ 10 à 10 quinquies et 12 à 14 ne sont pas modifiés, et cette session n'a pas écrit le § 10 sexies (réponses de l'utilisateur, session locale). Pas de nouvel ADR : aucune décision d'architecture ne change (l'ADR-127 couvre les canaux et les noms cachés ; le format passe en version 4 pour une donnée de plus dans les règles).
+
+### Ce qui a changé
+
+- **Alerte d'un chef de groupe et de son adjoint** (T4 B) : à tous les chefs, **plus à leur propre groupe**.
+- **Alerte d'un administrateur ou du créateur qui n'est pas chef** (T13) : à tous les chefs, qu'il ait un groupe ou non, et pas à son groupe. Deux cases de la table (une par rôle) ; sans elles il alerte comme un membre.
+- **Une seule destination d'alerte par personne** (§ 4.2) : l'alerte est une sorte « à destination unique » (`HierarchyRules.singleDestination`, donnée de l'ensemble) ; parmi les rôles cumulés de l'auteur, le premier dont la case n'est pas vide décide seul (`Role.DESTINATION_ORDER` : leader d'ensemble, son adjoint, créateur, administrateur, leader de groupe, son adjoint, membre). `HierarchyState.alertChannel(auteur)` donne le canal, `destinationRole` le rôle qui a décidé ; une alerte scellée ailleurs est refusée par le téléphone de l'auteur et par tous les autres.
+- **La voie des chefs a toujours un lecteur** (le créateur, qui y alerte) : elle n'attend plus qu'un groupe ait un chef.
+- **Nom de l'opération pour celui qui attend** (T14) : l'invitation porte la carte du nom de l'ensemble ; `NameBook.ensembleCard` la donne à celui qui invite, `learnEnsembleName` ne la garde chez l'invité que si elle ouvre le nom signé par la première opération, `HierarchyState.namesFor` dit quels noms un membre a le droit de connaître, `NameBook.prune(état, soi)` fait oublier les autres à un téléphone remis en attente. Ce que cela donne à quiconque détient l'invitation : § 8.8 et § 8.6.
+- **Format binaire version 4** (§ 7) : un octet de plus dans les règles (les sortes à destination unique) ; les versions 1 à 3, jamais déployées, sont refusées.
+- **Rien à changer dans le moteur** pour T15 (c'est l'écran qui n'offre pas l'interrupteur : § 9), T11 A (règle d'affichage : § 4.4), T12, T6, T2 et T5 (c'est ce que faisait déjà le moteur : tests ci-dessous).
+- Rien hors du paquet `hierarchy`, de ses tests et de `docs/` ; un fichier de tests nouveau, `HierarchyAlertTest.kt`.
+
+### Les 27 lectures du § 14
+
+« Confirmée » : par une réponse de l'utilisateur, nommée. « Toujours à confirmer » : aucune des réponses transmises à cette session ne la cite ; la session principale sait ce que T16 et T17 ont montré.
+
+| Lecture | État |
+|---|---|
+| 1. L'adjoint d'un chef de groupe remonte comme son chef | Confirmée (T16) |
+| 2. Ceux qui diffusent à toute l'opération envoient à un groupe précis | Confirmée (T2) |
+| 3. L'alerte d'un chef de groupe est lue par les administrateurs et le créateur | Confirmée (T5) |
+| 4. Un administrateur ou le créateur sans poste de chef alerte comme un membre | **Changée** (T13 : à tous les chefs, avec ou sans groupe, pas à son groupe) |
+| 5. Le fil du milieu : un fil par groupe | Confirmée (T6) |
+| 6. Le successeur devient créateur sans avoir à accepter | Toujours à confirmer |
+| 7. Le créateur compte parmi « les administrateurs » | Confirmée pour la voie des chefs et l'alerte (T5, T13) ; pour les remontées, la diffusion et les voies d'attente : toujours à confirmer |
+| 8. Les positions vont à toute l'opération | Confirmée (T16) |
+| 9. L'envoi à un groupe précis : croquis et waypoints, pas les messages | Confirmée (T16) |
+| 10. Le groupe lit ce qui descend vers lui et n'y répond pas là | Toujours à confirmer |
+| 11. Dans le fil du milieu, le commandement répond par des messages seulement | Toujours à confirmer |
+| 12. Un chef de groupe a deux destinations possibles pour une alerte | **Changée** (T4 B : une seule, tous les chefs) |
+| 13. « Le chef part » comprend le changement de groupe et la remise en attente | Confirmée (T16) |
+| 14. Le chef de l'opération sorti de son groupe reste chef de l'opération | Toujours à confirmer |
+| 15. Sans successeur, c'est l'écran qui écrit « dissoudre » ; le moteur refuse le simple départ du créateur | Toujours à confirmer (T8 A, la glissière dans la fenêtre aux deux sorties, va dans ce sens) |
+| 16. L'ancien créateur redevient un membre comme un autre | Confirmée (T16) |
+| 17. « Aucun nom » pour celui qui attend, pas même celui de l'opération | **Changée** (T14 : le nom de l'opération, et aucun autre) |
+| 18. La position de celui qui attend part aux administrateurs et au créateur ; il leur envoie le nom qu'il a choisi | Confirmée pour la position (T15 : ils le voient toujours) ; l'envoi du nom choisi : toujours à confirmer |
+| 19. Q17 est une règle d'affichage | Confirmée (T11 A) |
+| 20. Initiales : première lettre des deux premiers mots, ou deux premières lettres | Toujours à confirmer |
+| 21. Un croquis ou un waypoint reste affiché tant qu'on ne le retire pas | Confirmée (T12) |
+| 22. Le retirent son auteur et ceux qui peuvent partager au même endroit | Confirmée (T12) |
+| 23. « Ce que sa place lui laisse voir » : les canaux qu'il lit aujourd'hui | Toujours à confirmer |
+| 24. Qui renvoie les objets et les noms à l'arrivant | Toujours à confirmer (choix technique) |
+| 25. Toutes les sortes sont signées, alertes et noms compris | Toujours à confirmer (choix technique) |
+| 26. Une voie où personne n'écrirait n'a pas de clé | **Changée** pour la voie des chefs (elle a toujours le créateur) ; inchangée pour les voies montantes et descendantes |
+| 27. Sous-groupes : ce que remonte le chef d'un sous-groupe va au groupe du dessus | Toujours à confirmer (pas de sous-groupes au départ) |
+
+Acceptés aussi par T16, hors de ces 27 lignes : le membre remis en attente garde ce qu'il avait reçu ; le téléphone perdu du créateur reste lecteur ; l'alerte du chef de l'opération ne va pas à ceux qui attendent (§ 8.6, § 4.2 ; testés).
+
+### Ce qui est vérifié, et comment
+
+- `./gradlew :core:test --tests 'fr.toolmap.core.hierarchy.*'` : **140 tests, 0 échec** (121 avant ce passage ; 18 pour l'alerte, 1 pour le nom de l'opération). Aucun test retiré ni désactivé. Huit tests d'avant échouaient après le changement du moteur, tous pour une règle changée : remis aux nouvelles règles (l'alerte de Q6 et de Q16, les canaux lus par le créateur, trois listes de canaux où la voie des chefs apparaît, la version et la taille du format) ; le test « Q2 » est étendu à T14. Les 19 tests nouveaux sont passés à leur premier passage.
+- **Alerte** (`HierarchyAlertTest`) : un test par combinaison de rôles (liste au § 11) ; chaque test vérifie le canal, que tout autre canal de l'ensemble est refusé, le rôle qui décide et la liste des lecteurs. Par les clés : la trame est remise aux neuf téléphones, la liste de ceux qui l'ouvrent est comparée à la liste attendue. Alerte « envoyée ailleurs » : une trame bien faite (bonne clé, signée de la clé de son auteur) scellée par un téléphone modifié dans huit endroits interdits ; personne ne l'ouvre, chaque lecteur répond `NOT_ALLOWED` ; la même trame dans la bonne destination s'ouvre. Deux changements simultanés remis à trois téléphones dans trois ordres : même destination pour chaque membre.
+- **Nom de l'opération** : le test cherche chacun des dix noms dans les octets de ce que détient le téléphone en attente (opérations, état, carnet) : seul le nom de l'opération s'y trouve, et seulement dans le carnet ; la carte d'un nom de groupe, de personne, ou d'un autre nom d'opération est refusée.
+- **Ce que faisait déjà le moteur**, vérifié par les tests existants, verts : T2 (« Q15 », les quatre auteurs dont l'administrateur), T5 (« Q6 T4 T13 », lecteurs de la voie des chefs, par les clés), T6 (« S3 »), T12 (`SharedObjectsTest` : l'objet d'un membre parti, renvoyé puis retiré par un autre), T15 (« Q10 » : les administrateurs voient celui qui attend).
+- Commandes complètes, build et run « CI » : journal, session 110.
+
+### Ce qui n'est pas fait
+
+- **Rien n'est branché**, comme avant (§ 9) : l'invitation elle-même (lien, QR, clé de l'invitation, et maintenant la carte du nom) n'est pas écrite ; le moteur donne la carte et la vérifie.
+- **L'alerte** : ce qu'elle contient, comment on y répond, comment elle finit, et son renvoi quand le rôle de l'auteur change pendant qu'elle court (§ 8.6, § 9) ne sont pas écrits.
+- **Deux textes d'écran à montrer en maquette** (pour la session principale, pas des questions) : à qui part l'alerte d'un créateur seul (à personne d'autre que lui) ; sur l'écran de création, que le nom de l'opération est lu par quiconque reçoit l'invitation.
+- Tout ce que le § 14 listait comme non fait le reste (mesures sur un téléphone, parade aux deux opérations sous un même numéro, revue par un spécialiste, renommer).
+
+### Limites connues
+
+Celles des §§ 6.4, 8.6 et 14, inchangées ; deux de plus, écrites au § 8.6 : le nom de l'opération est lu par quiconque détient l'invitation, et une alerte partie juste avant un changement de rôle de son auteur est refusée par les téléphones qui apprennent le changement d'abord.
+
+### Questions pour l'utilisateur
+
+Aucune question nouvelle.
