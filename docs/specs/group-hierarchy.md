@@ -692,6 +692,50 @@ Questions posées, pour mémoire : S1, quand un chef de groupe « remonte » un 
 
 Le moteur (P39.4) et le troisième passage de maquettes (P39.5) sont relancés sur ces choix le 2026-11-14, en sessions cloud. Aucun écran n'est codé avant l'accord de l'utilisateur sur les maquettes des écrans modifiés.
 
+## 10 sexies. Choix du troisième tour de maquettes (2026-11-14)
+
+Choix faits par l'utilisateur sur les maquettes du troisième passage (`docs/previews/p39-groupes/tour3/`) et sur les questions du moteur (§ 14). Les questions T1 à T12 sont celles de `tour3/REMONTEE.md` ; T4, T6, T11 et T12 reprennent aussi les questions 2, 3, 5 et 4 du § 14 ; T13 et T14 sont les questions 1 et 6 du § 14 ; T15 vient de l'interrupteur dessiné sur l'écran d'attente ; T16 valide les suppositions listées plus bas ; T17 valide tous les autres écrans du troisième passage. Bloc recopié tel quel :
+
+```text
+Choix P39 tour 3 (maquettes « Opération »)
+T1 A · « Commandement »
+T2 1 · Oui : les trois mêmes lignes que le chef de l'opération
+T3 C · La ligne « Un groupe », puis une liste déroulante
+T4 B · Non : aux chefs seulement
+T5 1 · Oui
+T6 A · Un fil par groupe
+T7 A · « Commandement »
+T8 A · Dans la fenêtre aux deux sorties
+T9 A · Une tuile à côté d'« Administrer »
+T10 B · Un bandeau en tête de l'écran de l'opération
+T11 A · Lisibilité : la fiche et la liste donnent le nom entier
+T12 1 · Tout reste jusqu'à ce qu'on l'enlève ; l'enlèvent son auteur et ceux qui peuvent partager au même endroit
+T13 1 · À tous les chefs
+T14 1 · Oui, le nom de l'opération seulement
+T15 2 · Non : tant qu'il attend, les administrateurs le voient toujours
+T16 1 · D'accord pour tout
+T17 1 · D'accord pour tout
+```
+
+**Lecture de la session principale** (interprétation ; elle remplace, là où elle les contredit, les lectures des paragraphes précédents et celles des §§ 13 et 14) :
+
+1. **« Commandement »** (T1, T7) désigne le chef de l'opération, son adjoint et les administrateurs (le créateur en est un). C'est le nom de la ligne par laquelle un chef de groupe remonte un croquis ou un waypoint, et celui du fil de messages du milieu.
+2. **Envoi à un groupe précis** : les administrateurs le peuvent aussi (T2). Le groupe se choisit par la ligne « Un groupe », puis une liste déroulante (T3 C).
+3. **Alerte.** Un membre alerte son groupe. Un chef de groupe et son adjoint alertent tous les chefs, et pas leur propre groupe (T4 B). « Tous les chefs » : le chef de l'opération, son adjoint, les chefs de groupe, leurs adjoints et les administrateurs (T5). Un administrateur qui n'est pas chef alerte tous les chefs (T13) ; lecture : le créateur de même, et pas leur groupe, comme pour un chef de groupe. Le chef de l'opération et son adjoint alertent tous les membres placés ; ceux qui attendent ne reçoivent pas l'alerte (T16).
+4. **Fil du milieu** : un fil par groupe, entre le chef du groupe, son adjoint et le commandement (T6 A). Un simple membre n'a que deux fils, « Mon groupe » et « Toute l'opération » (T16).
+5. **Dissoudre** : la glissière est dans la fenêtre aux deux sorties ; le glissement remplace la seconde confirmation (T8 A).
+6. **« Inviter »** : une tuile à côté d'« Administrer », avec le compte ; grisée, elle écrit « Complet · 30 sur 30 » (T9 A).
+7. **Rappel au créateur** de désigner un successeur avant de changer de téléphone : un bandeau en tête de l'écran de l'opération, à chaque ouverture, jusqu'à ce qu'il touche « Compris » (T10 B).
+8. **Noms** : la règle « nom entier pour son groupe et pour les chefs, initiales pour les autres » est une règle de lisibilité. La fiche et la liste donnent le nom entier (T11 A) ; les adjoints ont leur nom entier sur la carte comme les chefs (T16). Rien à fermer par les clés.
+9. **Ce qu'un membre a partagé** reste jusqu'à ce qu'on l'enlève, même s'il change de groupe ou quitte l'opération ; l'enlèvent son auteur et ceux qui peuvent partager au même endroit (T12). C'est ce que fait le moteur.
+10. **Celui qui attend** voit le nom de l'opération, et aucun autre nom (T14) : l'invitation porte ce nom. Il ne peut pas couper l'envoi de sa position aux administrateurs (T15) : l'écran d'attente n'a pas d'interrupteur. Lecture : pour ne plus être vu, il quitte l'opération. Celui qui est remis en attente lit encore le nom du groupe qu'il vient de quitter, qu'il connaissait déjà (T16).
+11. **Suppositions acceptées telles quelles (T16)**, en plus de celles reprises aux points 3, 4, 8 et 10 : l'adjoint d'un chef de groupe remonte comme son chef et lit ce que son chef a remonté, les autres membres du groupe ne le voient pas ; l'envoi à un groupe précis vaut pour les croquis et les waypoints, pas pour les messages, tout le groupe visé le voit et n'y répond pas à cet endroit ; les positions restent visibles de toute l'opération ; supprimer un groupe retire de l'affichage ses croquis, ses waypoints et ses messages ; « le chef part » comprend « il change de groupe » et « il est remis en attente », son adjoint devient chef dans les trois cas ; le créateur ne peut pas simplement quitter (successeur, ou dissolution par le glissement) et l'ancien créateur redevient un membre comme un autre ; un membre remis en attente garde ce qu'il avait déjà reçu et n'apprend plus rien de nouveau ; le téléphone perdu du créateur continue de lire ce que lit le commandement jusqu'à la fin de l'opération, personne ne peut l'écarter, et l'écran le dira ; avec un fil par groupe, le chef de l'opération n'a pas de fil pour écrire aux seuls chefs ; quelqu'un qui est à la fois chef de groupe et administrateur aurait quatre lignes dans la fenêtre d'envoi (cas non dessiné).
+12. **Maquettes validées (T17, et Q19 et Q20 du § 10 quater)** : les écrans du troisième passage sont validés par l'utilisateur le 2026-11-14 dans les variantes choisies ci-dessus ; les écrans du second tour que le troisième passage n'a pas redessinés restent validés tels quels.
+
+**Écarts à remontrer en aperçu avant de les coder** (ils ne sont pas dessinés tels quels, ou ont été relevés par le contrôle indépendant des 52 images) : l'écran d'attente sans interrupteur (T15) ; le texte de l'alerte d'un administrateur qui n'est pas chef (T13) ; la fenêtre d'envoi à quatre lignes d'un chef de groupe administrateur ; la ligne « Messages » absente de quatre écrans (`09-promotion-groupe`, `09-promotion-operation`, `09-chef-operation-quitte`) ; deux étiquettes de carte collées (`10-attente-admin`, `11-arrivant`) ; des textes ambigus (« Personne pour écrire dans ce fil », « Écrire au Groupe Sud », « Seuls les chefs envoient plus loin que leur groupe ») ; le chemin indiqué par le rappel au créateur, qui passe par « Quitter l'opération » ; le contraste de « jusqu'au bout » sur la glissière ; l'écran de création du second tour, où le groupe du créateur est à mettre en accord.
+
+**Moteur** : seuls T4, T13 et T14 lui demandent un changement (alerte d'un chef de groupe sans son groupe, alerte d'un administrateur vers tous les chefs, nom de l'opération porté par l'invitation) ; il est relancé sur ces trois points le 2026-11-14. Aucun écran n'est codé à ce jour.
+
 ## 11. Fichiers et tests
 
 | Fichier (`core/src/main/kotlin/fr/toolmap/core/hierarchy/`) | Contenu |

@@ -20,6 +20,21 @@
 
 ---
 
+## 2026-11-14 — Session 109 — [P39.4] [P39.5] Groupes hiérarchiques : choix du troisième tour de maquettes
+- **Branche / commit** : `conception/groupes-hierarchiques` (poste Windows, session locale lancée par la session principale), partie de dbd5829 (0.4.244) ; `.conception-privee` présent. Copies relevées au début : GitHub (`git fetch`, `conception/groupes-hierarchiques`) = local = Drive = 0.4.244, local sans changement ; aucune autre branche plus récente.
+- **Objectif** : consigner les 17 choix de l'utilisateur sur le troisième tour de maquettes et sur les questions du moteur (spec § 10 sexies), mettre le plan à jour ; documentation seulement, aucun code, aucun écran.
+- **Réalisé** :
+  - Spec `group-hierarchy.md` § 10 sexies (après le § 10 quinquies, avant le § 11) : choix T1 à T17 recopiés tels quels, lecture de la session principale (points 1 à 12), écarts à remontrer en aperçu avant de les coder, ce qui change dans le moteur (T4, T13, T14).
+  - Plan : P39.5 ✅ (maquettes montrées en images, choix des tours 1, 2 et 3 reçus et consignés, validation du 2026-11-14 par T16 et T17) ; P39.4 🔄, moteur à mettre à T4, T13 et T14, session cloud relancée le 2026-11-14.
+  - Rapporté par la session principale : contrôle indépendant des 52 images du tour 3 (rien de privé, aucun défaut bloquant ; défauts à reprendre listés au § 10 sexies) ; page de choix montrée à l'utilisateur avec 23 images dans la conversation. **Preview validée** : `docs/previews/p39-groupes/tour3/` (et `tour2/` pour les écrans non redessinés), validation de l'utilisateur du 2026-11-14.
+  - Ce qui manquait à l'entrée 108 : run « CI » n° 196 (43588543153, commit dbd5829) vert, contrôle sur émulateur réussi, étape « Publish the Android release » sautée, aucune release ; miroir Drive fait par la session principale après ce run.
+- **Décisions (ADR)** : aucune (les choix de l'utilisateur sont dans la spec ; le moteur qui les applique écrira son ADR s'il en faut un).
+- **Tests / vérifications** :
+  - `./gradlew spotlessApply` seul : rien à changer. `./gradlew check assembleDebug` lancé, puis arrêté pendant les tests de l'app sans résultat : halte de toutes les sessions locales demandée par l'utilisateur le 2026-11-14 (ce build avait déjà écrit 0.4.245 dans `version.properties`). Démons Gradle arrêtés ; émulateur non démarré.
+  - À la reprise (demandée par l'utilisateur le même jour), cette consignation est committée sans build séparé : compilation, tests et contrôle sur l'émulateur sont faits une seule fois avec les fusions de la session 112 (voir son entrée).
+- **Problèmes / dette technique** : aucun nouveau.
+- **Prochaine étape recommandée** : attendre la session cloud du moteur (session 110 : T4, T13, T14), fusionner sa branche ici après son run « CI » vert ; avant tout code d'écran, remontrer en aperçu les écarts listés au § 10 sexies.
+
 ## 2026-11-14 — Session 108 — [P39.4] [P39.5] Groupes hiérarchiques : moteur et maquettes du troisième tour réunis
 - **Branche / commit** : `conception/groupes-hierarchiques` (poste Windows, session locale lancée par la session principale), partie de a88f111 (0.4.242) ; `.conception-privee` présent. Copies relevées (`git fetch`) : `claude/jolly-ptolemy-3u4uvx` (moteur, 3e10e2b) = `claude/loving-cori-40xg11` (maquettes du troisième passage, c65a162) = 0.4.243 (références, toutes deux posées sur a88f111) ; `conception/groupes-hierarchiques` = local = Drive = 0.4.242, local sans changement.
 - **Objectif** : réunir dans la branche de conception le moteur mis aux choix du second tour et aux précisions S1 à S7 (P39.4) et le troisième passage de maquettes (P39.5), compiler et contrôler sur l'émulateur ; aucune publication.
