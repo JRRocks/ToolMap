@@ -201,9 +201,9 @@ object P256 {
  * ([ShareSeal]): a signature made for one of the three is worth nothing for the two others.
  */
 object OpAuth {
-    private val MEMBER_TAG = "toolmap-hierarchy-member-v2".toByteArray(Charsets.US_ASCII)
-    private val ENSEMBLE_TAG = "toolmap-hierarchy-ensemble-v2".toByteArray(Charsets.US_ASCII)
-    private val OP_TAG = "toolmap-hierarchy-op-v2".toByteArray(Charsets.US_ASCII)
+    private val MEMBER_TAG = "toolmap-hierarchy-member-v3".toByteArray(Charsets.US_ASCII)
+    private val ENSEMBLE_TAG = "toolmap-hierarchy-ensemble-v3".toByteArray(Charsets.US_ASCII)
+    private val OP_TAG = "toolmap-hierarchy-op-v3".toByteArray(Charsets.US_ASCII)
 
     /** The member identifier that goes with the public signing key [publicKey]: 8 bytes of its SHA-256, never 0. */
     fun memberId(publicKey: ByteArray): Long = fingerprint(MEMBER_TAG, publicKey)

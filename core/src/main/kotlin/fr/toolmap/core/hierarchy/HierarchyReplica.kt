@@ -97,11 +97,20 @@ class HierarchyReplica(
     private var digest: Long? = null
 
     /**
-     * Every list of readers a unit had at some point of the operations held, by unit and tag, the most recent last:
-     * what a key batch is checked against ([KeyRing.offer]). A list that only existed before an operation arrived
-     * « in the past » stays: a key made for it is still wrapped to that list and to nobody else.
+     * Every list of readers a channel had at some point of the operations held, by channel and tag, the most recent
+     * last: what a key batch is checked against ([KeyRing.offer]). A list that only existed before an operation
+     * arrived « in the past » stays: a key made for it is still wrapped to that list and to nobody else.
      */
     private val readersSeen = LinkedHashMap<ReadersRef, Readers>(16, 0.75f, true)
+
+    /** The readers each channel has in [current]: a list that did not change is not fingerprinted again. */
+    private var readersNow = HashMap<Channel, Readers>()
+
+    /**
+     * The signing key of every member the applied operations ever let in, gone since or not: what the signature of
+     * something a member shared before it left is checked against ([SharedObjects]).
+     */
+    private val signers = HashMap<Long, ByteArray>()
 
     val state: HierarchyState
         @Synchronized get() = current
@@ -194,14 +203,21 @@ class HierarchyReplica(
     }
 
     /**
-     * The readers the unit [unit] had under the tag [tag] at some point of the operations held; `null` when this
-     * phone never saw such a list (it may lack operations: a catch-up, then [KeyRing.retry]).
+     * The readers [channel] had under the tag [tag] at some point of the operations held; `null` when this phone
+     * never saw such a list (it may lack operations: a catch-up, then [KeyRing.retry]).
      */
     @Synchronized
     fun readers(
-        unit: Long,
+        channel: Channel,
         tag: ByteArray,
-    ): Readers? = readersSeen[ReadersRef(unit, tag.asList())]
+    ): Readers? = readersSeen[ReadersRef(channel, tag.asList())]
+
+    /**
+     * The signing key [member] was let in with, whether it is still in the ensemble or not; `null` for someone the
+     * operations held never let in.
+     */
+    @Synchronized
+    fun signingKeyOf(member: Long): ByteArray? = signers[member]
 
     /** Same author, same number: one operation at most is kept, the same on every phone that saw both. */
     private fun settle(
@@ -253,11 +269,33 @@ class HierarchyReplica(
         val reduced = HierarchyReducer.reduce(current, op)
         current = reduced.state
         applied.add(Entry(op, reduced.rejection))
-        if (reduced.rejection == null && op.change.movesReaders) rememberReaders()
+        if (reduced.rejection != null) return
+        when (val change = op.change) {
+            is Change.CreateEnsemble -> signers[op.author] = change.creatorKeys.signing
+            is Change.AdmitMember -> signers[change.member] = change.keys.signing
+            else -> Unit
+        }
+        if (op.change.movesReaders) rememberReaders()
     }
 
     private fun rememberReaders() {
-        for (readers in current.allReaders()) readersSeen[ReadersRef(readers.unit, readers.tag.asList())] = readers
+        val now = HashMap<Channel, Readers>()
+        for (channel in current.channels()) {
+            val members = current.readersOf(channel)
+            if (members.isEmpty()) continue
+            val known = readersNow[channel]
+            val readers =
+                if (known != null &&
+                    known.members == members
+                ) {
+                    known
+                } else {
+                    Readers(ensembleId, channel, members)
+                }
+            now[channel] = readers
+            if (readers !== known) readersSeen[ReadersRef(channel, readers.tag.asList())] = readers
+        }
+        readersNow = now
         val eldest = readersSeen.keys.iterator()
         while (readersSeen.size > MAX_READERS_SEEN) {
             eldest.next()
@@ -267,6 +305,8 @@ class HierarchyReplica(
 
     private fun replay() {
         applied.clear()
+        signers.clear()
+        readersNow = HashMap()
         current = HierarchyState.empty(ensembleId)
         val ops = byAuthor.flatMap { (author, ops) -> ops.headMap(contiguous[author] ?: 0, true).values }
         for (op in ops.sortedWith(Op.ORDER)) step(op)
@@ -285,7 +325,7 @@ class HierarchyReplica(
     }
 
     private data class ReadersRef(
-        val unit: Long,
+        val channel: Channel,
         val tag: List<Byte>,
     )
 
@@ -294,17 +334,14 @@ class HierarchyReplica(
         const val MAX_OPS = 20_000
 
         /** The most lists of readers remembered: the ones of now, and enough of the past for late key batches. */
-        private const val MAX_READERS_SEEN = 1024
+        private const val MAX_READERS_SEEN = 4096
 
-        /** Whether a change may alter who reads a unit: who is in the ensemble, in which group, with which access. */
+        /**
+         * Whether a change may alter who reads a channel: who is in the ensemble, in which group, at which post
+         * (the posts of a group decide who reads its lane up and the lane of the leaders).
+         */
         private val Change.movesReaders: Boolean
-            get() =
-                when (this) {
-                    is Change.RenameGroup, is Change.CreateGroup -> false
-                    is Change.SetPost -> unit == HierarchyState.ROOT
-                    is Change.ClearPost -> unit == HierarchyState.ROOT
-                    else -> true
-                }
+            get() = this !is Change.RenameGroup && this !is Change.CreateGroup
 
         private val BY_AUTHOR: Comparator<Map.Entry<Long, *>> =
             Comparator { a, b -> java.lang.Long.compareUnsigned(a.key, b.key) }
@@ -322,12 +359,13 @@ class HierarchyReplica(
 
         /**
          * A new ensemble created by the phone that holds [keys]: the copy of its creator, first operation written.
-         * [nonce] is a random number that makes the identifier of the ensemble unique. Names must be [Names.valid].
+         * [nonce] is a random number that makes the identifier of the ensemble unique. The names are hidden
+         * ([Names.hide]): the caller keeps their cards ([NameBook]) and shares them once it has a key.
          */
         fun create(
             keys: PhoneKeys,
-            creatorName: String,
-            name: String,
+            creatorName: HiddenName,
+            name: HiddenName,
             nonce: Long,
             rules: HierarchyRules = HierarchyRules.DEFAULT,
         ): HierarchyReplica {

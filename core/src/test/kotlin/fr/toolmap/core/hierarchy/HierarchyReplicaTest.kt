@@ -142,7 +142,7 @@ class HierarchyReplicaTest {
         val a = staffed()
         val b = a.copyFor(B)
         val removal = a.must(Change.RemoveAdmin(B))
-        val created = b.must(Change.CreateGroup(G3, "Groupe 3"))
+        val created = b.must(Change.CreateGroup(G3, hidden("Groupe 3")))
         val assigned = b.must(Change.AssignMember(C, G3))
         // B saw its group on its own phone until it heard of its removal.
         assertTrue(G3 in b.state.groups)
@@ -161,8 +161,8 @@ class HierarchyReplicaTest {
         val a = staffed()
         val b = a.copyFor(B)
         // B writes two operations; A, who saw none, removes B at the clock of the second one.
-        val created = b.must(Change.CreateGroup(G3, "Groupe 3"))
-        a.must(Change.RenameGroup(G1, "Tête"))
+        val created = b.must(Change.CreateGroup(G3, hidden("Groupe 3")))
+        a.must(Change.RenameGroup(G1, hidden("Tête")))
         val removal = a.must(Change.RemoveAdmin(B))
         val late = b.must(Change.AssignMember(C, G3))
         assertTrue(created.clock < removal.clock && removal.clock == late.clock)
@@ -192,8 +192,8 @@ class HierarchyReplicaTest {
         val b2 = a2.copyFor(B)
         val assigned2 = b2.must(Change.AssignMember(C, G1))
         val named2 = b2.must(leader(G1, C))
-        a2.must(Change.RenameGroup(G2, "Arrière"))
-        a2.must(Change.RenameGroup(G2, "Queue"))
+        a2.must(Change.RenameGroup(G2, hidden("Arrière")))
+        a2.must(Change.RenameGroup(G2, hidden("Queue")))
         val removed2 = a2.must(Change.RemoveMember(C))
         val agreed2 = settle(a2, b2)
         assertNull(agreed2.rejectionOf(assigned2))
@@ -213,61 +213,163 @@ class HierarchyReplicaTest {
         assertEquals(Rejection.NOT_A_MEMBER, agreed3.rejectionOf(left))
     }
 
+    /** [deployed] where C leads G1 with D as its deputy, and H is a third member of G1. */
+    private fun withPosts(): HierarchyReplica =
+        deployed().apply {
+            must(admit(H))
+            must(Change.AssignMember(H, G1))
+            must(leader(G1, C))
+            must(deputy(G1, D))
+        }
+
+    @Test
+    fun `promotion - a leader put out while another deputy is named, the same leader on every phone`() {
+        // The removal first (A < B at equal clocks): the deputy of then becomes the leader, then H is named deputy.
+        val a = withPosts()
+        val b = a.copyFor(B)
+        val removed = a.must(Change.RemoveMember(C))
+        val named = b.must(deputy(G1, H))
+        assertEquals(removed.clock, named.clock, "neither had seen the other")
+        // Before they talk each one sees its own result.
+        assertEquals(D to null, a.state.groups.getValue(G1).let { it.leader to it.deputy })
+        assertEquals(C to H, b.state.groups.getValue(G1).let { it.leader to it.deputy })
+        val agreed = settle(a, b)
+        assertNull(agreed.rejectionOf(removed))
+        assertNull(agreed.rejectionOf(named))
+        assertEquals(D to H, agreed.state.groups.getValue(G1).let { it.leader to it.deputy })
+
+        // The naming first (written before the removal): the deputy of then is H, and H becomes the leader.
+        val a2 = withPosts()
+        val b2 = a2.copyFor(B)
+        val named2 = b2.must(deputy(G1, H))
+        a2.must(Change.RenameGroup(G2, hidden("Arrière")))
+        val removed2 = a2.must(Change.RemoveMember(C))
+        assertTrue(named2.clock < removed2.clock)
+        val agreed2 = settle(a2, b2)
+        assertNull(agreed2.rejectionOf(named2))
+        assertNull(agreed2.rejectionOf(removed2))
+        assertEquals(H to null, agreed2.state.groups.getValue(G1).let { it.leader to it.deputy })
+        assertEquals(setOf(Role.MEMBER), agreed2.state.rolesOf(D))
+        assertNull(agreed2.state.inconsistency())
+    }
+
+    @Test
+    fun `promotion - a leader put back to waiting while it is moved, its deputy leads in both orders`() {
+        // Back to waiting first (A < B at equal clocks): the deputy becomes the leader, then the move applies.
+        val a = withPosts()
+        val b = a.copyFor(B)
+        val unassigned = a.must(Change.UnassignMember(C))
+        val moved = b.must(Change.AssignMember(C, G2))
+        val agreed = settle(a, b)
+        assertNull(agreed.rejectionOf(unassigned))
+        assertNull(agreed.rejectionOf(moved))
+        assertEquals(D to null, agreed.state.groups.getValue(G1).let { it.leader to it.deputy })
+        assertEquals(G2, agreed.state.groupOf(C)?.id)
+        assertEquals(setOf(Role.MEMBER), agreed.state.rolesOf(C))
+
+        // The move first: the deputy becomes the leader when its leader changes group; then the former leader waits.
+        val a2 = withPosts()
+        val b2 = a2.copyFor(B)
+        val moved2 = b2.must(Change.AssignMember(C, G2))
+        a2.must(Change.RenameGroup(G2, hidden("Arrière")))
+        val unassigned2 = a2.must(Change.UnassignMember(C))
+        assertTrue(moved2.clock < unassigned2.clock)
+        val agreed2 = settle(a2, b2)
+        assertNull(agreed2.rejectionOf(moved2))
+        assertNull(agreed2.rejectionOf(unassigned2))
+        assertEquals(D to null, agreed2.state.groups.getValue(G1).let { it.leader to it.deputy })
+        assertTrue(agreed2.state.isWaiting(C))
+    }
+
+    @Test
+    fun `promotion - the ensemble leader leaves while the creator puts it out, its deputy leads in both orders`() {
+        fun start() =
+            deployed().apply {
+                must(leader(ROOT, C))
+                must(deputy(ROOT, D))
+            }
+        // The creator first (A < C at equal clocks): its removal applies, the leaving finds nobody.
+        val a = start()
+        val c = a.copyFor(C)
+        val removed = a.must(Change.RemoveMember(C))
+        val left = c.must(Change.RemoveMember(C))
+        val agreed = settle(a, c)
+        assertNull(agreed.rejectionOf(removed))
+        assertEquals(Rejection.NOT_A_MEMBER, agreed.rejectionOf(left))
+        assertEquals(D to null, agreed.state.leader to agreed.state.deputy)
+
+        // The leaving first: it applies, and the removal finds nobody. The deputy leads all the same.
+        val a2 = start()
+        val c2 = a2.copyFor(C)
+        val left2 = c2.must(Change.RemoveMember(C))
+        a2.must(Change.RenameGroup(G2, hidden("Arrière")))
+        val removed2 = a2.must(Change.RemoveMember(C))
+        val agreed2 = settle(a2, c2)
+        assertNull(agreed2.rejectionOf(left2))
+        assertEquals(Rejection.NO_SUCH_MEMBER, agreed2.rejectionOf(removed2))
+        assertEquals(D to null, agreed2.state.leader to agreed2.state.deputy)
+
+        // The deputy is put out while its leader leaves: whatever the order, both posts end vacant.
+        val a3 = start()
+        val c3 = a3.copyFor(C)
+        val out = a3.must(Change.RemoveMember(D))
+        val gone = c3.must(Change.RemoveMember(C))
+        val agreed3 = settle(a3, c3)
+        assertNull(agreed3.rejectionOf(out))
+        assertNull(agreed3.rejectionOf(gone))
+        assertEquals(null to null, agreed3.state.leader to agreed3.state.deputy)
+    }
+
     @Test
     fun `creator transfer - what the former creator wrote after handing over is refused on every phone`() {
         val a = deployed()
-        val c = a.copyFor(C)
-        val handed = a.must(Change.TransferCreator(C))
-        sync(a, c)
-        assertEquals(C, c.state.creator)
+        val b = a.copyFor(B)
+        val handed = a.must(Change.TransferCreator(B))
+        sync(a, b)
+        assertEquals(B, b.state.creator)
         // The new creator acts; the former one, on a phone that would still let it, writes by hand.
-        val named = c.must(Change.AddAdmin(D))
+        val named = b.must(Change.AddAdmin(D))
         val seq = a.ops().count { it.author == A } + 1
         val stale = signedOp(a.ensembleId, A, seq, handed.clock + 1, Change.AddAdmin(E))
         val dissolve = signedOp(a.ensembleId, A, seq + 1, handed.clock + 2, Change.Dissolve)
-        val phone = agreeInAnyOrder(a.ensembleId, c.ops() + stale + dissolve)
+        val phone = agreeInAnyOrder(a.ensembleId, b.ops() + stale + dissolve)
         assertNull(phone.rejectionOf(handed))
         assertNull(phone.rejectionOf(named))
         assertEquals(Rejection.FORBIDDEN, phone.rejectionOf(stale))
         assertEquals(Rejection.FORBIDDEN, phone.rejectionOf(dissolve))
-        assertEquals(C, phone.state.creator)
+        assertEquals(B, phone.state.creator)
         assertEquals(setOf(B, D), phone.state.admins)
         assertFalse(phone.state.dissolved)
         // It cannot write « before » its own handing over either: a clock that goes backwards counts for nothing.
         val antedated = signedOp(a.ensembleId, A, seq, handed.clock - 1, Change.AddAdmin(E))
-        val other = agreeInAnyOrder(a.ensembleId, c.ops() + antedated)
+        val other = agreeInAnyOrder(a.ensembleId, b.ops() + antedated)
         assertEquals(Rejection.OUT_OF_ORDER, other.rejectionOf(antedated))
         assertNull(other.rejectionOf(handed), "the transfer stays")
-        assertEquals(C, other.state.creator)
+        assertEquals(B, other.state.creator)
         assertEquals(setOf(B, D), other.state.admins)
     }
 
     @Test
     fun `creator transfer - the successor leaves at the same time, there is always exactly one creator`() {
         // The successor leaves first: the transfer finds nobody, the creator stays the creator and cannot leave.
-        val a = deployed()
-        val b = a.copyFor(B)
-        a.must(Change.TransferCreator(B))
-        sync(a, b)
-        val back = b.must(Change.TransferCreator(A))
-        sync(a, b)
-        // A is the creator again. It hands over to C while C, who has not heard, leaves.
+        // Its leaving is not read as the end of the ensemble: nothing is dissolved by surprise.
+        val a = deployed().apply { must(Change.AddAdmin(C)) }
         val c = a.copyFor(C)
         val left = c.must(Change.RemoveMember(C))
-        a.must(Change.RenameGroup(G1, "Tête"))
+        a.must(Change.RenameGroup(G1, hidden("Tête")))
         val handed = a.must(Change.TransferCreator(C))
         val gone = a.must(Change.RemoveMember(A))
         assertTrue(left.clock < handed.clock)
         val agreed = settle(a, c)
-        assertNull(agreed.rejectionOf(back))
         assertNull(agreed.rejectionOf(left))
         assertEquals(Rejection.NO_SUCH_MEMBER, agreed.rejectionOf(handed))
         assertEquals(Rejection.IS_CREATOR, agreed.rejectionOf(gone))
         assertEquals(A, agreed.state.creator)
         assertTrue(A in agreed.state.members)
+        assertFalse(agreed.state.dissolved)
 
         // The transfer first: the successor is the creator, and its leaving is refused.
-        val a2 = deployed()
+        val a2 = deployed().apply { must(Change.AddAdmin(C)) }
         val c2 = a2.copyFor(C)
         val handed2 = a2.must(Change.TransferCreator(C))
         val left2 = c2.must(Change.RemoveMember(C))
@@ -278,6 +380,17 @@ class HierarchyReplicaTest {
         assertEquals(C, agreed2.state.creator)
         assertTrue(C in agreed2.state.members)
         assertNull(agreed2.state.inconsistency())
+
+        // Q13: the successor loses its role of administrator at the same time. The role taken away first: the
+        // handing over is refused, the creator stays. The handing over first: the successor is the creator.
+        val a3 = deployed().apply { must(Change.AddAdmin(C)) }
+        val twin = a3.copyFor(A)
+        val unnamed = a3.must(Change.RemoveAdmin(C))
+        a3.must(Change.RenameGroup(G1, hidden("Tête")))
+        val handed3 = signedOp(twin.ensembleId, A, unnamed.seq + 2, unnamed.clock + 2, Change.TransferCreator(C))
+        val late = agreeInAnyOrder(a3.ensembleId, a3.ops() + handed3)
+        assertEquals(Rejection.NOT_AN_ADMIN, late.rejectionOf(handed3))
+        assertEquals(A, late.state.creator)
     }
 
     @Test
@@ -286,9 +399,9 @@ class HierarchyReplicaTest {
         val b = a.copyFor(B)
         val c = a.copyFor(C)
         // B acts twice, C leaves, then A, who heard none of it, dissolves at the clock of B's second operation.
-        val before = b.must(Change.CreateGroup(G3, "Groupe 3"))
+        val before = b.must(Change.CreateGroup(G3, hidden("Groupe 3")))
         val leftBefore = c.must(Change.RemoveMember(C))
-        a.must(Change.RenameGroup(G1, "Tête"))
+        a.must(Change.RenameGroup(G1, hidden("Tête")))
         val end = a.must(Change.Dissolve)
         val after = b.must(Change.AssignMember(D, G3))
         assertTrue(before.clock < end.clock && end.clock == after.clock)
@@ -311,7 +424,7 @@ class HierarchyReplicaTest {
             b,
             c,
         )) {
-            assertEquals(Rejection.DISSOLVED, phone.refused(Change.CreateGroup(0x104, "Trop tard")))
+            assertEquals(Rejection.DISSOLVED, phone.refused(Change.CreateGroup(0x104, hidden("Trop tard"))))
         }
         // An operation written later by someone who had not heard is kept, and refused everywhere.
         val d = HierarchyReplica.restore(a.ensembleId, D, a.ops().filter { it != end }, keysOf(D))
@@ -372,7 +485,7 @@ class HierarchyReplicaTest {
         val clock = a.ops().maxOf { it.clock } + 1
         // Written by hand: the phone of C would not have written them.
         val byMember = signedOp(a.ensembleId, C, 1, clock, Change.AddAdmin(C))
-        val byOutsider = signedOp(a.ensembleId, OUTSIDER, 1, clock, Change.CreateGroup(G3, "Intrus"))
+        val byOutsider = signedOp(a.ensembleId, OUTSIDER, 1, clock, Change.CreateGroup(G3, hidden("Intrus")))
         assertEquals(AddResult.ADDED, a.add(byMember))
         assertEquals(AddResult.ADDED, a.add(byOutsider))
         assertEquals(Rejection.FORBIDDEN, a.rejectionOf(byMember))
@@ -381,7 +494,8 @@ class HierarchyReplicaTest {
 
         // Someone removed has no right left, whatever it had.
         a.must(Change.RemoveMember(B))
-        val byRemoved = signedOp(a.ensembleId, B, 1, a.ops().maxOf { it.clock } + 1, Change.CreateGroup(G3, "Revenant"))
+        val byRemoved =
+            signedOp(a.ensembleId, B, 1, a.ops().maxOf { it.clock } + 1, Change.CreateGroup(G3, hidden("Revenant")))
         assertEquals(AddResult.ADDED, a.add(byRemoved))
         assertEquals(Rejection.NOT_A_MEMBER, a.rejectionOf(byRemoved))
         assertEquals(emptySet(), a.state.admins)
@@ -392,7 +506,7 @@ class HierarchyReplicaTest {
     fun `operations for another ensemble, that no phone accepts or that are not signed are not kept`() {
         val a = staffed()
         val kept = a.ops().size
-        val elsewhere = HierarchyReplica.create(keysOf(A), "Alpha", "Autre sortie", NONCE + 1)
+        val elsewhere = HierarchyReplica.create(keysOf(A), hidden("Alpha"), hidden("Autre sortie"), NONCE + 1)
         assertEquals(AddResult.WRONG_ENSEMBLE, a.add(elsewhere.ops().single()))
         assertEquals(AddResult.MALFORMED, a.add(signedOp(a.ensembleId, B, 1, 50, Change.AddAdmin(0))))
         assertEquals(AddResult.MALFORMED, a.add(signedOp(a.ensembleId, B, 0, 50, Change.AddAdmin(C))))
@@ -400,7 +514,7 @@ class HierarchyReplicaTest {
         assertEquals(AddResult.MALFORMED, a.add(Op(a.ensembleId, 0, 1, 50, Change.AddAdmin(C))))
         assertEquals(
             AddResult.UNAUTHENTICATED,
-            a.add(Op(a.ensembleId, B, 5, 50, Change.CreateGroup(G3, "Sans preuve"))),
+            a.add(Op(a.ensembleId, B, 5, 50, Change.CreateGroup(G3, hidden("Sans preuve")))),
         )
         assertEquals(kept, a.ops().size)
     }
@@ -421,12 +535,12 @@ class HierarchyReplicaTest {
             val twin =
                 signedOp(real.ensembleId, A, 1, 1, genesis(name = name, rules = HierarchyRules(RightsTable.NONE)))
             val seen = agreeInAnyOrder(real.ensembleId, listOf(twin, first))
-            assertEquals("Sortie du jour", seen.state.name)
+            assertEquals(hidden("Sortie du jour"), seen.state.name)
             assertEquals(listOf(first), seen.ops())
         }
         // Before the creation nothing applies.
         val early = HierarchyReplica(real.ensembleId, B, keysOf(B))
-        assertEquals(Rejection.NO_ENSEMBLE, early.refused(Change.CreateGroup(G1, "Groupe 1")))
+        assertEquals(Rejection.NO_ENSEMBLE, early.refused(Change.CreateGroup(G1, hidden("Groupe 1"))))
         assertFalse(early.state.created)
         assertNull(early.state.inconsistency())
     }
@@ -454,9 +568,9 @@ class HierarchyReplicaTest {
         val a = staffed()
         val next = a.ops().count { it.author == B } + 1
         val clock = a.ops().maxOf { it.clock }
-        val first = signedOp(a.ensembleId, B, next, clock + 10, Change.CreateGroup(G3, "Groupe 3"))
-        val second = signedOp(a.ensembleId, B, next + 1, clock + 5, Change.CreateGroup(0x104, "Groupe 4"))
-        val third = signedOp(a.ensembleId, B, next + 2, clock + 20, Change.CreateGroup(0x105, "Groupe 5"))
+        val first = signedOp(a.ensembleId, B, next, clock + 10, Change.CreateGroup(G3, hidden("Groupe 3")))
+        val second = signedOp(a.ensembleId, B, next + 1, clock + 5, Change.CreateGroup(0x104, hidden("Groupe 4")))
+        val third = signedOp(a.ensembleId, B, next + 2, clock + 20, Change.CreateGroup(0x105, hidden("Groupe 5")))
         val phone = agreeInAnyOrder(a.ensembleId, a.ops() + listOf(first, second, third))
         assertNull(phone.rejectionOf(first))
         assertEquals(Rejection.OUT_OF_ORDER, phone.rejectionOf(second))
@@ -466,7 +580,7 @@ class HierarchyReplicaTest {
         val ended = staffed()
         val end = ended.must(Change.Dissolve)
         val seq = ended.ops().count { it.author == A } + 1
-        val undo = signedOp(ended.ensembleId, A, seq, end.clock - 1, Change.CreateGroup(G3, "Avant la fin"))
+        val undo = signedOp(ended.ensembleId, A, seq, end.clock - 1, Change.CreateGroup(G3, hidden("Avant la fin")))
         val after = agreeInAnyOrder(ended.ensembleId, ended.ops() + undo)
         assertEquals(Rejection.OUT_OF_ORDER, after.rejectionOf(undo))
         assertTrue(after.state.dissolved)
@@ -481,7 +595,7 @@ class HierarchyReplicaTest {
         a.must(leader(G1, C))
         sync(a, b)
         b.must(Change.AssignMember(D, G2))
-        b.must(Change.RenameGroup(G2, "Arrière"))
+        b.must(Change.RenameGroup(G2, hidden("Arrière")))
         b.must(admit(E, "Echo"))
         sync(a, b)
         assertEquals(G1, a.state.groupOf(C)?.id)
@@ -499,7 +613,7 @@ class HierarchyReplicaTest {
 
         // A long absence comes back in several blocks.
         val longAway = a.copyFor(D)
-        repeat(40) { a.must(Change.RenameGroup(G1, "Nom $it")) }
+        repeat(40) { a.must(Change.RenameGroup(G1, hidden("Nom $it"))) }
         assertTrue(sync(longAway, a, max = 7) >= 6)
         assertSame(a, longAway)
         // A summary of another ensemble gets nothing.
@@ -592,16 +706,16 @@ class HierarchyReplicaTest {
             }
 
             10, 11, 12 -> {
-                Change.CreateGroup(groupPool.random(random), "Groupe ${random.nextInt(4)}")
+                Change.CreateGroup(groupPool.random(random), hidden("Groupe ${random.nextInt(4)}"))
             }
 
             // A group under another one: allowed by the rules of some of the ensembles drawn.
             13 -> {
-                Change.CreateGroup(groupPool.random(random), "Sous-groupe", parent = group)
+                Change.CreateGroup(groupPool.random(random), hidden("Sous-groupe"), parent = group)
             }
 
             14, 15 -> {
-                Change.RenameGroup(group, "Groupe ${random.nextInt(4)}")
+                Change.RenameGroup(group, hidden("Groupe ${random.nextInt(4)}"))
             }
 
             16 -> {
@@ -625,8 +739,10 @@ class HierarchyReplicaTest {
                 Change.ClearPost(unit, post)
             }
 
+            // To an administrator most of the time: the others are refused.
             35, 36, 37 -> {
-                Change.TransferCreator(member)
+                val successor = state.admins.takeIf { random.nextInt(4) > 0 }?.randomOrNull(random) ?: member
+                Change.TransferCreator(successor)
             }
 
             // Rare: once it applies nothing else does.
@@ -650,7 +766,8 @@ class HierarchyReplicaTest {
         val limits = HierarchyLimits(maxMembers = 8, maxGroups = 5, maxDepth = if (seed % 3 == 0L) 2 else 1)
         val rules =
             if (seed % 2 == 0L) {
-                HierarchyRules(limits = limits)
+                // One ensemble in five keeps the rule of the first round: no deputy takes the place of its leader.
+                HierarchyRules(limits = limits, deputySucceeds = seed % 10 != 0L)
             } else {
                 HierarchyRules(
                     rights =
@@ -715,9 +832,17 @@ class HierarchyReplicaTest {
         assertTrue(state.creator in state.members, "seed $seed: always exactly one creator")
         assertTrue(fresh.history().any { it.rejection != null }, "seed $seed: some operations must have been refused")
         applied += fresh.history().count { it.rejection == null }
-        // Who waits is in no list of readers, whatever happened.
+        // Who waits is in no list of readers but the one of its own lane, whatever happened; nobody reads a
+        // channel without being in the ensemble; a leader and its deputy are two members.
+        for (channel in state.channels()) {
+            for (reader in state.readersOf(channel)) {
+                val own = channel == Channel.waiting(reader.id)
+                assertEquals(own, state.isWaiting(reader.id), "seed $seed, $channel")
+            }
+        }
         for (unit in listOf(ROOT) + state.groups.keys) {
-            assertTrue(state.readersOf(unit).none { state.isWaiting(it.id) }, "seed $seed")
+            val leader = state.leaderOf(unit)
+            assertTrue(leader == null || leader != state.deputyOf(unit), "seed $seed")
         }
         seen.addAll(fresh.history().filter { it.rejection == null }.map { it.op.change::class })
         refusals.addAll(fresh.history().mapNotNull { it.rejection })
@@ -764,6 +889,7 @@ class HierarchyReplicaTest {
                 Rejection.FORBIDDEN,
                 Rejection.DISSOLVED,
                 Rejection.IS_CREATOR,
+                Rejection.NOT_AN_ADMIN,
                 Rejection.NOT_A_MEMBER,
                 Rejection.TOO_MANY,
             )

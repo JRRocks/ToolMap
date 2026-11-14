@@ -20,6 +20,13 @@ enum class Role(
 
     /** Everyone admitted, waiting for a group or not. */
     MEMBER(7),
+
+    /**
+     * Admitted, in no group and with no post that gives access without one ([HierarchyState.isWaiting]). Held with
+     * [MEMBER]. For what is shared it is the only role that counts: someone who waits shares what the cells of this
+     * role say and nothing else.
+     */
+    WAITING(8),
     ;
 
     /** The role whose rights this one has too: a deputy has the rights of its leader (a rule, not a cell). */
@@ -30,6 +37,15 @@ enum class Role(
                 GROUP_DEPUTY -> GROUP_LEADER
                 else -> null
             }
+
+    /**
+     * Whether this role commands the whole ensemble (creator, administrator, leader of the ensemble and its deputy)
+     * or one group (its leader and its deputy): what [ShareReach.GROUP_BELOW] and [ShareReach.UP_BELOW] look at.
+     */
+    internal val commandsEnsemble: Boolean
+        get() = this == CREATOR || this == ADMIN || this == ENSEMBLE_LEADER || this == ENSEMBLE_DEPUTY
+
+    internal val commandsGroup: Boolean get() = this == GROUP_LEADER || this == GROUP_DEPUTY
 
     companion object {
         fun of(code: Int): Role? = entries.firstOrNull { it.code == code }
@@ -212,7 +228,8 @@ enum class Audience(
 /**
  * Who sees the position of whom on the map: for each [Role] of the viewer, the [Audience]s it sees. A viewer sees a
  * target when one of the roles it holds sees one of the audiences the target is in. Everyone always sees oneself.
- * Someone who waits for a group sees nobody and is seen by nobody, whatever the table ([HierarchyState.hasAccess]).
+ * Someone who waits for a group sees nobody, whatever the table, and is seen only by those its position is sealed
+ * for ([Lane.WAITING]: the administrators).
  *
  * A table narrower than « everyone » is a filter of the display only: positions are sealed with the key of the
  * whole ensemble (spec § 8).
@@ -265,40 +282,70 @@ enum class ShareKind(
     SKETCH(2),
     WAYPOINT(3),
     MESSAGE(4),
+
+    /** A call for help. Where it goes depends on the role of who sends it (the user's answer Q6). */
+    ALERT(5),
+
+    /** Names: the cards that open the hidden names of the operations ([NameCard]). */
+    ROSTER(6),
     ;
 
     internal val bit: Int get() = 1 shl (code - 1)
 
+    /**
+     * Whether what is shared stays on the map of the others until someone takes it away: sketches and waypoints. A
+     * member who arrives, or comes back, is sent these again ([SharedObjects]); never old messages, positions nor
+     * alerts.
+     */
+    val standing: Boolean get() = this == SKETCH || this == WAYPOINT
+
     companion object {
-        internal const val ALL_BITS = 15
+        internal const val ALL_BITS = 63
 
         fun of(code: Int): ShareKind? = entries.firstOrNull { it.code == code }
     }
 }
 
-/** Into which unit (the ensemble, or a group) a share may go; a cell of the [ShareTable] holds any of them. */
+/**
+ * Where a share may go; a cell of the [ShareTable] holds any of them. Each names a [Channel], seen from the author.
+ * Whatever the cell says, an author only shares in a channel it reads: it needs its key.
+ */
 enum class ShareReach(
     val bit: Int,
 ) {
-    /** The author's own group. */
+    /** The author's own group ([Lane.UNIT]). */
     OWN_UNIT(1),
 
-    /** The unit just above the author's own group, and no higher: the ensemble for a group under the ensemble. */
-    PARENT_UNIT(2),
+    /**
+     * Up from the author's own group ([Lane.UP]): read by the two posts of that group and by those who command the
+     * unit above, and by nobody else.
+     */
+    UP(2),
 
-    /** The whole ensemble, wherever the author is. */
+    /** The whole ensemble ([Channel.ENSEMBLE]), wherever the author is. */
     ENSEMBLE(4),
+
+    /** Down to one group just under the unit the author commands ([Lane.DOWN]): one precise group. */
+    GROUP_BELOW(8),
+
+    /** The [Lane.UP] of a group just under the unit the author commands: answering what that group sends up. */
+    UP_BELOW(16),
+
+    /** Every leader, deputy and administrator ([Channel.LEADERS]). */
+    LEADERS(32),
+
+    /** The author's own waiting lane ([Lane.WAITING]): to the administrators, while it waits for a group. */
+    WAITING(64),
     ;
 
     companion object {
-        internal const val ALL_BITS = 7
+        internal const val ALL_BITS = 127
     }
 }
 
 /**
- * Who may share what, and how far up: one cell per [ShareKind] and [Role], data like the [RightsTable]. What is
- * shared in a unit is read by everyone in that unit and under it ([HierarchyState.readersOf]); nobody shares into a
- * unit it is not in, nor downwards into a group that is not its own.
+ * Who may share what, and where: one cell per [ShareKind] and [Role], data like the [RightsTable]. Who reads a
+ * channel is not in this table: it follows from what the channel is ([HierarchyState.readersOf]).
  */
 class ShareTable private constructor(
     private val masks: IntArray,
@@ -358,23 +405,45 @@ class ShareTable private constructor(
 
         /** The ones who speak for the whole ensemble: its leader (so its deputy), the administrators, the creator. */
         private val ENSEMBLE_VOICES = listOf(Role.CREATOR, Role.ADMIN, Role.ENSEMBLE_LEADER)
+        private val OBJECTS = listOf(ShareKind.SKETCH, ShareKind.WAYPOINT)
 
         /**
-         * The answers of the user (2026-11-13): positions go to the whole ensemble; a member shares sketches,
-         * waypoints and messages inside its own group; the leader of a group (so its deputy) may also share
-         * sketches and waypoints one level up, never higher; messages to the whole ensemble are for its leader, its
-         * deputy and the administrators.
+         * The answers of the user (2026-11-13 and 2026-11-14, spec § 4.2). One line per answer; a deputy has the
+         * cells of its leader.
          */
         val DEFAULT: ShareTable =
-            ShareKind.entries
-                .fold(NONE) { table, kind ->
-                    ENSEMBLE_VOICES.fold(table) { t, role -> t.with(kind, role, ShareReach.ENSEMBLE) }
-                }.with(ShareKind.POSITION, Role.MEMBER, ShareReach.ENSEMBLE)
+            NONE
+                // R2: everyone who has a group or a post sees everyone.
+                .with(ShareKind.POSITION, Role.MEMBER, ShareReach.ENSEMBLE)
+                // Q10: the position of someone who waits goes to the administrators only.
+                .with(ShareKind.POSITION, Role.WAITING, ShareReach.WAITING)
+                // Q16: what a member shares stays in its group.
                 .with(ShareKind.SKETCH, Role.MEMBER, ShareReach.OWN_UNIT)
                 .with(ShareKind.WAYPOINT, Role.MEMBER, ShareReach.OWN_UNIT)
                 .with(ShareKind.MESSAGE, Role.MEMBER, ShareReach.OWN_UNIT)
-                .with(ShareKind.SKETCH, Role.GROUP_LEADER, ShareReach.PARENT_UNIT)
-                .with(ShareKind.WAYPOINT, Role.GROUP_LEADER, ShareReach.PARENT_UNIT)
+                // Q3, S1: the leader of a group sends up, to those who command the ensemble and to nobody else.
+                .with(ShareKind.SKETCH, Role.GROUP_LEADER, ShareReach.UP)
+                .with(ShareKind.WAYPOINT, Role.GROUP_LEADER, ShareReach.UP)
+                // S3: the thread in the middle, one per group (for one thread common to every leader: LEADERS here
+                // and in place of UP_BELOW below).
+                .with(ShareKind.MESSAGE, Role.GROUP_LEADER, ShareReach.UP)
+                // Q6: a member alerts its group, the leader of a group every leader, the leader of the ensemble
+                // everyone. An administrator without a post of leader has no cell: it alerts as a member.
+                .with(ShareKind.ALERT, Role.MEMBER, ShareReach.OWN_UNIT)
+                .with(ShareKind.ALERT, Role.GROUP_LEADER, ShareReach.LEADERS)
+                .with(ShareKind.ALERT, Role.ENSEMBLE_LEADER, ShareReach.ENSEMBLE)
+                // Names go to everyone who has a group or a post; the name of someone who waits, to the administrators.
+                .with(ShareKind.ROSTER, Role.MEMBER, ShareReach.ENSEMBLE)
+                .with(ShareKind.ROSTER, Role.WAITING, ShareReach.WAITING)
+                .let { table ->
+                    ENSEMBLE_VOICES.fold(table) { t, role ->
+                        // S2: they alone send to the whole ensemble; Q15: or to one precise group.
+                        OBJECTS
+                            .fold(t) { u, kind -> u.with(kind, role, ShareReach.ENSEMBLE, ShareReach.GROUP_BELOW) }
+                            // S3: they write to everyone, and answer each group in its thread of the middle.
+                            .with(ShareKind.MESSAGE, role, ShareReach.ENSEMBLE, ShareReach.UP_BELOW)
+                    }
+                }
     }
 }
 
@@ -409,9 +478,11 @@ data class HierarchyLimits(
  * is signed by its author ([OpAuth]): that is not a rule one can turn off.
  *
  * @property signedShares the kinds of share that carry the signature of their author, so that nobody who holds the
- * key of a unit can share in the name of another member. All of them at the start (the ensemble is the mode where
- * security is required); an ensemble may leave positions out, which are many, to save 64 bytes and a signature on
- * each (spec § 12, question 1).
+ * key of a channel can share in the name of another member. All of them, positions too (the user's answer S5); an
+ * ensemble made with other rules may leave some out, to save 64 bytes and a signature on each.
+ * @property deputySucceeds when a leader goes (leaves the ensemble, is put out of it, leaves its group or is put
+ * back to waiting), its deputy becomes the leader and the post of deputy is vacant (the user's answers Q18 and S4).
+ * `false`: the post of leader stays vacant and the deputy stays deputy.
  */
 data class HierarchyRules(
     val rights: RightsTable = RightsTable.DEFAULT,
@@ -419,6 +490,7 @@ data class HierarchyRules(
     val shares: ShareTable = ShareTable.DEFAULT,
     val limits: HierarchyLimits = HierarchyLimits.DEFAULT,
     val signedShares: Set<ShareKind> = SIGNED_BY_DEFAULT,
+    val deputySucceeds: Boolean = true,
 ) {
     companion object {
         val SIGNED_BY_DEFAULT: Set<ShareKind> = ShareKind.entries.toSet()
