@@ -1015,7 +1015,16 @@ bash tools/emulator/hierarchy-keys.sh emulator-check
 - **branche « API < 31 »** : sur l'émulateur API 34 elle est jouée en forçant le fichier scellé (`agreement=file`) ; sur un émulateur API 26 à 30, s'il y en a un, la même commande doit donner `agreement-in-keystore=false` et la seule manière `agreement=file`.
 - Noter au journal les temps d'une signature, d'une vérification et d'un accord, et le numéro d'API.
 
-La CI joue aussi ce contrôle sur son émulateur (API 34) dans le contrôle de l'APK de debug : les lignes sont dans le journal du job « CI » (« Keys of the « Opération » mode on this emulator »). Résultat du run de ce push : journal, entrée suivante, ou message de fin de la session 111.
+La CI joue aussi ce contrôle sur son émulateur (API 34) dans le contrôle de l'APK de debug : les lignes sont dans le journal du job « CI » (« Keys of the « Opération » mode on this emulator »).
+
+**Résultat sur l'émulateur de la CI** (run « CI » n° 198, 43634007565, commit 3d7c7c9, Android 14, API 34, émulateur x86_64 à deux cœurs, Keystore logiciel de l'émulateur et non le TEE d'un téléphone) : **« OK: keys of the « Opération » mode (API 34) »**, les deux phases `PASS`, relecture dans un nouveau processus identique pour les deux manières, puis « wiped: no key left in the Keystore, no folder left ». Médianes (30 signatures, 10 accords) :
+
+| Manière | Création de l'identité | Signature (Keystore) | Vérification | Accord |
+|---|---|---|---|---|
+| clé d'accord dans le Keystore | 25 ms | 630 µs, puis 584 µs après redémarrage | 202 µs, puis 248 µs | 1 073 µs, puis 726 µs |
+| clé d'accord en fichier scellé (manière de l'API 26 à 30) | 12 ms | 947 µs, puis 832 µs | 182 µs, puis 183 µs | 157 µs, puis 153 µs |
+
+Une signature par le Keystore coûte donc moins d'une milliseconde ici, une vérification environ 0,2 ms ; l'accord par le Keystore est environ six fois plus lent qu'en mémoire. L'APK de release ne répond pas au contrôle (« not offered by this APK »), comme prévu. Reste pour la session locale : le même contrôle sur l'émulateur du poste (Android 37) et, si possible, sur une API 26 à 30 ; puis un vrai téléphone (TEE ou StrongBox) avant tout usage réel.
 
 ### Ce qui reste pour l'étape suivante (transport)
 
