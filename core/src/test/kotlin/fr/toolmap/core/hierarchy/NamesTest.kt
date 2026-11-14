@@ -39,6 +39,34 @@ class NamesTest {
     }
 
     @Test
+    fun `T14 the name of the ensemble is the one name told to who waits, and to nobody outside`() {
+        val a = deployed().apply { must(admit(H, "Hotel")) }
+        val state = a.state
+        // Who has access may be told every name; who waits, the one of the ensemble and its own; an outsider, none.
+        assertEquals(state.hiddenNames(), state.namesFor(C))
+        assertEquals(setOf(hidden("Sortie du jour"), hidden("Hotel")), state.namesFor(H))
+        assertEquals(emptySet(), state.namesFor(OUTSIDER))
+        val book = NameBook()
+        // Before the first operation there is no name to open; a card that is not one is refused.
+        assertFalse(book.learnEnsembleName(HierarchyState.empty(state.ensembleId), card("Sortie du jour")))
+        assertFalse(book.learnEnsembleName(state, NameCard(ByteArray(8), "Sortie du jour")))
+        assertFalse(book.learnEnsembleName(state, card("Sortie du jour ")))
+        assertNull(book.ensembleCard(state))
+        assertTrue(book.learnEnsembleName(state, card("Sortie du jour")))
+        assertEquals(card("Sortie du jour"), book.ensembleCard(state))
+        // A phone that waits and was handed more than it should keeps only what it may be told.
+        for (name in listOf("Hotel", "Bravo", "Groupe 1")) assertTrue(book.learn(card(name)))
+        book.prune(state, H)
+        assertEquals(setOf("Sortie du jour", "Hotel"), book.cardsFor(state).map { it.name }.toSet())
+        // The end of the ensemble: nobody is told anything any more.
+        val ended = a.apply { must(Change.Dissolve) }.state
+        assertEquals(emptySet(), ended.namesFor(H))
+        assertEquals(emptySet(), ended.namesFor(A))
+        book.prune(ended, H)
+        assertNull(book.ensembleCard(ended))
+    }
+
+    @Test
     fun `a book keeps the cards of the names of the ensemble and hands them to who arrives`() {
         val state = deployed().state
         val book = NameBook()

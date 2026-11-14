@@ -71,7 +71,7 @@ enum class ObjectVerdict {
 
 /** How records are made, signed, written and read. Pure. */
 object SharedRecords {
-    private val RECORD_TAG = "toolmap-hierarchy-object-v3".toByteArray(Charsets.US_ASCII)
+    private val RECORD_TAG = "toolmap-hierarchy-object-v4".toByteArray(Charsets.US_ASCII)
     private const val DELETED = 1
 
     /** `author (8) | object (8) | revision (4) | editor (8) | flags (1) | signature (64)`, then the body. */
@@ -320,7 +320,7 @@ class SharedObjects(
     companion object {
         /** The most objects kept per channel, removals included. */
         const val MAX_PER_CHANNEL = 1024
-        private val DIGEST_TAG = "toolmap-hierarchy-objects-v3".toByteArray(Charsets.US_ASCII)
+        private val DIGEST_TAG = "toolmap-hierarchy-objects-v4".toByteArray(Charsets.US_ASCII)
 
         private val BY_REF: Comparator<SharedRecord> =
             Comparator { a, b ->

@@ -3,12 +3,14 @@ package fr.toolmap.core.hierarchy
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The choices of the second round (`docs/specs/group-hierarchy.md` § 10 quater, Q1 to Q20, and the answers S1 to S7
- * of 2026-11-14), one test each; the name of a test starts with the answer it checks. Whatever closes something is
+ * The choices of the second round (`docs/specs/group-hierarchy.md` § 10 quater, Q1 to Q20, the answers S1 to S7 of
+ * 2026-11-14 and the ones of the third round, T1 to T17), one test each; the name of a test starts with the answer
+ * it checks. The alert has its own class ([HierarchyAlertTest]). Whatever closes something is
  * checked with the keys: every phone receives the frame, and only the readers open it.
  */
 class HierarchyChoicesTest {
@@ -113,7 +115,9 @@ class HierarchyChoicesTest {
     @Test
     fun `Q16 what is shared in a group is read by that group only, administrators and leader of the ensemble too`() {
         val w = led()
-        for (kind in listOf(ShareKind.SKETCH, ShareKind.WAYPOINT, ShareKind.MESSAGE, ShareKind.ALERT)) {
+        // The alert of a plain member stays in its group the same way (HierarchyAlertTest); D, a deputy, alerts
+        // every leader and not its group (T4).
+        for (kind in listOf(ShareKind.SKETCH, ShareKind.WAYPOINT, ShareKind.MESSAGE)) {
             val frame = w[D].frame(kind, Channel.unit(G1), "entre nous, groupe 1")
             assertEquals(setOf(C, D), w.openers(frame), "$kind")
             // The creator, an administrator, the leader of the ensemble and its deputy: no key, and no way in.
@@ -125,27 +129,34 @@ class HierarchyChoicesTest {
         }
         // The leader of the ensemble is in G2: it reads G2 as one of its members.
         assertEquals("groupe 2", w[F].read(w[E].frame(ShareKind.MESSAGE, Channel.unit(G2), "groupe 2")))
+        // The alert of a plain member: F, in G2, before it leads anything.
+        val plain = commanded()
+        val alert = plain[F].frame(ShareKind.ALERT, Channel.unit(G2), "alerte dans le groupe 2")
+        assertEquals(setOf(E, F), plain.openers(alert))
+        for (outside in listOf(A, B, C, D)) assertEquals(ShareRefusal.NO_KEY, plain[outside].refusal(alert))
     }
 
     @Test
-    fun `Q6 an alert goes where the role of its sender says`() {
+    fun `Q6 T4 T13 an alert goes to one place, the one the role of its sender says`() {
         val state = staffedState()
 
         fun alerts(member: Long) = state.shareChannels(member, ShareKind.ALERT)
         // A member: its group.
         assertEquals(listOf(Channel.unit(G1)), alerts(I))
         assertEquals(listOf(Channel.unit(G2)), alerts(E))
-        // The leader of a group and its deputy: every leader (and their own group, as its members).
-        assertEquals(listOf(Channel.LEADERS, Channel.unit(G1)), alerts(C))
-        assertEquals(listOf(Channel.LEADERS, Channel.unit(G1)), alerts(D))
-        // The leader of the ensemble and its deputy: everyone.
-        assertEquals(listOf(Channel.ENSEMBLE, Channel.unit(G2)), alerts(F))
+        // The leader of a group and its deputy: every leader, and not their own group (T4).
+        assertEquals(listOf(Channel.LEADERS), alerts(C))
+        assertEquals(listOf(Channel.LEADERS), alerts(D))
+        // The leader of the ensemble and its deputy: everyone, and nowhere else, though F is a member of G2.
+        assertEquals(listOf(Channel.ENSEMBLE), alerts(F))
         assertEquals(listOf(Channel.ENSEMBLE), alerts(H))
-        // An administrator without a post of leader alerts as a member: its group when it has one.
-        assertEquals(listOf(Channel.unit(G2)), alerts(J))
-        assertEquals(emptyList(), alerts(B), "an administrator without a group has nobody to alert")
-        assertEquals(emptyList(), alerts(A), "nor has the creator without a group")
-        // Every leader: the leaders and deputies of the groups and of the ensemble, the administrators, the creator.
+        // An administrator, or the creator, who leads nothing: every leader, with or without a group (T13).
+        assertEquals(listOf(Channel.LEADERS), alerts(J))
+        assertEquals(listOf(Channel.LEADERS), alerts(B))
+        assertEquals(listOf(Channel.LEADERS), alerts(A))
+        for (member in state.members.keys) assertEquals(alerts(member).single(), state.alertChannel(member))
+        // Every leader (T5): the leaders and deputies of the groups and of the ensemble, the administrators, the
+        // creator.
         assertEquals(listOf(A, B, C, D, F, H, J), state.readerIds(Channel.LEADERS))
 
         // By the keys.
@@ -153,6 +164,9 @@ class HierarchyChoicesTest {
         val fromLeader = w[C].frame(ShareKind.ALERT, Channel.LEADERS, "alerte du chef du groupe 1")
         assertEquals(setOf(A, B, C, D, E), w.openers(fromLeader))
         assertEquals(ShareRefusal.NO_KEY, w[F].refusal(fromLeader))
+        assertEquals(ShareRefusal.NOT_ALLOWED, w[C].sealRefusal(ShareKind.ALERT, Channel.unit(G1), "à mon groupe"))
+        val fromAdmin = w[B].frame(ShareKind.ALERT, Channel.LEADERS, "alerte d'un administrateur")
+        assertEquals(setOf(A, B, C, D, E), w.openers(fromAdmin))
         val fromMember = w[F].frame(ShareKind.ALERT, Channel.unit(G2), "alerte d'un membre")
         assertEquals(setOf(E, F), w.openers(fromMember))
         assertEquals(ShareRefusal.NOT_ALLOWED, w[F].sealRefusal(ShareKind.ALERT, Channel.ENSEMBLE, "à tous"))
@@ -205,18 +219,40 @@ class HierarchyChoicesTest {
     }
 
     @Test
-    fun `Q2 who waits learns no name - the operations carry none, the names travel sealed for who has access`() {
+    fun `Q2 T14 who waits learns no name but the one of the ensemble, which its invitation carried`() {
         val w = world()
         val state = w[H].state
         assertTrue(state.isWaiting(H))
-        // Everything its phone holds of the ensemble, as bytes: no name is in there, not even its own.
-        val held =
+
+        fun absent(
+            name: String,
+            bytes: ByteArray,
+        ) = String(bytes, Charsets.ISO_8859_1).indexOf(String(name.toByteArray(), Charsets.ISO_8859_1)) < 0
+        // What its phone holds of the operations, as bytes: no name is in there, not even its own, nor the one of
+        // the ensemble.
+        val journal =
             HierarchyWire.encodeOpBlocks(w[H].replica.ops()).fold(HierarchyWire.encodeState(state)) { all, block ->
                 all + block
             }
-        val text = String(held, Charsets.ISO_8859_1)
-        for (name in NAMES) assertEquals(-1, text.indexOf(String(name.toByteArray(), Charsets.ISO_8859_1)), name)
+        for (name in NAMES) assertTrue(absent(name, journal), name)
         assertEquals(NAMES.size, w[H].names.missing(state).size)
+        // T14: the invitation carried the card of the name of the ensemble, put there by a phone that knows it. The
+        // phone that waits keeps it once it opens the name the first operation committed to; an invitation gives
+        // no other name.
+        assertNull(w[B].names.ensembleCard(state), "a phone that was not told the name has no card to put there")
+        assertTrue(w[B].names.learn(card("Sortie du jour")))
+        val invited = assertNotNull(w[B].names.ensembleCard(state))
+        assertFalse(w[H].names.learnEnsembleName(state, card("Groupe 1")), "the name of a group")
+        assertFalse(w[H].names.learnEnsembleName(state, card("Bravo")), "the name of a person")
+        assertFalse(w[H].names.learnEnsembleName(state, NameCard(invited.salt, "Autre opération")), "another name")
+        assertTrue(w[H].names.learnEnsembleName(state, invited))
+        assertEquals("Sortie du jour", w[H].names.nameOf(state.name))
+        assertEquals(setOf(hidden("Sortie du jour"), hidden("Hotel")), state.namesFor(H))
+        // Everything its phone holds now, its cards included: the name of the ensemble, and no name of a person
+        // nor of a group.
+        val held = journal + NameBook.encode(w[H].names.cardsFor(state))
+        for (name in NAMES) assertEquals(name != "Sortie du jour", absent(name, held), name)
+        assertEquals(NAMES.size - 1, w[H].names.missing(state).size)
         // The names go to everyone who has access, sealed with the key of the whole ensemble.
         val roster = w[B].frame(ShareKind.ROSTER, Channel.ENSEMBLE, NameBook.encode(NAMES.map(::card)))
         assertEquals(setOf(A, B, C, D, E, F), w.openers(roster))
@@ -231,15 +267,28 @@ class HierarchyChoicesTest {
         // A card that opens no name of the ensemble teaches nothing about it.
         assertNull(w[C].names.nameOf(hidden("Inconnu")))
 
-        // Once placed, it is handed the key of the ensemble, then the names.
+        // Once placed, it is handed the key of the ensemble, then the names it does not have yet.
         w[B].replica.must(Change.AssignMember(H, G2))
         w.spread()
         w.handOutMissing()
         assertEquals(ShareRefusal.NO_KEY, w[H].refusal(roster), "what was sealed before stays closed")
         val again = w[C].frame(ShareKind.ROSTER, Channel.ENSEMBLE, NameBook.encode(w[C].names.cardsFor(w[C].state)))
-        assertEquals(NAMES.size, w[H].names.accept(w[H].share(again)))
+        assertEquals(NAMES.size - 1, w[H].names.accept(w[H].share(again)))
         assertEquals("Bravo", w[H].names.nameOf(w[H].state, B))
         assertEquals(emptyList(), w[H].names.missing(w[H].state))
+        assertEquals(w[H].state.hiddenNames(), w[H].state.namesFor(H))
+
+        // Put back to waiting, an honest phone forgets every name but the one of the ensemble and its own.
+        w[B].replica.must(Change.UnassignMember(H))
+        w.spread()
+        w[H].names.prune(w[H].state, H)
+        assertEquals(setOf("Sortie du jour", "Hotel"), w[H].names.cardsFor(w[H].state).map { it.name }.toSet())
+        // Put out of the ensemble, it forgets that one too.
+        w[A].replica.must(Change.RemoveMember(H))
+        w.spread()
+        w[H].names.prune(w[H].state, H)
+        assertNull(w[H].names.nameOf(w[H].state.name))
+        assertNull(w[H].names.nameOf(hidden("Hotel")))
     }
 
     @Test
@@ -485,7 +534,10 @@ class HierarchyChoicesTest {
         val state = a.state
         assertEquals(G1, state.groupOf(A)?.id)
         assertEquals(listOf(G1, ROOT), state.unitsReadBy(A))
-        assertEquals(listOf(Channel.ENSEMBLE, Channel.unit(G1), Channel.down(G1)), state.channelsReadBy(A))
+        assertEquals(
+            listOf(Channel.ENSEMBLE, Channel.LEADERS, Channel.unit(G1), Channel.down(G1)),
+            state.channelsReadBy(A),
+        )
         // Like everyone, it has a thread « my group »; it still does everything the creator does.
         assertEquals(listOf(Channel.ENSEMBLE, Channel.unit(G1)), state.shareChannels(A, ShareKind.MESSAGE))
         assertNull(HierarchyReducer.check(state, A, admit(B)))

@@ -72,8 +72,17 @@ class HierarchyKeysTest {
         val w = world()
         val batches = w[A].ring.batchesFor(w[A].state)
         val own = Channel.waiting(H)
+        // The lane of the leaders too: the creator and the administrator read it, and alert there (T13).
         assertEquals(
-            setOf(Channel.ENSEMBLE, Channel.unit(G1), Channel.unit(G2), Channel.down(G1), Channel.down(G2), own),
+            setOf(
+                Channel.ENSEMBLE,
+                Channel.LEADERS,
+                Channel.unit(G1),
+                Channel.unit(G2),
+                Channel.down(G1),
+                Channel.down(G2),
+                own,
+            ),
             batches.map { it.channel }.toSet(),
         )
         for (batch in batches.filter { it.channel != own }) {
@@ -277,12 +286,16 @@ class HierarchyKeysTest {
         assertEquals(ShareRefusal.NO_KEY, w[F].refusal(message))
         // F comes back near D, who reads neither G2 nor anything of F's group: D kept the batches all the same.
         val kept = w[D].ring.batchesFor(w[D].state)
-        assertEquals(setOf(Channel.ENSEMBLE, Channel.unit(G1), Channel.unit(G2)), kept.map { it.channel }.toSet())
+        assertEquals(
+            setOf(Channel.ENSEMBLE, Channel.LEADERS, Channel.unit(G1), Channel.unit(G2)),
+            kept.map { it.channel }.toSet(),
+        )
         assertTrue(root.keyId in kept.map { it.keyId })
+        // The two channels F reads changed while it was away; the lane of the leaders (A and B) did not.
+        val changed = kept.filter { it.channel == Channel.ENSEMBLE || it.channel == Channel.unit(G2) }
+        assertEquals(2, changed.size)
         // The batches before the operations: F does not know those readers yet, they wait.
-        for (batch in kept.filter { it.channel != Channel.unit(G1) }) {
-            assertEquals(KeyOffer.UNKNOWN_READERS, w[F].take(batch))
-        }
+        for (batch in changed) assertEquals(KeyOffer.UNKNOWN_READERS, w[F].take(batch))
         assertEquals(1, sync(w[F].replica, w[D].replica))
         assertEquals(2, w[F].ring.retry(w[F].replica))
         // Its two units have their keys; the lane down to its group waits until someone has something to send.
@@ -292,8 +305,8 @@ class HierarchyKeysTest {
         assertEquals("oui", w[H].read(w[F].frame(ShareKind.MESSAGE, G2, "oui")))
         // In the other order (operations, then batches) nothing waits.
         val late = Device(F, w[D].replica)
-        for (batch in kept.filter { it.channel != Channel.unit(G1) }) assertEquals(KeyOffer.ACCEPTED, late.take(batch))
-        assertEquals(KeyOffer.NOT_FOR_ME, late.take(kept.single { it.channel == Channel.unit(G1) }))
+        for (batch in changed) assertEquals(KeyOffer.ACCEPTED, late.take(batch))
+        for (batch in kept - changed.toSet()) assertEquals(KeyOffer.NOT_FOR_ME, late.take(batch), "${batch.channel}")
         assertEquals("position de E", late.read(position))
     }
 
@@ -421,12 +434,21 @@ class HierarchyKeysTest {
         assertEquals(listOf(A, B, C, D, E, F), root.members.map { it.id })
         assertEquals(Readers.TAG_BYTES, root.tag.size)
         assertEquals(root, a.copyFor(B).state.readers(ROOT))
-        // Every channel that has readers: the ensemble, each group and the lane down to it. No group has a leader
-        // yet (nothing goes up, no lane of the leaders) and nobody waits.
+        // Every channel that has readers: the ensemble, the lane of the leaders (the creator and the administrator,
+        // who alert there: T13), each group and the lane down to it. No group has a leader yet (nothing goes up)
+        // and nobody waits.
         assertEquals(
-            listOf(Channel.ENSEMBLE, Channel.unit(G1), Channel.down(G1), Channel.unit(G2), Channel.down(G2)),
+            listOf(
+                Channel.ENSEMBLE,
+                Channel.LEADERS,
+                Channel.unit(G1),
+                Channel.down(G1),
+                Channel.unit(G2),
+                Channel.down(G2),
+            ),
             state.allReaders().map { it.channel },
         )
+        assertEquals(listOf(A, B), state.readerIds(Channel.LEADERS))
         assertFalse(root.tag.contentEquals(state.readers(G1)!!.tag))
         // Two lanes with the same readers still have two names, so two keys.
         val alone = a.copyFor(A).apply { must(Change.AssignMember(A, G1)) }.state

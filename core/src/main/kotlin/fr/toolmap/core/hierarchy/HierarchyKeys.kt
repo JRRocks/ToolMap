@@ -44,7 +44,7 @@ class Readers internal constructor(
 
     companion object {
         const val TAG_BYTES = 16
-        private val READERS_TAG = "toolmap-hierarchy-readers-v3".toByteArray(Charsets.US_ASCII)
+        private val READERS_TAG = "toolmap-hierarchy-readers-v4".toByteArray(Charsets.US_ASCII)
     }
 }
 
@@ -120,8 +120,8 @@ class ContentKey internal constructor(
     private fun context(): ByteArray = OpAuth.longBytes(ensembleId) + channel.bytes() + readersTag
 
     companion object {
-        private val KEY_TAG = "toolmap-hierarchy-key-v3".toByteArray(Charsets.US_ASCII)
-        private val SHARE_INFO = "toolmap-hierarchy-share-key-v3".toByteArray(Charsets.US_ASCII)
+        private val KEY_TAG = "toolmap-hierarchy-key-v4".toByteArray(Charsets.US_ASCII)
+        private val SHARE_INFO = "toolmap-hierarchy-share-key-v4".toByteArray(Charsets.US_ASCII)
     }
 }
 
@@ -190,8 +190,8 @@ enum class KeyOffer {
 
 /** How content keys are made, wrapped, checked and unwrapped. Pure: no network, no disk. */
 object ContentKeys {
-    private val KEYS_TAG = "toolmap-hierarchy-keys-v3".toByteArray(Charsets.US_ASCII)
-    private val WRAP_INFO = "toolmap-hierarchy-wrap-v3".toByteArray(Charsets.US_ASCII)
+    private val KEYS_TAG = "toolmap-hierarchy-keys-v4".toByteArray(Charsets.US_ASCII)
+    private val WRAP_INFO = "toolmap-hierarchy-wrap-v4".toByteArray(Charsets.US_ASCII)
 
     /** The key is used once: a fixed nonce is safe, and the same on every phone. */
     private val WRAP_NONCE = ByteArray(Aead.NONCE_BYTES)
