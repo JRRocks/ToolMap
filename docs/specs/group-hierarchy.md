@@ -2,7 +2,7 @@
 
 > Demande de l'utilisateur (2026-11-13) : `docs/PLAN.md` § P39. Décisions d'architecture : ADR-125 (journal d'opérations), ADR-126 (clés de contenu et signatures), ADR-127 (canaux, noms cachés, objets durables).
 > Ce document décrit le **moteur** (P39.2, mis aux règles de l'utilisateur par P39.4, puis à ses choix du second tour et à ses précisions S1 à S7 le 2026-11-14, puis à ses réponses du troisième tour, T1 à T17, le même jour) : la logique, dans `:core`, paquet `fr.toolmap.core.hierarchy`. Rien n'est branché : ni transport, ni stockage, ni écran. Le système de groupe actuel (`fr.toolmap.core.p2p`, `docs/specs/p2p-sharing.md`) n'est pas modifié.
-> Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15, celle des clés et du stockage au § 16, celle du transport et du contrôleur au § 17 ; le quatrième passage de maquettes (écarts avant de coder) est au § 18.
+> Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15, celle des clés et du stockage au § 16, celle du transport et du contrôleur au § 17 ; le quatrième passage de maquettes (écarts avant de coder) est au § 18, les choix de l'utilisateur sur ce passage et sur les questions du § 17 au § 10 septies.
 > Mots : dans les écrans, « ensemble » se dit « opération » et « leader » se dit « chef » (§ 10 ter) ; dans le code et dans ce document, `ensemble` et `leader` restent les noms techniques.
 
 ## 1. Vocabulaire
@@ -759,6 +759,55 @@ T17 1 · D'accord pour tout
 **Écarts à remontrer en aperçu avant de les coder** (ils ne sont pas dessinés tels quels, ou ont été relevés par le contrôle indépendant des 52 images) : l'écran d'attente sans interrupteur (T15) ; le texte de l'alerte d'un administrateur qui n'est pas chef (T13) ; la fenêtre d'envoi à quatre lignes d'un chef de groupe administrateur ; la ligne « Messages » absente de quatre écrans (`09-promotion-groupe`, `09-promotion-operation`, `09-chef-operation-quitte`) ; deux étiquettes de carte collées (`10-attente-admin`, `11-arrivant`) ; des textes ambigus (« Personne pour écrire dans ce fil », « Écrire au Groupe Sud », « Seuls les chefs envoient plus loin que leur groupe ») ; le chemin indiqué par le rappel au créateur, qui passe par « Quitter l'opération » ; le contraste de « jusqu'au bout » sur la glissière ; l'écran de création du second tour, où le groupe du créateur est à mettre en accord.
 
 **Moteur** : seuls T4, T13 et T14 lui demandent un changement (alerte d'un chef de groupe sans son groupe, alerte d'un administrateur vers tous les chefs, nom de l'opération porté par l'invitation) ; il est relancé sur ces trois points le 2026-11-14. Aucun écran n'est codé à ce jour.
+
+## 10 septies. Choix du quatrième passage (2026-11-15)
+
+Choix faits par l'utilisateur sur les maquettes du quatrième passage (`docs/previews/p39-groupes/tour4/`, § 18) et sur les questions du transport (§ 17). U1 à U10 sont les questions du § 2 de `tour4/REMONTEE.md` (toujours la variante A) ; E1 valide les dix écarts sans choix de son § 3 ; R1 à R5 sont les « Questions pour l'utilisateur » 1 à 5 du § 17 ; E2 valide ses « Lectures faites là où la spécification ne tranche pas ». Bloc recopié tel quel :
+
+```text
+Choix P39 tour 4 (écarts et échange)
+U1 A · La ligne « Ma position » reste, avec un cadenas
+U2 A · Oui : « Le Groupe Est ne la reçoit pas, sauf son chef »
+U3 A · La ligne d'alerte est grise : « Aucun chef nommé pour la recevoir »
+U4 A · Une seule liste, du plus proche au plus large
+U5 A · Une ligne grise avec un cadenas : « Fil fermé : ce groupe n'a ni chef ni adjoint »
+U6 A · « Au chef et à son adjoint »
+U7 A · « Seul le Groupe Nord le verra. »
+U8 A · Un bouton « Transmettre » à côté de « Compris »
+U9 A · Sous le champ du nom, en petit
+U10 A · Pas de durée : il reste affiché jusqu'à ce que quelqu'un le retire
+R1 A · Chaque téléphone garde une semaine une trace fermée de l'opération
+R2 A · Oui, les 500 derniers de chaque fil
+R3 A · Oui : après un départ, on redonne une invitation (ce qui est fait)
+R4 A · Celui intégré à l'application (ce qui est fait)
+R5 A · Oui, lui et les autres administrateurs seulement (ce qui est fait)
+E1 1 · D'accord pour tout
+E2 1 · D'accord pour tout
+```
+
+Précisions affichées à l'utilisateur sur sa page de choix : R1 A, la trace ne sert qu'à annoncer la dissolution aux retardataires ; elle ne contient ni position, ni nom, ni message. R2 A, les messages sont scellés avec l'opération et effacés avec elle.
+
+**Lecture de la session des écrans** (session 116 ; chaque ligne reprend le sens donné dans `tour4/REMONTEE.md` et au § 17) :
+
+- **U1 A** : l'écran d'attente garde la ligne « Ma position » (« Membre 21 (vous) · envoyée aux administrateurs ») avec un cadenas à la place de l'interrupteur ; sous « Quitter l'opération », « C'est le seul moyen de ne plus envoyer sa position. » ; seul le nom de l'opération y est écrit (T14, T15).
+- **U2 A** : la feuille d'alerte d'un administrateur ou du créateur qui n'est pas chef dit, sous « Tous les chefs · 7 personnes », « Le Groupe Est ne la reçoit pas, sauf son chef (Membre 14). ».
+- **U3 A** : la règle T13 reste (une seule destination par personne) ; sans aucun chef ni autre administrateur nommé, la ligne « Envoyer une alerte » du créateur est grise (« Aucun chef nommé pour la recevoir ») et, touchée, explique et mène à « Administrer ». Le moteur ne change pas.
+- **U4 A** : chef de groupe et administrateur à la fois, une seule liste de quatre lignes, du plus proche au plus large : « Mon groupe », « Commandement », « Un groupe » (liste déroulante), « Toute l'opération » ; « Mon groupe » cochée à l'ouverture.
+- **U5 A** : dans « Commandement », le fil d'un groupe sans chef ni adjoint reste à sa place, en ligne grise avec un cadenas : « Fil fermé : ce groupe n'a ni chef ni adjoint ».
+- **U6 A** : dans le fil d'un groupe ouvert par le commandement, le champ de saisie dit « Au chef et à son adjoint » ; une ligne en tête du fil nomme ses lecteurs.
+- **U7 A** : sous la ligne unique de la fenêtre d'envoi d'un membre : « Seul le Groupe Nord le verra. ».
+- **U8 A** : le bandeau du créateur a « Transmettre » à côté de « Compris » ; « Transmettre » ouvre la feuille « Transmettre le rôle de créateur » (administrateurs seulement ; il reste dans l'opération, dans son groupe, comme membre ; ce que garderait l'ancien téléphone). Le menu ⋮ du créateur a aussi « Transmettre le rôle de créateur… » au-dessus de « Quitter l'opération… » (écart 10, validé par E1).
+- **U9 A** : sous le champ du nom de l'opération, en petit : « Le nom est lu par toute personne qui reçoit l'invitation, même avant d'être placée dans un groupe. N'y mettez rien de confidentiel. ».
+- **U10 A** : un waypoint ou un croquis d'une opération n'a pas de durée : il reste affiché jusqu'à ce que quelqu'un le retire (T12, ce que fait le moteur) ; « Quitter l'opération ? » dit « restent affichés jusqu'à ce que quelqu'un les retire ».
+- **R1 A** (question 1 du § 17) : chaque téléphone garde une semaine une trace fermée de l'opération dissoute, qui ne sert qu'à annoncer la dissolution à un téléphone resté absent ; elle ne contient ni position, ni nom, ni message. Changement du transport, codé par la session P39.9 (session 117), pas par les écrans.
+- **R2 A** (question 2) : les 500 derniers messages de chaque fil restent après un redémarrage de l'application, scellés avec l'opération et effacés avec elle. Codé par la session P39.9.
+- **R3 A** (question 3) : la clé d'invitation est renouvelée après chaque départ ; les invitations données avant ne marchent plus (ce qui est fait). Rien ne change.
+- **R4 A** (question 4) : les opérations passent par le serveur intégré à l'application (ce qui est fait).
+- **R5 A** (question 5) : le créateur et les administrateurs lisent le nom de qui demande à entrer avant de l'admettre, personne d'autre (ce qui est fait).
+- **E1 1** : les dix écarts sans choix du § 3 de `tour4/REMONTEE.md` sont validés tels que dessinés (ligne rouge « à tous les chefs », étiquettes de l'alerte reçue, créateur seul, ligne « Messages » des écrans de promotion, étiquettes de la carte, contraste de « jusqu'au bout », écran de création avec « Est » coché et « Aucun », texte de « Quitter l'opération ? », retrait d'un partage, entrée « Transmettre le rôle de créateur… » du menu ⋮).
+- **E2 1** : les neuf lectures du § 17 (nom lu par les administrateurs avant l'admission, salle tirée au hasard, invitation renouvelée après chaque départ, serveur intégré, messages et alertes en mémoire, alerte et sa levée, une opération ouverte à la fois, cartes des noms de qui attend, taille d'un objet durable) sont validées ; la cinquième est remplacée par R2 A.
+
+**Conséquence** : toutes les maquettes sont validées (P39.5 terminé le 2026-11-15). Pour coder, le dessin le plus récent de chaque écran fait foi : `tour4/`, puis `tour3/`, puis `tour2/`. U1 à U10 ne changent que les écrans ; seuls R1 et R2 changent le transport (session P39.9).
 
 ## 11. Fichiers et tests
 
