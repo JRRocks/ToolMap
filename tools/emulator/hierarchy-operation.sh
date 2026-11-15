@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# Check of the « Opération » controller (P39.7, ADR-129, docs/specs/group-hierarchy.md § 17) on one emulator or phone,
-# without a server and without a screen, ToolMap installed (an APK whose build type has the testing tools: debug) and
-# started:
+# Check of the « Opération » controller (P39.7, ADR-129, docs/specs/group-hierarchy.md § 17; P39.9, ADR-131, § 20) on
+# one emulator or phone, without a server and without a screen, ToolMap installed (an APK whose build type has the
+# testing tools: debug) and started:
 #
 #   bash tools/emulator/hierarchy-operation.sh [output folder]
 #
-# Asks the running app twice (`dumpsys activity`): phase « create » creates an operation over the real Keystore (a
-# group, this phone its leader and leader of the operation, a waypoint) and stores it; the process is then killed and
-# the app started again; phase « reload » opens it again from the storage in the new process, compares, dissolves it
-# and checks that no folder and no key is left. Fails when a phase fails or the app crashes; an APK that does not
-# answer (a release) is skipped. Lines in hierarchy-operation.txt. Called by smoke.sh after hierarchy-keys.sh.
+# Asks the running app three times (`dumpsys activity`), the process killed and the app started again in between:
+# phase « create » creates an operation over the real Keystore (a group, this phone its leader and leader of the
+# operation, a waypoint, messages in two threads) and stores it; phase « reload » opens it again from the storage in
+# the new process, compares (messages included), dissolves it and checks that only the trace of the dissolution is
+# left (no folder and no key of the operation; one trace, which names nothing and holds no message); phase « trace »
+# reads that trace back in another process, then wipes it and checks that nothing is left. Fails when a phase fails
+# or the app crashes; an APK that does not answer (a release) is skipped. Lines in hierarchy-operation.txt. Called by
+# smoke.sh after hierarchy-keys.sh.
 set -euo pipefail
 
 out="${1:-emulator-check}"
@@ -25,7 +28,8 @@ fail() {
   exit 1
 }
 
-# Asks for one phase; sets ran to the phase the app ran (« create » or « reload »), empty when it does not answer.
+# Asks for one phase; sets ran to the phase the app ran (« create », « reload » or « trace »), empty when it does not
+# answer.
 # Not called in a $(…): a failure there would only end the subshell.
 ran=""
 ask() {
@@ -73,18 +77,23 @@ if [ -z "$ran" ]; then
   echo "The check of the « Opération » controller is not offered by this APK (no answer to dumpsys)."
   exit 0
 fi
-if [ "$ran" = "reload" ]; then
-  # A run stopped halfway left its operation: that phase cleaned it up, the next one starts afresh.
+for again in 1 2; do
+  [ "$ran" = "create" ] && break
+  # A run stopped halfway left its operation or its trace: that phase cleaned it up, the next one goes on afresh.
   : > "$out/hierarchy-operation.txt"
-  ask again
-fi
+  ask "again-$again"
+done
 [ "$ran" = "create" ] || fail "the check of the « Opération » controller did not start with its first phase"
 passed create || fail "phase create of the check of the « Opération » controller failed: $(grep FAIL "$out/hierarchy-operation.txt" || true)"
 restart
 ask reload
 [ "$ran" = "reload" ] || fail "the new process did not read back what the first one stored"
 passed reload || fail "phase reload of the check of the « Opération » controller failed: $(grep FAIL "$out/hierarchy-operation.txt" || true)"
+restart
+ask trace
+[ "$ran" = "trace" ] || fail "the new process did not find the trace of the dissolution"
+passed trace || fail "phase trace of the check of the « Opération » controller failed: $(grep FAIL "$out/hierarchy-operation.txt" || true)"
 
-echo "« Opération » controller on this emulator (API $api): created, read back after a restart, dissolved:"
+echo "« Opération » controller on this emulator (API $api): created, read back after a restart, dissolved, its trace read back then wiped:"
 sed 's/^/  /' "$out/hierarchy-operation.txt"
 echo "OK: « Opération » controller (API $api)" | tee "$out/hierarchy-operation-result.txt"

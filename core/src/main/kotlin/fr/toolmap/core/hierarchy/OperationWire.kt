@@ -150,6 +150,12 @@ enum class FrameGenre(
 
     /** The invitation key of an epoch, wrapped to members ([InviteGrant]). */
     INVITE_KEY(6),
+
+    /**
+     * The proof that the operation is dissolved ([DissolutionNotice]), from a phone that keeps its trace to a phone
+     * still in it (P39.9, ADR-131). Versions before it do not know this genre and drop the frame.
+     */
+    DISSOLUTION(7),
     ;
 
     companion object {

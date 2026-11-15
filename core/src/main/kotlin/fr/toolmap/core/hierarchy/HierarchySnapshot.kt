@@ -7,9 +7,10 @@ import fr.toolmap.core.p2p.WireException
 /**
  * What one phone keeps of one ensemble between two runs, as bytes (`docs/specs/group-hierarchy.md` § 9, « Stockage »):
  * the operations, the content keys it holds with the key batches it checked, the name cards, the records of the
- * objects still shown. Pure: no disk, no Keystore. The caller seals these bytes (they carry content keys and names)
- * with an authenticated cipher and writes them; it hands back only bytes that it authenticated, so nothing here
- * checks a signature again. Anything else read here throws a [WireException], and the target is left untouched.
+ * objects still shown, and the messages of its threads (§ 20, R2). Pure: no disk, no Keystore. The caller seals
+ * these bytes (they carry content keys, names and messages) with an authenticated cipher and writes them; it hands
+ * back only bytes that it authenticated, so nothing here checks a signature again. Anything else read here throws a
+ * [WireException], and the target is left untouched.
  *
  * Nothing of this travels between phones: it is not part of [HierarchyWire], and its version is its own.
  */
@@ -19,6 +20,7 @@ object HierarchySnapshot {
     private const val KEYS = 2
     private const val NAMES = 3
     private const val OBJECTS = 4
+    private const val MESSAGES = 5
 
     /** Far more than an ensemble can hold: a count above it is damage, not data. */
     private const val MAX_COUNT = 1 shl 20
@@ -158,6 +160,49 @@ object HierarchySnapshot {
                     ofChannel[record.ref] = record
                 }
             }
+        }
+    }
+
+    /** The messages of [log], thread by thread and oldest first (P39.9, R2). */
+    fun encodeMessages(log: MessageLog): ByteArray =
+        synchronized(log) {
+            val w = header(MESSAGES).u64(log.ensembleId)
+            val threads = log.threads.filterValues { it.isNotEmpty() }
+            w.u32(threads.size.toLong())
+            for ((channel, messages) in threads) {
+                channel(w, channel).u32(messages.size.toLong())
+                for (m in messages) {
+                    w.u64(m.author).u64(m.id).u64(m.sentAtMs).u64(m.receivedAtMs)
+                    w.longStr(m.text, OperationPayloads.MAX_TEXT_BYTES)
+                }
+            }
+            w.toByteArray()
+        }
+
+    /**
+     * Puts back into [log] what [encodeMessages] gave; all of it or, on a [WireException], nothing. A thread longer
+     * than [MessageLog.maxPerThread] keeps its last messages.
+     */
+    fun restoreMessages(
+        log: MessageLog,
+        bytes: ByteArray,
+    ) {
+        val r = open(bytes, MESSAGES)
+        if (r.u64() != log.ensembleId) throw WireException("messages of another ensemble")
+        val read =
+            List(count(r.u32())) {
+                val channel = readChannel(r)
+                channel to
+                    List(count(r.u32())) {
+                        val m = LoggedMessage(r.u64(), r.u64(), r.u64(), r.u64(), r.longStr())
+                        if (m.author == 0L || m.id == 0L) throw WireException("bad message")
+                        m
+                    }
+            }
+        end(r)
+        if (read.map { it.first }.toSet().size != read.size) throw WireException("thread twice")
+        synchronized(log) {
+            for ((channel, messages) in read) for (m in messages) log.add(channel, m)
         }
     }
 

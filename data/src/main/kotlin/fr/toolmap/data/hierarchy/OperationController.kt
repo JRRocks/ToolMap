@@ -2,8 +2,13 @@ package fr.toolmap.data.hierarchy
 
 import fr.toolmap.core.hierarchy.Change
 import fr.toolmap.core.hierarchy.Channel
+import fr.toolmap.core.hierarchy.DissolutionAnnouncer
+import fr.toolmap.core.hierarchy.DissolutionTrace
+import fr.toolmap.core.hierarchy.HierarchySnapshot
 import fr.toolmap.core.hierarchy.HierarchyState
 import fr.toolmap.core.hierarchy.IssueResult
+import fr.toolmap.core.hierarchy.LoggedMessage
+import fr.toolmap.core.hierarchy.MessageLog
 import fr.toolmap.core.hierarchy.NameLabel
 import fr.toolmap.core.hierarchy.Names
 import fr.toolmap.core.hierarchy.ObjectRef
@@ -164,6 +169,22 @@ data class OperationView(
     val online: Set<Long> = emptySet(),
     val refused: List<RefusedChange> = emptyList(),
     val ending: Ending? = null,
+    /**
+     * Ended as dissolved, said by a phone that keeps the operation's trace (this phone was away when it was
+     * dissolved: P39.9, R1), not read from the operations.
+     */
+    val endedByTrace: Boolean = false,
+    /** Dissolved while this phone was a member: until when it keeps the trace that tells it to who was away (R1). */
+    val traceKeptUntilMs: Long? = null,
+)
+
+/**
+ * A trace this phone keeps of an operation dissolved while it was a member (R1): when it was dissolved, and when the
+ * trace goes by itself. It names nothing: a trace holds no name.
+ */
+data class DissolutionTraceView(
+    val dissolvedAtMs: Long,
+    val keptUntilMs: Long,
 )
 
 /** What came of [OperationController.create], [OperationController.join] or [OperationController.open]. */
@@ -211,6 +232,12 @@ data class InvitationPreview(
  *
  * When the operation ends for this phone (it left, was taken out, or the operation is dissolved) everything is wiped
  * and [view] says [OperationPhase.ENDED] with the reason.
+ *
+ * P39.9 (ADR-131, `docs/specs/group-hierarchy.md` § 20): the messages of the threads are kept, the last 500 of each,
+ * sealed with the operation and wiped with it (R2). A dissolution leaves, on every phone that was a member, a trace
+ * kept a week ([traces]) which tells a phone that was away; to do so this phone listens in the room of each trace for
+ * a moment ([TRACE_WINDOW_MS]) when an operation starts on it, then every [TRACE_EVERY_MS] while it runs, and when the
+ * screens ask ([announceDissolutions], the app in front): never otherwise, never with the screen off and no operation.
  */
 class OperationController(
     private val storage: OperationStorage,
@@ -249,11 +276,25 @@ class OperationController(
         var transport: RelayTransport? = null
         var serverState = ServerState.NONE
         val positions = HashMap<Long, ReceivedPosition>()
-        val threads = LinkedHashMap<Channel, ArrayList<ThreadMessage>>()
+
+        /** The messages of the threads: stored, read back at [open] (R2). */
+        val messages = MessageLog(contents.ensembleId)
         val alerts = LinkedHashMap<Long, ReceivedAlert>()
         var saveDue = false
+        var messagesDue = false
         var ended: Ending? = null
         var ticker: ScheduledFuture<*>? = null
+
+        /** Until when the trace this phone kept at the dissolution goes ([OperationView.traceKeptUntilMs]). */
+        var traceKeptUntil: Long? = null
+
+        init {
+            stored.loadMessages()?.let { bytes ->
+                catchExpected("operation.open.messages", WireException::class) {
+                    HierarchySnapshot.restoreMessages(messages, bytes)
+                }
+            }
+        }
 
         override fun onChanged() {
             if (!saveDue) {
@@ -276,7 +317,7 @@ class OperationController(
             channel: Channel,
             message: OperationText,
         ) {
-            addMessage(channel, ThreadMessage(author, message.text, message.sentAtMs, clock()))
+            addMessage(channel, LoggedMessage(author, message.id, message.sentAtMs, clock(), message.text))
             publish()
         }
 
@@ -298,13 +339,26 @@ class OperationController(
             executor.execute { if (running === this) end() }
         }
 
+        /**
+         * Keeps [message] in its thread, and writes the threads a moment later (only them: a message changes nothing
+         * else of the operation); a message played again (same author and identifier) is not kept twice.
+         */
         fun addMessage(
             channel: Channel,
-            message: ThreadMessage,
+            message: LoggedMessage,
         ) {
-            val thread = threads.getOrPut(channel) { ArrayList() }
-            thread += message
-            while (thread.size > MAX_THREAD) thread.removeAt(0)
+            if (!messages.add(channel, message) || messagesDue) return
+            messagesDue = true
+            executor.execute { if (running === this) saveMessages() }
+        }
+
+        /** Writes the threads, those of the channels this phone no longer reads forgotten first, as their keys (R2). */
+        fun saveMessages() {
+            messagesDue = false
+            if (ended != null) return
+            val state = node.state
+            if (node.self in state.members) messages.retain(state.channelsReadBy(node.self))
+            stored.saveMessages(HierarchySnapshot.encodeMessages(messages))
         }
 
         fun save() {
@@ -312,6 +366,7 @@ class OperationController(
             when (val result = stored.save(contents)) {
                 is SaveResult.Ended -> {
                     ended = ended ?: result.ending
+                    traceKeptUntil = result.traceKeptUntilMs
                     end()
                     return
                 }
@@ -323,14 +378,23 @@ class OperationController(
 
                 SaveResult.Saved -> {
                     stored.saveLink(node.linkState().encode())
+                    saveMessages()
                 }
             }
             publish()
         }
 
-        /** Over: the storage is wiped, the room left a moment later (the last frames go out first). */
+        /**
+         * Over: the storage is wiped (but the trace of a dissolution, when this phone was a member then: R1), the room
+         * left a moment later (the last frames go out first).
+         */
         fun end() {
-            stored.wipe()
+            if (ended == Ending.DISSOLVED) {
+                traceKeptUntil = stored.endDissolved(node.dissolution, node.dissolvedAtMs ?: clock(), node.linkState())
+            } else {
+                stored.wipe()
+            }
+            messages.clear()
             ticker?.cancel(false)
             val t = transport
             transport = null
@@ -352,6 +416,7 @@ class OperationController(
                             this
                         ) {
                             node.tick()
+                            if (clock() - lastWindowAt >= TRACE_EVERY_MS) openWindow()
                         }
                     }
                 }, 1, 1, TimeUnit.SECONDS)
@@ -397,6 +462,54 @@ class OperationController(
             }
         }
     }
+
+    /**
+     * A moment in the room of an operation dissolved while this phone was a member, whose trace it keeps (R1,
+     * ADR-131): to every phone still in it that speaks, the proof once a minute at most ([DissolutionAnnouncer]).
+     */
+    private inner class Announcing(
+        val trace: DissolutionTrace,
+        var closesAt: Long,
+    ) : LinkListener {
+        val announcer = DissolutionAnnouncer(trace, clock, random)
+        val links = HashMap<Long, MeshLink>()
+        var transport: RelayTransport? = null
+
+        override fun onLinkOpen(
+            peer: Long,
+            name: String,
+            color: Int,
+            link: MeshLink,
+        ) = post { links[peer] = link }
+
+        override fun onLinkClosed(peer: Long) = post { links.remove(peer) }
+
+        override fun onFrame(
+            peer: Long,
+            bytes: ByteArray,
+        ) = post {
+            val answer = announcer.receive(bytes) ?: return@post
+            // The room carries one write to everyone in it: any link of this room will do.
+            (links[peer] ?: links.values.firstOrNull())?.send(answer, false)
+        }
+
+        fun close() {
+            val t = transport ?: return
+            transport = null
+            catchReported("operation.trace.close") { t.close() }
+        }
+
+        private fun post(block: () -> Unit) {
+            executor.execute {
+                if (announcing[trace.ensembleId] === this) catchReported("operation.trace.frame") { block() }
+            }
+        }
+    }
+
+    /** The rooms of dissolved operations this phone is in now, by operation. */
+    private val announcing = LinkedHashMap<Long, Announcing>()
+    private var lastWindowAt = Long.MIN_VALUE / 2
+    private var traceTicker: ScheduledFuture<*>? = null
 
     // ---- start -------------------------------------------------------------------------------------------------
 
@@ -473,7 +586,13 @@ class OperationController(
             val stored = storage.open(id) ?: return@onThread StartResult.NOT_FOUND
             when (val loaded = stored.load()) {
                 is LoadResult.Ended -> {
-                    mutableView.value = OperationView(OperationPhase.ENDED, storageId = id, ending = loaded.ending)
+                    mutableView.value =
+                        OperationView(
+                            OperationPhase.ENDED,
+                            storageId = id,
+                            ending = loaded.ending,
+                            traceKeptUntilMs = loaded.traceKeptUntilMs,
+                        )
                     StartResult.ENDED
                 }
 
@@ -512,6 +631,8 @@ class OperationController(
         }
         r.startTransport()
         r.save()
+        // The « Opération » sharing starts: a moment in the rooms of the operations dissolved this week (R1).
+        openWindow()
         return StartResult.STARTED
     }
 
@@ -527,6 +648,7 @@ class OperationController(
         r.transport?.let { t -> catchReported("operation.transport.close") { t.close() } }
         r.transport = null
         if (r.ended == null && r.saveDue) r.save()
+        if (r.ended == null && r.messagesDue) r.saveMessages()
         mutableView.value = OperationView()
     }
 
@@ -638,9 +760,10 @@ class OperationController(
         text: String,
     ): ShareOutcome =
         onNode(ShareOutcome.NOT_ALLOWED) { n ->
-            val outcome = n.sendMessage(channel, text)
+            val m = OperationText(nonZero(), clock(), text)
+            val outcome = n.sendMessage(channel, m)
             if (outcome == ShareOutcome.SENT || outcome == ShareOutcome.QUEUED) {
-                running?.addMessage(channel, ThreadMessage(n.self, text, clock(), clock()))
+                running?.addMessage(channel, LoggedMessage(n.self, m.id, m.sentAtMs, m.sentAtMs, text))
             }
             outcome
         }
@@ -669,10 +792,75 @@ class OperationController(
 
     suspend fun removeObject(ref: ObjectRef): ShareOutcome = onNode(ShareOutcome.NOT_ALLOWED) { it.removeObject(ref) }
 
+    // ---- traces of dissolved operations (R1) --------------------------------------------------------------------
+
+    /**
+     * The screens say the app is in front: a moment ([TRACE_WINDOW_MS]) in the room of each operation dissolved this
+     * week while this phone was a member, to tell a phone still in it (R1); not more than once every
+     * [ANNOUNCE_EVERY_MS]. The number of traces being told now (0: none kept, no network used).
+     */
+    suspend fun announceDissolutions(): Int =
+        onThread {
+            if (clock() - lastWindowAt >= ANNOUNCE_EVERY_MS) openWindow()
+            announcing.size
+        }
+
+    /** The traces this phone keeps (those over a week old are wiped first). */
+    suspend fun traces(): List<DissolutionTraceView> =
+        onThread { storage.traces.list(clock()).map { DissolutionTraceView(it.dissolvedAtMs, it.expiresAtMs) } }
+
+    /** Joins, for [TRACE_WINDOW_MS], the room of each trace kept (one already open stays that much longer). */
+    private fun openWindow() {
+        val factory = relays ?: return
+        val now = clock()
+        lastWindowAt = now
+        for (trace in storage.traces.list(now)) {
+            val server = trace.server ?: continue
+            val open = announcing[trace.ensembleId]
+            if (open != null) {
+                open.closesAt = now + TRACE_WINDOW_MS
+                continue
+            }
+            val a = Announcing(trace, now + TRACE_WINDOW_MS)
+            val t = factory.create(server, trace.room, a)
+            // As in the operation, no name on the server; and an identifier drawn for the trace, not the member's.
+            t.identity = TransportIdentity(trace.room, trace.sender, "", 0)
+            a.transport = t
+            announcing[trace.ensembleId] = a
+            t.start()
+        }
+        if (announcing.isNotEmpty() && traceTicker == null) {
+            traceTicker =
+                executor.scheduleWithFixedDelay({
+                    catchReported("operation.trace.tick") { tickTraces() }
+                }, 1, 1, TimeUnit.SECONDS)
+        }
+    }
+
+    /** Leaves the rooms whose moment is over; the last one stops the clock of the traces. */
+    private fun tickTraces() {
+        val now = clock()
+        val over = announcing.values.filter { now >= it.closesAt }
+        for (a in over) {
+            announcing.remove(a.trace.ensembleId)
+            a.close()
+        }
+        if (announcing.isEmpty()) {
+            traceTicker?.cancel(false)
+            traceTicker = null
+        }
+    }
+
     // ---- inside ------------------------------------------------------------------------------------------------
 
-    /** Runs what is due now, without waiting for the next second (tests). */
-    internal suspend fun tickNow() = onNode(Unit) { it.tick() }
+    /** Runs what is due now, without waiting for the next second (tests): the operation's, then the traces'. */
+    internal suspend fun tickNow() {
+        onNode(Unit) { n ->
+            n.tick()
+            if (clock() - lastWindowAt >= TRACE_EVERY_MS) openWindow()
+        }
+        onThread { tickTraces() }
+    }
 
     /** The node of the operation open now (tests and the debug check). */
     internal suspend fun <T> withNode(block: (OperationNode) -> T): T? = onThread { running?.node?.let(block) }
@@ -701,7 +889,16 @@ class OperationController(
         val self = n.self
         val ended = r.ended
         if (ended != null) {
-            mutableView.value = OperationView(OperationPhase.ENDED, r.stored.id, n.ensembleId, self, ending = ended)
+            mutableView.value =
+                OperationView(
+                    OperationPhase.ENDED,
+                    r.stored.id,
+                    n.ensembleId,
+                    self,
+                    ending = ended,
+                    endedByTrace = n.dissolvedByTrace,
+                    traceKeptUntilMs = r.traceKeptUntil,
+                )
             return
         }
         val online = n.online
@@ -732,7 +929,8 @@ class OperationController(
             }
         val read = if (self in state.members) state.channelsReadBy(self).toSet() else emptySet()
         r.positions.keys.retainAll { it in state.members && state.canSee(self, it) }
-        r.threads.keys.retainAll(read)
+        // Only once this phone knows where it stands (as at a save): while it catches up it reads no channel.
+        if (self in state.members) r.messages.retain(read)
         r.alerts.keys.retainAll(state.members.keys)
         val alertChannel = state.alertChannel(self)
         val targets =
@@ -770,7 +968,10 @@ class OperationController(
                 groups = groups,
                 joinRequests = n.pendingJoins.map { JoinRequestView(it.member, it.card?.name, it.receivedAtMs) },
                 positions = r.positions.toMap(),
-                threads = r.threads.mapValues { it.value.toList() },
+                threads =
+                    r.messages.threads().mapValues { (_, list) ->
+                        list.map { ThreadMessage(it.author, it.text, it.sentAtMs, it.receivedAtMs) }
+                    },
                 alerts = r.alerts.values.sortedBy { it.receivedAtMs },
                 objects = n.objects.shown(state, self).takeIf { self in state.members }.orEmpty(),
                 targets = targets,
@@ -784,10 +985,24 @@ class OperationController(
 
     private fun IssueResult.rejection(): Rejection? = (this as? IssueResult.Refused)?.reason
 
+    private fun nonZero(): Long {
+        var id = 0L
+        while (id == 0L) id = random.nextLong()
+        return id
+    }
+
     companion object {
         private const val MS = 1000L
         private const val CLOSE_DELAY_S = 5L
-        private const val MAX_THREAD = 500
+
+        /** A moment in the room of a dissolved operation: a phone still in it speaks within a minute (ADR-131). */
+        const val TRACE_WINDOW_MS = 2 * 60_000L
+
+        /** While an operation runs on this phone: a moment in the rooms of the traces every half hour. */
+        const val TRACE_EVERY_MS = 30 * 60_000L
+
+        /** When the screens ask ([announceDissolutions]): not more than one moment every ten minutes. */
+        const val ANNOUNCE_EVERY_MS = 10 * 60_000L
 
         fun newExecutor(): ScheduledExecutorService =
             Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "toolmap-operation").apply { isDaemon = true } }

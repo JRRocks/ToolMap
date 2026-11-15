@@ -4,6 +4,7 @@
 > Ce document décrit le **moteur** (P39.2, mis aux règles de l'utilisateur par P39.4, puis à ses choix du second tour et à ses précisions S1 à S7 le 2026-11-14, puis à ses réponses du troisième tour, T1 à T17, le même jour) : la logique, dans `:core`, paquet `fr.toolmap.core.hierarchy`. Rien n'est branché : ni transport, ni stockage, ni écran. Le système de groupe actuel (`fr.toolmap.core.p2p`, `docs/specs/p2p-sharing.md`) n'est pas modifié.
 > Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15, celle des clés et du stockage au § 16, celle du transport et du contrôleur au § 17 ; le quatrième passage de maquettes (écarts avant de coder) est au § 18.
 > Mots : dans les écrans, « ensemble » se dit « opération » et « leader » se dit « chef » (§ 10 ter) ; dans le code et dans ce document, `ensemble` et `leader` restent les noms techniques.
+> La trace de dissolution gardée une semaine et les messages gardés sur le téléphone (réponses R1 et R2 du 2026-11-15, P39.9, ADR-131) sont au § 20.
 
 ## 1. Vocabulaire
 
@@ -488,7 +489,7 @@ Testé (`NamesTest`, `HierarchyChoicesTest`) : empreintes, cartes, carnet, forma
 
 **Clés du téléphone** (`:data`) — **fait** (§ 16) : `OperationStorage.create()` fait une identité par opération ; ses `PhoneKeys` ont la clé de signature dans le Keystore (non exportable) et la clé d'accord dans le Keystore à partir de l'API 31, sinon dans un fichier scellé par une clé du Keystore. Les clés ne vont dans aucune sauvegarde (testé). Une signature que le Keystore refuse lève `KeyVaultException` : le transport l'attrape autour de `issue`, `KeyRing.issue`, `ShareSeal.seal` et `SharedRecords.write`. **À mesurer sur un téléphone avant tout usage réel** : une signature par position envoyée et une vérification par position reçue (§ 8.5) ; l'émulateur donne un premier ordre de grandeur (§ 16).
 
-**Stockage** (`:data`) — **fait** (§ 16) : `StoredOperation.load()` / `save(contenu)` / `wipe()`. Gardés, scellés : les opérations (`HierarchySnapshot.encodeOps`, blocs de `HierarchyWire.encodeOpBlocks`), relues par `HierarchySnapshot.restoreReplica` (l'état se recalcule) ; les clés de contenu détenues, les lots vérifiés et en attente ; les cartes de noms ; les enregistrements d'objets. Tout est effacé quand on quitte l'ensemble, quand on en est retiré, ou à sa dissolution (vu à l'enregistrement ou au chargement) ; ce qui tient à un canal (clés, objets, lots qui redonneraient la clé) est oublié à l'enregistrement qui suit l'arrêt de sa lecture. Ce que le transport devra faire avec : ouvrir ou créer le stockage au démarrage du partage en mode « Opération », `save` après chaque changement (opération reçue ou écrite, lot accepté, carte apprise, objet accepté), `wipe` quand l'utilisateur quitte.
+**Stockage** (`:data`) — **fait** (§ 16) : `StoredOperation.load()` / `save(contenu)` / `wipe()`. Gardés, scellés : les opérations (`HierarchySnapshot.encodeOps`, blocs de `HierarchyWire.encodeOpBlocks`), relues par `HierarchySnapshot.restoreReplica` (l'état se recalcule) ; les clés de contenu détenues, les lots vérifiés et en attente ; les cartes de noms ; les enregistrements d'objets. Tout est effacé quand on quitte l'ensemble, quand on en est retiré, ou à sa dissolution (vu à l'enregistrement ou au chargement) ; ce qui tient à un canal (clés, objets, lots qui redonneraient la clé) est oublié à l'enregistrement qui suit l'arrêt de sa lecture. Ce que le transport devra faire avec : ouvrir ou créer le stockage au démarrage du partage en mode « Opération », `save` après chaque changement (opération reçue ou écrite, lot accepté, carte apprise, objet accepté), `wipe` quand l'utilisateur quitte. Depuis P39.9 (§ 20, ADR-131) : à la dissolution, tout est effacé **sauf une trace** gardée une semaine par chaque téléphone qui était membre ; les messages des fils sont gardés (500 par fil) dans un fichier scellé à part, effacé avec l'opération.
 
 **Interface** (après validation des maquettes de P39.5, `CLAUDE.md` § « aperçu validé avant le code ») : tout se lit dans `HierarchyState` (`rolesOf`, `isWaiting`, `waiting`, `groupOf`, `membersOf`, `visibleTo`, `nameLabel`, `shareChannels`, `alertChannel`, `channelsReadBy`, `namesFor`) et dans `NameBook` (un nom peut ne pas être encore connu : prévoir de quoi l'écrire en attendant), se demande par `issue`, se grise par `HierarchyReducer.check`, et les refus arrivés après coup se lisent dans `history()`. Un bouton ne doit jamais supposer qu'un changement écrit est définitif. « Quitter » pour le créateur propose : désigner un successeur parmi les administrateurs (`TransferCreator` puis `RemoveMember` de lui-même), ou dissoudre (`Dissolve`, confirmé par un glissement, Q4) ; si le passage de main a perdu contre un départ simultané du successeur, le départ du créateur est refusé et l'écran le lui dit. L'écran de création dit que le nom de l'opération est lu par quiconque reçoit l'invitation (§ 8.8) : texte visible, à montrer en maquette avant tout code.
 
@@ -1351,3 +1352,155 @@ Pour la session principale et pour la session qui codera les écrans (session 11
 ## 18. Quatrième passage de maquettes : les écarts avant de coder (2026-11-15)
 
 Les écarts listés au § 10 sexies (« Écarts à remontrer en aperçu avant de les coder ») et les deux textes du § 15 (« Deux textes d'écran à montrer en maquette ») sont dessinés dans `docs/previews/p39-groupes/tour4/` (session 114) : chaque image montre le dessin validé au tour 3 à côté de la proposition. Trois écarts de plus, trouvés en relisant ce document : la durée des waypoints et des croquis, que T12 et le moteur n'ont pas ; qui peut retirer un partage (T12) ; une troisième paire d'étiquettes collées sur la carte. Les questions U1 à U10 et la liste des écarts sans choix sont dans `tour4/REMONTEE.md`. **Aucune décision n'est écrite ici** : l'utilisateur n'a pas encore répondu ; ses réponses iront dans un paragraphe à part, comme au § 10 sexies.
+
+## 20. Remontée : trace de dissolution et messages gardés (P39.9, 2026-11-15)
+
+Pour la session principale et pour la session qui code les écrans (session 117, branche `claude/clever-edison-pi03p9`, partie de `conception/groupes-hierarchiques` 5808ed3, 0.4.250 ; `.conception-privee` présent). Décision d'architecture : ADR-131. Le § 19 et le § 10 septies sont à la session parallèle des écrans (P39.8) ; ce paragraphe ne les écrit pas. Rien de visible ne change : ni écran, ni texte, ni ressource, ni fichier de `:app` ; le partage « Entre amis » n'est pas touché (aucun fichier de `:p2p`, de `core/…/p2p/` ni de `app/…/share/`).
+
+### Les réponses de l'utilisateur, mot pour mot
+
+```
+R1 A · Chaque téléphone garde une semaine une trace fermée de l'opération
+R2 A · Oui, les 500 derniers de chaque fil
+```
+
+- **R1** répond à la question 1 du § 17 (un téléphone absent quand l'opération est dissoute ne l'apprenait jamais). Précision affichée à l'utilisateur : « Elle ne sert qu'à annoncer la dissolution aux retardataires ; elle ne contient ni position, ni nom, ni message. » Elle tranche aussi la question 1 du § 16 (effacer aussitôt, ou garder l'opération fermée quelques minutes) : tout ce qui n'est pas la trace est effacé aussitôt, comme avant.
+- **R2** répond à la question 2 du § 17 (messages en mémoire seulement). Précision affichée : « Scellés avec l'opération et effacés avec elle. »
+- Les questions 3 à 5 du § 17 ont reçu la recommandation (ce qui était fait) : rien à coder.
+
+### Ce qui est construit
+
+- **`:core`, paquet `fr.toolmap.core.hierarchy`** :
+  - `Dissolution.kt` (nouveau) : la preuve (`DissolutionProof`, `ProofVerdict`), ce qui voyage (`DissolutionNotice`), la trace (`DissolutionTrace`, `TraceKey`), le répondeur du téléphone qui garde une trace (`DissolutionAnnouncer`) ;
+  - `MessageLog.kt` (nouveau) : les fils gardés (`MessageLog`, `LoggedMessage`) ; leurs octets dans `HierarchySnapshot` (`encodeMessages`, `restoreMessages` : une partie de plus, même version) ;
+  - `OperationWire.kt` : un genre de trame de plus, `FrameGenre.DISSOLUTION` (7) ;
+  - `OperationNode.kt` : vérifie une preuve reçue et finit l'opération (`dissolvedByTrace`) ; garde la preuve de sa propre trace (`dissolution`, `dissolvedAtMs`) ; `sendMessage(canal, OperationText)` (l'identifiant du message est tiré par l'appelant, qui le garde).
+- **`:data`, paquet `fr.toolmap.data.hierarchy`** : `DissolutionTraces.kt` (nouveau, les traces sur le disque) ; `OperationStorage` (ses traces, une horloge ; `wipeAll` efface aussi les traces) ; `StoredOperation` (`endDissolved`, `saveMessages`, `loadMessages`, la trace laissée par `save` ou `load` quand ils trouvent l'opération dissoute) ; `OperationController` (fils gardés, trace à la fin, moments d'écoute) ; `HierarchyOperationCheck` (trois phases).
+- **Outils** : `tools/emulator/hierarchy-operation.sh` (trois phases) ; commentaires de `smoke.sh`.
+
+### R1 — la trace, pas à pas
+
+**Ce qu'elle contient** (`DissolutionTrace`, version 1 de son format, scellée sur le disque) :
+
+| Champ | Octets | Pourquoi |
+|---|---|---|
+| identifiant de l'opération | 8 | la reconnaître |
+| date de la dissolution | 8 | l'effacer une semaine après |
+| identifiant pour parler dans la salle | 8 | tiré au hasard à la création de la trace : **pas** l'identifiant de membre de ce téléphone |
+| salle et serveur | 16 + adresse et clé publique du serveur | entrer dans la salle |
+| clés d'invitation des dernières époques | 4 × (4 + 32) au plus | ouvrir la trame d'un retardataire et lui répondre sous la clé qu'il détient (il a pu manquer un renouvellement) |
+| la preuve | 707 à 3 363 avec sa date | prouver la dissolution signée |
+
+La preuve : la première opération (qui ne porte que les **empreintes** du nom de l'opération et du nom du créateur, § 8.8, ses clés publiques et les règles), chaque passage de main appliqué, l'opération de dissolution ; chacune avec l'identifiant de son auteur (l'empreinte de sa clé, propre à cette opération), sa clé publique et sa signature : c'est ce qui prouve que le créateur du moment a dissous. **Rien d'autre** : ni position, ni nom, ni message, ni objet, ni clé de contenu, ni clé privée, ni carte de nom, ni liste des membres (vérifié octet par octet, ci-dessous). La trame qui la porte fait 749 octets sans passage de main, 3 405 avec 16 (le plus que la preuve admet) : une trame de contrôle du serveur (4 096).
+
+**Qui en garde une** : chaque téléphone qui était membre au moment de la dissolution, dans l'état dissous (en attente compris), qu'il l'ait lue dans les opérations ou apprise par une trace. Pas un membre retiré ou parti avant : à la dissolution il n'est plus membre, il a déjà tout effacé (`OUT`), ou, s'il apprend les deux d'un coup, l'état le dit hors de l'opération. Pas un téléphone jamais admis (une demande d'entrée en cours) : il apprend la fin, sa demande s'arrête, il ne garde rien.
+
+**Où** : `files/hierarchy/operations/traces/<identifiant>.trace`, un fichier par opération, scellé (AES-256-GCM) par une clé AES du Keystore propre à la trace (alias `toolmap.hierarchy.op-trace.<identifiant>`, préfixe que la recherche des clés des opérations ne trouve pas). Sous `hierarchy/` : hors de toute sauvegarde (ADR-128, point 8 ; vérifié).
+
+**Quand elle s'efface** : une semaine après la dissolution (`DissolutionTrace.KEPT_MS`), **à compter de la dissolution, pas de la nouvelle** : un retardataire qui l'apprend le jour 6 garde sa trace un jour, et plus aucune trace ne vit au-delà de la semaine. L'effacement se fait de lui-même, la clé du Keystore d'abord puis le fichier, au premier regard après la semaine (démarrage d'une opération, moment d'écoute, `traces()`). Aucun réveil du téléphone n'est programmé pour cela : un téléphone éteint pendant deux semaines garde le fichier, illisible sans la clé, jusqu'à son prochain démarrage de l'application. Une date de plus d'une semaine en avance sur l'horloge (horloge fausse) compte comme dépassée.
+
+**Comment un retardataire l'apprend** :
+
+1. Le retardataire revient dans la salle (son opération est encore ouverte chez lui : il ne la sait pas dissoute). Il envoie son résumé à chaque téléphone qui arrive, et toutes les 60 s.
+2. Un téléphone qui garde la trace est dans la salle (moments d'écoute, ci-dessous) : il ouvre la trame du retardataire avec la clé d'invitation de son époque, et répond, sous la même époque, par la preuve et la date (`DissolutionNotice`, trame `DISSOLUTION`). Une fois par minute au plus pour un même émetteur ; jamais à ses propres trames, ni à celles d'une autre trace, ni à une trame qu'il ne peut pas ouvrir (`DissolutionAnnouncer`).
+3. Le retardataire vérifie la preuve (ci-dessous). Vraie : il oublie tout, comme pour une dissolution lue dans les opérations, le contrôleur efface le stockage, et, s'il était membre, garde à son tour une trace jusqu'à la même date. Fausse : refusée, comptée, signalée (`Problems.expected`, lieu `operation.dissolution.refused`, la raison) ; l'opération continue.
+
+**La vérification de la preuve** (`DissolutionProof.check`), sans le journal, puis contre ce que le téléphone détient :
+
+| Vérification | Refus |
+|---|---|
+| chaque opération est de cette opération, et la première est celle que son identifiant désigne | `WRONG_ENSEMBLE` (une preuve rejouée depuis une autre opération) |
+| chaque opération est signée par son auteur ; la première par la clé qu'elle inscrit | `FORGED` |
+| chaque passage de main, puis la dissolution, est signé par le créateur du moment (le premier, puis chaque successeur), horloges croissantes | `NOT_BY_THE_CREATOR` |
+| pour chaque signataire dont ce téléphone a vu l'admission : la même clé | `FORGED` |
+| aucune opération de la preuve n'est différente de celle que ce téléphone détient sous ce numéro, ni refusée chez lui ; les passages de main qu'il a appliqués sont les premiers de la preuve | `INCONSISTENT` (un ancien créateur qui signe une dissolution après avoir passé la main, chez qui a vu le passage de main) |
+
+**Quand un téléphone qui garde une trace écoute la salle (le choix de cette session) et ce que cela coûte** :
+
+- **2 minutes à la fois** (`TRACE_WINDOW_MS`) : un retardataire présent parle dans la minute (son résumé à l'arrivée d'un téléphone, puis toutes les 60 s) ;
+- **au démarrage d'une opération** sur ce téléphone (création, entrée, réouverture : le partage « Opération » tourne), **puis toutes les 30 minutes** tant qu'elle tourne (`TRACE_EVERY_MS`) ;
+- **quand les écrans le demandent** (`announceDissolutions()`, à appeler quand l'application vient au premier plan), une fois toutes les 10 minutes au plus (`ANNOUNCE_EVERY_MS`) ;
+- **jamais autrement** : ni en tâche de fond sans opération, ni par un réveil programmé ; sans trace, aucun réseau du tout.
+
+Coût (d'après les réglages du serveur, `FirebaseRelay` ; **non mesuré sur un téléphone**) : un moment, c'est une connexion au flux de la salle et environ 8 battements de présence (un toutes les 15 s) ; tant qu'une opération tourne, 2 minutes sur 30, soit environ un quinzième d'une présence permanente (16 battements par heure au lieu de 240) ; une réponse de 749 à 3 405 octets par retardataire entendu, une fois par minute au plus. Ce que cela laisse : un retardataire n'apprend la dissolution que si un téléphone qui garde la trace passe dans la salle pendant qu'il y est, dans la semaine. Chaque membre présent à la dissolution est un gardien ; le retardataire reste dans la salle tant que son opération est ouverte chez lui.
+
+### R2 — les messages gardés
+
+- Les **500 derniers messages de chaque fil**, les siens compris (`MessageLog.MAX_PER_THREAD`), dans un fichier scellé à part de l'opération (`messages.sealed`, même clé de stockage que les parties, lié à l'opération et à l'ensemble), réécrit seul après chaque message (pas tout l'enregistrement de l'opération) ; relus à l'ouverture (`open`) : mêmes auteurs, textes, heures d'envoi et de réception.
+- Un message rejoué (même auteur, même identifiant), par exemple une trame entendue de nouveau après un redémarrage, quand l'automate ne se souvient plus de ce qu'il a vu, n'est pas gardé deux fois.
+- Le texte est gardé coupé comme il voyage (1 024 octets d'UTF-8, sur une frontière de caractère) : ce qu'affiche le fil avant et après un redémarrage est le même.
+- Le fil d'un canal que ce téléphone ne lit plus (changé de groupe, perdu un poste, remis en attente) est oublié, comme ses clés et ses objets (ADR-128, point 6), y compris dans le fichier.
+- **Effacés avec l'opération** : dissolution, retrait, départ (le dossier entier part, la clé de stockage d'abord). **Jamais dans la trace** (vérifié octet par octet).
+- **Les alertes restent en mémoire**, comme avant : après un redémarrage, plus aucune.
+- **Une opération enregistrée par la 0.4.250** (sans fichier de messages, sans dossier de traces) se relit telle quelle : un fichier de messages absent se lit vide, sans rien signaler ; aucun autre fichier ne change de forme ; rien n'est effacé ; les messages sont gardés dès le premier écrit après la mise à jour (vérifié).
+
+### Les ajouts à l'interface du contrôleur (pour les écrans)
+
+Rien n'est retiré ni renommé ; `OperationView.ending` vaut toujours `Ending.DISSOLVED` pour une dissolution, lue dans les opérations ou apprise par une trace.
+
+| Ajout | Contenu |
+|---|---|
+| `OperationView.endedByTrace: Boolean` | l'opération finie (`ENDED`, `DISSOLVED`) a été annoncée par un téléphone qui garde la trace : ce téléphone était absent à la dissolution. L'écran peut dire « Opération dissoute pendant votre absence ». |
+| `OperationView.traceKeptUntilMs: Long?` | dissoute pendant que ce téléphone en était membre : la trace qu'il garde s'efface à cette date ; `null` : aucune trace (parti, retiré, jamais admis, ou opération sans serveur… voir lecture 5). |
+| `OperationController.traces(): List<DissolutionTraceView>` | les traces gardées sur ce téléphone, `DissolutionTraceView(dissolvedAtMs, keptUntilMs)` ; aucun nom (une trace n'en a pas). |
+| `OperationController.announceDissolutions(): Int` | **à appeler quand l'application vient au premier plan** (écran de l'opération ou démarrage de l'application) : 2 minutes dans la salle de chaque opération dissoute de la semaine ; rend le nombre de traces annoncées (0 : aucune, aucun réseau). |
+| `OperationView.threads` | même type qu'avant ; les messages sont désormais **gardés** (500 par fil) et relus à l'ouverture, et non plus en mémoire seulement (le tableau du § 17 disait « en mémoire seulement ») |
+| `open(id)` rendant `StartResult.ENDED` | `view.traceKeptUntilMs` dit si une trace a été gardée (opération trouvée dissoute à la lecture) |
+| `LoadResult.Ended.traceKeptUntilMs`, `SaveResult.Ended.traceKeptUntilMs` | le même renseignement au niveau du stockage |
+| `OperationNode.sendMessage(channel, OperationText)`, `OperationNode.dissolution`, `.dissolvedByTrace`, `.dissolvedAtMs`, `FrameGenre.DISSOLUTION` | pour le contrôleur et les tests ; les écrans n'en ont pas besoin |
+
+### Lectures faites là où les réponses ne tranchent pas (à confirmer ou corriger)
+
+1. **La semaine compte à partir de la dissolution**, pas du moment où chaque téléphone l'apprend : sinon une trace pourrait passer de téléphone en téléphone et vivre bien plus d'une semaine.
+2. **Un retardataire qui apprend la dissolution par une trace en garde une à son tour**, jusqu'à la même date : il était membre au moment de la dissolution, et chaque gardien de plus prévient mieux les autres absents.
+3. **Un membre en attente au moment de la dissolution garde une trace** : il est membre (admis).
+4. **Un téléphone qui demandait à entrer** (jamais admis) avec une invitation donnée avant la dissolution apprend la fin (sa demande s'arrête au lieu d'attendre sept jours), mais ne garde pas de trace.
+5. **Une opération sans serveur laisse aussi une trace** (elle ne s'annoncera jamais) : la règle dit « chaque téléphone », et c'est ce que vérifie le contrôle sur émulateur, qui tourne sans serveur.
+6. **L'identifiant sous lequel la trace parle dans la salle est tiré au hasard**, pas celui du membre : la trace ne nomme aucun membre, et le transport de l'opération qui se ferme n'efface pas sur le serveur la présence du moment d'écoute.
+7. **Un texte trop long est gardé coupé comme il voyage** (1 024 octets) ; il l'était déjà chez les autres.
+8. **Le fil d'un canal que ce téléphone ne lit plus est oublié**, sur le disque aussi, comme ses clés et ses objets.
+9. **Les alertes restent en mémoire** (R2 ne parle que des messages ; la consigne de la session principale le redit).
+
+### Questions pour l'utilisateur
+
+1. **Un membre retiré pendant qu'il était hors réseau, qui revient dans la semaine de la dissolution, l'apprend par la trace (il ne savait pas qu'il avait été retiré) et en garde une à son tour. Que faire ?**
+   a. L'accepter (recommandé) : il n'apprend que la fin de l'opération, rien d'autre ; la trace reste sans aucune liste de membres.
+   b. Mettre dans la trace la liste des numéros des membres au moment de la dissolution (des numéros, sans nom), pour ne répondre qu'à eux.
+2. **La dissolution n'arrive à un retardataire que si un téléphone qui garde la trace passe dans la salle pendant qu'il y est. Faut-il aussi déposer la preuve, chiffrée, sur le serveur, où il la lirait dès son arrivée ?**
+   a. Non, rien sur le serveur (recommandé, ce qui est fait) : le serveur ne supprime rien de lui-même, la copie y resterait après la semaine si aucun gardien ne repassait l'enlever.
+   b. Oui, la déposer, et la faire enlever par le premier téléphone qui garde la trace et passe dans la salle après la semaine.
+
+### Ce qui est vérifié, et comment
+
+- `./gradlew :core:test --tests 'fr.toolmap.core.hierarchy.*'` : **166 tests, 0 échec** (153 avant ; `DissolutionTraceTest` 9, `MessageLogTest` 4), téléphones simulés dans une salle simulée (comme `OperationNodeTest`), et des téléphones qui gardent une trace dans la même salle :
+  - le retardataire apprend la dissolution d'un téléphone qui garde la trace, un jour après, et garde la sienne (même date) ; celui qui a manqué un passage de main l'accepte (le passage de main est dans la preuve) ; celui qui demandait à entrer avec une invitation d'avant apprend la fin et ne garde rien ;
+  - un membre retiré ne garde aucune trace, qu'il l'apprenne aussitôt ou en même temps que la dissolution ;
+  - le contenu de la trace et de sa trame, octet par octet : aucun nom (opération, membres, groupe), aucun message, aucune position (les 8 octets de latitude et longitude), aucun objet, aucune clé de contenu, aucun sel de carte de nom ; rien que la première opération, les passages de main et la dissolution ; l'identifiant sous lequel elle parle n'est celui d'aucun membre ;
+  - preuves refusées et signalées : celle d'une autre opération rejouée sous la clé d'invitation de celle-ci (`WRONG_ENSEMBLE`), une dissolution signée par un administrateur (`NOT_BY_THE_CREATOR`), la vraie avec un octet de signature changé (`FORGED`), celle d'un ancien créateur après son passage de main (`INCONSISTENT`) ; une trame changée en route ne s'ouvre même pas ; aucune ne finit l'opération ;
+  - le répondeur : une fois par minute, jamais à lui-même, ni à une autre trace, ni à une autre salle ; une preuve de 16 passages de main tient dans une trame ; formats et octets abîmés ; une semaine à compter de la dissolution ;
+  - les fils : 500 par fil, un message une fois, les fils non lus oubliés, le texte coupé comme il voyage, les octets relus à l'identique, le refus entier d'octets abîmés.
+- `./gradlew :data:testDebugUnitTest --tests 'fr.toolmap.data.hierarchy.*'` : **39 tests, 0 échec** (27 avant ; `OperationTraceTest` 7, `DissolutionTracesTest` 5 ; `HierarchyOperationCheckTest` passe aux trois phases), avec des contrôleurs entiers, chacun son stockage et un Keystore logiciel, dans une salle en mémoire, et une horloge du test :
+  - **le retardataire apprend la dissolution le jour 6, pas le jour 8** : jour 6, la trace du créateur est entendue (`endedByTrace`, tout effacé, une trace gardée jusqu'à la même date), puis le moment d'écoute finit seul au bout de deux minutes ; jour 8, la trace s'est effacée (fichier et clé), personne ne le lui dit, rien n'est resté sur le téléphone du créateur ;
+  - après la dissolution, il ne reste sur chaque téléphone qu'**un fichier**, la trace, et sa clé : ni dossier, ni clé de l'opération ; la trace, en clair comme scellée, ne contient ni nom, ni message, ni position, ni objet ;
+  - un membre retiré ne garde rien : ni dossier, ni messages, ni clé, ni trace, et la dissolution qui suit n'y change rien ;
+  - **les messages relus après un redémarrage** (mêmes auteurs, textes et heures), aucune alerte relue, aucun message gardé deux fois quand toutes les trames d'un autre téléphone sont rejouées ; **520 messages : 500 gardés** (« Point 21 » à « Point 520 ») sur les deux téléphones ; **effacés à la dissolution** (plus de `messages.sealed`, rien dans la trace) **comme au retrait** ;
+  - **une opération enregistrée par la 0.4.250** (fichier de messages retiré, pas de dossier de traces) se relit sans rien effacer ni rien signaler, puis garde les messages ;
+  - le stockage des traces : scellée, sa clé à elle, hors des sauvegardes, une par opération, effacée au jour 7 la clé d'abord, abîmée ou sans clé refusée et effacée, clé sans fichier effacée, Keystore qui refuse sans rien laisser, `wipeAll` sans toucher un autre stockage, rien pour qui avait été retiré.
+- Mutation de contrôle : le répondeur rendu muet, 4 tests de `:core` et le test du jour 6 passent au rouge.
+- Chaque test vérifie qu'aucun signalement n'est un bogue (`Problems`), et `SilentFailureTest` est dans `./gradlew check`.
+
+### Ce qui n'a pas pu être vérifié
+
+- **Deux téléphones réels**, ni le vrai serveur de coordination avec le genre 7 (même forme JSON que les autres trames de contrôle, sous la même taille) ; la CI n'a qu'un émulateur.
+- **Batterie et réseau des moments d'écoute**, écran éteint : rien n'est branché au service de partage, et rien n'est mesuré sur un téléphone ; les chiffres ci-dessus sont tirés des réglages du serveur.
+- **Le contrôle sur émulateur** (`hierarchy-operation.sh`, trois phases) est joué par la CI sur son émulateur API 34 (résultat : journal, session 117) ; sur l'émulateur du poste, par la session locale : `bash tools/emulator/smoke.sh app/build/outputs/apk/debug emulator-check`, puis lire « OK: « Opération » controller (API …) » et `emulator-check/hierarchy-operation.txt` (phases create, reload et trace `PASS`, « dissolved: no folder and no key of the operation left; one trace … », « trace read back in a new process », « trace wiped »).
+
+### Limites connues
+
+- **Un ancien créateur qui a passé la main** peut faire croire à la dissolution un retardataire qui n'a pas vu ce passage de main : sans le journal, l'absence d'une opération ne se prouve pas (même famille que les limites des §§ 6.4 et 15) ; un retardataire qui a vu le passage de main refuse (`INCONSISTENT`, vérifié).
+- **Un passage de main qui a perdu contre un départ simultané** de son successeur peut faire refuser une vraie preuve par un retardataire qui n'a vu que le passage de main : il n'est pas prévenu (sans dommage, il reste dans une opération vide comme avant).
+- **Un retardataire sur une époque plus ancienne que les 4 que garde la trace** n'est pas entendu par elle.
+- **La date de la dissolution n'est pas signée** : elle ne fait que borner la durée des traces ; un téléphone ne prend jamais une date plus tardive que la sienne.
+- **Un fil long** se réécrit entier à chaque message (au pire 500 messages de 1 024 octets par fil).
+- **Une trace dépassée reste sur le disque, illisible sans sa clé**, jusqu'au prochain démarrage de l'application.
+- Les limites des §§ 6.4, 8.6, 15, 16 et 17 restent.

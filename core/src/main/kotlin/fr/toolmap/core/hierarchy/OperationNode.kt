@@ -90,6 +90,10 @@ class FrameRefused(
  * otherwise), sends again what is still shown to who arrives, and, for the creator and the administrators, renews the
  * invitation key when someone left. A phone not let in yet asks to come in ([JoinRequest]) until it is.
  *
+ * A phone that was away when the operation was dissolved learns it from a phone that keeps its trace (P39.9,
+ * ADR-131): the proof that comes in a [FrameGenre.DISSOLUTION] frame is checked ([DissolutionProof.check]), then ends
+ * the operation here as a dissolution read from the operations would; a false one is refused and said.
+ *
  * Every method takes the node's lock: the app calls it from any thread.
  */
 class OperationNode(
@@ -138,6 +142,24 @@ class OperationNode(
         private set
 
     var ending: OperationEnding? = null
+        private set
+
+    /**
+     * Once dissolved, the proof this phone keeps in its trace (ADR-131): `null` when it was not a member when the
+     * operation was dissolved (taken out before, never let in), so keeps no trace, or when it is not dissolved.
+     */
+    @get:Synchronized
+    var dissolution: DissolutionProof? = null
+        private set
+
+    /** Whether the dissolution came from a phone that keeps the operation's trace, not from the operations. */
+    @get:Synchronized
+    var dissolvedByTrace: Boolean = false
+        private set
+
+    /** When the operation was dissolved: when this phone learnt it, or what the phone that told it said, if earlier. */
+    @get:Synchronized
+    var dissolvedAtMs: Long? = null
         private set
 
     /** Counters, for the debug check and the event log: frames refused or dropped, by reason. */
@@ -272,7 +294,8 @@ class OperationNode(
         if (frame.sender == self) return
         if (epoch < this.epoch) {
             // A phone still on an older invitation key: a member gets the one of now; nothing new is let in that way.
-            if (frame.sender in state.members) grantTo(frame.sender, epoch)
+            // Not to a phone that keeps a trace: the operation is over for it, it speaks only to say so.
+            if (frame.sender in state.members && frame.genre != FrameGenre.DISSOLUTION) grantTo(frame.sender, epoch)
             if (frame.genre == FrameGenre.JOIN) return drop("join.old_key")
         }
         try {
@@ -283,6 +306,7 @@ class OperationNode(
                 FrameGenre.SHARE -> onShare(frame)
                 FrameGenre.JOIN -> onJoin(frame)
                 FrameGenre.INVITE_KEY -> onGrant(frame)
+                FrameGenre.DISSOLUTION -> onDissolution(frame)
             }
         } catch (e: WireException) {
             // Opened with the invitation key, so written by a phone that holds it: its bytes, not a bug here.
@@ -509,6 +533,28 @@ class OperationNode(
         }
     }
 
+    /**
+     * A phone that keeps the trace of this operation says it is dissolved: true when the proof is the creator's and
+     * nothing this phone holds says otherwise; then everything is forgotten, as for a dissolution read from the
+     * operations. A member when it was dissolved (as far as this phone knows) keeps the proof for its own trace.
+     */
+    private fun onDissolution(frame: OpenedFrame) {
+        val notice = DissolutionNotice.decode(frame.body)
+        when (val verdict = notice.proof.check(ensembleId, replica)) {
+            ProofVerdict.VALID -> {
+                dissolvedByTrace = true
+                dissolvedAtMs = minOf(notice.dissolvedAtMs, clock())
+                if (self in state.members) dissolution = notice.proof
+                finish(OperationEnding.DISSOLVED)
+            }
+
+            else -> {
+                Problems.expected("operation.dissolution.refused", FrameRefused(verdict.name))
+                drop("dissolution.${verdict.name.lowercase()}")
+            }
+        }
+    }
+
     // ---- writing -------------------------------------------------------------------------------------------------
 
     /** Asks for [change]; sent to the others when this phone may make it. */
@@ -577,9 +623,16 @@ class OperationNode(
     fun sendMessage(
         channel: Channel,
         text: String,
+    ): ShareOutcome = sendMessage(channel, OperationText(nonZero(), clock(), text))
+
+    /** [message] in [channel], with the identifier and the time the caller drew (it keeps the message: R2). */
+    @Synchronized
+    fun sendMessage(
+        channel: Channel,
+        message: OperationText,
     ): ShareOutcome {
-        val m = OperationText(nonZero(), clock(), text)
-        return share(ShareKind.MESSAGE, channel, OperationPayloads.message(m))
+        require(message.id != 0L && message.fix == null && !message.lifted) { "not a message" }
+        return share(ShareKind.MESSAGE, channel, OperationPayloads.message(message))
     }
 
     /** An alert to the one place this phone's role sends it ([HierarchyState.alertChannel]). */
@@ -665,14 +718,12 @@ class OperationNode(
                 else -> null
             }
         if (over != null) {
-            ending = over
-            ring.clear()
-            names.clear()
-            objects.clear()
-            joins.clear()
-            duties.clear()
-            outbox.clear()
-            listener.onEnded(over)
+            if (over == OperationEnding.DISSOLVED) {
+                dissolvedAtMs = clock()
+                // Taken out before the dissolution (no longer a member then): no trace (R1).
+                if (self in state.members) dissolution = DissolutionProof.of(replica)
+            }
+            finish(over)
             return
         }
         val member = self in state.members
@@ -728,6 +779,18 @@ class OperationNode(
         }
         flushOutbox()
         listener.onChanged()
+    }
+
+    /** Over for this phone: everything it held of the operation is forgotten, and the app is told. */
+    private fun finish(over: OperationEnding) {
+        ending = over
+        ring.clear()
+        names.clear()
+        objects.clear()
+        joins.clear()
+        duties.clear()
+        outbox.clear()
+        listener.onEnded(over)
     }
 
     /** This phone was just let in: its own waiting lane gets a key, and its name goes to the administrators there. */

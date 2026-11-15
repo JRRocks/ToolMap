@@ -30,6 +30,7 @@ import java.security.spec.PKCS8EncodedKeySpec
  * - **None of it is in a backup**: the app's own backup only takes the paths it lists (`docs/specs/backup-format.md`
  *   § 3), and Android's backups exclude this folder (`res/xml/data_extraction_rules.xml`, `backup_rules.xml`); the
  *   vault's keys never leave the phone anyway, so a copied folder opens nowhere else.
+ * - **A dissolved operation leaves a trace** for a week ([traces], P39.9, ADR-131): everything else is wiped.
  */
 class OperationStorage(
     private val root: File,
@@ -37,7 +38,17 @@ class OperationStorage(
     /** Every key of this storage in the vault starts so, then the operation's identifier. */
     private val aliasPrefix: String = ALIAS_PREFIX,
     private val random: SecureRandom = SecureRandom(),
+    /** The clock of the traces of dissolved operations: when one was dissolved, and when it is over a week old. */
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
+    /**
+     * The traces of the operations dissolved while this phone was a member (P39.9, ADR-131), in a folder of [root]
+     * that no operation can be named after; their keys start with [traceAliasPrefix], which no key of an operation
+     * starts with.
+     */
+    internal val traces =
+        DissolutionTraces(File(root, DissolutionTraces.FOLDER), vault, traceAliasPrefix(aliasPrefix), random)
+
     /** The operations stored on this phone, by identifier. */
     fun ids(): List<String> =
         root
@@ -75,7 +86,7 @@ class OperationStorage(
                 if (!keys.selfTest()) throw KeyVaultException("keys made by the vault do not work")
                 val header = Identity(if (fileAgreement) Identity.FILE else Identity.VAULT, ensembleId = 0L)
                 SealedFile.writeAtomically(File(dir, IDENTITY_FILE), header.encode())
-                StoredOperation(dir, id, keys, header, vault, aliasPrefix, sealing, random)
+                StoredOperation(dir, id, keys, header, vault, aliasPrefix, sealing, random, traces, clock)
             }
         return done.getOrElse {
             discard(id)
@@ -111,7 +122,18 @@ class OperationStorage(
                         softwareAgreement(plain)
                     }
                 }
-            StoredOperation(dir, id, VaultPhoneKeys(signing, agreement), header, vault, aliasPrefix, sealing, random)
+            StoredOperation(
+                dir,
+                id,
+                VaultPhoneKeys(signing, agreement),
+                header,
+                vault,
+                aliasPrefix,
+                sealing,
+                random,
+                traces,
+                clock,
+            )
         }.getOrNull()
     }
 
@@ -120,9 +142,13 @@ class OperationStorage(
         if (ID.matches(id)) discard(id)
     }
 
-    /** Deletes every operation of this storage, and any key of the vault left by one whose folder is gone. */
+    /**
+     * Deletes every operation of this storage, the traces of the dissolved ones, and any key of the vault left by an
+     * operation whose folder is gone.
+     */
     fun wipeAll() {
         ids().forEach(::discard)
+        traces.wipeAll()
         catchExpected("hierarchy.store.wipe_keys", KeyVaultException::class) {
             for (alias in vault.aliases(aliasPrefix)) {
                 val id = alias.removePrefix(aliasPrefix).substringBefore('.')
@@ -178,6 +204,13 @@ class OperationStorage(
             id: String,
             what: String,
         ) = "$prefix$id.$what"
+
+        /**
+         * The start of the keys of the traces of a storage whose operations' keys start with [aliasPrefix]:
+         * `toolmap.hierarchy.op.` gives `toolmap.hierarchy.op-trace.`, which does not start with it, so that what
+         * looks for the keys of the operations never finds the traces' (and each storage keeps its own).
+         */
+        internal fun traceAliasPrefix(aliasPrefix: String): String = aliasPrefix.trimEnd('.') + "-trace."
 
         private fun agreementAad(id: String) = "toolmap-hierarchy-agreement-v1:$id".toByteArray(Charsets.US_ASCII)
 

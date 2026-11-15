@@ -4,8 +4,10 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import fr.toolmap.core.hierarchy.Channel
+import fr.toolmap.core.hierarchy.DissolutionTrace
 import fr.toolmap.core.hierarchy.HierarchyWire
 import fr.toolmap.core.hierarchy.Post
+import fr.toolmap.core.hierarchy.ProofVerdict
 import fr.toolmap.core.hierarchy.ShareKind
 import fr.toolmap.core.hierarchy.ShareOutcome
 import fr.toolmap.core.problem.catchExpected
@@ -17,15 +19,20 @@ import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * The check of the « Opération » controller on an emulator or a phone (P39.7, ADR-129): one device, no server, no
- * screen. Asked by `adb shell dumpsys activity fr.toolmap/.MainActivity hierarchy-operation` (builds with the testing
- * tools only), twice, with the process killed in between (`tools/emulator/hierarchy-operation.sh`):
+ * The check of the « Opération » controller on an emulator or a phone (P39.7, ADR-129; P39.9, ADR-131): one device,
+ * no server, no screen. Asked by `adb shell dumpsys activity fr.toolmap/.MainActivity hierarchy-operation` (builds
+ * with the testing tools only), three times, with the process killed in between
+ * (`tools/emulator/hierarchy-operation.sh`):
  *
  * 1. **create**: an [OperationController] over the real Keystore creates an operation, makes a group, places this
- *    phone in it as its leader, makes this phone the leader of the operation and shares a waypoint; all is stored;
+ *    phone in it as its leader, makes this phone the leader of the operation, shares a waypoint and writes messages
+ *    in two threads; all is stored;
  * 2. **reload**, in a new process: a new controller opens it again from the storage and compares (same operation,
- *    same name, same group and posts, same waypoint, same operations), then dissolves it and checks that nothing is
- *    left: no folder, no key in the Keystore.
+ *    same name, same group and posts, same waypoint, same operations, same messages: R2), then dissolves it and
+ *    checks that only the trace is left (R1): no folder and no key of the operation, one trace and its key, which
+ *    names nothing and holds no message;
+ * 3. **trace**, in a new process: the trace reads back (its key in the Keystore outlived the process), still names
+ *    nothing; then it is wiped, and nothing is left at all.
  *
  * Lines in logcat, tag [HierarchyKeysCheck.TAG]: `hierarchy-operation …`, one `PASS phase=…` or `FAIL …` per phase,
  * then `done`. Lives in a folder and under key aliases of its own: it never touches a real operation.
@@ -35,9 +42,14 @@ object HierarchyOperationCheck {
     private const val FOLDER = "hierarchy/check-operation"
     internal const val ALIAS_PREFIX = "toolmap.hierarchy.checkop."
     private const val EXPECTED = "expected.txt"
+    private const val TRACE = "trace.txt"
     private const val OPERATION = "Contrôle"
     private const val GROUP = "Groupe A"
     private const val ME = "Téléphone"
+
+    /** Two threads: the whole operation, and the group (R2). */
+    private val TO_ALL = listOf("Départ à 7 h", "Rendez-vous au col")
+    private const val TO_GROUP = "Groupe A au complet"
     private const val WAIT_ROUNDS = 50
     private const val WAIT_MS = 100L
 
@@ -68,18 +80,21 @@ object HierarchyOperationCheck {
         say: (String) -> Unit,
     ): Boolean {
         val expected = File(root, EXPECTED)
-        val phase = if (expected.isFile) "reload" else "create"
+        val phase =
+            when {
+                File(root, TRACE).isFile -> "trace"
+                expected.isFile -> "reload"
+                else -> "create"
+            }
         val problems = ArrayList<String>()
         say("hierarchy-operation phase=$phase api=$api")
         val passed =
             catchExpected("hierarchy.operation.check.run", KeyVaultException::class, IOException::class) {
                 runBlocking {
-                    if (phase ==
-                        "create"
-                    ) {
-                        create(root, vault, say, problems)
-                    } else {
-                        reload(root, vault, say, problems)
+                    when (phase) {
+                        "create" -> create(root, vault, say, problems)
+                        "reload" -> reload(root, vault, say, problems)
+                        else -> trace(root, vault, say, problems)
                     }
                 }
             }.getOrElse {
@@ -92,10 +107,18 @@ object HierarchyOperationCheck {
         return passed
     }
 
+    private fun storage(
+        root: File,
+        vault: KeyVault,
+    ) = OperationStorage(root, vault, ALIAS_PREFIX)
+
     private fun controller(
         root: File,
         vault: KeyVault,
-    ) = OperationController(OperationStorage(root, vault, ALIAS_PREFIX), null, { null })
+    ) = OperationController(storage(root, vault), null, { null })
+
+    /** The prefix of the keys of the traces of this check's storage. */
+    internal val TRACE_ALIAS_PREFIX: String = OperationStorage.traceAliasPrefix(ALIAS_PREFIX)
 
     private suspend fun create(
         root: File,
@@ -119,6 +142,13 @@ object HierarchyOperationCheck {
         }
         val (put, objectId) = c.putObject(ShareKind.WAYPOINT, Channel.ENSEMBLE, byteArrayOf(1, 2, 3))
         if (put != ShareOutcome.QUEUED && put != ShareOutcome.SENT) problems += "waypoint not kept: $put"
+        // No server: the messages wait for a link, and are kept in their threads all the same (R2).
+        for (text in TO_ALL) {
+            val sent = c.sendMessage(Channel.ENSEMBLE, text)
+            if (sent != ShareOutcome.QUEUED && sent != ShareOutcome.SENT) problems += "message not kept: $sent"
+        }
+        val toGroup = c.sendMessage(Channel.unit(group), TO_GROUP)
+        if (toGroup != ShareOutcome.QUEUED && toGroup != ShareOutcome.SENT) problems += "message not kept: $toGroup"
         val digest = c.withNode { fingerprint(HierarchyWire.encodeState(it.state)) }
         c.close()
         val id = c.ids().singleOrNull() ?: return false.also { problems += "not one stored operation: ${c.ids().size}" }
@@ -147,20 +177,83 @@ object HierarchyOperationCheck {
         if (v.hierarchy?.leader != v.self) problems += "not the leader of the operation any more"
         if (v.objects.map { it.objectId.toString() } != listOf(objectId)) problems += "other objects"
         if (c.withNode { fingerprint(HierarchyWire.encodeState(it.state)) } != digest) problems += "another state"
+        val threads = v.threads.mapValues { (_, list) -> list.map { it.text } }
+        if (threads[Channel.ENSEMBLE] != TO_ALL) problems += "other messages to all: ${threads[Channel.ENSEMBLE]?.size}"
+        if (threads[Channel.unit(group.toLong())] != listOf(TO_GROUP)) problems += "other messages to the group"
         say(
-            "hierarchy-operation reloaded in a new process in ${(System.nanoTime() - started) / 1_000_000} ms: same operation",
+            "hierarchy-operation reloaded in a new process in ${(System.nanoTime() - started) / 1_000_000} ms: same " +
+                "operation, ${threads.values.sumOf { it.size }} messages in ${threads.size} threads",
         )
+        val ensembleId = v.ensembleId ?: return false.also { problems += "no operation" }
         c.dissolve()?.let { problems += "not dissolved: $it" }
         for (i in 0 until WAIT_ROUNDS) {
             if (c.view.value.phase == OperationPhase.ENDED && c.ids().isEmpty()) break
             Thread.sleep(WAIT_MS)
         }
-        if (c.view.value.ending != Ending.DISSOLVED) problems += "not ended: ${c.view.value.phase}"
+        val ended = c.view.value
+        if (ended.ending != Ending.DISSOLVED) problems += "not ended: ${ended.phase}"
+        if (ended.traceKeptUntilMs == null) problems += "no trace kept"
         if (c.ids().isNotEmpty() || File(root, id).exists()) problems += "folder left after the dissolution"
-        if (vault.aliases(ALIAS_PREFIX).isNotEmpty()) problems += "keys left after the dissolution"
-        say("hierarchy-operation dissolved: no key left in the Keystore, no folder left")
+        if (vault.aliases(ALIAS_PREFIX).isNotEmpty()) problems += "keys of the operation left after the dissolution"
+        val traces = storage(root, vault).traces
+        if (traces.ids().size != 1 || vault.aliases(TRACE_ALIAS_PREFIX).size != 1) {
+            problems += "not one trace and its key: ${traces.ids().size} ${vault.aliases(TRACE_ALIAS_PREFIX).size}"
+        }
+        val trace = traces.list(System.currentTimeMillis()).singleOrNull()
+        if (trace == null) return false.also { problems += "trace not read back" }
+        checkTrace(trace, ensembleId, problems)
+        SealedFile.writeAtomically(File(root, TRACE), java.lang.Long.toUnsignedString(ensembleId).toByteArray())
+        say(
+            "hierarchy-operation dissolved: no folder and no key of the operation left; one trace of " +
+                "${trace.encode().size} bytes, kept ${(trace.expiresAtMs - trace.dissolvedAtMs) / DAY_MS} days, " +
+                "names nothing, holds no message",
+        )
         return true
     }
+
+    private fun trace(
+        root: File,
+        vault: KeyVault,
+        say: (String) -> Unit,
+        problems: MutableList<String>,
+    ): Boolean {
+        val ensembleId = java.lang.Long.parseUnsignedLong(File(root, TRACE).readText(Charsets.US_ASCII).trim())
+        File(root, TRACE).delete()
+        val storage = storage(root, vault)
+        val trace = storage.traces.list(System.currentTimeMillis()).singleOrNull()
+        if (trace == null) return false.also { problems += "the trace did not outlive the process" }
+        checkTrace(trace, ensembleId, problems)
+        say("hierarchy-operation trace read back in a new process: same operation, its key in the Keystore")
+        storage.wipeAll()
+        if (vault.aliases(TRACE_ALIAS_PREFIX).isNotEmpty() || vault.aliases(ALIAS_PREFIX).isNotEmpty()) {
+            problems += "keys left after wiping the trace"
+        }
+        if (storage.traces.ids().isNotEmpty() || storage.ids().isNotEmpty()) problems += "files left after wiping"
+        say("hierarchy-operation trace wiped: no key left in the Keystore, no folder left")
+        return true
+    }
+
+    /** The trace of [ensembleId], its proof the creator's, a week long, and nothing in it of a name or a message. */
+    private fun checkTrace(
+        trace: DissolutionTrace,
+        ensembleId: Long,
+        problems: MutableList<String>,
+    ) {
+        if (trace.ensembleId != ensembleId) problems += "trace of another operation"
+        if (trace.expiresAtMs - trace.dissolvedAtMs != DissolutionTrace.KEPT_MS) problems += "not kept a week"
+        if (trace.proof.check(ensembleId) != ProofVerdict.VALID) problems += "proof refused"
+        val bytes = trace.encode()
+        for (text in listOf(OPERATION, GROUP, ME, TO_GROUP) + TO_ALL) {
+            if (contains(bytes, text.toByteArray(Charsets.UTF_8))) problems += "the trace holds a name or a message"
+        }
+    }
+
+    private fun contains(
+        haystack: ByteArray,
+        needle: ByteArray,
+    ): Boolean = (0..haystack.size - needle.size).any { i -> needle.indices.all { haystack[i + it] == needle[it] } }
+
+    private const val DAY_MS = 24 * 3600 * 1000L
 
     private fun fingerprint(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).take(8).joinToString("") { "%02x".format(it) }

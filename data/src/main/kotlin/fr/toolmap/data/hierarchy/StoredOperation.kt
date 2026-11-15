@@ -1,10 +1,13 @@
 package fr.toolmap.data.hierarchy
 
+import fr.toolmap.core.hierarchy.DissolutionProof
+import fr.toolmap.core.hierarchy.DissolutionTrace
 import fr.toolmap.core.hierarchy.HierarchyReplica
 import fr.toolmap.core.hierarchy.HierarchySnapshot
 import fr.toolmap.core.hierarchy.KeyRing
 import fr.toolmap.core.hierarchy.NameBook
 import fr.toolmap.core.hierarchy.Op
+import fr.toolmap.core.hierarchy.OperationLinkState
 import fr.toolmap.core.hierarchy.PhoneKeys
 import fr.toolmap.core.hierarchy.SharedObjects
 import fr.toolmap.core.hierarchy.memberId
@@ -80,9 +83,13 @@ sealed interface LoadResult {
         val refused: Set<StoredPart>,
     ) : LoadResult
 
-    /** Over for this phone; everything was wiped. */
+    /**
+     * Over for this phone; everything was wiped. Dissolved while this phone was a member: but its trace, kept until
+     * [traceKeptUntilMs] (P39.9, ADR-131); `null` when no trace is kept.
+     */
     class Ended(
         val ending: Ending,
+        val traceKeptUntilMs: Long? = null,
     ) : LoadResult
 
     /** The key store refused for now (said to whoever debugs); nothing was changed, try again later. */
@@ -92,9 +99,13 @@ sealed interface LoadResult {
 sealed interface SaveResult {
     data object Saved : SaveResult
 
-    /** Over for this phone: instead of being saved, everything was wiped. */
+    /**
+     * Over for this phone: instead of being saved, everything was wiped, but the trace of a dissolution while this
+     * phone was a member, kept until [traceKeptUntilMs] ([LoadResult.Ended]).
+     */
     class Ended(
         val ending: Ending,
+        val traceKeptUntilMs: Long? = null,
     ) : SaveResult
 
     /** The disk or the key store refused (said to whoever debugs); the previous version of each file stays. */
@@ -108,6 +119,10 @@ sealed interface SaveResult {
  * written again.
  *
  * The state is never stored: it is computed again from the operations ([HierarchySnapshot.restoreReplica]).
+ *
+ * Beside the parts: what the transport keeps ([saveLink]) and the messages of the threads ([saveMessages], the
+ * user's answer R2), each in a sealed file of its own. When the operation is dissolved while this phone is a member,
+ * everything is wiped but a trace ([endDissolved], R1).
  */
 class StoredOperation internal constructor(
     private val dir: File,
@@ -120,6 +135,8 @@ class StoredOperation internal constructor(
     private val aliasPrefix: String,
     private val sealing: VaultSealingKey,
     private val random: SecureRandom,
+    private val traces: DissolutionTraces,
+    private val clock: () -> Long,
 ) {
     val self: Long = keys.memberId
 
@@ -133,6 +150,10 @@ class StoredOperation internal constructor(
     private var wiped = false
     private var savedOps: List<Op>? = null
     private val savedDigests = HashMap<StoredPart, List<Byte>>()
+    private var savedMessages: List<Byte>? = null
+
+    /** Until when the trace this storage left at its end is kept; `null` when it left none. */
+    private var traceKeptUntilMs: Long? = null
 
     /** The contents of a new copy of [ensembleId], to join it (the identifier comes with the invitation). */
     fun join(ensembleId: Long): OperationContents =
@@ -181,8 +202,8 @@ class StoredOperation internal constructor(
             decode(StoredPart.OBJECTS) { HierarchySnapshot.restoreObjects(contents.objects, it) }
         }
         endingOf(replica)?.let { ending ->
-            wipe()
-            return LoadResult.Ended(ending)
+            end(ending, replica)
+            return LoadResult.Ended(ending, traceKeptUntilMs)
         }
         // A refused part is written again at the next save, over the damaged file.
         savedOps = if (StoredPart.OPS in refused) null else replica.ops()
@@ -205,8 +226,8 @@ class StoredOperation internal constructor(
         val bound = ensembleId
         require(bound == null || bound == contents.ensembleId) { "contents of another operation" }
         endingOf(contents.replica)?.let { ending ->
-            wipe()
-            return SaveResult.Ended(ending)
+            end(ending, contents.replica)
+            return SaveResult.Ended(ending, traceKeptUntilMs)
         }
         val state = contents.replica.state
         // Only once this phone knows where it stands: before it is let in, or while its operations are being caught
@@ -262,6 +283,91 @@ class StoredOperation internal constructor(
             ensembleId,
             16,
         )}".toByteArray(Charsets.US_ASCII)
+
+    /**
+     * Writes the messages of the threads ([HierarchySnapshot.encodeMessages], the user's answer R2), sealed like the
+     * parts, when they changed; only once the operation is bound. `false` when the disk or the key store refused
+     * (said to whoever debugs).
+     */
+    @Synchronized
+    fun saveMessages(bytes: ByteArray): Boolean {
+        if (wiped) return false
+        val ensembleId = ensembleId ?: return false
+        val digest = digest(bytes)
+        if (digest == savedMessages) return true
+        val key = storageKey() ?: return false
+        val file = File(dir, MESSAGES_FILE)
+        return catchExpected("hierarchy.store.messages.write", IOException::class) {
+            SealedFile.writeAtomically(file, SealedFile.seal(key, bytes, messagesAad(ensembleId), random))
+            savedMessages = digest
+        }.isSuccess
+    }
+
+    /**
+     * What [saveMessages] wrote; `null` when there is none (an operation stored before the messages were kept, by the
+     * version 0.4.250: nothing to say), or it is damaged (said to whoever debugs; the next save writes it again).
+     */
+    @Synchronized
+    fun loadMessages(): ByteArray? {
+        if (wiped) return null
+        val ensembleId = ensembleId ?: return null
+        val file = File(dir, MESSAGES_FILE)
+        if (!file.isFile) return null
+        val key = storageKey() ?: return null
+        return catchExpected("hierarchy.store.messages.read", IOException::class) {
+            SealedFile.open(key, file.readBytes(), messagesAad(ensembleId))
+        }.getOrNull()?.also { savedMessages = digest(it) }
+    }
+
+    private fun messagesAad(ensembleId: Long): ByteArray =
+        "toolmap-hierarchy-messages-v1:$id:${java.lang.Long.toUnsignedString(ensembleId, 16)}"
+            .toByteArray(Charsets.US_ASCII)
+
+    /**
+     * The operation is dissolved: when [proof] is given (this phone was a member when it was dissolved), its trace is
+     * kept a week from [dissolvedAtMs] ([DissolutionTraces]) with what the transport keeps ([link], or what
+     * [saveLink] wrote); then everything else is wiped, as [wipe] does. Until when the trace is kept, or `null` when
+     * none is (no proof, nothing to reach the room with, or the key store refused: said to whoever debugs).
+     */
+    @Synchronized
+    fun endDissolved(
+        proof: DissolutionProof?,
+        dissolvedAtMs: Long,
+        link: OperationLinkState? = null,
+    ): Long? {
+        if (wiped) return traceKeptUntilMs
+        if (proof != null) {
+            val reach = link ?: readLink()
+            if (reach != null && reach.ensembleId == proof.ensembleId) {
+                val now = clock()
+                val trace = DissolutionTrace.of(proof, reach, minOf(dissolvedAtMs, now), random)
+                traceKeptUntilMs = traces.keep(trace, now)?.expiresAtMs
+            }
+        }
+        wipe()
+        return traceKeptUntilMs
+    }
+
+    private fun readLink(): OperationLinkState? {
+        val bytes = loadLink() ?: return null
+        return catchExpected("hierarchy.store.link.decode", WireException::class) {
+            OperationLinkState.decode(bytes)
+        }.getOrNull()
+    }
+
+    /** Over for this phone: a trace when dissolved while it was a member (R1), nothing left otherwise. */
+    private fun end(
+        ending: Ending,
+        replica: HierarchyReplica,
+    ) {
+        if (ending == Ending.DISSOLVED) {
+            // Taken out before the dissolution, this phone is no member of the dissolved state: no trace.
+            val proof = if (self in replica.state.members) DissolutionProof.of(replica) else null
+            endDissolved(proof, clock())
+        } else {
+            wipe()
+        }
+    }
 
     /**
      * Forgets everything of this operation on this phone: the keys in the vault first (what may be left of the files
@@ -367,5 +473,6 @@ class StoredOperation internal constructor(
     companion object {
         internal const val STORAGE_KEY_FILE = "storage.key"
         internal const val LINK_FILE = "link.sealed"
+        internal const val MESSAGES_FILE = "messages.sealed"
     }
 }
