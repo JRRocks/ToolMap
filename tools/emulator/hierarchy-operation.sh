@@ -25,6 +25,9 @@ fail() {
   echo "::error::$1"
   echo "FAILED: $1" > "$out/hierarchy-operation-result.txt"
   adb logcat -d > "$out/logcat-hierarchy.txt" 2>/dev/null || true
+  # In the job's log too: a cloud session cannot open the artifact of the run.
+  echo "Last lines of logcat about the app and its processes:"
+  grep -E "AndroidRuntime|FATAL|am_proc|ActivityManager|$pkg" "$out/logcat-hierarchy.txt" 2>/dev/null | tail -n 30 || true
   exit 1
 }
 
@@ -56,14 +59,28 @@ ask() {
   ran="$(grep -oE 'hierarchy-operation phase=[a-z]+' "$out/logcat-operation-$name.txt" | head -n 1 | sed 's/^.*phase=//' || true)"
 }
 
+# Stops the app and starts it again, then waits for its new process to settle. The process stopped can still be listed
+# a moment after `am force-stop`, and the system starts the new one only once it is gone: one look right after the
+# launch could see the old one, then nothing at all (run « CI » n° 209). So: wait for the old one to go, launch, then
+# wait for a new process seen twice, a second apart.
 restart() {
+  local old new seen
+  old="$(adb shell pidof "$pkg" | tr -d '\r' || true)"
   adb shell am force-stop "$pkg"
-  adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1 > /dev/null || fail "the app does not start again"
   for _ in $(seq 1 30); do
-    [ -n "$(adb shell pidof "$pkg" | tr -d '\r' || true)" ] && break
+    [ -z "$(adb shell pidof "$pkg" | tr -d '\r' || true)" ] && break
     sleep 1
   done
-  [ -n "$(adb shell pidof "$pkg" | tr -d '\r' || true)" ] || fail "ToolMap is not running after the restart"
+  adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1 > /dev/null || fail "the app does not start again"
+  new=""
+  for _ in $(seq 1 30); do
+    seen="$(adb shell pidof "$pkg" | tr -d '\r' || true)"
+    if [ -n "$seen" ] && [ "$seen" != "$old" ] && [ "$seen" = "$new" ]; then break; fi
+    new="$seen"
+    sleep 1
+  done
+  [ -n "$new" ] && [ "$new" != "$old" ] && [ "$(adb shell pidof "$pkg" | tr -d '\r' || true)" = "$new" ] ||
+    fail "ToolMap is not running after the restart"
   sleep 8
 }
 
