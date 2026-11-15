@@ -1189,3 +1189,7 @@ Une signature par le Keystore coûte donc moins d'une milliseconde ici, une vér
 1. **Quand votre téléphone apprend que vous avez été retiré d'une opération, ou qu'elle est dissoute, faut-il tout effacer aussitôt ?**
    a. Oui, aussitôt (recommandé, ce qui est fait) : plus rien de l'opération ne reste sur le téléphone. Dans un cas rare (deux décisions prises en même temps sur deux téléphones), le retrait peut être annulé ensuite par les autres : le téléphone devra alors rejoindre l'opération comme un nouveau membre.
    b. Garder l'opération fermée (illisible) quelques minutes avant d'effacer, le temps que les autres téléphones confirment.
+
+## 17. Quatrième passage de maquettes : les écarts avant de coder (2026-11-15)
+
+Les écarts listés au § 10 sexies (« Écarts à remontrer en aperçu avant de les coder ») et les deux textes du § 15 (« Deux textes d'écran à montrer en maquette ») sont dessinés dans `docs/previews/p39-groupes/tour4/` (session 114) : chaque image montre le dessin validé au tour 3 à côté de la proposition. Trois écarts de plus, trouvés en relisant ce document : la durée des waypoints et des croquis, que T12 et le moteur n'ont pas ; qui peut retirer un partage (T12) ; une troisième paire d'étiquettes collées sur la carte. Les questions U1 à U10 et la liste des écarts sans choix sont dans `tour4/REMONTEE.md`. **Aucune décision n'est écrite ici** : l'utilisateur n'a pas encore répondu ; ses réponses iront dans un paragraphe à part, comme au § 10 sexies.
