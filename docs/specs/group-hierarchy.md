@@ -1499,6 +1499,7 @@ Chacun est codé au plus près ; aucun n'a été montré avant d'être codé (co
 5. **Nom inconnu** : quand un téléphone ne peut pas lire un nom (qui attend, vu par un membre placé ; une personne arrivée avant qu'on soit administrateur, défaut 2 ci-dessous), la ligne et le jeton portent « … ». Les maquettes ne dessinent pas ce cas.
 6. **Lignes menant à des écrans pas encore codés, retirées** : sur l'écran de l'opération, « Envoyer une alerte » et « Messages » (`tour3/08-inviter` A, `tour4/08-rappel-A`, `tour4/05-promotion-*`) et l'icône de carte au bout de chaque membre ; dans « Administrer », « Tous les membres » (`tour2/04-admin-sommaire`). Les écrans gardent leur ordre et leurs marges ; rien n'annonce ce qui manque.
 7. **Âge d'une arrivée, et depuis quand un membre est hors ligne** (`tour2/img/03-attente-admin.png`, « Arrivé il y a 3 minutes » ; listes des groupes) : comptés par ce téléphone depuis qu'il a vu la demande ou la personne en ligne. Pourquoi : ni le moteur ni le transport ne portent ces heures ; un administrateur qui ouvre l'application après une arrivée la voit arrivée à l'instant.
+8. **Écrans étroits** (320 dp, l'émulateur de la CI) : les tuiles « Administrer » et « Inviter » passent l'une sous l'autre quand leurs titres ne tiennent pas côte à côte (sinon « Admini ») ; le sous-titre de la barre d'une page de groupe (« Exercice Vallon · 5 membres », à côté de deux icônes) prend une taille un peu plus petite, 80 % au moins, au lieu de finir par « … ». Les maquettes sont dessinées à 412 dp ; ailleurs, une ligne trop longue passe à la ligne. Vérifié par `OperationNarrowScreensTest`.
 
 ### Éléments laissés de côté (écrans d'un autre lot)
 
@@ -1512,6 +1513,7 @@ La couche de la carte (jetons, étiquettes, fiches, `tour2/06-*`, `tour3/10-atte
 ### Ce qui est vérifié, et comment
 
 - `./gradlew :app:testDebugUnitTest --tests 'fr.toolmap.operation.*'` : 17 tests, 0 échec (`OperationModelsTest` 15 : droits et vues de chaque rôle, gestes grisés, textes des jetons, avis ; `DemoWorldTest` : les faits des maquettes, de chaque place ; `OperationScreensTest` : les écrans de chaque rôle dessinés par Robolectric, ce qui y est et ce qui n'y est pas).
+- `OperationNarrowScreensTest` (Robolectric, 320 dp, rendu natif du texte) : aucun texte du mode coupé, tronqué par « … » ni privé de lignes, de la place de chaque rôle, feuilles et fenêtres comprises.
 - Compilation des types `release` et `benchmark` sans le mode (aucun fichier de `app/src/debug` n'y entre) ; `SilentFailureTest` et `RegexPortabilityTest` lisent aussi `src/debug` (`core/build.gradle.kts`).
 - Build complet, run « CI » et relecture des captures : journal, session 116. Run « CI » n° 212 : 62 captures prises, aucun plantage ni ANR ; leurs textes (journal du job) sont ceux des maquettes. La relecture a trouvé les feuilles hautes ouvertes à mi-hauteur (boutons du bas cachés), corrigé ensuite : les feuilles du mode s'ouvrent entières. Sur l'émulateur de la CI, en anglais, les âges s'écrivent « 14 minutes ago » (« il y a 14 minutes » sur un téléphone en français).
 
@@ -1539,3 +1541,7 @@ La recommandation est toujours la première.
 **L4. La position d'une opération, écran éteint**
 1. Comme « Entre amis » : un service au premier plan et sa notification tant que « Partager ma position » est actif (notification à dessiner). *(recommandé)*
 2. Seulement tant que l'application tourne (ce qui est codé).
+
+**L5. « Scanner un code » coupé en « Scanner un » sur un écran de moins de ~360 dp** (bouton d'« Entre amis », déjà ainsi dans l'APK de release ; ce lot n'y touche pas)
+1. Le corriger aussi dans « Entre amis » : le texte du bouton passe sur deux lignes quand il ne tient pas (change l'écran de la release : aperçu avant). *(recommandé)*
+2. Laisser tel quel.

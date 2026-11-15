@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,11 +60,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -436,7 +439,10 @@ private fun SelfShareLine(
     }
 }
 
-/** « Administrer » and « Inviter » side by side (T9 A, `tour3/08-inviter-complet`). */
+/**
+ * « Administrer » and « Inviter » side by side (T9 A, `tour3/08-inviter-complet`); one above the other when a phone is
+ * too narrow for both titles on one line (320 dp: « Admini… »), so that no word is cut.
+ */
 @Composable
 private fun AdminTiles(
     facts: OperationFacts,
@@ -444,33 +450,32 @@ private fun AdminTiles(
     onInvite: () -> Unit,
 ) {
     val waiting = facts.waitingMembers.size
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val full = facts.full
+    val adminTitle = stringResource(R.string.op_tile_admin)
+    val inviteTitle = stringResource(R.string.op_tile_invite)
+    val admin: @Composable (Modifier) -> Unit = { modifier ->
+        val colors = MaterialTheme.colorScheme
         Tile(
             icon = OperationIcons.ManageAccounts,
-            title = stringResource(R.string.op_tile_admin),
+            title = adminTitle,
             subtitle =
                 if (waiting > 0) {
                     pluralStringResource(R.plurals.op_tile_admin_waiting, waiting, waiting)
                 } else {
                     stringResource(R.string.op_tile_admin_roles)
                 },
-            back = if (waiting > 0) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.toolMap.panel,
-            fore =
-                if (waiting >
-                    0
-                ) {
-                    MaterialTheme.colorScheme.onTertiaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
+            back = if (waiting > 0) colors.tertiaryContainer else MaterialTheme.toolMap.panel,
+            fore = if (waiting > 0) colors.onTertiaryContainer else colors.onSurface,
             enabled = true,
             onClick = onAdmin,
-            modifier = Modifier.weight(1f),
+            modifier = modifier,
         )
-        val full = facts.full
+    }
+    val invite: @Composable (Modifier) -> Unit = { modifier ->
+        val colors = MaterialTheme.colorScheme
         Tile(
             icon = if (full) OperationIcons.PersonAddDisabled else OperationIcons.PersonAdd,
-            title = stringResource(R.string.op_tile_invite),
+            title = inviteTitle,
             subtitle =
                 if (full) {
                     stringResource(R.string.op_tile_invite_full, facts.total, facts.memberLimit)
@@ -478,12 +483,31 @@ private fun AdminTiles(
                     stringResource(R.string.op_count_of, facts.total, facts.memberLimit)
                 },
             back = MaterialTheme.toolMap.panel,
-            fore = if (full) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            subtitleColor = if (full) MaterialTheme.colorScheme.tertiary else null,
+            fore = if (full) colors.onSurfaceVariant else colors.onSurface,
+            subtitleColor = if (full) colors.tertiary else null,
             enabled = !full && facts.view.mayInvite,
             onClick = onInvite,
-            modifier = Modifier.weight(1f),
+            modifier = modifier,
         )
+    }
+    val measurer = rememberTextMeasurer()
+    val style = MaterialTheme.typography.bodyLarge
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val widest =
+            maxOf(measurer.measure(adminTitle, style).size.width, measurer.measure(inviteTitle, style).size.width)
+        val needed = with(density) { widest.toDp() } + TILE_CHROME
+        if ((maxWidth - TILE_GAP) / 2 >= needed) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TILE_GAP)) {
+                admin(Modifier.weight(1f))
+                invite(Modifier.weight(1f))
+            }
+        } else {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(TILE_GAP)) {
+                admin(Modifier.fillMaxWidth())
+                invite(Modifier.fillMaxWidth())
+            }
+        }
     }
 }
 
@@ -1058,6 +1082,10 @@ private fun InOperationNotices(
 
 private val QR_SIZE = 192.dp
 private const val SUBTITLE_ALPHA = 0.8f
+
+/** What a tile holds besides its title: padding 14 + icon 28 + 12, chevron 24 + padding 6, and 2 to spare. */
+private val TILE_CHROME = 86.dp
+private val TILE_GAP = 8.dp
 private const val DISABLED_ALPHA = 0.45f
 
 /** The root of the operation is a unit too: the operation itself. */

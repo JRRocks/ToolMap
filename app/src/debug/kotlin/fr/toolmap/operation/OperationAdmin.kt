@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -51,8 +52,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.toolmap.R
@@ -339,6 +342,7 @@ fun GroupPage(
                 Icon(OperationIcons.Delete, contentDescription = stringResource(R.string.op_group_delete))
             }
         },
+        actionCount = 2,
     ) {
         if (chief == null) InfoBox(OperationIcons.Info, rich(stringResource(R.string.op_no_chief_box)), BoxTone.ORANGE)
         Caption(stringResource(R.string.op_chief_and_deputy))
@@ -1221,11 +1225,16 @@ private fun AdminScaffold(
     subtitle: String,
     session: OperationSession,
     actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    actionCount: Int = 0,
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
     Scaffold(
         modifier = Modifier.windowInsetsPadding(screenInsets()),
-        topBar = { ToolMapTopBar(title = title, subtitle = subtitle, onBack = { session.back() }, actions = actions) },
+        topBar = {
+            FittingSubtitle(subtitle, actionCount) {
+                ToolMapTopBar(title = title, subtitle = subtitle, onBack = { session.back() }, actions = actions)
+            }
+        },
     ) { padding ->
         Column(
             Modifier
@@ -1236,6 +1245,35 @@ private fun AdminScaffold(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             content = content,
         )
+    }
+}
+
+/**
+ * The subtitle of the bar in a slightly smaller size when it would not hold on its line (« Exercice Vallon · 5
+ * membres » beside two icons on a 320 dp phone), so that it is never cut by « … ».
+ */
+@Composable
+private fun FittingSubtitle(
+    subtitle: String,
+    actionCount: Int,
+    bar: @Composable () -> Unit,
+) {
+    val typography = MaterialTheme.typography
+    val style = typography.bodySmall
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val room = maxWidth - BAR_CHROME - BAR_ACTION * actionCount
+        val width = with(density) { measurer.measure(subtitle, style).size.width.toDp() }
+        if (width <= room) {
+            bar()
+        } else {
+            val scale = (room / width).coerceAtLeast(MIN_SUBTITLE_SCALE)
+            val smaller = style.copy(fontSize = style.fontSize * scale, letterSpacing = style.letterSpacing * scale)
+            MaterialTheme(typography = typography.copy(bodySmall = smaller)) {
+                bar()
+            }
+        }
     }
 }
 
@@ -1477,3 +1515,8 @@ private fun adminLine(
 }
 
 private const val NAMED_WAITING = 2
+
+/** The bar around its title: paddings 4 + 4, the arrow 48, the title inset 12, and 4 to spare. */
+private val BAR_CHROME = 72.dp
+private val BAR_ACTION = 48.dp
+private const val MIN_SUBTITLE_SCALE = 0.8f
