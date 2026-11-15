@@ -798,7 +798,11 @@ class OperationNode(
             val gone = before.members.keys - state.members.keys
             if (gone.isNotEmpty() && mayInvite()) {
                 val order = listOfNotNull(state.creator) + state.admins.sortedWith(UNSIGNED)
-                schedule(Duty.RENEW, null, rank(order), epoch + 1)
+                val delay = rank(order)
+                schedule(Duty.RENEW, null, delay, epoch + 1)
+                // The first one renews at once: a duty in memory is lost when the app stops before its next second,
+                // and nothing would renew it after a restart (P39.10).
+                if (delay == 0L) tickDuty(Duty.RENEW, null)
             }
             alert?.let { (a, channel) ->
                 val now = state.alertChannel(self)

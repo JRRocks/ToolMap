@@ -248,8 +248,8 @@ class DissolutionTraceTest {
         genre: FrameGenre,
         body: ByteArray,
         sender: Long,
+        epoch: Int = from.n.epoch,
     ): ByteArray {
-        val epoch = from.n.epoch
         val key = OperationFrames.frameKey(from.n.inviteKey(epoch)!!, from.n.ensembleId, epoch)
         return OperationFrames.seal(key, from.n.ensembleId, epoch, genre, sender, body)
     }
@@ -356,9 +356,10 @@ class DissolutionTraceTest {
         a.must(Change.RemoveMember(c.id))
         a.must(Change.Dissolve)
         room.settle()
-        // C comes back and gets the operations from a phone that still holds them: taken out, then dissolved.
+        // C comes back and gets the operations from a phone that still holds them, under the invitation key it still
+        // holds (the creator renewed it as soon as C was taken out): taken out, then dissolved.
         c.online = true
-        c.n.receive(a.id, sealAs(a, FrameGenre.OPS, HierarchyWire.encodeOps(a.n.replica.ops()), a.id))
+        c.n.receive(a.id, sealAs(a, FrameGenre.OPS, HierarchyWire.encodeOps(a.n.replica.ops()), a.id, c.n.epoch))
         assertEquals(OperationEnding.DISSOLVED, c.ended)
         assertNull(c.n.dissolution, "no longer a member when it was dissolved: no trace")
         assertNotNull(a.n.dissolution)

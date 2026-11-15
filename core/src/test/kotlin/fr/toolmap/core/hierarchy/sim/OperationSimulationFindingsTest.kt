@@ -194,4 +194,36 @@ class OperationSimulationFindingsTest {
         assertTrue(c.n.state.isWaiting(c.id))
         assertEquals("Chloé", b.n.names.nameOf(b.n.state, c.id), "the administrator back reads the name of who waits")
     }
+
+    /**
+     * After a departure, the invitation key is renewed by the creator, at once (rank 0); the duty waited for the next
+     * second of the phone, in memory only: an app stopped or restarted meanwhile never renewed it (graine 0x8), and
+     * the one who left kept the invitation key of now, so went on reading the form of the hierarchy (§ 17).
+     */
+    @Test
+    fun `the invitation key is renewed after a departure even when the creator's app restarts at once`() {
+        val (w, phones) = world(3)
+        val (a, b, c) = phones
+        a.create(card("Opération Taillefer"), card("Alice"))
+        w.runFor(2_000)
+        for (p in listOf(b, c)) {
+            p.join(assertNotNull(a.call { it.invitation(a.clock() / 1000) }), card("Membre ${p.index}"))
+            w.runFor(30_000)
+            assertIs<IssueResult.Issued>(a.call { it.admit(p.id) })
+            w.runFor(30_000)
+        }
+        assertEquals(1, a.n.epoch)
+        c.must(Change.RemoveMember(c.id))
+        // The creator's app stops as soon as it has learnt the departure, before its next second.
+        var steps = 0
+        while (c.id in a.n.state.members && steps++ < 1_000) w.runFor(10)
+        assertTrue(c.id !in a.n.state.members, "the creator learnt the departure")
+        a.stopApp(killed = false)
+        w.runFor(5_000)
+        a.startApp()
+        w.runFor(5 * 60_000L)
+        assertTrue(a.n.epoch > 1, "renewed after C left")
+        assertEquals(a.n.epoch, b.n.epoch)
+        assertTrue(!c.hoard.holdsEpochKey(assertNotNull(a.n.inviteKey(a.n.epoch))), "C does not hold the key of now")
+    }
 }
