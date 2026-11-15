@@ -41,4 +41,9 @@ tasks.test {
         .files(mainSources.map { dir -> fileTree(dir) { include("**/*.kt") } })
         .withPropertyName("mainSources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // P39.10: the long series of the simulation of the « Opération » mode, only with -Ptoolmap.hierarchy.soak=true
+    // (or a number of scenarios); `./gradlew check` runs a fixed set of seeds only.
+    systemProperty("toolmap.hierarchy.soak", providers.gradleProperty("toolmap.hierarchy.soak").orNull.orEmpty())
+    // One scenario played and told in full, without shrinking: -Ptoolmap.hierarchy.explore=<seed>:<phones>:<steps>.
+    systemProperty("toolmap.hierarchy.explore", providers.gradleProperty("toolmap.hierarchy.explore").orNull.orEmpty())
 }
