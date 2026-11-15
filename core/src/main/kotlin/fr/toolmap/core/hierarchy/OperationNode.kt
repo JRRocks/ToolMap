@@ -130,6 +130,7 @@ class OperationNode(
     private val pulledAt = HashMap<Long, Long>()
     private val answeredAt = HashMap<Long, Pair<Long, Int>>()
     private val grantedAt = HashMap<Long, Long>()
+    private val offeredAt = HashMap<Int, Long>()
     private val resendSeenAt = HashMap<Channel, Long>()
     private var previous: HierarchyState = replica.state
     private var lastJoinAt = Long.MIN_VALUE / 2
@@ -290,7 +291,13 @@ class OperationNode(
             if (epoch > this.epoch) askNewerKey()
             return drop("frame.epoch")
         }
-        val frame = OperationFrames.open(frameKey(epoch), ensembleId, bytes) ?: return drop("frame.sealed")
+        val frame = OperationFrames.open(frameKey(epoch), ensembleId, bytes)
+        if (frame == null) {
+            // Maybe sealed with another key of this epoch (two renewals at once, P39.10): this phone hands its own
+            // again under the epoch before, and the smaller key wins on every phone ([onGrant]).
+            offerKeyAgain(epoch)
+            return drop("frame.sealed")
+        }
         if (frame.sender == self) return
         if (epoch < this.epoch) {
             // A phone still on an older invitation key: a member gets the one of now; nothing new is let in that way.
@@ -520,11 +527,23 @@ class OperationNode(
     private fun onGrant(frame: OpenedFrame) {
         val grant = InviteKeys.decode(frame.body)
         val epoch = grant.announcement.epoch
-        if (epochs[epoch] != null) return
+        val known = epochs[epoch]
+        if (known != null && InviteKeys.keyId(ensembleId, epoch, known.key) == grant.announcement.keyId) return
         val (verdict, key) = InviteKeys.open(grant, state, keys)
         when (verdict) {
             GrantVerdict.ACCEPTED -> {
-                adopt(EpochKey(requireNotNull(key), grant.announcement))
+                if (known == null) {
+                    adopt(EpochKey(requireNotNull(key), grant.announcement))
+                } else {
+                    // Two keys of one epoch: two phones renewed at once (P39.10). The one with the smaller identifier
+                    // wins, the same on every phone, as for two content keys (§ 8.3); the other side learns it.
+                    val ours = InviteKeys.keyId(ensembleId, epoch, known.key)
+                    if (UNSIGNED.compare(grant.announcement.keyId, ours) < 0) {
+                        epochs[epoch] = EpochKey(requireNotNull(key), grant.announcement)
+                        frameKeys.remove(epoch)
+                    }
+                    offerKeyAgain(epoch)
+                }
                 listener.onChanged()
             }
 
@@ -1000,6 +1019,23 @@ class OperationNode(
         if (current.announcement.announcer == 0L) return
         val grant = InviteKeys.grant(keys, current.announcement, current.key, listOf(target))
         broadcast(FrameGenre.INVITE_KEY, grant.encode(), epoch = theirEpoch)
+    }
+
+    /**
+     * Hands this phone's key of [epoch] to every member again, under the epoch before (which both sides of two
+     * renewals made at once still share), once every [GRANT_EVERY_MS] at most: whoever holds the other key of that
+     * epoch then keeps the smaller one ([onGrant]).
+     */
+    private fun offerKeyAgain(epoch: Int) {
+        val mine = epochs[epoch] ?: return
+        val before = epochs.lowerKey(epoch) ?: return
+        if (mine.announcement.announcer == 0L || self !in state.members) return
+        val now = clock()
+        if (now - (offeredAt[epoch] ?: Long.MIN_VALUE / 2) < GRANT_EVERY_MS) return
+        offeredAt[epoch] = now
+        offeredAt.keys.retainAll(epochs.keys)
+        val grant = InviteKeys.grant(keys, mine.announcement, mine.key, state.members.values.filter { it.id != self })
+        broadcast(FrameGenre.INVITE_KEY, grant.encode(), epoch = before)
     }
 
     private fun adopt(key: EpochKey) {
