@@ -596,11 +596,15 @@ object InviteKeys {
         val verdict = checkAnnouncement(grant.announcement, state)
         if (verdict != GrantVerdict.ACCEPTED) return verdict to null
         val granter = state.members[grant.granter] ?: return GrantVerdict.NOT_ALLOWED to null
-        if (grant.wraps.any { it.recipient !in state.members }) return GrantVerdict.NOT_ALLOWED to null
+        val self = keys.memberId
+        // This phone itself may not know yet that it was let in: the operation that says so can travel under this
+        // very key (let in after a renewal, P39.10). The other recipients must be members it knows.
+        if (grant.wraps.any { it.recipient != self && it.recipient !in state.members }) {
+            return GrantVerdict.NOT_ALLOWED to null
+        }
         if (!P256.verify(granter.keys.signing, GRANT_TAG + grant.body(), grant.signature)) {
             return GrantVerdict.FORGED to null
         }
-        val self = keys.memberId
         val wrap = grant.wraps.firstOrNull { it.recipient == self } ?: return GrantVerdict.NOT_FOR_ME to null
         val shared = keys.agree(grant.ephemeral) ?: return GrantVerdict.DAMAGED to null
         val context = context(grant.announcement, grant.ephemeral, self)
