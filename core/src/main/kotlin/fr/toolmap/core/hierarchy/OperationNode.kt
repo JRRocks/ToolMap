@@ -754,6 +754,7 @@ class OperationNode(
         val member = self in state.members
         if (member) {
             ring.prune(state)
+            ring.restore(state)
             objects.prune(state, self)
             names.prune(state, self)
         }

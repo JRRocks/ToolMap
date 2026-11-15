@@ -447,6 +447,25 @@ class KeyRing(
         held.keys.retainAll(state.channelsReadBy(self).toSet())
     }
 
+    /**
+     * Holds again the keys of the channels this phone reads in [state] that it forgot when it stopped reading them a
+     * moment (a member placed then put back to waiting, or two operations caught up one after the other, P39.10): the
+     * checked batches made for the readers of now and wrapped to it are opened again. A batch already checked is never
+     * offered twice: without this, the key the others seal with would stay unknown to it.
+     */
+    @Synchronized
+    fun restore(state: HierarchyState) {
+        val read = state.channelsReadBy(self).toSet()
+        val now = HashMap<Channel, Readers?>()
+        for (batch in checked.values) {
+            if (batch.channel !in read || held[batch.channel]?.containsKey(batch.keyId) == true) continue
+            if (batch.wraps.none { it.recipient == self }) continue
+            val readers = now.getOrPut(batch.channel) { state.readers(batch.channel) } ?: continue
+            if (!readers.tag.contentEquals(batch.readersTag)) continue
+            ContentKeys.unwrap(batch, keys)?.let(::hold)
+        }
+    }
+
     /** Forgets everything: the phone left the ensemble, was put out of it, or the ensemble is dissolved. */
     @Synchronized
     fun clear() {

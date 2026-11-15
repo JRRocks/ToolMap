@@ -226,4 +226,16 @@ class OperationSimulationFindingsTest {
         assertEquals(a.n.epoch, b.n.epoch)
         assertTrue(!c.hoard.holdsEpochKey(assertNotNull(a.n.inviteKey(a.n.epoch))), "C does not hold the key of now")
     }
+
+    /**
+     * A phone that stopped reading a lane for a moment forgot its keys and never held them again (seed 0x50ac004b, six
+     * phones, calm network): catching up operations one after the other, the creator went through a state where the
+     * one who waits was placed, then put back to waiting; its batches stayed checked, and the key the others went on
+     * sealing with in that lane stayed unknown to it: it never saw the position of who waits.
+     */
+    @Test
+    fun `a phone that stops reading a lane for a moment holds its keys again when it reads it again`() {
+        val result = Scenarios.run(0x50AC004BL, SimSetup(phones = 6, steps = 100, faults = Faults.CALM))
+        assertTrue(result.ok, result.describe())
+    }
 }
