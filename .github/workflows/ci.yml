@@ -239,6 +239,19 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
+      # The stack trace of each failed test, in this log: a cloud session cannot download the artifact « reports » below
+      # (its network does not reach GitHub's artifact storage), and a test that fails once is to be understood, not run
+      # again (CLAUDE.md). The same text as in the artifact, which is public too. Only when something failed.
+      - name: Show the failed tests
+        if: failure()
+        continue-on-error: true
+        run: |
+          for f in $(grep -l '<failure' */build/test-results/*/*.xml 2>/dev/null); do
+            echo "::group::$f"
+            sed -n '/<failure/,/<\/failure>/p' "$f" | head -n 120
+            echo "::endgroup::"
+          done
+
       - name: Upload reports
         if: failure()
         continue-on-error: true
