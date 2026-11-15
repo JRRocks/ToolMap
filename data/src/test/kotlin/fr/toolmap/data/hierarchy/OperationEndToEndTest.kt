@@ -6,9 +6,15 @@ import fr.toolmap.core.problem.Problems
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.util.Base64
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -163,6 +169,32 @@ class OperationEndToEndTest {
             a.ok("reset")
             b.ok("reset")
         }
+
+    @Test
+    fun `the meter reads the genre of a frame written to the server and lets the call through`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody("""{"name":"-Nx"}"""))
+        server.enqueue(MockResponse().setBody("null"))
+        server.start()
+        val meter = TrafficMeter()
+        val client = OkHttpClient.Builder().addNetworkInterceptor(meter).build()
+        val frame = byteArrayOf(0xC7.toByte(), 2, 0, 0, 0, 1) + ByteArray(40)
+        val body = """{"f":"${Base64.getEncoder().encodeToString(frame)}","t":{".sv":"timestamp"}}"""
+        val room = "0123456789abcdef0123456789abcdef"
+        val push =
+            Request.Builder().url(server.url("/rooms/$room/b/m1f/c.json")).post(body.toRequestBody()).build()
+        client.newCall(push).execute().use { assertEquals("""{"name":"-Nx"}""", it.body?.string()) }
+        assertEquals(body, server.takeRequest().body.readUtf8(), "the body goes out as it was")
+        val beat = Request.Builder().url(server.url("/rooms/$room/b/m1f/h.json")).put("{}".toRequestBody()).build()
+        client.newCall(beat).execute().close()
+        server.shutdown()
+        val counts = meter.snapshot()
+        assertEquals(1L, counts["writes.c.SUMMARY"])
+        assertEquals(1L, counts["call.c"])
+        assertEquals(1L, counts["call.h"])
+        assertEquals(2L, counts["writes"])
+        assertTrue(counts.keys.none { room in it }, "no key holds the room")
+    }
 
     @Test
     fun `the kinds of the server's calls never keep the room`() {

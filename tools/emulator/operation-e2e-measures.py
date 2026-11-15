@@ -4,9 +4,10 @@
 Reads the counters that tools/emulator/operation-e2e.sh asked of each device between its steps (counters.txt: one
 line per label and device, « <label> <A|B> t=<ms> <key>=<count>… », written by TrafficMeter and TrafficStats) and
 prints, for each device and each stretch between two labels: its length, the server's calls (writes, and those per
-minute), the bytes of their bodies up and down, the frames of the operation out and in, and the app's whole traffic
-(TrafficStats, TLS and headers included, the map's tiles too). Then the frames by genre over the whole run. Only
-counts: nothing in them is private.
+minute), the bytes of their bodies up and down, the frames of the operation out and in, the app's whole traffic
+(TrafficStats: TLS and headers included, the map's tiles too), then the writes by genre and how long a frame waited
+in the relay before it was written. The app's counters start again from zero when its process is started again: such
+a stretch counts from zero (« redémarrée »). Only counts: nothing in them is private.
 
     python3 tools/emulator/operation-e2e-measures.py operation-e2e/counters.txt
 """
@@ -27,6 +28,7 @@ COLUMNS = [
     ("uid.tx", "appli ↑ (o)"),
     ("uid.rx", "appli ↓ (o)"),
 ]
+GENRES = ["OPS", "SUMMARY", "KEYS", "SHARE", "JOIN", "INVITE_KEY", "DISSOLUTION", "POSITION"]
 
 
 def parse(path):
@@ -46,46 +48,77 @@ def parse(path):
     return rows
 
 
-def table(stretches):
-    head = ["tronçon", "appareil", "durée (s)"] + [name for _, name in COLUMNS] + ["écritures / min"]
-    print("| " + " | ".join(head) + " |")
-    print("|" + "---|" * len(head))
-    for name, role, a, b in stretches:
-        seconds = (b["t"] - a["t"]) / 1000
-        diff = [b.get(key, 0) - a.get(key, 0) for key, _ in COLUMNS]
-        per_minute = diff[0] / seconds * 60 if seconds > 0 else 0
-        cells = [name, role, f"{seconds:.0f}"] + [str(d) for d in diff] + [f"{per_minute:.1f}"]
-        print("| " + " | ".join(cells) + " |")
+def diff(a, b):
+    """b minus a, key by key; from zero when the app's counters went back (its process was started again)."""
+    app = [k for k in b if k not in ("t", "uid.tx", "uid.rx")]
+    restarted = any(b.get(k, 0) < a.get(k, 0) for k in app)
+    out = {}
+    for k in set(a) | set(b):
+        if k == "t":
+            continue
+        start = 0 if restarted and k not in ("uid.tx", "uid.rx") else a.get(k, 0)
+        out[k] = b.get(k, 0) - start
+    # TrafficStats counts by app (uid): it survives a restart of the process.
+    return out, (b["t"] - a["t"]) / 1000, restarted
 
 
-def main(path):
-    rows = parse(path)
+def stretches(rows):
     by_role = {}
     for label, role, values in rows:
         by_role.setdefault(role, []).append((label, values))
-    stretches = []
+    out = []
     for role in sorted(by_role):
         seq = by_role[role]
         for (l0, a), (l1, b) in zip(seq, seq[1:]):
-            stretches.append((f"{l0} → {l1}", role, a, b))
-    print("Mesures par appareil et par tronçon (corps HTTP : sans en-têtes ni TLS ; appli : tout le trafic de l'appli) :")
-    table(stretches)
-    print()
-    print("Sur tout l'essai :")
-    table([(f"{seq[0][0]} → {seq[-1][0]}", role, seq[0][1], seq[-1][1]) for role, seq in sorted(by_role.items()) if len(seq) > 1])
-    print()
-    print("Trames de l'opération par genre, sur tout l'essai (envoyées / reçues) :")
-    for role, seq in sorted(by_role.items()):
-        if len(seq) < 2:
-            continue
-        first, last = seq[0][1], seq[-1][1]
-        genres = sorted({k.split(".", 2)[2] for k in last if k.startswith("frames.out.") or k.startswith("frames.in.")})
+            d, seconds, restarted = diff(a, b)
+            out.append((f"{l0} → {l1}" + (" (redémarrée)" if restarted else ""), role, seconds, d))
+    return out
+
+
+def table(rows):
+    head = ["tronçon", "appareil", "durée (s)"] + [name for _, name in COLUMNS] + ["écritures / min"]
+    print("| " + " | ".join(head) + " |")
+    print("|" + "---|" * len(head))
+    for name, role, seconds, d in rows:
+        values = [d.get(key, 0) for key, _ in COLUMNS]
+        per_minute = values[0] / seconds * 60 if seconds > 0 else 0
+        print("| " + " | ".join([name, role, f"{seconds:.0f}"] + [str(v) for v in values] + [f"{per_minute:.1f}"]) + " |")
+
+
+def genres(rows):
+    head = ["tronçon", "appareil"] + GENRES + ["attente moy. (ms)", "attente > 1 s"]
+    print("| " + " | ".join(head) + " |")
+    print("|" + "---|" * len(head))
+    for name, role, _, d in rows:
         cells = []
-        for genre in genres:
-            out = last.get(f"frames.out.{genre}", 0) - first.get(f"frames.out.{genre}", 0)
-            got = last.get(f"frames.in.{genre}", 0) - first.get(f"frames.in.{genre}", 0)
-            cells.append(f"{genre} {out}/{got}")
-        print(f"  {role} : " + ", ".join(cells))
+        for g in GENRES:
+            kind = "p" if g == "POSITION" else "c"
+            cells.append(f"{d.get(f'writes.{kind}.{g}', 0)} ({d.get(f'frames.out.{g}', 0)}/{d.get(f'frames.in.{g}', 0)})")
+        n = d.get("queue.writes", 0)
+        mean = d.get("queue.ms", 0) / n if n else 0
+        print("| " + " | ".join([name, role] + cells + [f"{mean:.0f}", str(d.get("queue.over1s", 0))]) + " |")
+
+
+def main(path):
+    rows = stretches(parse(path))
+    print("Mesures par appareil et par tronçon (corps HTTP : sans en-têtes ni TLS ; appli : tout le trafic de l'appli) :")
+    table(rows)
+    print()
+    print("Sur tout l'essai (somme des tronçons) :")
+    totals = {}
+    for _, role, seconds, d in rows:
+        t = totals.setdefault(role, [0.0, {}])
+        t[0] += seconds
+        for k, v in d.items():
+            t[1][k] = t[1].get(k, 0) + v
+    table([("tout l'essai", role, seconds, d) for role, (seconds, d) in sorted(totals.items())])
+    print()
+    print("Écritures par genre : écrites (trames envoyées par l'opération / reçues), et attente avant l'écriture :")
+    genres(rows + [("tout l'essai", role, seconds, d) for role, (seconds, d) in sorted(totals.items())])
+    print()
+    for role, (_, d) in sorted(totals.items()):
+        refused = {k: v for k, v in d.items() if k.startswith("http.") and v}
+        print(f"Réponses du serveur autres qu'un succès, {role} : " + (", ".join(f"{k} {v}" for k, v in sorted(refused.items())) or "aucune"))
 
 
 if __name__ == "__main__":
