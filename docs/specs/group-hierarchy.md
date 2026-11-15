@@ -1578,3 +1578,19 @@ Elle a été **lancée dans la session 119** : son résultat est consigné au jo
 - Deux téléphones réels et le vrai serveur de coordination : la salle est simulée (JVM), sans réseau. Le comportement d'un serveur Firebase réel face à ces trames (déjà conforme aux règles publiées : même forme JSON, salle de 32 caractères hexadécimaux, nom vide dans le battement) reste à voir en vrai (P39.12).
 - La batterie est en JVM pure : rien sur émulateur (aucun écran, aucun code d'application n'est touché). Le contrôle sur émulateur de la CI reste celui des §§ 16, 17 et 20.
 - Le temps et la mémoire sont mesurés sur la JVM de la machine de build, pas sur un téléphone.
+
+### Blocage CI connu : un test instable de P39.9 (à trancher par l'utilisateur)
+
+La batterie elle-même est verte (en local et dans `./gradlew check`). Mais le run « CI » de la branche de P39.11 est **rouge**, et toujours sur **un seul test, qui n'est pas de P39.11** : `OperationTraceTest` (P39.9, `data/src/test/.../hierarchy/`, commit 08827e3), le test « a phone away at the dissolution learns it from a trace on day 6 ».
+
+- **Ce qui se passe** : sur l'émulateur partagé de la CI (2 cœurs, chargé), une assertion **sans message** de ce test échoue (`java.lang.AssertionError at OperationTraceTest.kt:148`). Le test fait revenir un téléphone absent, attend qu'il apprenne la dissolution par la trace d'un autre dans la salle, puis vérifie, entre autres sans message : qu'aucun `operation.dissolution.refused` n'a été signalé, et que le téléphone qui garde la trace est présent dans la salle.
+- **Ce qui devrait se passer** : le test passe, comme en local.
+- **Reproductibilité** : **jamais reproduit en local** — 18 exécutions (8 de la classe seule, 6 de tout `:data`, 4 sous forte charge CPU avec huit processus `yes`), toutes vertes. Il est passé deux fois sur la CI de P39.9 (runs n° 208 et 211). Il échoue sur la CI de P39.11 (runs n° 215 et 217). C'est donc une **instabilité de synchronisation propre à la contention de l'émulateur de la CI**, sensible au tour de rôle des tâches postées entre deux contrôleurs sur leurs exécuteurs à un seul fil.
+- **Lien avec P39.11** : aucun connu. P39.11 ne modifie pas `OperationTraceTest` ni `OperationController` ; le seul changement du moteur de cette session (`HierarchySnapshot.readList`, ADR-133) donne le même résultat au bit près et ne touche pas le chemin de la trace. Une tentative de durcir le `settle` du test (boucle de drainage de plus) n'a **pas** corrigé le défaut (run n° 217 encore rouge) ; elle a été **annulée**, le test de P39.9 laissé intact.
+- **Gravité** : le code du mode « Opération » n'est pas en cause (le défaut est dans l'ordonnancement du test, ou au plus un `operation.dissolution.refused` transitoire et sans effet pendant l'échange). Mais la condition « CI verte » de la tâche P39.11 n'est pas remplie tant qu'il échoue.
+
+**Question pour l'utilisateur** (ce test est à P39.9 / la session principale ; cette session ne le réécrit pas de force) :
+
+1. **La session principale (ou P39.9) rend `OperationTraceTest` « jour 6 » déterministe** (recommandé) : attendre l'échange de la salle par une condition (par ex. sonder jusqu'à `endedByTrace`, borné), au lieu d'un nombre fixe de tours de `settle` ; et, si un `operation.dissolution.refused` transitoire est réellement émis pendant l'échange, décider s'il faut l'éviter côté transport ou le tolérer dans l'assertion. Garde la CI exigeante.
+2. **Cette session tente un correctif plus poussé du test**, sans pouvoir le vérifier en local (il n'y échoue jamais) : risque de ne pas corriger le vrai défaut, et de toucher un fichier d'une autre tâche en cours.
+3. **Accepter l'instabilité pour l'instant** et fusionner P39.11 quand un run « CI » passe (le défaut est à ~50 % ; non recommandé : contraire à la règle « un test instable se corrige, il ne se relance pas »).
