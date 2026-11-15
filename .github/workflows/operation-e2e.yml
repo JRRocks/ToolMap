@@ -1,0 +1,154 @@
+name: Opération, bout en bout
+
+# The end-to-end trial of the « Opération » mode (P39.12, ADR-134, docs/specs/group-hierarchy.md § 23): the debug APK
+# on two emulators of one machine, over the real coordination server (the one built into the APK from the repository
+# secrets, as in the job « CI »), driven without a screen by tools/emulator/operation-e2e.sh. A workflow of its own: it
+# does not slow the job « CI » down, publishes nothing, and never runs on main. A run keeps the server busy for a few
+# minutes (two devices, one room of its own).
+on:
+  push:
+    branches-ignore:
+      - main
+      - "dependabot/**"
+    paths:
+      - "core/src/main/kotlin/fr/toolmap/core/hierarchy/**"
+      - "data/src/main/kotlin/fr/toolmap/data/hierarchy/**"
+      - "app/src/main/kotlin/fr/toolmap/di/HierarchyModule.kt"
+      # The relay the operations go through (the code of « Entre amis », unchanged by this trial).
+      - "p2p/src/main/kotlin/fr/toolmap/p2p/FirebaseRelay.kt"
+      - "p2p/src/main/kotlin/fr/toolmap/p2p/FirebaseRest.kt"
+      - "p2p/src/main/kotlin/fr/toolmap/p2p/RoomState.kt"
+      - "p2p/src/main/kotlin/fr/toolmap/p2p/ServerSentEvents.kt"
+      - "tools/emulator/**"
+      - ".github/workflows/operation-e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One trial at a time per branch: a newer push stops the older one (each has a room of its own on the server).
+concurrency:
+  group: operation-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Deux émulateurs, vrai serveur
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK
+        run: |
+          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
+          ANDROID_HOME="$HOME/android-sdk" TOOLMAP_NDK=skip ./scripts/install-android-sdk.sh
+          echo "sdk.dir=$HOME/android-sdk" > local.properties
+
+      # Without the native engine (ADR-119): it draws tiles, nothing of the « Opération » mode, and leaving it out
+      # spares the NDK and Rust. The debug APK has the testing tools (OperationEndToEnd); the release does not.
+      - name: Debug APK with the coordination server built in
+        env:
+          TOOLMAP_FIREBASE_DB_URL: ${{ secrets.TOOLMAP_FIREBASE_DB_URL }}
+          TOOLMAP_FIREBASE_API_KEY: ${{ secrets.TOOLMAP_FIREBASE_API_KEY }}
+        run: |
+          if [ -z "$TOOLMAP_FIREBASE_DB_URL" ] || [ -z "$TOOLMAP_FIREBASE_API_KEY" ]; then
+            echo "::error::No coordination server in the secrets of this repository: the trial needs the real one."
+            exit 1
+          fi
+          ./gradlew :app:assembleDebug -Ptoolmap.engine=off -Ptoolmap.engine.required=false
+          ls -l app/build/outputs/apk/debug/
+          # The emulators need the memory the Gradle daemons hold.
+          ./gradlew --stop
+
+      - name: Enable KVM for the emulators
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # The same cache as the job « CI »: the system image (1.5 GB) and the emulator are not downloaded again.
+      - name: Keep the emulator and its system image
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/android-sdk/system-images/android-34
+            ~/android-sdk/emulator
+          key: emulator-api34-google_apis-x86_64-v1
+
+      # Two devices of the same image (API 34, as the job « CI »), on ports 5554 and 5556, two cores and 2 GB each: the
+      # machine has four cores and 16 GB.
+      - name: Two emulators
+        run: |
+          sdk="$ANDROID_HOME"
+          bin="$sdk/cmdline-tools/latest/bin"
+          image="system-images;android-34;google_apis;x86_64"
+          yes | "$bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          "$bin/sdkmanager" platform-tools emulator "$image" > /dev/null
+          echo "$sdk/platform-tools" >> "$GITHUB_PATH"
+          export PATH="$sdk/platform-tools:$PATH"
+          for n in a b; do
+            echo no | "$bin/avdmanager" create avd --force -n "e2e-$n" -k "$image" > /dev/null
+          done
+          adb start-server
+          port=5554
+          for n in a b; do
+            nohup "$sdk/emulator/emulator" -avd "e2e-$n" -port "$port" -no-window -no-snapshot -no-boot-anim -noaudio \
+              -gpu swiftshader_indirect -camera-back none -camera-front none -memory 2048 -cores 2 \
+              > "$RUNNER_TEMP/emulator-$n.log" 2>&1 &
+            port=$((port + 2))
+          done
+          for serial in emulator-5554 emulator-5556; do
+            if ! timeout 600 adb -s "$serial" wait-for-device; then
+              tail -n 40 "$RUNNER_TEMP"/emulator-*.log
+              echo "::error::$serial did not come up"
+              exit 1
+            fi
+          done
+          for serial in emulator-5554 emulator-5556; do
+            if ! timeout 600 bash -c "until [ \"\$(adb -s $serial shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')\" = 1 ]; do sleep 5; done"; then
+              tail -n 40 "$RUNNER_TEMP"/emulator-*.log
+              echo "::error::$serial did not finish booting"
+              exit 1
+            fi
+            for setting in window_animation_scale transition_animation_scale animator_duration_scale; do
+              adb -s "$serial" shell settings put global "$setting" 0
+            done
+          done
+          adb devices
+          free -m
+
+      - name: The trial on the two emulators
+        env:
+          # Only to scrub them out of the logs kept in the artifact (GitHub masks them in this log).
+          TOOLMAP_FIREBASE_DB_URL: ${{ secrets.TOOLMAP_FIREBASE_DB_URL }}
+          TOOLMAP_FIREBASE_API_KEY: ${{ secrets.TOOLMAP_FIREBASE_API_KEY }}
+        run: bash tools/emulator/operation-e2e.sh app/build/outputs/apk/debug emulator-5554 emulator-5556 operation-e2e
+
+      # Results only: the steps, the counters, the measures, and the app's own logcat lines, filtered and scrubbed.
+      - name: Upload the results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: operation-e2e
+          path: operation-e2e/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Stop the emulators
+        if: always()
+        run: |
+          adb -s emulator-5554 emu kill > /dev/null 2>&1 || true
+          adb -s emulator-5556 emu kill > /dev/null 2>&1 || true

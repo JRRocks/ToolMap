@@ -5,6 +5,7 @@
 > Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15, celle des clés et du stockage au § 16, celle du transport et du contrôleur au § 17 ; le quatrième passage de maquettes (écarts avant de coder) est au § 18.
 > Mots : dans les écrans, « ensemble » se dit « opération » et « leader » se dit « chef » (§ 10 ter) ; dans le code et dans ce document, `ensemble` et `leader` restent les noms techniques.
 > La trace de dissolution gardée une semaine et les messages gardés sur le téléphone (réponses R1 et R2 du 2026-11-15, P39.9, ADR-131) sont au § 20.
+> Le premier essai de bout en bout, sur le vrai serveur de coordination et entre deux émulateurs (P39.12, ADR-134), est au § 23.
 
 ## 1. Vocabulaire
 
@@ -1505,3 +1506,61 @@ Rien n'est retiré ni renommé ; `OperationView.ending` vaut toujours `Ending.DI
 - **Un fil long** se réécrit entier à chaque message (au pire 500 messages de 1 024 octets par fil).
 - **Une trace dépassée reste sur le disque, illisible sans sa clé**, jusqu'au prochain démarrage de l'application.
 - Les limites des §§ 6.4, 8.6, 15, 16 et 17 restent.
+
+## 23. Tests : bout en bout sur le vrai serveur (P39.12, 2026-11-15)
+
+Pour la session principale (session 120, branche `claude/wizardly-noether-wcttgl`, partie de `claude/clever-edison-pi03p9` a4d1b8d, 0.4.251 : la branche de conception plus P39.9 ; `.conception-privee` présent). Décision d'architecture : ADR-134. Les §§ 19 à 22 sont aux sessions parallèles (écrans, simulation, attaques) ; ce paragraphe ne les écrit pas. Rien de visible ne change ; le partage « Entre amis » n'est pas touché (aucun fichier de `:p2p`, de `core/…/p2p/` ni de `app/…/share/`).
+
+### Ce qui est construit
+
+- **`:data`, paquet `fr.toolmap.data.hierarchy`** : `OperationEndToEnd` (le point d'entrée `dumpsys … operation-e2e`, outils de debug seulement, et `EndToEndSession`, les commandes au-dessus d'un `OperationController`) ; `TrafficMeter` (compteurs : appels au serveur par sorte, octets des corps, trames par genre). Test JVM : `OperationEndToEndTest` (le scénario du script sur deux téléphones d'une salle en mémoire).
+- **`:app`** : une ligne d'aiguillage dans `MainActivity.dump` (`BuildConfig.DEV_TOOLS`), qui donne à l'essai le relais Firebase d'« Entre amis » tel qu'il est (`FirebaseRelayFactory`, son client OkHttp avec le compteur, une identité anonyme à l'essai) et le serveur intégré à l'APK.
+- **Outils** : `tools/emulator/operation-e2e.sh` (le scénario, deux appareils), `tools/emulator/operation-e2e-measures.py` (le tableau des mesures) ; `.github/workflows/operation-e2e.yml` (deux émulateurs API 34, vrai serveur).
+
+### Le scénario
+
+A et B sont deux émulateurs de la même machine ; « Exercice », « Alpha », « Bravo », « Nord » sont des noms fictifs ; les positions sont la place fictive des tests (45,2° N, 5,7° E, un pas de 0,0001° par position). Chaque ligne est une étape du script, avec ce qu'elle doit rendre ; le script s'arrête à la première qui ne le rend pas.
+
+| Étape | Qui | Ce qui se passe | Résultat attendu |
+|---|---|---|---|
+| 1.create | A | crée l'opération, sa salle sur le vrai serveur | `STARTED`, serveur `ONLINE`, A peut inviter |
+| 1.join, 1.request-seen | B, A | B lit l'invitation (venue de A par adb) et demande à entrer | B lit le nom de l'opération, serveur `ONLINE` ; A voit la demande **avec le nom de B** (R5) |
+| 1.admit, 1.waiting | A, B | A admet B | B en attente (`WAITING`) |
+| 1.organize, 1.placed | A, B | A crée le groupe « Nord », y place B, le nomme chef du groupe, se nomme chef de l'opération | B placé, lit le nom du groupe et celui de A ; son alerte part aux chefs (`LEADERS`) |
+| 2.positions | B, A | B envoie 5 positions, une toutes les 2 s | A reçoit la dernière (et les autres sauf celles que le serveur a remplacées) |
+| 3.messages | A, B | un message dans chaque fil où chacun écrit | l'autre reçoit ceux des fils qu'il lit, **et aucun autre** (3 s de plus pour s'en assurer) |
+| 3.alert | A, B | une alerte chacun, puis levée | l'autre la reçoit (selon le rang : A, chef de l'opération, à tous ; B, chef de groupe, aux chefs), puis ne la voit plus |
+| 3.waypoint | A, B | un waypoint dans un lieu que B lit, puis retiré | B le voit, puis ne le voit plus |
+| (une minute) | A, B | rien n'est partagé | ce que coûtent deux téléphones placés, seuls |
+| 4.reopen, 4.caught-up | A | l'application de A est tuée ; B met un waypoint ; A redémarre et rouvre l'opération | A en ligne, avec le waypoint de B |
+| 4.cut … 4.waypoint-in | B, A | B en mode avion 40 s ; A renomme le groupe et met un waypoint ; B revient | B voit le serveur injoignable, puis de nouveau en ligne, le nouveau nom et le waypoint |
+| 5.leave, 5.departure-seen | B, A | B quitte l'opération | B : fin (`OUT`), plus rien de gardé ; A : B parti, **clé d'invitation renouvelée** (R3) |
+| 5.join-old, 5.old-invitation | B, A | B (nouvelle identité) redemande avec l'ancienne invitation | A ne voit aucune demande ; ses demandes arrivent et sont écartées (`join.old_key`) |
+| 6.join … 6.waiting | B, A | B revient avec une nouvelle invitation ; A l'admet | B en attente |
+| 6.cut, 6.dissolve | B, A | B en mode avion ; A dissout | A : fin (`DISSOLVED`), une trace gardée 7 jours |
+| 6.back-online | B | B revient, seul dans la salle (A l'a quittée, ses trames avec lui) | serveur `ONLINE` |
+| 6.announce, 6.ended-by-trace | A, B | l'application de A redémarre et vient au premier plan (`announceDissolutions`) | B apprend la dissolution **par la trace** (R1) et garde à son tour une trace |
+| 6.window-over | A | le moment d'écoute de la trace (2 min) | fini de lui-même ; A quitte la salle |
+
+À la fin, quoi qu'il arrive, les deux applications quittent la salle (`reset`) et le mode avion est coupé. Le script vérifie aussi qu'aucune des deux n'a planté (Java, natif) ni bloqué (ANR).
+
+### Ce qui est mesuré, et comment
+
+- **Latence de chaque étape** : temps rendu par l'application (`…Ms` : durée sur l'appareil ; `…AtMs` : heure de l'appareil) et temps d'attente du script. Entre les deux appareils, la latence est l'heure de réception chez l'un moins l'heure d'envoi chez l'autre, corrigée de l'écart de leurs horloges (lu par adb, au mieux de cinq essais, avec sa marge).
+- **Octets** : les corps HTTP des appels au serveur, en montée et en descente, comptés sur le fil (avant décompression, sans en-têtes ni TLS) par un intercepteur réseau du client OkHttp du relais ; et tout le trafic de l'application (`TrafficStats`, TLS compris, les tuiles de la carte aussi).
+- **Écritures sur le serveur** : chaque appel qui n'est pas une lecture (présence, position, trame de contrôle, nettoyage, départ), par appareil, par tronçon et par minute ; les trames de l'opération par genre (opérations, résumé, lot de clés, partage, demande d'entrée, clé d'invitation, dissolution, position).
+- Les relevés sont dans l'artefact du run (`operation-e2e/` : `steps.txt`, `counters.txt`, `measures.txt`, et les lignes logcat de l'application, filtrées et nettoyées) et dans le journal du job.
+
+### Résultats
+
+**Sur la JVM** (salle en mémoire, `OperationEndToEndTest`, 2 tests) : le scénario du script passe en entier, sauf la coupure de réseau (étape 4, sans réseau à couper) et l'attente des deux minutes du moment d'écoute. Deux lectures en sont sorties, sans défaut :
+
+- **Deux positions dans la même seconde** : la seconde est écartée comme un rejeu (`position.old` : l'heure d'une position est en secondes, et une position qui n'est pas plus récente que la dernière est refusée). Un GPS donne au plus une position par seconde ; le script les espace de 2 s.
+- **À la dissolution, la vue dit « fini » un instant avant de dire la trace** (`phase = ENDED` publiée par l'appel, puis `traceKeptUntilMs` à la fin de l'effacement) : un écran qui lit la trace doit suivre la vue (`StateFlow`), pas la première valeur `ENDED`. L'essai attend donc la trace quelques secondes après la fin.
+
+**Sur le vrai serveur, entre deux émulateurs** : à venir (premier run du workflow), avec le résultat de chaque étape, son temps et les mesures.
+
+### Ce qui n'a pas pu être vérifié
+
+- **Deux vrais téléphones**, le réseau mobile, l'écran éteint, la batterie : l'essai tourne sur deux émulateurs d'une même machine, réseau de la machine de la CI, application au premier plan, écran allumé.
+- Les téléphones à Keystore matériel (TEE, StrongBox) : celui de l'émulateur est logiciel.
