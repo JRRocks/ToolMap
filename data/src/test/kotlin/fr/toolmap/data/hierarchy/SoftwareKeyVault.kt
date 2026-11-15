@@ -15,7 +15,29 @@ import javax.crypto.spec.SecretKeySpec
  */
 class SoftwareKeyVault(
     override val agreesInHardware: Boolean = true,
+    /** Draws the keys and the signatures when set: a simulated scenario then replays the same (P39.10). */
+    private val random: SecureRandom? = null,
 ) : KeyVault {
+    private fun newPair(): KeyPair =
+        if (random == null) {
+            P256.generate()
+        } else {
+            java.security.KeyPairGenerator.getInstance("EC").apply {
+                initialize(java.security.spec.ECGenParameterSpec("secp256r1"), random)
+            }.generateKeyPair()
+        }
+
+    private fun signWith(
+        pair: KeyPair,
+        message: ByteArray,
+    ): ByteArray {
+        if (random == null) return P256.sign(pair.private, message)
+        val s = java.security.Signature.getInstance("SHA256withECDSA")
+        s.initSign(pair.private, random)
+        s.update(message)
+        return P256.derToRaw(s.sign())
+    }
+
     private val signing = LinkedHashMap<String, KeyPair>()
     private val agreement = LinkedHashMap<String, KeyPair>()
     private val sealing = LinkedHashMap<String, ByteArray>()
@@ -33,7 +55,7 @@ class SoftwareKeyVault(
 
     override fun createSigningKey(alias: String): VaultSigningKey {
         check()
-        signing[alias] = P256.generate()
+        signing[alias] = newPair()
         return requireNotNull(signingKey(alias))
     }
 
@@ -46,7 +68,7 @@ class SoftwareKeyVault(
             override fun sign(message: ByteArray): ByteArray {
                 check()
                 signatures++
-                return P256.sign(pair.private, message)
+                return signWith(pair, message)
             }
         }
     }
@@ -54,7 +76,7 @@ class SoftwareKeyVault(
     override fun createAgreementKey(alias: String): VaultAgreementKey {
         check()
         if (!agreesInHardware) throw KeyVaultException("no key agreement here (test)")
-        agreement[alias] = P256.generate()
+        agreement[alias] = newPair()
         return requireNotNull(agreementKey(alias))
     }
 
@@ -73,7 +95,7 @@ class SoftwareKeyVault(
 
     override fun createSealingKey(alias: String): VaultSealingKey {
         check()
-        sealing[alias] = ByteArray(32).also(SecureRandom()::nextBytes)
+        sealing[alias] = ByteArray(32).also((random ?: SecureRandom())::nextBytes)
         return requireNotNull(sealingKey(alias))
     }
 
@@ -86,7 +108,7 @@ class SoftwareKeyVault(
                 aad: ByteArray,
             ): ByteArray {
                 check()
-                val nonce = ByteArray(12).also(SecureRandom()::nextBytes)
+                val nonce = ByteArray(12).also((random ?: SecureRandom())::nextBytes)
                 val cipher = Cipher.getInstance("AES/GCM/NoPadding")
                 cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, nonce))
                 cipher.updateAAD(aad)
