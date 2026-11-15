@@ -64,6 +64,7 @@ import fr.toolmap.core.track.TrackImporter
 import fr.toolmap.crash.CrashActivity
 import fr.toolmap.crash.CrashReporter
 import fr.toolmap.data.hierarchy.HierarchyKeysCheck
+import fr.toolmap.data.hierarchy.HierarchyOperationCheck
 import fr.toolmap.data.sources.SourceRepository
 import fr.toolmap.data.tiles.OfflineMode
 import fr.toolmap.data.tiles.TileLocation
@@ -806,6 +807,13 @@ class MainActivity : ComponentActivity() {
             val started = HierarchyKeysCheck.start(this)
             writer.println(
                 "$prefix${HierarchyKeysCheck.DUMP_ARGUMENT} ${if (started) "started" else "already running"}",
+            )
+        }
+        // `… hierarchy-operation`: the check of the « Opération » controller on one device, no server (P39.7, ADR-129).
+        if (BuildConfig.DEV_TOOLS && args?.contains(HierarchyOperationCheck.DUMP_ARGUMENT) == true) {
+            val started = HierarchyOperationCheck.start(this)
+            writer.println(
+                "$prefix${HierarchyOperationCheck.DUMP_ARGUMENT} ${if (started) "started" else "already running"}",
             )
         }
     }

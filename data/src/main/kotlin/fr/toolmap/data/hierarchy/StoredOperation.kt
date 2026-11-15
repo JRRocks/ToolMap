@@ -230,6 +230,40 @@ class StoredOperation internal constructor(
     }
 
     /**
+     * Writes what the transport keeps beside the engine's parts (the room, the server, the invitation keys, the cards
+     * of the invitation: [fr.toolmap.core.hierarchy.OperationLinkState]), sealed like them; only once the operation
+     * is bound ([save] done once). `false` when the disk or the key store refused (said to whoever debugs).
+     */
+    @Synchronized
+    fun saveLink(bytes: ByteArray): Boolean {
+        if (wiped) return false
+        val ensembleId = ensembleId ?: return false
+        val key = storageKey() ?: return false
+        return catchExpected("hierarchy.store.link.write", IOException::class) {
+            SealedFile.writeAtomically(File(dir, LINK_FILE), SealedFile.seal(key, bytes, linkAad(ensembleId), random))
+        }.isSuccess
+    }
+
+    /** What [saveLink] wrote; `null` when there is none, or it is damaged (said to whoever debugs). */
+    @Synchronized
+    fun loadLink(): ByteArray? {
+        if (wiped) return null
+        val ensembleId = ensembleId ?: return null
+        val file = File(dir, LINK_FILE)
+        if (!file.isFile) return null
+        val key = storageKey() ?: return null
+        return catchExpected("hierarchy.store.link.read", IOException::class) {
+            SealedFile.open(key, file.readBytes(), linkAad(ensembleId))
+        }.getOrNull()
+    }
+
+    private fun linkAad(ensembleId: Long): ByteArray =
+        "toolmap-hierarchy-link-v1:$id:${java.lang.Long.toUnsignedString(
+            ensembleId,
+            16,
+        )}".toByteArray(Charsets.US_ASCII)
+
+    /**
      * Forgets everything of this operation on this phone: the keys in the vault first (what may be left of the files
      * on the flash memory can then no longer be opened), then the folder. Nothing works on this storage after it.
      */
@@ -332,5 +366,6 @@ class StoredOperation internal constructor(
 
     companion object {
         internal const val STORAGE_KEY_FILE = "storage.key"
+        internal const val LINK_FILE = "link.sealed"
     }
 }

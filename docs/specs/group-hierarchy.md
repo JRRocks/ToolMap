@@ -2,7 +2,7 @@
 
 > Demande de l'utilisateur (2026-11-13) : `docs/PLAN.md` § P39. Décisions d'architecture : ADR-125 (journal d'opérations), ADR-126 (clés de contenu et signatures), ADR-127 (canaux, noms cachés, objets durables).
 > Ce document décrit le **moteur** (P39.2, mis aux règles de l'utilisateur par P39.4, puis à ses choix du second tour et à ses précisions S1 à S7 le 2026-11-14, puis à ses réponses du troisième tour, T1 à T17, le même jour) : la logique, dans `:core`, paquet `fr.toolmap.core.hierarchy`. Rien n'est branché : ni transport, ni stockage, ni écran. Le système de groupe actuel (`fr.toolmap.core.p2p`, `docs/specs/p2p-sharing.md`) n'est pas modifié.
-> Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15.
+> Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15, celle des clés et du stockage au § 16, celle du transport et du contrôleur au § 17.
 > Mots : dans les écrans, « ensemble » se dit « opération » et « leader » se dit « chef » (§ 10 ter) ; dans le code et dans ce document, `ensemble` et `leader` restent les noms techniques.
 
 ## 1. Vocabulaire
@@ -469,7 +469,7 @@ Testé (`NamesTest`, `HierarchyChoicesTest`) : empreintes, cartes, carnet, forma
 
 ## 9. Ce qu'il faudra pour brancher
 
-**Fait (étape 1, P39.6, session 111, ADR-128)** : les clés du téléphone et le stockage, dans `:data` (paquet `fr.toolmap.data.hierarchy`), appelés par personne ; détail et vérifications au § 16. **Reste** : le transport, puis l'interface (ci-dessous), et le contrôle du vrai Keystore sur un émulateur par la session locale (§ 16).
+**Fait (étape 1, P39.6, session 111, ADR-128)** : les clés du téléphone et le stockage, dans `:data` (paquet `fr.toolmap.data.hierarchy`), appelés par personne ; détail et vérifications au § 16. **Fait (étape 2, P39.7, session 113, ADR-129)** : le transport (ci-dessous) et le contrôleur des écrans, `OperationController` ; ce qui est construit, l'interface que les écrans appelleront, les lectures faites et les questions : § 17. **Reste** : l'interface (ci-dessous).
 
 **Transport** (`Wire.kt`, `MeshNode.kt`, `:p2p`) :
 
@@ -1189,3 +1189,161 @@ Une signature par le Keystore coûte donc moins d'une milliseconde ici, une vér
 1. **Quand votre téléphone apprend que vous avez été retiré d'une opération, ou qu'elle est dissoute, faut-il tout effacer aussitôt ?**
    a. Oui, aussitôt (recommandé, ce qui est fait) : plus rien de l'opération ne reste sur le téléphone. Dans un cas rare (deux décisions prises en même temps sur deux téléphones), le retrait peut être annulé ensuite par les autres : le téléphone devra alors rejoindre l'opération comme un nouveau membre.
    b. Garder l'opération fermée (illisible) quelques minutes avant d'effacer, le temps que les autres téléphones confirment.
+
+## 17. Remontée du 2026-11-15 : branchement, étape 2 — transport et contrôleur (P39.7)
+
+Pour la session principale et pour la session qui codera les écrans (session 113, branche `claude/funny-hypatia-cnz6s8`, partie de `conception/groupes-hierarchiques` 56711dc, 0.4.247). Décision d'architecture : ADR-129. Rien de visible ne change : aucun écran, aucun texte, aucune ressource ; le contrôleur est fourni par Hilt et demandé par personne. Le partage « Entre amis » n'est pas touché (aucun fichier de `:p2p`, de `core/…/p2p/` ni de `app/…/share/`).
+
+### Ce qui est construit
+
+- **`:core`, paquet `fr.toolmap.core.hierarchy`** :
+  - `OperationWire.kt` : l'invitation (`OperationInvite`, `OperationInviteCodec` : lien `toolmap://operation?d=…` ou texte de QR en Base45, version 4 du code ToolMap, valable 7 jours), l'enveloppe de toutes les trames (`OperationFrames`), le résumé (`OperationSummary`), la demande d'entrée signée (`JoinRequest`, `JoinRequests`), la clé d'invitation par époques (`InviteAnnouncement`, `InviteGrant`, `InviteKeys`), les charges utiles (`OperationPayloads`, `OperationText`), ce qu'on garde à côté du moteur (`OperationLinkState`, `EpochKey`).
+  - `OperationNode.kt` : l'automate d'échange (`OperationNode`, `OperationListener`, `ShareOutcome`, `PendingJoin`, `OperationEnding`).
+- **`:data`, paquet `fr.toolmap.data.hierarchy`** : `OperationController` (la façade des écrans, ci-dessous), `HierarchyOperationCheck` (contrôle par `dumpsys`) ; `StoredOperation.saveLink` / `loadLink` (un cinquième fichier scellé, `link.sealed`).
+- **`:app`** : `di/HierarchyModule.kt` fournit `OperationController` (serveur des nouvelles opérations : le serveur intégré, `BuildConfig.FIREBASE_*`) ; quatre lignes dans `MainActivity.dump` (`… hierarchy-operation`, sous `BuildConfig.DEV_TOOLS`).
+- **Outils** : `tools/emulator/hierarchy-operation.sh`, appelé par `smoke.sh` après `hierarchy-keys.sh`.
+
+### Le transport, pas à pas
+
+**Le chemin.** Une opération a sa **salle** sur le serveur de coordination d'« Entre amis » (16 octets tirés au hasard par le créateur, dans l'invitation, la même toute la vie de l'opération). Le serveur n'est pas modifié : il range une trame dont le premier octet vaut `4` (le code d'une position chez « Entre amis ») dans la case de position du membre (300 octets, la dernière seulement), et toute autre trame en trame de contrôle (4 096 octets ici, gardée 120 s, écartée à l'arrivée après 150 s). Le battement ne porte **aucun nom** : le serveur voit l'identifiant du membre (empreinte de sa clé de signature, propre à l'opération) et des octets chiffrés. Pas de liaison directe WebRTC pour l'instant : sans serveur joignable, l'opération ne parle à personne.
+
+**L'enveloppe.** `marqueur (1) | genre (1) | époque (4) | émetteur (8) | nonce (12) | AES-256-GCM(corps)` ; la clé est `HKDF-SHA256(clé d'invitation de l'époque, "toolmap-operation-frame-v1" | opération | époque)`, l'en-tête et l'identifiant de l'opération sont authentifiés. Marqueur `0xC7`, ou `4` pour une position. Genres :
+
+| Genre | Corps |
+|---|---|
+| 1 opérations | `HierarchyWire.encodeOps`, coupé pour tenir dans une trame |
+| 2 résumé | `longueur (2) | résumé du moteur | empreinte des lots de clés (8) | noms manquants (2) | n (2) × (voie (1), portée (8), empreinte des objets (8))` |
+| 3 lot de clés | `HierarchyWire.encodeKeyBatch` |
+| 4 partage | la trame de `ShareSeal` |
+| 5 demande d'entrée | `opération (8) | clés publiques (130) | empreinte du nom (32) | heure (4) | clé éphémère (65) | n (1) × (destinataire (8), longueur (1), carte scellée) | signature (64)` |
+| 6 clé d'invitation | `annonce (opération, époque, identifiant de la clé, annonceur, signature) | donneur (8) | clé éphémère (65) | n (2) × (membre (8), clé enveloppée (48)) | signature du donneur (64)` |
+
+**Liaison ouverte** : chacun envoie son résumé ; un téléphone qui n'est pas encore admis envoie aussi sa demande d'entrée. **Réponse à un résumé** : les opérations qui manquent ; si l'autre est en retard, on lui redemande son résumé ; puis, une fois par résumé différent (un même résumé entendu deux fois en 5 s n'a qu'une réponse) : les lots de clés du moment si leurs empreintes diffèrent, les objets de chaque canal que les deux lisent et dont l'empreinte diffère (si l'on a le droit d'y partager), les noms si l'autre en manque ou est en retard sur les opérations (cartes des membres placés et des groupes, jamais celles de qui attend). Un résumé part aussi toutes les 60 s.
+
+**Après chaque changement de l'état** : `KeyRing.retry` ; fin de l'opération pour ce téléphone (dissoute, ou il en a été membre et ne l'est plus) : tout est oublié, l'écouteur le dit, le contrôleur efface le stockage ; sinon oubli de ce qu'on ne lit plus (`prune` des clés, objets et noms) ; vérification du nom de l'opération venu de l'invitation dès la première opération ; clés des **unités** qui manquent : faites par le premier de `keyIssuers` présent, les suivants attendent 1,5 s par rang et ne font rien si la clé est arrivée ; clés des **voies** (montante, descendante, des chefs, d'attente) : faites aussitôt par qui veut y partager ; **arrivées** (`arrivals`) : renvoi des objets du canal par les téléphones de `resenders` (même attente par rang, annulé si un renvoi d'un autre est vu entre-temps), et des noms pour une arrivée dans l'opération ; **départ d'un membre** : le créateur, puis les administrateurs par rang, renouvellent la clé d'invitation ; **alerte en cours** dont la destination a changé : renvoyée dans la nouvelle.
+
+**Entrée.** L'invité crée une identité (`OperationStorage.create`), garde l'invitation (`OperationNode.joining`), rejoint la salle, reçoit le journal (la clé d'invitation l'ouvre), vérifie le nom de l'opération (`learnEnsembleName` ; refusé : signalé, plus affiché), envoie sa demande d'entrée toutes les 20 s, la carte de son nom enveloppée pour le créateur et les administrateurs. L'administrateur la voit dans `joinRequests` (avec le nom) et l'admet (`admit`). L'admis fait la clé de sa voie d'attente, y envoie la carte de son nom et sa position. Placé, il reçoit la clé de l'opération, celle de son groupe, les noms et les objets encore affichés.
+
+**Renouvellement de l'invitation.** Clé neuve, époque + 1, annoncée (signée) par le créateur ou un administrateur, enveloppée pour chaque membre admis (en attente compris), envoyée sous l'ancienne clé. Ensuite, tout s'envoie sous la nouvelle. Un membre resté sur l'ancienne (absent au moment du renouvellement) parle sous elle à son retour : n'importe quel membre qui détient l'annonce lui redonne la nouvelle (enveloppée pour lui seul). Un membre retiré ouvre l'enveloppe, pas sa copie : il ne lit plus rien, ni la forme de la hiérarchie. Une invitation donnée avant ne fonctionne plus (sa demande d'entrée est écartée) : l'écran doit le dire à qui invite. Fait de lui-même après chaque départ, ou sur demande (`renewInvitation`).
+
+**Rejeux et trames falsifiées.** Une enveloppe changée d'un octet ne s'ouvre pas ; une enveloppe d'une autre opération ou d'une autre clé d'invitation non plus. Une opération reçue deux fois est reconnue (`DUPLICATE`), un lot aussi ; une position plus ancienne que la dernière de son auteur est écartée ; un message ou une alerte déjà vus (même auteur, même identifiant) ou de plus de 6 h sont écartés ; une demande d'entrée dont la signature n'est pas celle de la clé qu'elle montre, ou dont l'émetteur n'est pas ce membre, n'est pas montrée. Tout refus d'une trame venue d'un autre téléphone est compté (`OperationNode.dropped`) et, s'il n'est pas normal (une trame d'un canal qu'on ne lit pas l'est), signalé (`Problems.expected`).
+
+### L'interface du contrôleur (pour les écrans)
+
+`fr.toolmap.data.hierarchy.OperationController`, un par processus (`@Inject`), **une opération ouverte à la fois**. Toutes les méthodes `suspend` tournent sur le fil du contrôleur, dans l'ordre ; on peut les appeler depuis un `viewModelScope`. Ce qu'il faut afficher est dans **`view: StateFlow<OperationView>`**, une valeur immuable refaite à chaque changement.
+
+**Démarrer**
+
+| Appel | Rend | Effet |
+|---|---|---|
+| `ids(): List<String>` | les opérations gardées sur ce téléphone | — |
+| `create(operationName: String, myName: String)` | `StartResult` | Crée l'opération, ce téléphone créateur ; elle est gardée, sa salle ouverte |
+| `preview(invitation: String): InvitationPreview?` | nom de l'opération, identifiant, `staleness` (`EXPIRED`, `FROM_THE_FUTURE` ou `null`) | Lit une invitation sans rejoindre (« Rejoindre l'opération “…” ? ») |
+| `join(invitation: String, myName: String)` | `StartResult` | Demande à entrer ; `view.phase` passe à `ASKING` |
+| `open(id: String)` | `StartResult` | Rouvre une opération gardée (au démarrage de l'application) |
+| `close()` | — | Quitte la salle, garde l'opération |
+
+`StartResult` : `STARTED`, `BAD_NAME` (vide, caractère de contrôle, plus de 64 octets), `BAD_INVITATION`, `EXPIRED`, `STORAGE_FAILED`, `NOT_FOUND`, `ENDED` (l'opération gardée était finie : effacée à la lecture).
+
+**Inviter, admettre, placer** (le droit se lit dans `check` ou dans `view`)
+
+| Appel | Rend |
+|---|---|
+| `invitationLink(): String?` / `invitationQr(): String?` | le lien ou le texte du QR ; `null` si ce téléphone n'invite pas (`view.mayInvite`) ou n'a pas de serveur |
+| `renewInvitation(): Boolean` | nouvelle clé d'invitation (les invitations données avant ne marchent plus) |
+| `admit(member: Long)` / `decline(member: Long)` | `Rejection?` / `Boolean` |
+| `createGroup(name: String, parent: Long = HierarchyState.ROOT)` | `Pair<Long?, Rejection?>` : l'identifiant du groupe, ou le refus |
+| `renameGroup(group, name)`, `deleteGroup(group)` | `Rejection?` |
+| `place(member, group)`, `unassign(member)` | `Rejection?` |
+| `setPost(unit, post: Post, member)`, `clearPost(unit, post)` | `Rejection?` (`unit` : un groupe, ou `HierarchyState.ROOT` pour l'opération ; `Post.LEADER` chef, `Post.DEPUTY` adjoint) |
+| `addAdmin(member)`, `removeAdmin(member)`, `removeMember(member)` | `Rejection?` |
+| `leave()` | `Rejection?` ; refusé au créateur (`IS_CREATOR`) |
+| `handOverAndLeave(successor: Long)` | `Rejection?` : passe la main à un administrateur, puis part |
+| `dissolve()` | `Rejection?` : fin de l'opération pour tous (créateur seulement) |
+| `change(change: Change)` | `Rejection?` : n'importe quel changement du moteur |
+| `check(change: Change): Rejection?` | sans `suspend`, sans rien écrire : pour griser un bouton |
+
+`null` veut dire « écrit » : le changement part aux autres. Il peut encore perdre ensuite contre un changement écrit en même temps ailleurs : il apparaît alors dans `view.refused`. Un bouton ne suppose jamais qu'un changement écrit est définitif.
+
+**Partager** (les destinations offertes sont dans `view.targets`, et aucune autre)
+
+| Appel | Rend |
+|---|---|
+| `sendPosition(fix: PeerFix)` | `ShareOutcome` ; à appeler à chaque position (le service le fera ; une position sans clé ou sans liaison est sautée) |
+| `sendMessage(channel: Channel, text: String)` | `ShareOutcome` ; texte de 1 024 octets au plus ; apparaît aussi dans le fil de ce téléphone |
+| `sendAlert(text: String, fix: PeerFix?)` | `ShareOutcome` ; part à `view.targets.alert`, sans choix |
+| `liftAlert()` | `ShareOutcome` ; lève la dernière alerte de ce téléphone |
+| `putObject(kind: ShareKind, channel: Channel, body: ByteArray, objectId: Long? = null)` | `Pair<ShareOutcome, Long>` ; `kind` : `SKETCH` ou `WAYPOINT` ; sans `objectId`, un objet neuf (son identifiant revient) ; corps de 3 700 octets environ au plus (`OperationNode.MAX_OBJECT_BODY`) |
+| `removeObject(ref: ObjectRef)` | `ShareOutcome` ; son auteur, ou qui peut partager au même endroit |
+
+`ShareOutcome` : `SENT` (parti vers les téléphones présents), `QUEUED` (gardé jusqu'à la clé du canal ou une liaison, une heure au plus), `SKIPPED` (une position), `NOT_ALLOWED`, `TOO_LARGE`. Les canaux : `Channel.ENSEMBLE` (toute l'opération), `Channel.unit(groupe)` (« Mon groupe »), `Channel.up(groupe)` (le fil du milieu « Commandement » et ce qui remonte), `Channel.down(groupe)` (« Un groupe » précis), `Channel.LEADERS` (tous les chefs), `Channel.waiting(membre)` (voie d'attente).
+
+**`OperationView`** (tout est là ; rien d'autre à lire)
+
+| Champ | Contenu |
+|---|---|
+| `phase` | `NONE`, `ASKING` (demande envoyée, pas encore admis), `WAITING` (admis, sans groupe), `PLACED`, `ENDED` |
+| `ending` | si `ENDED` : `OUT` (parti ou retiré), `DISSOLVED`, `WIPED` ; tout est déjà effacé |
+| `storageId`, `ensembleId`, `self` | l'opération gardée, son identifiant, le membre de ce téléphone |
+| `operationName` | le nom de l'opération (celui de l'invitation tant que la première opération n'est pas arrivée, puis vérifié) |
+| `hierarchy` | l'état du moteur (`HierarchyState`) : `rolesOf`, `isWaiting`, `canSee`, `readersOf`, `leaderOf`… |
+| `members` | `MemberView(id, name, roles, group, waiting, online, label)` ; `name` vaut `null` tant que ce téléphone ne le connaît pas (écrire autre chose en attendant) ; `label` : `FULL` ou `INITIALS` sur la carte (Q17) |
+| `groups` | `GroupView(id, name, parent, leader, deputy, members)` |
+| `joinRequests` | `JoinRequestView(member, name, receivedAtMs)` : pour le créateur et les administrateurs ; `name` peut être `null` si la demande est partie avant que l'arrivant connaisse cet administrateur (elle revient toutes les 20 s) |
+| `positions` | dernière position de chaque membre que ce téléphone voit : `ReceivedPosition(fix, channel, receivedAtMs)` |
+| `threads` | `Map<Channel, List<ThreadMessage(author, text, sentAtMs, receivedAtMs)>>`, les siens compris, 500 par fil au plus, en mémoire seulement |
+| `alerts` | `ReceivedAlert(author, channel, text, fix, sentAtMs, receivedAtMs)` en cours (une alerte levée disparaît) |
+| `objects` | les croquis et waypoints encore affichés (`SharedRecord` : `kind`, `channel`, `author`, `objectId`, `revision`, `body`) |
+| `targets` | `ShareTargets(position, messages, sketches, waypoints, alert, alertReaders)` ; `alertReaders` vide : l'alerte n'arrive à personne (créateur seul), l'écran le dit |
+| `mayInvite`, `inviteEpoch` | ce téléphone invite ; l'époque de la clé d'invitation (elle change à chaque renouvellement) |
+| `server`, `online` | `ServerState` de la salle ; les membres présents dans la salle |
+| `refused` | `RefusedChange(seq, change, reason)` : ce que ce téléphone a écrit et qui a perdu ensuite |
+
+### Lectures faites là où la spécification ne tranche pas (à confirmer ou corriger)
+
+1. **L'administrateur lit le nom de qui demande à entrer avant de l'admettre** : la carte du nom est enveloppée pour le créateur et chaque administrateur (§ 9 disait seulement « pas le nom en clair »). Les autres membres, et qui attend, ne la lisent pas.
+2. **La salle est tirée au hasard par le créateur** et ne change jamais ; le renouvellement change la clé, pas la salle.
+3. **La clé d'invitation est renouvelée d'elle-même après chaque départ** (retrait, départ volontaire, et donc aussi passage de main suivi du départ) ; les invitations données avant ne marchent plus.
+4. **Serveur des nouvelles opérations** : le serveur intégré à l'application, pas celui que l'utilisateur a réglé pour « Entre amis ».
+5. **Messages et alertes en mémoire seulement** : perdus quand l'application redémarre ; jamais renvoyés à qui arrive (S6).
+6. **Alerte** : un texte court et, si l'auteur veut, sa position ; levée par son auteur ; renvoyée dans la nouvelle destination quand son rôle change pendant qu'elle court ; une alerte déjà reçue reste affichée jusqu'à sa levée.
+7. **Une opération ouverte à la fois** par le contrôleur (plusieurs peuvent être gardées).
+8. **Les cartes des noms de qui attend** ne partent jamais à toute l'opération : seuls le créateur et les administrateurs les ont (Q10, Q11), les autres les reçoivent quand le membre est placé.
+9. **Un objet durable fait au plus environ 3,7 Kio** (une trame du serveur) ; le moteur en permettait 12 Kio sur une liaison directe.
+
+### Questions pour l'utilisateur
+
+1. **Un téléphone absent quand l'opération est dissoute ne l'apprend jamais : tous les autres ont tout effacé aussitôt. Que faire ?**
+   a. Garder sur chaque téléphone, une semaine, une trace fermée de l'opération qui ne sert qu'à annoncer la dissolution aux retardataires (recommandé).
+   b. Tout effacer aussitôt (ce qui est fait) : le retardataire reste dans une opération vide jusqu'à ce qu'il la quitte.
+2. **Les messages écrits doivent-ils rester sur le téléphone après un redémarrage de l'application ?**
+   a. Oui, les 500 derniers de chaque fil, scellés avec l'opération et effacés avec elle (recommandé).
+   b. Non, en mémoire seulement (ce qui est fait).
+3. **Quand quelqu'un quitte l'opération ou en est retiré, les invitations déjà données cessent de marcher. D'accord ?**
+   a. Oui : après un départ, on redonne une invitation (recommandé, ce qui est fait ; sinon le membre retiré pourrait suivre la hiérarchie avec son ancienne invitation).
+   b. Non : renouveler seulement quand un administrateur le demande.
+4. **Quel serveur pour les opérations ?**
+   a. Le serveur intégré à l'application (recommandé, ce qui est fait).
+   b. Celui réglé pour « Entre amis », s'il y en a un.
+5. **L'administrateur voit-il le nom de qui demande à entrer avant de l'admettre ?**
+   a. Oui, lui et les autres administrateurs seulement (recommandé, ce qui est fait).
+   b. Non, il ne le voit qu'une fois la personne admise.
+
+### Ce qui est vérifié, et comment
+
+- `./gradlew :core:test --tests 'fr.toolmap.core.hierarchy.*'` : **153 tests, 0 échec** (143 avant ; `OperationNodeTest`, 10, téléphones simulés dans une salle simulée où chaque trame écrite arrive à chaque téléphone présent, horloge du test) : création, invitation par lien et par QR, demande d'entrée avec le nom pour le créateur, attente (position aux administrateurs, aucun nom lu hors celui de l'opération), placement ; retardataire qui rattrape opérations, clés, noms et objets ; départ d'un chef et promotion de l'adjoint, alerte qui suit le nouveau poste ; retrait (le retiré n'ouvre aucune trame suivante ni, avec les clés qu'il a gardées, le partage qu'elle porte ; clé d'invitation renouvelée) ; membre absent pendant un renouvellement qui récupère la clé, passage de main puis départ du créateur ; dissolution sur tous les téléphones présents, puis chez l'absent quand il reçoit les opérations ; envoi dans le groupe, vers le commandement, vers un groupe précis, entre chefs, alerte du chef de l'opération à tous ; revenant après une coupure (objet changé, objet retiré, pas d'ancien message) ; trames rejouées, changées d'un octet, d'une autre opération, demande d'entrée falsifiée ; invitation, demande, état gardé lus à l'identique, invitations coupées refusées, un lien « Entre amis » n'est pas une invitation d'opération.
+- `./gradlew :data:testDebugUnitTest --tests 'fr.toolmap.data.hierarchy.*'` : **27 tests, 0 échec** (22 avant ; `OperationControllerTest` 3 : deux contrôleurs, chacun son stockage et un Keystore logiciel, dans une salle en mémoire : création, invitation, admission, placement, chef de groupe, position par la case de position, fil « Commandement », waypoint vers un groupe, dissolution qui vide les deux stockages ; relecture après redémarrage, départ d'un membre (stockage et clés effacés, clé d'invitation renouvelée) ; opération sans serveur ; `HierarchyOperationCheckTest` 2 : les deux phases du contrôle sur émulateur, et un coffre en panne). Chaque test vérifie qu'aucun signalement n'est un bogue.
+- Build complet, `SilentFailureTest` compris, et run « CI » : journal, session 113.
+
+### Ce qui n'a pas pu être vérifié
+
+- **Deux téléphones réels**, ni deux émulateurs : la CI n'a qu'un émulateur ; l'échange n'est vérifié que sur la JVM, salle simulée. Le vrai serveur Firebase n'a pas porté ces trames (même forme JSON, salle de 32 caractères hexadécimaux, nom vide dans le battement : conformes aux règles publiées, à voir en vrai).
+- **Batterie et écran éteint** : rien n'est branché au service de partage ; une signature par position envoyée et une vérification par position reçue restent à mesurer sur un téléphone.
+- **Le contrôle sur émulateur** (`hierarchy-operation.sh`) est joué par la CI sur son émulateur API 34 ; sur l'émulateur du poste, par la session locale : `bash tools/emulator/smoke.sh app/build/outputs/apk/debug emulator-check`, puis lire « OK: « Opération » controller (API …) » et `emulator-check/hierarchy-operation.txt`.
+
+### Limites connues
+
+- Sur le serveur, chaque téléphone présent répond au résumé d'un autre : des doublons sans effet sur l'état (à réduire par un délai de rang si besoin).
+- Un téléphone resté sur une ancienne clé d'invitation n'est remis à jour que par un membre qui détient l'annonce de la nouvelle ; un arrivant qui n'a eu que la clé de son invitation ne peut pas la redonner (il ne connaît pas l'annonce).
+- Une demande d'entrée faite avec une invitation antérieure au dernier renouvellement est écartée sans réponse : l'écran de l'invité doit dire, au bout d'un moment, qu'il faut une invitation récente.
+- Les limites des §§ 6.4, 8.6, 15 et 16 restent.

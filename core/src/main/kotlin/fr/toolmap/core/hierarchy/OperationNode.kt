@@ -1,0 +1,1111 @@
+package fr.toolmap.core.hierarchy
+
+import fr.toolmap.core.p2p.MeshLink
+import fr.toolmap.core.p2p.PeerFix
+import fr.toolmap.core.p2p.RelayConfig
+import fr.toolmap.core.p2p.WireException
+import fr.toolmap.core.problem.Problems
+import java.security.SecureRandom
+import java.util.TreeMap
+
+/** Why an operation is over for this phone. */
+enum class OperationEnding {
+    /** It left, or was taken out by the creator. */
+    OUT,
+
+    /** The operation is dissolved. */
+    DISSOLVED,
+}
+
+/** A request to come in, as an administrator's phone holds it until someone lets the phone in. */
+class PendingJoin(
+    val request: JoinRequest,
+    /** The name it chose, when its card was wrapped to this phone. */
+    val card: NameCard?,
+    val receivedAtMs: Long,
+) {
+    val member: Long get() = request.member
+}
+
+/** What became of something this phone wanted to share. */
+enum class ShareOutcome {
+    /** Sealed and sent to the phones linked now. */
+    SENT,
+
+    /** Kept until the key of its channel arrives, or until a phone is linked: sent then. */
+    QUEUED,
+
+    /** A position without a key or without a link: skipped, the next one goes. */
+    SKIPPED,
+
+    /** This phone may not share that there ([HierarchyState.mayShare]), or no longer belongs to the operation. */
+    NOT_ALLOWED,
+
+    /** Larger than a frame. */
+    TOO_LARGE,
+}
+
+/** What the node tells the app. Called with the node's lock held: post the work elsewhere, do not block. */
+interface OperationListener {
+    /** Something to save or to show changed: the hierarchy, keys, names, objects, requests, invitation keys. */
+    fun onChanged() {}
+
+    fun onPosition(
+        member: Long,
+        channel: Channel,
+        fix: PeerFix,
+    ) {}
+
+    fun onMessage(
+        author: Long,
+        channel: Channel,
+        message: OperationText,
+    ) {}
+
+    /** An alert, or its end ([OperationText.lifted]). */
+    fun onAlert(
+        author: Long,
+        channel: Channel,
+        alert: OperationText,
+    ) {}
+
+    /** The operation is over for this phone: everything it held of it is forgotten; wipe the storage. */
+    fun onEnded(ending: OperationEnding) {}
+}
+
+/** A frame refused for a reason that is not an exception: what [Problems.expected] is given. */
+class FrameRefused(
+    what: String,
+) : Exception(what)
+
+/**
+ * The exchange between the phones of one operation (P39.7, ADR-129, `docs/specs/group-hierarchy.md` § 17): what the
+ * engine leaves to the transport. Pure: it is given links ([MeshLink], one per phone linked now, the coordination
+ * server's included) and frames, a clock and a random source; it hands back frames to send and tells [listener].
+ *
+ * On a link that opens it sends its [OperationSummary]; the other answers with the operations it lacks, the key
+ * batches if their fingerprints differ, the objects of each channel whose fingerprint differs (if it may share there),
+ * the names if it lacks some; the one that is behind asks again. After each change of the hierarchy it forgets what
+ * it no longer reads, makes the keys of the units it reads (at once if it is the first issuer linked, later
+ * otherwise), sends again what is still shown to who arrives, and, for the creator and the administrators, renews the
+ * invitation key when someone left. A phone not let in yet asks to come in ([JoinRequest]) until it is.
+ *
+ * Every method takes the node's lock: the app calls it from any thread.
+ */
+class OperationNode(
+    private val keys: PhoneKeys,
+    val replica: HierarchyReplica,
+    val ring: KeyRing,
+    val names: NameBook,
+    val objects: SharedObjects,
+    link: OperationLinkState,
+    private val listener: OperationListener,
+    private val clock: () -> Long,
+    private val random: SecureRandom = SecureRandom(),
+) {
+    val self: Long = keys.memberId
+    val ensembleId: Long = replica.ensembleId
+    val room: ByteArray = link.room
+    val server: RelayConfig? = link.server
+
+    init {
+        require(link.ensembleId == ensembleId && replica.self == self && ring.self == self) { "parts of two phones" }
+        require(link.epochs.isNotEmpty()) { "no invitation key" }
+    }
+
+    private val epochs = TreeMap<Int, EpochKey>().apply { link.epochs.forEach { put(it.epoch, it) } }
+    private val frameKeys = HashMap<Int, ByteArray>()
+    private val inviteCard: NameCard? = link.inviteCard
+    private var ownCard: NameCard? = link.ownCard
+    private val links = LinkedHashMap<Long, MeshLink>()
+    private val joins = LinkedHashMap<Long, PendingJoin>()
+    private val duties = LinkedHashMap<Pair<Duty, Channel?>, Scheduled>()
+    private val outbox = ArrayDeque<Pending>()
+    private val lastFix = HashMap<Long, Long>()
+    private val seenTexts = LinkedHashSet<Pair<Long, Long>>()
+    private val pulledAt = HashMap<Long, Long>()
+    private val answeredAt = HashMap<Long, Pair<Long, Int>>()
+    private val grantedAt = HashMap<Long, Long>()
+    private val resendSeenAt = HashMap<Channel, Long>()
+    private var previous: HierarchyState = replica.state
+    private var lastJoinAt = Long.MIN_VALUE / 2
+    private var lastSummaryAt = Long.MIN_VALUE / 2
+    private var askedNewerKeyAt = Long.MIN_VALUE / 2
+    private var alert: Pair<OperationText, Channel>? = null
+
+    /** Whether the name of the operation its invitation carried is the one its first operation signed. */
+    var inviteNameChecked: Boolean = inviteCard == null
+        private set
+
+    var ending: OperationEnding? = null
+        private set
+
+    /** Counters, for the debug check and the event log: frames refused or dropped, by reason. */
+    val dropped: Map<String, Int>
+        @Synchronized get() = drops.toMap()
+    private val drops = HashMap<String, Int>()
+
+    private enum class Duty { KEY, RESEND, ROSTER, RENEW }
+
+    private class Scheduled(
+        val dueAt: Long,
+        val scheduledAt: Long,
+        val epoch: Int = 0,
+    )
+
+    private class Pending(
+        val kind: ShareKind,
+        val channel: Channel,
+        val payload: ByteArray,
+        val queuedAt: Long,
+    )
+
+    // ---- reading -------------------------------------------------------------------------------------------------
+
+    val state: HierarchyState get() = replica.state
+
+    @get:Synchronized
+    val epoch: Int get() = epochs.lastKey()
+
+    /** The phones linked now. */
+    @get:Synchronized
+    val online: Set<Long> get() = links.keys.toSet()
+
+    /** The requests to come in this phone may answer (it is the creator or an administrator), oldest first. */
+    @get:Synchronized
+    val pendingJoins: List<PendingJoin> get() = joins.values.toList()
+
+    /** Whether this phone is let in (waiting for a group or placed). */
+    val isMember: Boolean get() = self in state.members
+
+    /** The name of the operation: verified against its first operation, or what the invitation says until then. */
+    @Synchronized
+    fun operationName(): String? = names.nameOf(state.name) ?: inviteCard?.name?.takeIf { !state.created }
+
+    /** What to keep beside the engine's parts ([OperationLinkState]). */
+    @Synchronized
+    fun linkState(): OperationLinkState =
+        OperationLinkState(ensembleId, room, server, epochs.values.toList(), inviteCard, ownCard)
+
+    /** Whether this phone may let someone in, so give an invitation and renew its key. */
+    fun mayInvite(): Boolean {
+        val s = state
+        return !s.dissolved && (self == s.creator || self in s.admins)
+    }
+
+    /** An invitation for a new phone, made now; `null` when this phone may not invite or has no server. */
+    @Synchronized
+    fun invitation(nowSec: Long = clock() / MS): OperationInvite? {
+        if (!mayInvite()) return null
+        val server = server ?: return null
+        val card = names.ensembleCard(state) ?: return null
+        val current = epochs.lastEntry().value
+        return OperationInvite(nowSec, ensembleId, room, current.epoch, current.key, card, server)
+    }
+
+    /** Why [change] would be refused now, `null` when it would go through: to grey a button. */
+    fun check(change: Change): Rejection? = HierarchyReducer.check(state, self, change)
+
+    // ---- links ---------------------------------------------------------------------------------------------------
+
+    /** Called once the node is built: makes the keys it lacks, sends what waited. */
+    @Synchronized
+    fun start() {
+        previous = state
+        if (ending == null) afterChange(start = true)
+    }
+
+    @Synchronized
+    fun linkOpened(
+        peer: Long,
+        link: MeshLink,
+    ) {
+        if (peer == self || ending != null) return
+        links[peer] = link
+        sendTo(link, FrameGenre.SUMMARY, ourSummary().encode())
+        if (!isMember) sendJoin()
+        flushOutbox()
+    }
+
+    @Synchronized
+    fun linkClosed(peer: Long) {
+        links.remove(peer)
+    }
+
+    /** Runs what is due; to call about every second. */
+    @Synchronized
+    fun tick() {
+        if (ending != null) return
+        val now = clock()
+        val due = duties.entries.filter { it.value.dueAt <= now }.sortedBy { it.value.dueAt }
+        for ((key, scheduled) in due) {
+            duties.remove(key)
+            run(key.first, key.second, scheduled)
+        }
+        if (!isMember && now - lastJoinAt >= JOIN_EVERY_MS) sendJoin()
+        if (links.isNotEmpty() && now - lastSummaryAt >= SUMMARY_EVERY_MS) {
+            lastSummaryAt = now
+            broadcast(FrameGenre.SUMMARY, ourSummary().encode())
+        }
+        while (outbox.isNotEmpty() && now - outbox.first().queuedAt > OUTBOX_MAX_AGE_MS) {
+            outbox.removeFirst()
+            drop("outbox.expired")
+        }
+        flushOutbox()
+    }
+
+    // ---- receiving -----------------------------------------------------------------------------------------------
+
+    /** A frame from [peer], as a link handed it over. */
+    @Synchronized
+    fun receive(
+        peer: Long,
+        bytes: ByteArray,
+    ) {
+        if (ending != null) return
+        val epoch = OperationFrames.epochOf(bytes) ?: return drop("frame.format")
+        if (epochs[epoch] == null) {
+            if (epoch > this.epoch) askNewerKey()
+            return drop("frame.epoch")
+        }
+        val frame = OperationFrames.open(frameKey(epoch), ensembleId, bytes) ?: return drop("frame.sealed")
+        if (frame.sender == self) return
+        if (epoch < this.epoch) {
+            // A phone still on an older invitation key: a member gets the one of now; nothing new is let in that way.
+            if (frame.sender in state.members) grantTo(frame.sender, epoch)
+            if (frame.genre == FrameGenre.JOIN) return drop("join.old_key")
+        }
+        try {
+            when (frame.genre) {
+                FrameGenre.OPS -> onOps(frame)
+                FrameGenre.SUMMARY -> onSummary(frame, peer)
+                FrameGenre.KEYS -> onKeys(frame)
+                FrameGenre.SHARE -> onShare(frame)
+                FrameGenre.JOIN -> onJoin(frame)
+                FrameGenre.INVITE_KEY -> onGrant(frame)
+            }
+        } catch (e: WireException) {
+            // Opened with the invitation key, so written by a phone that holds it: its bytes, not a bug here.
+            Problems.expected("operation.frame.decode", e, "genre" to frame.genre.name)
+            drop("frame.decode")
+        }
+    }
+
+    private fun onOps(frame: OpenedFrame) {
+        var changed = false
+        var held = false
+        for (op in HierarchyWire.decodeOps(frame.body)) {
+            val result = replica.add(op)
+            when (result) {
+                AddResult.ADDED, AddResult.CONFLICT_REPLACED -> {
+                    changed = true
+                }
+
+                AddResult.HELD -> {
+                    held = true
+                }
+
+                AddResult.DUPLICATE, AddResult.CONFLICT_KEPT -> {
+                    Unit
+                }
+
+                else -> {
+                    Problems.expected("operation.ops.refused", FrameRefused(result.name))
+                    drop("ops.${result.name.lowercase()}")
+                }
+            }
+            if (result == AddResult.CONFLICT_REPLACED || result == AddResult.CONFLICT_KEPT) {
+                Problems.expected("operation.ops.conflict", FrameRefused(result.name))
+            }
+        }
+        if (held) pull(frame.sender)
+        if (changed) afterChange()
+    }
+
+    private fun onSummary(
+        frame: OpenedFrame,
+        peer: Long,
+    ) {
+        val theirs = OperationSummary.decode(frame.body)
+        if (theirs.summary.ensembleId != ensembleId) return drop("summary.ensemble")
+        val to = links[peer] ?: links[frame.sender]
+        val missing = replica.missingFor(theirs.summary)
+        for (body in opsBodies(missing)) sendTo(to, FrameGenre.OPS, body)
+        val mine = replica.summary()
+        if (isBehind(mine, theirs.summary)) pull(frame.sender)
+        // The same summary heard twice in a moment (the room carries it to everyone) is answered once.
+        val now = clock()
+        val heard = frame.body.contentHashCode()
+        val last = answeredAt[frame.sender]
+        if (last != null && last.second == heard && now - last.first < ANSWER_EVERY_MS) return
+        answeredAt[frame.sender] = now to heard
+        val state = state
+        if (theirs.keysDigest != keysDigest(state)) {
+            for (batch in ring.batchesFor(state)) sendTo(to, FrameGenre.KEYS, HierarchyWire.encodeKeyBatch(batch))
+        }
+        for ((channel, digest) in theirs.objects) {
+            if (channel in state.channelsReadBy(self) && digest != objects.digest(channel)) resend(channel)
+        }
+        // A phone behind on the operations also lacks the names they carry: they go with them.
+        val lacksNames = theirs.namesMissing > 0 || missing.isNotEmpty()
+        if (lacksNames && state.hasAccess(frame.sender) && state.hasAccess(self)) shareRoster()
+    }
+
+    private fun onKeys(frame: OpenedFrame) {
+        val batch = HierarchyWire.decodeKeyBatch(frame.body)
+        when (val verdict = ring.offer(batch, replica)) {
+            KeyOffer.ACCEPTED -> {
+                afterChange()
+            }
+
+            KeyOffer.NOT_FOR_ME -> {
+                listener.onChanged()
+            }
+
+            KeyOffer.DUPLICATE -> {
+                Unit
+            }
+
+            KeyOffer.UNKNOWN_READERS -> {
+                pull(frame.sender)
+            }
+
+            else -> {
+                Problems.expected("operation.keys.refused", FrameRefused(verdict.name))
+                drop("keys.${verdict.name.lowercase()}")
+            }
+        }
+    }
+
+    private fun onShare(frame: OpenedFrame) {
+        val state = state
+        val opened =
+            when (val result = ShareSeal.open(state, ring, frame.body)) {
+                is OpenResult.Opened -> {
+                    result.share
+                }
+
+                is OpenResult.Refused -> {
+                    when (result.reason) {
+                        // Every frame of the room reaches every phone: one it may not read is the normal case.
+                        ShareRefusal.NOT_A_READER -> {
+                            drop("share.not_a_reader")
+                        }
+
+                        ShareRefusal.NO_KEY -> {
+                            drop("share.no_key")
+                            if (isMember) pull(frame.sender)
+                        }
+
+                        else -> {
+                            Problems.expected("operation.share.refused", FrameRefused(result.reason.name))
+                            drop("share.${result.reason.name.lowercase()}")
+                        }
+                    }
+                    return
+                }
+            }
+        val now = clock()
+        when (opened.kind) {
+            ShareKind.POSITION -> {
+                val fix = OperationPayloads.readPosition(opened.payload)
+                if (fix.timeSec <= (lastFix[opened.author] ?: Long.MIN_VALUE)) return drop("position.old")
+                lastFix[opened.author] = fix.timeSec
+                listener.onPosition(opened.author, opened.channel, fix)
+            }
+
+            ShareKind.MESSAGE -> {
+                val m = OperationPayloads.readMessage(opened.payload)
+                if (!fresh(opened.author, m, now)) return
+                listener.onMessage(opened.author, opened.channel, m)
+            }
+
+            ShareKind.ALERT -> {
+                val a = OperationPayloads.readAlert(opened.payload)
+                if (!fresh(opened.author, a, now)) return
+                listener.onAlert(opened.author, opened.channel, a)
+            }
+
+            ShareKind.SKETCH, ShareKind.WAYPOINT -> {
+                when (val verdict = objects.accept(opened, replica::signingKeyOf)) {
+                    ObjectVerdict.STORED -> {
+                        resendSeenAt[opened.channel] = now
+                        listener.onChanged()
+                    }
+
+                    ObjectVerdict.DUPLICATE, ObjectVerdict.OLDER -> {
+                        resendSeenAt[opened.channel] = now
+                    }
+
+                    else -> {
+                        Problems.expected("operation.object.refused", FrameRefused(verdict.name))
+                        drop("object.${verdict.name.lowercase()}")
+                    }
+                }
+            }
+
+            ShareKind.ROSTER -> {
+                if (names.accept(opened) > 0) listener.onChanged()
+            }
+        }
+    }
+
+    private fun onJoin(frame: OpenedFrame) {
+        val request = JoinRequests.decode(frame.body)
+        val state = state
+        when {
+            request.ensembleId != ensembleId -> {
+                return drop("join.ensemble")
+            }
+
+            request.member != frame.sender -> {
+                return drop("join.sender")
+            }
+
+            !JoinRequests.verify(request) -> {
+                Problems.expected("operation.join.forged", FrameRefused("signature"))
+                return drop("join.forged")
+            }
+
+            request.member in state.members -> {
+                return
+            }
+
+            !mayInvite() -> {
+                return
+            }
+
+            kotlin.math.abs(clock() / MS - request.timeSec) > OperationInviteCodec.MAX_AGE_SEC -> {
+                return drop("join.old")
+            }
+        }
+        val known = joins[request.member]
+        val card = JoinRequests.openCard(request, keys) ?: known?.card
+        if (known != null && known.card != null) return
+        if (joins.size >= MAX_JOINS && known == null) return drop("join.full")
+        joins[request.member] = PendingJoin(request, card, known?.receivedAtMs ?: clock())
+        listener.onChanged()
+    }
+
+    private fun onGrant(frame: OpenedFrame) {
+        val grant = InviteKeys.decode(frame.body)
+        val epoch = grant.announcement.epoch
+        if (epochs[epoch] != null) return
+        val (verdict, key) = InviteKeys.open(grant, state, keys)
+        when (verdict) {
+            GrantVerdict.ACCEPTED -> {
+                adopt(EpochKey(requireNotNull(key), grant.announcement))
+                listener.onChanged()
+            }
+
+            GrantVerdict.NOT_FOR_ME -> {
+                Unit
+            }
+
+            else -> {
+                Problems.expected("operation.grant.refused", FrameRefused(verdict.name))
+                drop("grant.${verdict.name.lowercase()}")
+            }
+        }
+    }
+
+    // ---- writing -------------------------------------------------------------------------------------------------
+
+    /** Asks for [change]; sent to the others when this phone may make it. */
+    @Synchronized
+    fun issue(change: Change): IssueResult {
+        if (ending != null) return IssueResult.Refused(Rejection.DISSOLVED)
+        val result = replica.issue(change)
+        if (result is IssueResult.Issued) {
+            broadcast(FrameGenre.OPS, HierarchyWire.encodeOps(listOf(result.op)))
+            afterChange()
+        }
+        return result
+    }
+
+    /** Lets in the phone that asked with [member]'s request; its name, when its card came, is learnt here. */
+    @Synchronized
+    fun admit(member: Long): IssueResult {
+        val pending = joins[member] ?: return IssueResult.Refused(Rejection.NO_SUCH_MEMBER)
+        pending.card?.let(names::learn)
+        val result = issue(Change.AdmitMember(member, pending.request.name, pending.request.keys))
+        if (result is IssueResult.Issued) joins.remove(member)
+        return result
+    }
+
+    /** Forgets [member]'s request without letting it in. */
+    @Synchronized
+    fun decline(member: Long): Boolean = (joins.remove(member) != null).also { if (it) listener.onChanged() }
+
+    /** A name for a new group or a rename: its card is kept and shared with those who have the access. */
+    @Synchronized
+    fun learnAndShare(card: NameCard) {
+        names.learn(card)
+        if (state.hasAccess(self)) queueRoster(listOf(card))
+    }
+
+    @Synchronized
+    fun sendPosition(fix: PeerFix): ShareOutcome {
+        val channel = state.shareChannels(self, ShareKind.POSITION).firstOrNull() ?: return ShareOutcome.NOT_ALLOWED
+        if (links.isEmpty()) return ShareOutcome.SKIPPED
+        return when (val sealed = seal(ShareKind.POSITION, channel, OperationPayloads.position(fix))) {
+            is SealResult.Sealed -> {
+                if (sealed.frame.size + OperationFrames.OVERHEAD > OperationFrames.MAX_POSITION_FRAME) {
+                    Problems.unexpected(
+                        "operation.position.size",
+                        "position frame too large",
+                        "bytes" to sealed.frame.size,
+                    )
+                    return ShareOutcome.TOO_LARGE
+                }
+                broadcast(FrameGenre.SHARE, sealed.frame, position = true)
+                ShareOutcome.SENT
+            }
+
+            is SealResult.Refused -> {
+                if (sealed.reason == ShareRefusal.NO_KEY) {
+                    wantKey(channel)
+                    ShareOutcome.SKIPPED
+                } else {
+                    ShareOutcome.NOT_ALLOWED
+                }
+            }
+        }
+    }
+
+    @Synchronized
+    fun sendMessage(
+        channel: Channel,
+        text: String,
+    ): ShareOutcome {
+        val m = OperationText(nonZero(), clock(), text)
+        return share(ShareKind.MESSAGE, channel, OperationPayloads.message(m))
+    }
+
+    /** An alert to the one place this phone's role sends it ([HierarchyState.alertChannel]). */
+    @Synchronized
+    fun sendAlert(
+        text: String,
+        fix: PeerFix?,
+    ): ShareOutcome {
+        val channel = state.alertChannel(self) ?: return ShareOutcome.NOT_ALLOWED
+        val a = OperationText(nonZero(), clock(), text, fix)
+        alert = a to channel
+        return share(ShareKind.ALERT, channel, OperationPayloads.alert(a))
+    }
+
+    /** Ends the alert this phone sent last. */
+    @Synchronized
+    fun liftAlert(): ShareOutcome {
+        val (a, _) = alert ?: return ShareOutcome.NOT_ALLOWED
+        val channel = state.alertChannel(self) ?: return ShareOutcome.NOT_ALLOWED
+        alert = null
+        val lifted = OperationText(nonZero(), clock(), a.text, a.fix, lifted = true)
+        return share(ShareKind.ALERT, channel, OperationPayloads.alert(lifted))
+    }
+
+    /**
+     * Shares a new state of the sketch or waypoint [objectId] of this phone in [channel] (a new one when it has none
+     * yet): kept here, and sent again later to who arrives or comes back.
+     */
+    @Synchronized
+    fun putObject(
+        kind: ShareKind,
+        channel: Channel,
+        objectId: Long,
+        body: ByteArray,
+    ): ShareOutcome {
+        if (!kind.standing || objectId == 0L) return ShareOutcome.NOT_ALLOWED
+        if (!state.mayShare(self, kind, channel)) return ShareOutcome.NOT_ALLOWED
+        if (body.size > MAX_OBJECT_BODY) return ShareOutcome.TOO_LARGE
+        val previous = objects.find(ObjectRef(channel, self, objectId))?.takeIf { it.kind == kind }
+        val record = SharedRecords.write(keys, ensembleId, kind, channel, objectId, body, previous)
+        objects.accept(record, replica::signingKeyOf)
+        listener.onChanged()
+        return share(kind, channel, SharedRecords.encode(record))
+    }
+
+    /** Takes away the object [ref] (this phone's, or one it may share in the same place). */
+    @Synchronized
+    fun removeObject(ref: ObjectRef): ShareOutcome {
+        val previous = objects.find(ref)?.takeIf { !it.deleted } ?: return ShareOutcome.NOT_ALLOWED
+        if (!state.mayShare(self, previous.kind, ref.channel)) return ShareOutcome.NOT_ALLOWED
+        val record = SharedRecords.remove(keys, ensembleId, previous)
+        objects.accept(record, replica::signingKeyOf)
+        listener.onChanged()
+        return share(previous.kind, ref.channel, SharedRecords.encode(record))
+    }
+
+    /** A new invitation key: the phones that hold the old one only no longer read what follows. */
+    @Synchronized
+    fun renewInvitation(): Boolean {
+        if (!mayInvite() || ending != null) return false
+        val old = epochs.lastEntry().value
+        val key = ByteArray(OperationInvite.KEY_BYTES).also(random::nextBytes)
+        val announcement = InviteKeys.announce(keys, ensembleId, old.epoch + 1, key)
+        val grant = InviteKeys.grant(keys, announcement, key, state.members.values.filter { it.id != self })
+        // Under the old key, so that the members still on it open the envelope; only members unwrap the key.
+        broadcast(FrameGenre.INVITE_KEY, grant.encode(), epoch = old.epoch)
+        adopt(EpochKey(key, announcement))
+        listener.onChanged()
+        return true
+    }
+
+    // ---- after a change ------------------------------------------------------------------------------------------
+
+    private fun afterChange(start: Boolean = false) {
+        val state = state
+        val before = previous
+        previous = state
+        ring.retry(replica)
+        val over =
+            when {
+                state.dissolved -> OperationEnding.DISSOLVED
+                replica.signingKeyOf(self) != null && self !in state.members -> OperationEnding.OUT
+                else -> null
+            }
+        if (over != null) {
+            ending = over
+            ring.clear()
+            names.clear()
+            objects.clear()
+            joins.clear()
+            duties.clear()
+            outbox.clear()
+            listener.onEnded(over)
+            return
+        }
+        val member = self in state.members
+        if (member) {
+            ring.prune(state)
+            objects.prune(state, self)
+            names.prune(state, self)
+        }
+        if (!inviteNameChecked && inviteCard != null && state.created) {
+            inviteNameChecked = true
+            if (!names.learnEnsembleName(state, inviteCard)) {
+                Problems.expected("operation.invite.name", FrameRefused("card of another name"))
+            }
+        }
+        ownCard?.let { card -> if (member || state.created) names.learn(card) }
+        joins.keys.removeAll { it in state.members }
+        if (!mayInvite()) joins.clear()
+        if (!member && state.created && before.creator == null) sendJoin()
+        if (!member && (state.admins != before.admins || state.creator != before.creator)) sendJoin()
+        if (member && self !in before.members && !start) arrivedHere(state)
+        if (member) {
+            for (channel in ring.missing(state)) if (channel.lane == Lane.UNIT) wantKey(channel)
+            // Names it lacks (a group made while it was away): its summary says so to a phone that has them.
+            if (state.hasAccess(self) && names.missing(state).isNotEmpty()) links.keys.firstOrNull()?.let(::pull)
+        }
+        if (!start && before.created) {
+            for ((channel, who) in state.arrivals(before)) {
+                if (self in who) {
+                    if (channel == Channel.ENSEMBLE) ownCard?.let { queueRoster(listOf(it)) }
+                    continue
+                }
+                if (objects.resend(channel).isNotEmpty() &&
+                    mayResend(channel)
+                ) {
+                    schedule(Duty.RESEND, channel, rank(state.keyIssuers(channel)))
+                }
+                if (channel == Channel.ENSEMBLE && state.hasAccess(self)) {
+                    schedule(Duty.ROSTER, channel, rank(state.keyIssuers(Channel.ENSEMBLE)))
+                }
+            }
+            val gone = before.members.keys - state.members.keys
+            if (gone.isNotEmpty() && mayInvite()) {
+                val order = listOfNotNull(state.creator) + state.admins.sortedWith(UNSIGNED)
+                schedule(Duty.RENEW, null, rank(order), epoch + 1)
+            }
+            alert?.let { (a, channel) ->
+                val now = state.alertChannel(self)
+                if (now != null && now != channel) {
+                    alert = a to now
+                    share(ShareKind.ALERT, now, OperationPayloads.alert(a))
+                }
+            }
+        }
+        flushOutbox()
+        listener.onChanged()
+    }
+
+    /** This phone was just let in: its own waiting lane gets a key, and its name goes to the administrators there. */
+    private fun arrivedHere(state: HierarchyState) {
+        val card = ownCard ?: return
+        names.learn(card)
+        if (state.isWaiting(self)) {
+            wantKey(Channel.waiting(self))
+            outbox.addLast(Pending(ShareKind.ROSTER, Channel.waiting(self), NameBook.encode(listOf(card)), clock()))
+        }
+    }
+
+    private fun run(
+        duty: Duty,
+        channel: Channel?,
+        scheduled: Scheduled,
+    ) {
+        val state = state
+        when (duty) {
+            Duty.KEY -> {
+                val c = channel ?: return
+                if (ring.sealingKey(state, c) != null || c !in state.channelsReadBy(self)) return
+                val batch = ring.issue(state, c, random) ?: return
+                broadcast(FrameGenre.KEYS, HierarchyWire.encodeKeyBatch(batch))
+                listener.onChanged()
+                flushOutbox()
+            }
+
+            Duty.RESEND -> {
+                val c = channel ?: return
+                if ((resendSeenAt[c] ?: Long.MIN_VALUE) > scheduled.scheduledAt) return
+                resend(c)
+            }
+
+            Duty.ROSTER -> {
+                shareRoster()
+            }
+
+            Duty.RENEW -> {
+                if (epoch < scheduled.epoch) renewInvitation()
+            }
+        }
+    }
+
+    private fun resend(channel: Channel) {
+        for (record in objects.resend(channel)) {
+            if (state.mayShare(self, record.kind, channel)) share(record.kind, channel, SharedRecords.encode(record))
+        }
+    }
+
+    private fun mayResend(channel: Channel): Boolean =
+        state.mayShare(self, ShareKind.WAYPOINT, channel) || state.mayShare(self, ShareKind.SKETCH, channel)
+
+    /** The names of those who have the access, for everyone who has it; not the names of who waits (Q10, Q11). */
+    private fun shareRoster() {
+        val state = state
+        val waiting = state.waiting().mapTo(HashSet()) { it.name }
+        queueRoster(names.cardsFor(state).filter { it.hidden !in waiting })
+    }
+
+    private fun queueRoster(cards: List<NameCard>) {
+        for (chunk in cards.chunked(ROSTER_CHUNK)) share(ShareKind.ROSTER, Channel.ENSEMBLE, NameBook.encode(chunk))
+    }
+
+    // ---- sending -------------------------------------------------------------------------------------------------
+
+    private fun share(
+        kind: ShareKind,
+        channel: Channel,
+        payload: ByteArray,
+    ): ShareOutcome {
+        if (ending != null) return ShareOutcome.NOT_ALLOWED
+        if (!state.mayShare(self, kind, channel)) return ShareOutcome.NOT_ALLOWED
+        if (payload.size > MAX_SHARE_PAYLOAD) return ShareOutcome.TOO_LARGE
+        val sealed = seal(kind, channel, payload)
+        if (sealed is SealResult.Sealed && links.isNotEmpty()) {
+            broadcast(FrameGenre.SHARE, sealed.frame)
+            return ShareOutcome.SENT
+        }
+        if (sealed is SealResult.Refused && sealed.reason != ShareRefusal.NO_KEY) return ShareOutcome.NOT_ALLOWED
+        if (outbox.size >= MAX_OUTBOX) {
+            outbox.removeFirst()
+            drop("outbox.full")
+        }
+        val pending = Pending(kind, channel, payload, clock())
+        outbox.addLast(pending)
+        if (sealed is SealResult.Refused) wantKey(channel)
+        return if (outbox.any { it === pending }) ShareOutcome.QUEUED else ShareOutcome.SENT
+    }
+
+    private fun flushOutbox() {
+        if (outbox.isEmpty() || links.isEmpty()) return
+        val kept = ArrayDeque<Pending>()
+        while (outbox.isNotEmpty()) {
+            val p = outbox.removeFirst()
+            if (!state.mayShare(self, p.kind, p.channel)) {
+                drop("outbox.not_allowed")
+                continue
+            }
+            when (val sealed = seal(p.kind, p.channel, p.payload)) {
+                is SealResult.Sealed -> {
+                    broadcast(FrameGenre.SHARE, sealed.frame)
+                }
+
+                is SealResult.Refused -> {
+                    if (sealed.reason == ShareRefusal.NO_KEY) kept.addLast(p) else drop("outbox.refused")
+                }
+            }
+        }
+        outbox.addAll(kept)
+    }
+
+    private fun seal(
+        kind: ShareKind,
+        channel: Channel,
+        payload: ByteArray,
+    ): SealResult = ShareSeal.seal(state, ring, keys, kind, channel, payload, random)
+
+    /** The key of [channel] is wanted: made at once by the first issuer linked, a little later by the others. */
+    private fun wantKey(channel: Channel) {
+        if (ring.sealingKey(state, channel) != null) return
+        // A lane gets its key only when someone has something to share there (§ 9): that one makes it at once.
+        val delay = if (channel.lane == Lane.UNIT) rank(state.keyIssuers(channel)) ?: return else 0L
+        if (channel !in state.channelsReadBy(self)) return
+        schedule(Duty.KEY, channel, delay)
+        if (delay == 0L) tickDuty(Duty.KEY, channel)
+    }
+
+    private fun tickDuty(
+        duty: Duty,
+        channel: Channel?,
+    ) {
+        val scheduled = duties.remove(duty to channel) ?: return
+        run(duty, channel, scheduled)
+    }
+
+    private fun schedule(
+        duty: Duty,
+        channel: Channel?,
+        delay: Long?,
+        epoch: Int = 0,
+    ) {
+        if (delay == null) return
+        val now = clock()
+        val known = duties[duty to channel]
+        if (known != null && known.dueAt <= now + delay) return
+        duties[duty to channel] = Scheduled(now + delay, now, epoch)
+    }
+
+    /**
+     * How long this phone waits before doing what any of [order] may do: its rank among those of [order] linked now
+     * (itself included) times a step, so that the first one linked does it and the others see it done. `null` when
+     * this phone is not one of them.
+     */
+    private fun rank(order: List<Long>): Long? {
+        val here = order.filter { it == self || it in links }
+        val i = here.indexOf(self)
+        return if (i < 0) null else i * RANK_STEP_MS
+    }
+
+    private fun sendJoin() {
+        val state = state
+        val card = ownCard ?: return
+        if (isMember || links.isEmpty()) return
+        lastJoinAt = clock()
+        val recipients = state.members.values.filter { it.id == state.creator || it.id in state.admins }
+        val request = JoinRequests.make(keys, ensembleId, card, recipients, clock() / MS)
+        broadcast(FrameGenre.JOIN, request.encode())
+    }
+
+    private fun pull(peer: Long) {
+        val now = clock()
+        if (now - (pulledAt[peer] ?: Long.MIN_VALUE / 2) < PULL_EVERY_MS) return
+        pulledAt[peer] = now
+        sendTo(links[peer], FrameGenre.SUMMARY, ourSummary().encode())
+    }
+
+    private fun askNewerKey() {
+        val now = clock()
+        if (now - askedNewerKeyAt < PULL_EVERY_MS) return
+        askedNewerKeyAt = now
+        broadcast(FrameGenre.SUMMARY, ourSummary().encode())
+    }
+
+    private fun grantTo(
+        member: Long,
+        theirEpoch: Int,
+    ) {
+        val now = clock()
+        if (now - (grantedAt[member] ?: Long.MIN_VALUE / 2) < GRANT_EVERY_MS) return
+        grantedAt[member] = now
+        val target = state.members[member] ?: return
+        val current = epochs.lastEntry().value
+        // A key this phone only has from its invitation: its announcement was never seen, it cannot vouch for it.
+        if (current.announcement.announcer == 0L) return
+        val grant = InviteKeys.grant(keys, current.announcement, current.key, listOf(target))
+        broadcast(FrameGenre.INVITE_KEY, grant.encode(), epoch = theirEpoch)
+    }
+
+    private fun adopt(key: EpochKey) {
+        epochs[key.epoch] = key
+        while (epochs.size > OperationLinkState.KEPT_EPOCHS) epochs.remove(epochs.firstKey())
+    }
+
+    private fun ourSummary(): OperationSummary {
+        val state = state
+        val read = if (self in state.members) state.channelsReadBy(self) else emptyList()
+        val digests = read.take(OperationSummary.MAX_CHANNELS).associateWith { objects.digest(it) }
+        val missing = if (state.hasAccess(self)) names.missing(state).size else 0
+        return OperationSummary(replica.summary(), keysDigest(state), missing, digests)
+    }
+
+    private fun keysDigest(state: HierarchyState): Long {
+        var data = OpAuth.longBytes(ensembleId)
+        val batches =
+            ring.batchesFor(state).sortedWith(
+                compareBy({
+                    it.channel.lane.code
+                }, { it.channel.scope }, { it.keyId }),
+            )
+        for (b in batches) data += b.channel.bytes() + OpAuth.longBytes(b.keyId) + b.readersTag
+        return OpAuth.fingerprint(KEYS_DIGEST_TAG, data)
+    }
+
+    private fun opsBodies(ops: List<Op>): List<ByteArray> {
+        val bodies = ArrayList<ByteArray>()
+        var chunk = ArrayList<Op>()
+        var size = OPS_HEADER
+        for (op in ops) {
+            val one = HierarchyWire.encodeOp(op).size
+            if (chunk.isNotEmpty() &&
+                (size + one > OperationFrames.MAX_BODY || chunk.size >= HierarchyWire.MAX_BATCH)
+            ) {
+                bodies += HierarchyWire.encodeOps(chunk)
+                chunk = ArrayList()
+                size = OPS_HEADER
+            }
+            chunk += op
+            size += one
+        }
+        if (chunk.isNotEmpty()) bodies += HierarchyWire.encodeOps(chunk)
+        return bodies
+    }
+
+    private fun broadcast(
+        genre: FrameGenre,
+        body: ByteArray,
+        position: Boolean = false,
+        epoch: Int = this.epoch,
+    ) {
+        if (links.isEmpty()) return
+        val frame = OperationFrames.seal(frameKey(epoch), ensembleId, epoch, genre, self, body, position, random)
+        // One array for every link: the coordination server writes it once for the whole room.
+        for (link in links.values.toList()) link.send(frame, position)
+    }
+
+    private fun sendTo(
+        link: MeshLink?,
+        genre: FrameGenre,
+        body: ByteArray,
+    ) {
+        if (link == null) return
+        if (link.isBroadcastMedium) return broadcast(genre, body)
+        link.send(OperationFrames.seal(frameKey(epoch), ensembleId, epoch, genre, self, body, false, random), false)
+    }
+
+    /** The invitation key of [epoch] this phone holds (tests and the debug check). */
+    @Synchronized
+    internal fun inviteKey(epoch: Int): ByteArray? = epochs[epoch]?.key
+
+    private fun frameKey(epoch: Int): ByteArray =
+        frameKeys.getOrPut(epoch) { OperationFrames.frameKey(epochs.getValue(epoch).key, ensembleId, epoch) }
+
+    private fun fresh(
+        author: Long,
+        text: OperationText,
+        now: Long,
+    ): Boolean {
+        if (now - text.sentAtMs > TEXT_MAX_AGE_MS) return false.also { drop("text.old") }
+        if (!seenTexts.add(author to text.id)) return false.also { drop("text.again") }
+        val eldest = seenTexts.iterator()
+        while (seenTexts.size > MAX_SEEN) {
+            eldest.next()
+            eldest.remove()
+        }
+        return true
+    }
+
+    private fun nonZero(): Long {
+        var id = 0L
+        while (id == 0L) id = random.nextLong()
+        return id
+    }
+
+    private fun drop(why: String) {
+        drops[why] = (drops[why] ?: 0) + 1
+    }
+
+    private fun isBehind(
+        mine: Summary,
+        theirs: Summary,
+    ): Boolean =
+        theirs.counts.any { (author, count) -> count > (mine.counts[author] ?: 0) } ||
+            (mine.counts == theirs.counts && mine.digest != theirs.digest)
+
+    companion object {
+        private const val MS = 1000L
+        const val RANK_STEP_MS = 1_500L
+        const val JOIN_EVERY_MS = 20_000L
+        const val SUMMARY_EVERY_MS = 60_000L
+        const val PULL_EVERY_MS = 2_000L
+        const val ANSWER_EVERY_MS = 5_000L
+        const val GRANT_EVERY_MS = 10_000L
+        const val OUTBOX_MAX_AGE_MS = 3_600_000L
+        const val TEXT_MAX_AGE_MS = 6 * 3_600_000L
+        const val MAX_OUTBOX = 64
+        const val MAX_JOINS = 64
+        private const val MAX_SEEN = 4096
+        private const val ROSTER_CHUNK = 32
+        private const val OPS_HEADER = 4
+
+        /** A share fits a control frame of the coordination server with its envelope. */
+        const val MAX_SHARE_PAYLOAD = OperationFrames.MAX_BODY - HierarchyWire.SHARE_HEADER_BYTES - 12 - 16 - 64
+
+        /** A sketch or waypoint body fits one share with its record around it. */
+        const val MAX_OBJECT_BODY = MAX_SHARE_PAYLOAD - SharedRecords.OVERHEAD_BYTES
+        private val KEYS_DIGEST_TAG = "toolmap-operation-keys-digest-v1".toByteArray(Charsets.US_ASCII)
+        private val UNSIGNED = Comparator<Long> { a, b -> java.lang.Long.compareUnsigned(a, b) }
+
+        /**
+         * A new operation made by the phone that holds [keys]: the creator's copy (first operation written), its
+         * name cards learnt, the first invitation key announced, a room drawn at random.
+         */
+        fun genesis(
+            keys: PhoneKeys,
+            operationName: NameCard,
+            creatorName: NameCard,
+            server: RelayConfig?,
+            random: SecureRandom = SecureRandom(),
+        ): Genesis {
+            val replica = HierarchyReplica.create(keys, creatorName.hidden, operationName.hidden, random.nextLong())
+            val names =
+                NameBook().apply {
+                    learn(operationName)
+                    learn(creatorName)
+                }
+            val key = ByteArray(OperationInvite.KEY_BYTES).also(random::nextBytes)
+            val room = ByteArray(OperationInvite.ROOM_BYTES).also(random::nextBytes)
+            val epoch = EpochKey(key, InviteKeys.announce(keys, replica.ensembleId, 1, key))
+            val link = OperationLinkState(replica.ensembleId, room, server, listOf(epoch), null, creatorName)
+            return Genesis(replica, KeyRing(replica.ensembleId, keys), names, SharedObjects(replica.ensembleId), link)
+        }
+
+        /** What a phone that joins with [invite] keeps beside the engine's parts, before it is let in. */
+        fun joining(
+            invite: OperationInvite,
+            ownName: NameCard,
+        ): OperationLinkState {
+            // The announcement of the invitation's key is checked when the operations arrive; until then the key is
+            // the one the invitation gives (it opens what the room carries, nothing else).
+            val announcement =
+                InviteAnnouncement(invite.ensembleId, invite.epoch, 0L, 0L, ByteArray(P256.SIGNATURE_BYTES))
+            return OperationLinkState(
+                invite.ensembleId,
+                invite.room,
+                invite.server,
+                listOf(EpochKey(invite.key, announcement)),
+                invite.ensembleCard,
+                ownName,
+            )
+        }
+    }
+
+    class Genesis(
+        val replica: HierarchyReplica,
+        val ring: KeyRing,
+        val names: NameBook,
+        val objects: SharedObjects,
+        val link: OperationLinkState,
+    )
+}
