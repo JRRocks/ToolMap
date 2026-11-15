@@ -46,6 +46,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -760,7 +761,10 @@ private fun InviteSheet(
     val invitation by session.invitation.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val chooser = stringResource(R.string.share_link_chooser)
-    ModalBottomSheet(onDismissRequest = { session.sheet(null) }) {
+    ModalBottomSheet(
+        onDismissRequest = { session.sheet(null) },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
         Column(
             Modifier
                 .fillMaxWidth()
@@ -838,7 +842,10 @@ private fun TransferSheet(
 ) {
     val candidates = facts.successors
     var chosen by remember(candidates) { mutableStateOf(candidates.firstOrNull()) }
-    ModalBottomSheet(onDismissRequest = { session.sheet(null) }) {
+    ModalBottomSheet(
+        onDismissRequest = { session.sheet(null) },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
         Column(
             Modifier
                 .fillMaxWidth()
@@ -850,7 +857,7 @@ private fun TransferSheet(
             if (candidates.isEmpty()) {
                 NoOtherAdmin(onName = { session.sheet(OpSheet.NameAdmin) })
             } else {
-                Caption(stringResource(R.string.op_admins_count, candidates.size).let { "   $it" })
+                Caption(stringResource(R.string.op_admins_count, candidates.size), start = 16.dp)
                 for (id in candidates) {
                     RadioLine(selected = chosen == id, onClick = { chosen = id }) { CandidateLine(facts, id) }
                 }

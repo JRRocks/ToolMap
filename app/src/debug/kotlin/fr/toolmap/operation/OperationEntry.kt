@@ -38,6 +38,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
@@ -327,7 +329,10 @@ fun GroupNameSheet(
 ) {
     var name by remember(initial) { mutableStateOf(initial) }
     val valid = Names.valid(name.trim())
-    ModalBottomSheet(onDismissRequest = onClose) {
+    ModalBottomSheet(
+        onDismissRequest = onClose,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 8.dp)) {
             SheetTitle(
                 stringResource(if (adding) R.string.op_group_new_title else R.string.op_group_edit_title),
@@ -352,10 +357,7 @@ fun GroupNameSheet(
             ) {
                 Text(
                     if (adding) {
-                        stringResource(
-                            R.string.op_group_create,
-                            name.trim(),
-                        )
+                        createLabel(name)
                     } else {
                         stringResource(R.string.op_group_save)
                     },
@@ -376,6 +378,15 @@ fun GroupNameSheet(
         }
     }
 }
+
+/** « Créer le Groupe Centre »; « Créer le groupe » while no name is typed (the button is grey then). */
+@Composable
+fun createLabel(name: String): String =
+    if (name.isBlank()) {
+        stringResource(R.string.op_group_create_blank)
+    } else {
+        stringResource(R.string.op_group_create, name.trim())
+    }
 
 /** The windows of the « Opération » mode over the screen of the sharing. */
 @Composable
@@ -537,12 +548,15 @@ private fun JoinWindow(
 
 /** The small grey caption over a block. */
 @Composable
-fun Caption(text: String) {
+fun Caption(
+    text: String,
+    start: Dp = 4.dp,
+) {
     Text(
         text,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+        modifier = Modifier.padding(start = start, top = 4.dp),
     )
 }
 

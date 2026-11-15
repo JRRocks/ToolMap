@@ -314,7 +314,7 @@ fun SuccessorSheet(
         NoOtherAdmin(onName = { session.sheet(OpSheet.NameAdmin) })
         return
     }
-    Caption("   " + stringResource(R.string.op_admins_count, candidates.size))
+    Caption(stringResource(R.string.op_admins_count, candidates.size), start = 16.dp)
     for (id in candidates) {
         RadioLine(selected = chosen == id, onClick = { chosen = id }) { CandidateLine(facts, id) }
     }
