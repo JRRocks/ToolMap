@@ -43,7 +43,14 @@ if [ -d "$apk" ]; then
   apk="$(ls "$apk"/*.apk | head -n 1)"
 fi
 
+# Durations on the monotonic clock of the machine (/proc/uptime: the wall clock of a CI machine can step); the wall
+# clock only where the devices' clocks are compared (measure_offset).
 now_ms() { date +%s%3N; }
+mono_ms() {
+  local up
+  read -r up _ < /proc/uptime
+  echo $((10#${up/./} * 10))
+}
 role() { if [ "$1" = "$A" ]; then echo A; else echo B; fi; }
 mask() { if [ "${GITHUB_ACTIONS:-}" = "true" ] && [ -n "$1" ]; then echo "::add-mask::$1"; fi; }
 
@@ -165,10 +172,10 @@ record() {
 step() {
   local name="$1" dev="$2" limit="$3" t0
   shift 3
-  t0="$(now_ms)"
+  t0="$(mono_ms)"
   start "$dev" "$@"
   collect "$dev" "$token" "$limit"
-  record "$name" "$(role "$dev")" "$(($(now_ms) - t0))" "$result"
+  record "$name" "$(role "$dev")" "$(($(mono_ms) - t0))" "$result"
   [[ "$result" == ok* ]] || fail "step $name ($(role "$dev")): $result"
 }
 
@@ -183,13 +190,13 @@ begin() {
   local limit="$3"
   shift 3
   begin_limit="$limit"
-  begin_t0="$(now_ms)"
+  begin_t0="$(mono_ms)"
   start "$begin_dev" "$@"
   begin_token="$token"
 }
 end() {
   collect "$begin_dev" "$begin_token" "$begin_limit"
-  record "$begin_name" "$(role "$begin_dev")" "$(($(now_ms) - begin_t0))" "$result"
+  record "$begin_name" "$(role "$begin_dev")" "$(($(mono_ms) - begin_t0))" "$result"
   [[ "$result" == ok* ]] || fail "step $begin_name ($(role "$begin_dev")): $result"
 }
 
@@ -326,6 +333,7 @@ invite="${invite#invite }"
 [[ "$invite" == toolmap://operation* ]] || fail "A gives no invitation"
 mask "$invite"
 old_invite="$invite"
+old_epoch="$(value epoch "$(ask "$A" status)")"
 begin "1.request-seen" "$A" 90 await-request Bravo 90
 step "1.join" "$B" 60 join Bravo Exercice "'$invite'"
 expect 1.join previewName true "$result"
@@ -402,26 +410,26 @@ snap idle
 
 adb -s "$A" shell am force-stop "$pkg"
 step "4.waypoint-put" "$B" 30 put-waypoint
-restart_at="$(now_ms)"
+restart_at="$(mono_ms)"
 restart_app "$A"
 step "4.reopen" "$A" 90 open
 step "4.caught-up" "$A" 90 await-object 90
-echo "  A caught up B's waypoint $(($(now_ms) - restart_at)) ms after its app was started again (script clock)" | tee -a "$steps"
+echo "  A caught up B's waypoint $(($(mono_ms) - restart_at)) ms after its app was started again (script clock)" | tee -a "$steps"
 snap restarted
 
 airplane "$B" on
-cut_at="$(now_ms)"
+cut_at="$(mono_ms)"
 step "4.cut" "$B" 90 await-server UNREACHABLE 90
 step "4.rename" "$A" 30 rename-group Sud
 step "4.waypoint-put" "$A" 30 put-waypoint
-left=$((40 - ($(now_ms) - cut_at) / 1000))
+left=$((40 - ($(mono_ms) - cut_at) / 1000))
 [ "$left" -gt 0 ] && sleep "$left"
 airplane "$B" off
-back_at="$(now_ms)"
+back_at="$(mono_ms)"
 echo "  B off the network for $(((back_at - cut_at) / 1000)) s" | tee -a "$steps"
 step "4.back-online" "$B" 120 await-server ONLINE 120
 step "4.group-renamed" "$B" 120 await-group Sud 120
-echo "  B caught up the renamed group $(($(now_ms) - back_at)) ms after the network came back (script clock)" | tee -a "$steps"
+echo "  B caught up the renamed group $(($(mono_ms) - back_at)) ms after the network came back (script clock)" | tee -a "$steps"
 step "4.waypoint-in" "$B" 120 await-object 120
 snap outage
 
@@ -444,7 +452,9 @@ invite="$(ask "$A" invite)"
 invite="${invite#invite }"
 [[ "$invite" == toolmap://operation* ]] || fail "A gives no new invitation"
 mask "$invite"
-[ "$invite" != "$old_invite" ] || fail "the invitation was not renewed"
+new_epoch="$(value epoch "$(ask "$A" status)")"
+[ "${new_epoch:-0}" -gt "${old_epoch:-0}" ] || fail "the invitation key was not renewed (epoch ${old_epoch:-?} then ${new_epoch:-?})"
+echo "  invitation key: epoch $old_epoch when B came in, $new_epoch now" | tee -a "$steps"
 begin "6.request-seen" "$A" 90 await-request Delta 90
 step "6.join" "$B" 60 join Delta Exercice "'$invite'"
 end

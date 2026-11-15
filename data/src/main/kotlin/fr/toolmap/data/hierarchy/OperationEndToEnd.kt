@@ -151,17 +151,18 @@ internal class EndToEndSession(
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val storage = OperationStorage(root, vault, OperationEndToEnd.ALIAS_PREFIX)
+
+    /** Durations are measured on the monotonic clock; [clock] only stamps (`…AtMs`) what the other phone compares. */
+    private fun elapsed(): Long = System.nanoTime() / NS_PER_MS
+
     val controller = OperationController(storage, relays?.let(meter::wrap), { server }, clock)
     private var shared: ObjectRef? = null
-
-    /** The epoch of the invitation key when this phone last gave an invitation. */
-    private var invitedAtEpoch = 0
 
     private val view: OperationView get() = controller.view.value
 
     fun epoch(): Int = view.inviteEpoch
 
-    suspend fun invitation(): String? = controller.invitationLink().also { invitedAtEpoch = view.inviteEpoch }
+    suspend fun invitation(): String? = controller.invitationLink()
 
     fun status(): String {
         val v = view
@@ -240,16 +241,16 @@ internal class EndToEndSession(
         me: String,
     ): String {
         if (server == null) return fail("no-server-in-this-apk")
-        val t0 = clock()
+        val t0 = elapsed()
         val started = controller.create(operation, me)
         if (started != StartResult.STARTED) return fail("not-created", "result" to started)
-        val startMs = clock() - t0
+        val startMs = elapsed() - t0
         await(ONLINE_S) { it.takeIf { v -> v.server == ServerState.ONLINE } }
             ?: return fail("server-not-online", "server" to view.server, "startMs" to startMs)
         val v = view
         return ok(
             "startMs" to startMs,
-            "onlineMs" to clock() - t0,
+            "onlineMs" to elapsed() - t0,
             "phase" to v.phase,
             "mayInvite" to v.mayInvite,
             "epoch" to v.inviteEpoch,
@@ -262,13 +263,13 @@ internal class EndToEndSession(
         link: String,
     ): String {
         val preview = controller.preview(link) ?: return fail("not-an-invitation")
-        val t0 = clock()
+        val t0 = elapsed()
         val started = controller.join(link, me)
         if (started != StartResult.STARTED) return fail("not-joined", "result" to started)
         await(ONLINE_S) { it.takeIf { v -> v.server == ServerState.ONLINE } }
             ?: return fail("server-not-online", "server" to view.server)
         return ok(
-            "onlineMs" to clock() - t0,
+            "onlineMs" to elapsed() - t0,
             "phase" to view.phase,
             "previewName" to (preview.operationName == operation),
             "viewName" to (view.operationName == operation),
@@ -280,23 +281,28 @@ internal class EndToEndSession(
         val id =
             controller.ids().singleOrNull()
                 ?: return fail("not-one-stored-operation", "stored" to controller.ids().size)
-        val t0 = clock()
+        val t0 = elapsed()
         val started = controller.open(id)
         if (started != StartResult.STARTED) return fail("not-opened", "result" to started)
-        val openMs = clock() - t0
+        val openMs = elapsed() - t0
         await(ONLINE_S) { it.takeIf { v -> v.server == ServerState.ONLINE } }
             ?: return fail("server-not-online", "server" to view.server, "openMs" to openMs)
-        return ok("openMs" to openMs, "onlineMs" to clock() - t0, "phase" to view.phase, "members" to view.members.size)
+        return ok(
+            "openMs" to openMs,
+            "onlineMs" to elapsed() - t0,
+            "phase" to view.phase,
+            "members" to view.members.size,
+        )
     }
 
     private suspend fun awaitServer(
         state: ServerState?,
         seconds: Int,
     ): String {
-        val t0 = clock()
+        val t0 = elapsed()
         await(seconds) { it.takeIf { v -> v.server == state } }
             ?: return fail("server", "server" to view.server)
-        return ok("ms" to clock() - t0, "atMs" to clock(), "server" to view.server)
+        return ok("ms" to elapsed() - t0, "atMs" to clock(), "server" to view.server)
     }
 
     // ---- let in and place ----------------------------------------------------------------------------------------
@@ -305,7 +311,7 @@ internal class EndToEndSession(
         name: String,
         seconds: Int,
     ): String {
-        val t0 = clock()
+        val t0 = elapsed()
         val found =
             await(seconds) { v -> v.joinRequests.firstOrNull { it.name == name } }
                 ?: return fail(
@@ -315,7 +321,7 @@ internal class EndToEndSession(
                     "online" to view.online.size,
                 )
         return ok(
-            "ms" to clock() - t0,
+            "ms" to elapsed() - t0,
             "nameShown" to true,
             "requests" to view.joinRequests.size,
             "receivedAtMs" to found.receivedAtMs,
@@ -333,12 +339,12 @@ internal class EndToEndSession(
         phase: OperationPhase?,
         seconds: Int,
     ): String {
-        val t0 = clock()
+        val t0 = elapsed()
         val v =
             await(seconds) { it.takeIf { v -> v.phase == phase } }
                 ?: return fail("phase", "phase" to view.phase, "online" to view.online.size, "server" to view.server)
         return ok(
-            "ms" to clock() - t0,
+            "ms" to elapsed() - t0,
             "seenAtMs" to clock(),
             "phase" to v.phase,
             "position" to v.targets?.position?.lane,
@@ -351,12 +357,13 @@ internal class EndToEndSession(
         val self = v.self ?: return fail("no-member")
         val peer = other(v) ?: return fail("not-one-other-member", "members" to v.members.size)
         val at = clock()
+        val t0 = elapsed()
         val (id, refused) = controller.createGroup(group)
         if (id == null) return fail("group-refused", "why" to refused)
         controller.place(peer, id)?.let { return fail("not-placed", "why" to it) }
         controller.setPost(id, Post.LEADER, peer)?.let { return fail("not-group-leader", "why" to it) }
         controller.setPost(HierarchyState.ROOT, Post.LEADER, self)?.let { return fail("not-leader", "why" to it) }
-        return ok("writtenAtMs" to at, "ms" to clock() - at)
+        return ok("writtenAtMs" to at, "ms" to elapsed() - t0)
     }
 
     private suspend fun awaitPlaced(
@@ -364,7 +371,7 @@ internal class EndToEndSession(
         creator: String,
         seconds: Int,
     ): String {
-        val t0 = clock()
+        val t0 = elapsed()
         val v =
             await(seconds) { v ->
                 v.takeIf {
@@ -379,7 +386,7 @@ internal class EndToEndSession(
             )
         val t = v.targets
         return ok(
-            "ms" to clock() - t0,
+            "ms" to elapsed() - t0,
             "seenAtMs" to clock(),
             "alert" to t?.alert?.lane,
             "alertReachesCreator" to (v.hierarchy?.creator?.let { it in t?.alertReaders.orEmpty() } == true),
@@ -471,9 +478,9 @@ internal class EndToEndSession(
         seconds: Int,
         say: (String) -> Unit,
     ): String {
-        val t0 = clock()
+        val t0 = elapsed()
         val got = await(seconds) { v -> received(v, prefix).takeIf { it.size >= count } }
-        val waitedMs = clock() - t0
+        val waitedMs = elapsed() - t0
         // A moment more: a message of a thread this phone does not read must not come.
         delay(GRACE_MS)
         val all = received(view, prefix)
@@ -512,12 +519,12 @@ internal class EndToEndSession(
         seconds: Int,
     ): String {
         val peer = other(view) ?: return fail("not-one-other-member")
-        val t0 = clock()
+        val t0 = elapsed()
         val alert =
             await(seconds) { v -> v.alerts.firstOrNull { it.author == peer && it.text == text } }
                 ?: return fail("no-alert", "alerts" to view.alerts.size)
         return ok(
-            "ms" to clock() - t0,
+            "ms" to elapsed() - t0,
             "lane" to alert.channel.lane,
             "latencyRawMs" to alert.receivedAtMs - alert.sentAtMs,
         )
@@ -536,10 +543,10 @@ internal class EndToEndSession(
 
     private suspend fun awaitAlertGone(seconds: Int): String {
         val peer = other(view) ?: return fail("not-one-other-member")
-        val t0 = clock()
+        val t0 = elapsed()
         await(seconds) { v -> v.takeIf { it.alerts.none { a -> a.author == peer } } }
             ?: return fail("still-shown", "alerts" to view.alerts.size)
-        return ok("ms" to clock() - t0, "seenAtMs" to clock())
+        return ok("ms" to elapsed() - t0, "seenAtMs" to clock())
     }
 
     /** A waypoint in the first place this phone may put one that the other phone reads. */
@@ -584,11 +591,11 @@ internal class EndToEndSession(
         seconds: Int,
     ): String {
         val peer = other(view) ?: return fail("not-one-other-member")
-        val t0 = clock()
+        val t0 = elapsed()
         val v =
             await(seconds) { v -> v.takeIf { it.objects.any { o -> o.author == peer && !o.deleted } == present } }
                 ?: return fail(if (present) "not-shown" else "still-shown", "objects" to view.objects.size)
-        return ok("ms" to clock() - t0, "seenAtMs" to clock(), "objects" to v.objects.size)
+        return ok("ms" to elapsed() - t0, "seenAtMs" to clock(), "objects" to v.objects.size)
     }
 
     private suspend fun renameGroup(name: String): String {
@@ -602,43 +609,54 @@ internal class EndToEndSession(
         name: String,
         seconds: Int,
     ): String {
-        val t0 = clock()
+        val t0 = elapsed()
         await(seconds) { v -> v.takeIf { it.groups.any { g -> g.name == name } } }
             ?: return fail("not-renamed", "groups" to view.groups.size)
-        return ok("ms" to clock() - t0, "seenAtMs" to clock())
+        return ok("ms" to elapsed() - t0, "seenAtMs" to clock())
     }
 
     // ---- leave, renew, dissolve ----------------------------------------------------------------------------------
 
     private suspend fun leave(): String {
         val at = clock()
+        val t0 = elapsed()
         controller.leave()?.let { return fail("refused", "why" to it) }
         val v =
             await(ENDED_S) { it.takeIf { v -> v.phase == OperationPhase.ENDED } }
                 ?: return fail("not-ended", "phase" to view.phase)
+        val endedMs = elapsed() - t0
+        // The view says « over » a moment before the storage is wiped: wait for the folder to go.
+        await(TRACE_WRITTEN_S) { it.takeIf { controller.ids().isEmpty() } }
+            ?: return fail("not-wiped", "stored" to controller.ids().size, "endedMs" to endedMs)
         return ok(
             "writtenAtMs" to at,
-            "endedMs" to clock() - at,
+            "endedMs" to endedMs,
+            "wipedMs" to elapsed() - t0,
             "ending" to v.ending,
             "stored" to controller.ids().size,
+            "traces" to controller.traces().size,
         )
     }
 
-    /** The other phone left: gone from the members, and the invitation key renewed (older invitations die). */
+    /**
+     * The other phone left: gone from the members, and the invitation key renewed (older invitations die). Started
+     * while the other phone is still a member: the epoch of the invitation key is read then (this app may have been
+     * started again since it gave its last invitation).
+     */
     private suspend fun awaitDeparture(seconds: Int): String {
         val self = view.self ?: return fail("no-member")
-        val before = invitedAtEpoch
-        val t0 = clock()
+        val before = view.inviteEpoch
+        val t0 = elapsed()
         await(seconds) { v -> v.takeIf { it.members.all { m -> m.id == self } } }
             ?: return fail("still-a-member", "members" to view.members.size)
-        val goneMs = clock() - t0
+        val goneMs = elapsed() - t0
         val goneAt = clock()
         await(seconds) { v -> v.takeIf { it.inviteEpoch > before } }
             ?: return fail("not-renewed", "epoch" to view.inviteEpoch, "before" to before, "goneMs" to goneMs)
         return ok(
             "goneMs" to goneMs,
             "goneAtMs" to goneAt,
-            "renewedMs" to clock() - t0,
+            "renewedMs" to elapsed() - t0,
             "epochBefore" to before,
             "epoch" to view.inviteEpoch,
         )
@@ -661,12 +679,13 @@ internal class EndToEndSession(
 
     private suspend fun dissolve(): String {
         val at = clock()
+        val t0 = elapsed()
         controller.dissolve()?.let { return fail("refused", "why" to it) }
         val v = awaitEndedView(ENDED_S)?.first ?: return fail("not-ended", "phase" to view.phase)
         val kept = v.traceKeptUntilMs
         return ok(
             "writtenAtMs" to at,
-            "endedMs" to clock() - at,
+            "endedMs" to elapsed() - t0,
             "ending" to v.ending,
             "traceKept" to (kept != null),
             "keptDays" to kept?.let { (it - at + DAY_MS / 2) / DAY_MS },
@@ -686,15 +705,15 @@ internal class EndToEndSession(
 
     /** Until the moments of the traces are over (asking again within ten minutes opens none). */
     private suspend fun awaitAnnounced(seconds: Int): String {
-        val t0 = clock()
+        val t0 = elapsed()
         withTimeoutOrNull(seconds * MS) {
             while (controller.announceDissolutions() > 0) delay(SLOW_POLL_MS)
         } ?: return fail("still-announcing")
-        return ok("ms" to clock() - t0)
+        return ok("ms" to elapsed() - t0)
     }
 
     private suspend fun awaitEnded(seconds: Int): String {
-        val t0 = clock()
+        val t0 = elapsed()
         val v =
             awaitEndedView(seconds)
                 ?: return fail(
@@ -704,7 +723,7 @@ internal class EndToEndSession(
                     "server" to view.server,
                 )
         return ok(
-            "ms" to clock() - t0,
+            "ms" to elapsed() - t0,
             "seenAtMs" to v.second,
             "ending" to v.first.ending,
             "byTrace" to v.first.endedByTrace,
@@ -802,6 +821,7 @@ internal class EndToEndSession(
         private const val STEP_DEG = 0.0001
         private val WAYPOINT = byteArrayOf(0x45, 0x32, 0x45, 1, 2, 3)
         private const val MS = 1000L
+        private const val NS_PER_MS = 1_000_000L
         private const val DAY_MS = 24 * 3600 * 1000L
         private const val POLL_MS = 50L
         private const val FAST_POLL_MS = 10L
