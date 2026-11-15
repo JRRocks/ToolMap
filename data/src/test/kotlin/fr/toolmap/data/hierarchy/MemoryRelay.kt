@@ -44,35 +44,64 @@ internal class MemoryRelay : RelayTransportFactory {
                 override fun send(
                     frame: ByteArray,
                     onPositionChannel: Boolean,
-                ): Boolean {
-                    if (closed || peer.closed) return false
-                    synchronized(rooms) { written.getOrPut(room) { ArrayList() } += id to frame }
-                    peer.listener.onFrame(id, frame)
-                    return true
-                }
+                ): Boolean =
+                    synchronized(rooms) {
+                        if (closed || peer.closed) return false
+                        written.getOrPut(room) { ArrayList() } += id to frame
+                        peer.deliver(id, frame)
+                        true
+                    }
 
                 override fun close() = Unit
             }
 
+        /** The members this one was told of a link to; a frame of another waits until it is. */
+        private val told = HashSet<Long>()
+        private val early = HashMap<Long, MutableList<ByteArray>>()
+
+        /** Under the lock of the rooms: [frame] of [from], heard once this member knows their link. */
+        private fun deliver(
+            from: Long,
+            frame: ByteArray,
+        ) {
+            if (from in told) listener.onFrame(from, frame) else early.getOrPut(from) { ArrayList() } += frame
+        }
+
+        /** Under the lock of the rooms: this member is told of its link to [peer], then hears what came before. */
+        private fun tell(peer: Member) {
+            listener.onLinkOpen(peer.id, "", 0, linkTo(peer))
+            told += peer.id
+            early.remove(peer.id)?.forEach { listener.onFrame(peer.id, it) }
+        }
+
         override fun start() {
+            // As on the real server, no phone hears a peer before it is told of their link: both are told under the
+            // lock, and a frame written meanwhile waits for it (P39.10: a phone told first could write at once, from
+            // its own thread, and its frame reached the other before its link).
             synchronized(rooms) {
                 rooms.getOrPut(room) { ArrayList() } += this
                 arrivals[room] = (arrivals[room] ?: 0) + 1
-            }
-            state = ServerState.ONLINE
-            onState?.invoke(state)
-            for (other in others()) {
-                other.listener.onLinkOpen(id, "", 0, other.linkTo(this))
-                listener.onLinkOpen(other.id, "", 0, linkTo(other))
+                state = ServerState.ONLINE
+                onState?.invoke(state)
+                for (other in others()) {
+                    other.tell(this)
+                    tell(other)
+                }
             }
         }
 
         override fun ban(peer: Long) = Unit
 
         override fun close() {
-            closed = true
-            synchronized(rooms) { rooms[room]?.remove(this) }
-            for (other in others()) other.listener.onLinkClosed(id)
+            synchronized(rooms) {
+                closed = true
+                rooms[room]?.remove(this)
+                for (other in others()) {
+                    other.told.remove(id)
+                    other.early.remove(id)
+                    other.listener.onLinkClosed(id)
+                }
+            }
         }
 
         override fun offer(
