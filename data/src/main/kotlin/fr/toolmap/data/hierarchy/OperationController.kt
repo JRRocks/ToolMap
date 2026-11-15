@@ -429,9 +429,17 @@ class OperationController(
                         name: String,
                         color: Int,
                         link: MeshLink,
-                    ) = post { node.linkOpened(peer, link) }
+                    ) = post {
+                        node.linkOpened(peer, link)
+                        // Who is online shows at once, not at the next change of the operation (P39.10).
+                        publish()
+                    }
 
-                    override fun onLinkClosed(peer: Long) = post { node.linkClosed(peer) }
+                    override fun onLinkClosed(peer: Long) =
+                        post {
+                            node.linkClosed(peer)
+                            publish()
+                        }
 
                     override fun onFrame(
                         peer: Long,

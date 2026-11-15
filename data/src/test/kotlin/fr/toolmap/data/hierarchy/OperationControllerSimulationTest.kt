@@ -418,4 +418,45 @@ class OperationControllerSimulationTest {
 
     @Test
     fun `whole controllers, a larger operation`() = runSeeds(listOf(4L), phones = 8, steps = 90)
+
+    /**
+     * Presence (reported by the session of the screens, P39.8, spec § 19 of its branch): the relay closes the link of
+     * a phone whose heartbeat stopped (75 s, evaluated every 5 s); the others must show it offline within a bounded
+     * time, and online again when it is back, without waiting for another change of the operation.
+     */
+    @Test
+    fun `a phone cut off shows offline on the others within a bounded time, then online again`() {
+        val w = World(77)
+        repeat(3) { w.phones += Phone(w, it) }
+        val (a, b, c) = w.phones
+        runBlocking { a.controller.create("Opération Présence", "Alice") }
+        a.started = true
+        for (p in listOf(b, c)) {
+            val link = assertNotNull(runBlocking { a.controller.invitationLink() })
+            runBlocking { p.controller.join(link, "Membre ${p.index}") }
+            p.started = true
+            w.runFor(30_000)
+            val request = a.view.joinRequests.firstOrNull { it.member == p.view.self }
+            assertNotNull(request, "${p.label} asks to come in")
+            assertNull(runBlocking { a.controller.admit(request.member) })
+            w.runFor(30_000)
+        }
+        val cId = assertNotNull(c.view.self)
+        assertTrue(cId in a.view.online && cId in b.view.online, "C online on A and B")
+        c.net.up = false
+        w.runFor(PRESENCE_BOUND_MS)
+        assertFalse(cId in a.view.online, "C cut off for ${PRESENCE_BOUND_MS / 1000} s: offline on A")
+        assertFalse(cId in b.view.online, "C cut off for ${PRESENCE_BOUND_MS / 1000} s: offline on B")
+        assertFalse(a.view.members.first { it.id == cId }.online)
+        c.net.up = true
+        w.runFor(60_000)
+        assertTrue(cId in a.view.online, "C back: online on A")
+        assertTrue(a.view.members.first { it.id == cId }.online)
+        assertTrue(problems.none { !it.expected }, "bugs reported: $problems")
+    }
+
+    companion object {
+        /** 75 s without a heartbeat, a heartbeat every 15 s, an evaluation every 5 s, and the delays of the network. */
+        const val PRESENCE_BOUND_MS = 100_000L
+    }
 }
