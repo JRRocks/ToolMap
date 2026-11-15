@@ -80,7 +80,7 @@ object HierarchySnapshot {
         val r = open(bytes, KEYS)
         if (r.u64() != ring.ensembleId) throw WireException("keys of another ensemble")
         val held =
-            List(count(r.u32())) {
+            readList(r) {
                 val channel = readChannel(r)
                 val tag = r.bytes(Readers.TAG_BYTES)
                 ContentKey(ring.ensembleId, channel, tag, r.bytes(Aead.KEY_BYTES))
@@ -111,7 +111,7 @@ object HierarchySnapshot {
     ) {
         val r = open(bytes, NAMES)
         val cards =
-            List(count(r.u32())) {
+            readList(r) {
                 val salt = r.bytes(NameCard.SALT_BYTES)
                 NameCard(salt, r.str()).also { if (!it.valid) throw WireException("bad name card") }
             }
@@ -143,10 +143,10 @@ object HierarchySnapshot {
         val r = open(bytes, OBJECTS)
         if (r.u64() != objects.ensembleId) throw WireException("objects of another ensemble")
         val read =
-            List(count(r.u32())) {
+            readList(r) {
                 val channel = readChannel(r)
                 channel to
-                    List(count(r.u32())) {
+                    readList(r) {
                         val kind = ShareKind.of(r.u8())?.takeIf { it.standing } ?: throw WireException("not an object")
                         SharedRecords.decode(kind, channel, r.bytes(count(r.u32())))
                     }
@@ -190,10 +190,10 @@ object HierarchySnapshot {
         val r = open(bytes, MESSAGES)
         if (r.u64() != log.ensembleId) throw WireException("messages of another ensemble")
         val read =
-            List(count(r.u32())) {
+            readList(r) {
                 val channel = readChannel(r)
                 channel to
-                    List(count(r.u32())) {
+                    readList(r) {
                         val m = LoggedMessage(r.u64(), r.u64(), r.u64(), r.u64(), r.longStr())
                         if (m.author == 0L || m.id == 0L) throw WireException("bad message")
                         m
@@ -243,7 +243,7 @@ object HierarchySnapshot {
         r: ByteReader,
         ensembleId: Long,
     ): List<KeyBatch> =
-        List(count(r.u32())) {
+        readList(r) {
             HierarchyWire.decodeKeyBatch(r.bytes(count(r.u32()))).also {
                 if (it.ensembleId != ensembleId) throw WireException("key batch of another ensemble")
             }
@@ -262,6 +262,21 @@ object HierarchySnapshot {
     private fun count(value: Long): Int {
         if (value < 0 || value > MAX_COUNT) throw WireException("count out of bounds")
         return value.toInt()
+    }
+
+    /**
+     * A list of a count read from [r], each item built by [block]. The backing list is **not** pre-sized to the
+     * announced count: a short input that declares a huge count makes no big allocation (P39.11, § 22), since each
+     * item reads bytes from [r] and runs out before the count is reached. [block] ignores the index.
+     */
+    private inline fun <T> readList(
+        r: ByteReader,
+        block: () -> T,
+    ): List<T> {
+        val n = count(r.u32())
+        val list = ArrayList<T>()
+        repeat(n) { list.add(block()) }
+        return list
     }
 
     private fun header(part: Int) = ByteWriter().u8(VERSION).u8(part)

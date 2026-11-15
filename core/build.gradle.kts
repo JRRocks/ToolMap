@@ -41,4 +41,7 @@ tasks.test {
         .files(mainSources.map { dir -> fileTree(dir) { include("**/*.kt") } })
         .withPropertyName("mainSources")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // The long fuzzing of the « Opération » decoders (P39.11) runs only with -Ptoolmap.hierarchy.fuzz=true; the quick
+    // seeded part always runs in ./gradlew check.
+    systemProperty("toolmap.hierarchy.fuzz", providers.gradleProperty("toolmap.hierarchy.fuzz").orNull.orEmpty())
 }
