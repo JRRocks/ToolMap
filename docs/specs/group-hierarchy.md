@@ -1487,13 +1487,14 @@ Rien n'est retiré ni renommé ; `OperationView.ending` vaut toujours `Ending.DI
   - **une opération enregistrée par la 0.4.250** (fichier de messages retiré, pas de dossier de traces) se relit sans rien effacer ni rien signaler, puis garde les messages ;
   - le stockage des traces : scellée, sa clé à elle, hors des sauvegardes, une par opération, effacée au jour 7 la clé d'abord, abîmée ou sans clé refusée et effacée, clé sans fichier effacée, Keystore qui refuse sans rien laisser, `wipeAll` sans toucher un autre stockage, rien pour qui avait été retiré.
 - Mutation de contrôle : le répondeur rendu muet, 4 tests de `:core` et le test du jour 6 passent au rouge.
+- Build complet (`./gradlew check assembleDebug`, journal, session 117) : 2 200 tests, 0 échec ; 0.4.251. **Run « CI » n° 208** (commit 08827e3), émulateur API 34 de la CI : « OK: « Opération » controller (API 34) », trois phases `PASS` : création et enregistrement en 95 ms ; relecture dans un nouveau processus en 26 ms, « 3 messages in 2 threads », puis dissolution : « no folder and no key of the operation left; one trace of 782 bytes, kept 7 days, names nothing, holds no message » ; trace relue dans un autre processus (sa clé dans le Keystore), puis effacée sans rien laisser. Publication sautée, aucune release.
 - Chaque test vérifie qu'aucun signalement n'est un bogue (`Problems`), et `SilentFailureTest` est dans `./gradlew check`.
 
 ### Ce qui n'a pas pu être vérifié
 
 - **Deux téléphones réels**, ni le vrai serveur de coordination avec le genre 7 (même forme JSON que les autres trames de contrôle, sous la même taille) ; la CI n'a qu'un émulateur.
 - **Batterie et réseau des moments d'écoute**, écran éteint : rien n'est branché au service de partage, et rien n'est mesuré sur un téléphone ; les chiffres ci-dessus sont tirés des réglages du serveur.
-- **Le contrôle sur émulateur** (`hierarchy-operation.sh`, trois phases) est joué par la CI sur son émulateur API 34 (résultat : journal, session 117) ; sur l'émulateur du poste, par la session locale : `bash tools/emulator/smoke.sh app/build/outputs/apk/debug emulator-check`, puis lire « OK: « Opération » controller (API …) » et `emulator-check/hierarchy-operation.txt` (phases create, reload et trace `PASS`, « dissolved: no folder and no key of the operation left; one trace … », « trace read back in a new process », « trace wiped »).
+- **Le contrôle sur émulateur** (`hierarchy-operation.sh`, trois phases) est passé sur l'émulateur API 34 de la CI (run n° 208, ci-dessus) ; sur l'émulateur du poste, par la session locale : `bash tools/emulator/smoke.sh app/build/outputs/apk/debug emulator-check`, puis lire « OK: « Opération » controller (API …) » et `emulator-check/hierarchy-operation.txt` (phases create, reload et trace `PASS`, « dissolved: no folder and no key of the operation left; one trace … », « trace read back in a new process », « trace wiped »).
 
 ### Limites connues
 
