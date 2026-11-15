@@ -2,7 +2,7 @@
 
 > Demande de l'utilisateur (2026-11-13) : `docs/PLAN.md` § P39. Décisions d'architecture : ADR-125 (journal d'opérations), ADR-126 (clés de contenu et signatures), ADR-127 (canaux, noms cachés, objets durables).
 > Ce document décrit le **moteur** (P39.2, mis aux règles de l'utilisateur par P39.4, puis à ses choix du second tour et à ses précisions S1 à S7 le 2026-11-14, puis à ses réponses du troisième tour, T1 à T17, le même jour) : la logique, dans `:core`, paquet `fr.toolmap.core.hierarchy`. Rien n'est branché : ni transport, ni stockage, ni écran. Le système de groupe actuel (`fr.toolmap.core.p2p`, `docs/specs/p2p-sharing.md`) n'est pas modifié.
-> Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15, celle des clés et du stockage au § 16, celle du transport et du contrôleur au § 17.
+> Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15, celle des clés et du stockage au § 16, celle du transport et du contrôleur au § 17 ; le quatrième passage de maquettes (écarts avant de coder) est au § 18.
 > Mots : dans les écrans, « ensemble » se dit « opération » et « leader » se dit « chef » (§ 10 ter) ; dans le code et dans ce document, `ensemble` et `leader` restent les noms techniques.
 
 ## 1. Vocabulaire
@@ -1347,3 +1347,7 @@ Pour la session principale et pour la session qui codera les écrans (session 11
 - Un téléphone resté sur une ancienne clé d'invitation n'est remis à jour que par un membre qui détient l'annonce de la nouvelle ; un arrivant qui n'a eu que la clé de son invitation ne peut pas la redonner (il ne connaît pas l'annonce).
 - Une demande d'entrée faite avec une invitation antérieure au dernier renouvellement est écartée sans réponse : l'écran de l'invité doit dire, au bout d'un moment, qu'il faut une invitation récente.
 - Les limites des §§ 6.4, 8.6, 15 et 16 restent.
+
+## 18. Quatrième passage de maquettes : les écarts avant de coder (2026-11-15)
+
+Les écarts listés au § 10 sexies (« Écarts à remontrer en aperçu avant de les coder ») et les deux textes du § 15 (« Deux textes d'écran à montrer en maquette ») sont dessinés dans `docs/previews/p39-groupes/tour4/` (session 114) : chaque image montre le dessin validé au tour 3 à côté de la proposition. Trois écarts de plus, trouvés en relisant ce document : la durée des waypoints et des croquis, que T12 et le moteur n'ont pas ; qui peut retirer un partage (T12) ; une troisième paire d'étiquettes collées sur la carte. Les questions U1 à U10 et la liste des écarts sans choix sont dans `tour4/REMONTEE.md`. **Aucune décision n'est écrite ici** : l'utilisateur n'a pas encore répondu ; ses réponses iront dans un paragraphe à part, comme au § 10 sexies.
