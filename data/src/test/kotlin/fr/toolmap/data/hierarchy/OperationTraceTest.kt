@@ -89,6 +89,13 @@ class OperationTraceTest {
                 for (p in phones) p.c.tickNow()
                 Thread.sleep(5)
             }
+            // The exchange is driven by tickNow (a few rounds are enough); but a frame handed over between two
+            // controllers is posted to the other's executor, and under a loaded CI runner that post can lag. Drain a
+            // while longer, the clock held so no trace window closes (P39.11): the async hand-over always completes.
+            repeat(40) {
+                for (p in phones) p.c.tickNow()
+                Thread.sleep(5)
+            }
         }
 
     /** A creates an operation, B comes in and is placed in A's group; A is the leader of the operation. */
