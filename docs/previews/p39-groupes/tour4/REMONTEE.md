@@ -144,4 +144,6 @@ Le texte de « Quitter l'opération ? » suit : A « restent affichés jusqu'à 
 ## Branche, commits, CI
 
 - Branche : `claude/exciting-sagan-65pyin`, posée sur `conception/groupes-hierarchiques` 56711dc (0.4.247) ; `.conception-privee` présent au départ et avant chaque push.
-- Run « CI » : à lire dans l'entrée du journal (session 114) ou dans l'onglet Actions de la branche.
+- Commits : 28e2311 (maquettes, journal, plan, spec, version **0.4.248**), puis le commit qui ajoute cette ligne (documentation seule).
+- Run « CI » **n° 202** (43719967654, commit 28e2311) : **vert**. Compilation, tests, APK de debug et de release réussis ; contrôle sur émulateur réussi ; **« Publish the Android release » sautée** (skipped). Aucune release, aucune pull request ; rien poussé sur `main` ni sur `conception/groupes-hierarchiques`.
+- Le run du commit qui ajoute cette ligne est à lire dans l'onglet Actions de la branche.
