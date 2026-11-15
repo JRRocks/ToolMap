@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The « Opération » mode (P39.8, ADR-130): its texts exist in the debug build type only while it is designed
+    (ADR-124). Words of the validated maquettes (docs/previews/p39-groupes/tour2 to tour4, docs/specs/group-hierarchy.md
+    § 10 bis to 10 septies); the newest drawing of a screen wins. **…** marks the words the maquettes write in bold.
+-->
+<resources>
+  <!-- Entry: the screen of the sharing out of a group (tour2/01-entree-A) -->
+  <string name="op_entry_hint">Entre amis : créez un groupe et invitez les autres par un code, ou rejoignez celui d\'un autre.</string>
+  <string name="op_entry_create_friends">Créer un groupe entre amis</string>
+  <string name="op_entry_join_title">Rejoindre un groupe ou une opération</string>
+  <string name="op_card_title">Opération</string>
+  <string name="op_card_new">Nouveau</string>
+  <string name="op_card_text">Plusieurs groupes, des chefs et des administrateurs. Jusqu\'à %1$d membres.</string>
+  <string name="op_card_create">Créer une opération</string>
+
+  <!-- « Nouvelle opération » (tour4/10-creation A, U9 A) -->
+  <string name="op_new_title">Nouvelle opération</string>
+  <string name="op_new_name">Nom de l\'opération</string>
+  <string name="op_new_name_note">Le nom est lu par toute personne qui reçoit l\'invitation, même avant d\'être placée dans un groupe. N\'y mettez rien de confidentiel.</string>
+  <string name="op_new_groups">Groupes de départ (modifiables ensuite) · %1$d sur %2$d</string>
+  <string name="op_new_add_group">Ajouter un groupe</string>
+  <string name="op_new_my_group">Votre groupe</string>
+  <string name="op_new_none">Aucun</string>
+  <string name="op_new_info">Vous serez le **créateur** et le premier **administrateur**. Vous nommerez ensuite le chef de l\'opération, les chefs de groupe et d\'autres administrateurs.</string>
+  <string name="op_new_create">Créer l\'opération et inviter</string>
+  <string name="op_group_display">Groupe %1$s</string>
+
+  <!-- « Nouveau groupe », « Modifier le groupe » (tour2/04-admin-groupes) -->
+  <string name="op_group_new_title">Nouveau groupe</string>
+  <string name="op_group_first">1er groupe sur %1$d</string>
+  <string name="op_group_rank">%1$de groupe sur %2$d</string>
+  <string name="op_group_name">Nom du groupe</string>
+  <string name="op_group_create">Créer le Groupe %1$s</string>
+  <string name="op_group_edit_title">Modifier le groupe</string>
+  <string name="op_group_save">Enregistrer</string>
+  <string name="op_group_delete">Supprimer le groupe</string>
+
+  <!-- The screen of the operation (tour3/08-inviter A, tour4/08-rappel-A, tour4/05-promotion-*) -->
+  <string name="op_subtitle">Opération · %1$s · %2$s</string>
+  <plurals name="op_members">
+    <item quantity="one">%d membre</item>
+    <item quantity="other">%d membres</item>
+  </plurals>
+  <plurals name="op_groups">
+    <item quantity="one">%d groupe</item>
+    <item quantity="other">%d groupes</item>
+  </plurals>
+  <string name="op_subtitle_waiting">Opération · en attente</string>
+  <string name="op_reminder">**Créateur** : avant de changer de téléphone, transmettez ce rôle à un administrateur.</string>
+  <string name="op_reminder_transfer">Transmettre</string>
+  <string name="op_reminder_ok">Compris</string>
+  <string name="op_share_position">Partager ma position</string>
+  <string name="op_self_group">%1$s (vous) · %2$s</string>
+  <string name="op_self">%1$s (vous)</string>
+  <string name="op_tile_admin">Administrer</string>
+  <plurals name="op_tile_admin_waiting">
+    <item quantity="one">%d en attente</item>
+    <item quantity="other">%d en attente</item>
+  </plurals>
+  <string name="op_tile_admin_roles">Rôles et groupes</string>
+  <string name="op_tile_invite">Inviter</string>
+  <string name="op_count_of">%1$d sur %2$d</string>
+  <string name="op_tile_invite_full">Complet · %1$d sur %2$d</string>
+  <string name="op_my_group">Mon groupe · %1$s</string>
+  <string name="op_online_count">%1$d sur %2$d en ligne</string>
+  <string name="op_whole">Toute l\'opération</string>
+  <string name="op_group_chief">Chef : %1$s</string>
+  <string name="op_no_chief">Sans chef</string>
+  <string name="op_menu_transfer">Transmettre le rôle de créateur…</string>
+  <string name="op_menu_transfer_sub">À un administrateur ; vous restez membre</string>
+  <string name="op_menu_quit">Quitter l\'opération…</string>
+  <string name="op_name_unknown">…</string>
+
+  <!-- Roles (tour2/00-roles-et-droits, Q8 A: one word per role) -->
+  <string name="op_role_op_chief">Chef de l\'opération</string>
+  <string name="op_role_op_deputy">Adjoint du chef de l\'opération</string>
+  <string name="op_role_group_chief">Chef de groupe</string>
+  <string name="op_role_group_deputy">Adjoint</string>
+  <string name="op_role_group_deputy_long">Adjoint du chef de groupe</string>
+  <string name="op_role_creator">Créateur</string>
+  <string name="op_role_admin">Administrateur</string>
+  <string name="op_role_member">Membre</string>
+  <string name="op_role_deputy_same">Adjoint · mêmes droits</string>
+
+  <!-- The list of another group (tour3/12-noms-liste A) -->
+  <string name="op_group_subtitle">%1$s · %2$s</string>
+  <string name="op_members_title">Membres</string>
+
+  <!-- « Invitation » (tour3/08-inviter-invitation) -->
+  <string name="op_invite_title">Invitation</string>
+  <string name="op_invite_text">Faites scanner ce code (ou envoyez le lien). La personne donne son nom, puis arrive « en attente » : elle ne voit rien du partage tant qu\'un administrateur ne l\'a pas placée dans un groupe. Valable 7 jours ; ne le publiez pas.</string>
+  <string name="op_invite_count">%1$d sur %2$d · %3$s, %4$s</string>
+  <plurals name="op_placed">
+    <item quantity="one">%d placé</item>
+    <item quantity="other">%d placés</item>
+  </plurals>
+  <plurals name="op_waiting_count">
+    <item quantity="one">%d en attente</item>
+    <item quantity="other">%d en attente</item>
+  </plurals>
+
+  <!-- « Transmettre le rôle de créateur » (tour4/08-rappel-A) and no other administrator (tour3/05-successeur-aucun) -->
+  <string name="op_transfer_title">Transmettre le rôle de créateur</string>
+  <string name="op_transfer_text">À un administrateur. Il devient créateur aussitôt, sans avoir à accepter, et il en est prévenu.</string>
+  <string name="op_admins_count">Administrateurs · %1$d</string>
+  <string name="op_transfer_stay">Vous restez dans l\'opération, dans le %1$s, comme membre.</string>
+  <string name="op_transfer_phone">Sans cela, l\'ancien téléphone garderait l\'accès à ce que lit le commandement jusqu\'à la fin de l\'opération, et personne ne pourrait l\'en écarter.</string>
+  <string name="op_transfer_button">Transmettre à %1$s</string>
+  <string name="op_no_admin_title">Aucun autre administrateur</string>
+  <string name="op_no_admin_text">Vous êtes le seul. Nommez d\'abord un administrateur, puis revenez le désigner.</string>
+  <string name="op_name_admin">Nommer un administrateur</string>
+
+  <!-- « Rejoindre l'opération ? » (tour3/04-entree-nom) and the 31st (tour2/04-admin-limites) -->
+  <string name="op_join_title">Rejoindre l\'opération ?</string>
+  <string name="op_join_name">Votre nom</string>
+  <string name="op_join_name_hint">C\'est le nom réglé dans l\'application. Vous pouvez en écrire un autre pour cette opération.</string>
+  <string name="op_join_name_missing">Il faut un nom pour entrer.</string>
+  <string name="op_join_text">Vous arrivez « en attente ». Tant qu\'un administrateur ne vous a pas placé dans un groupe, vous ne voyez rien du partage ; seuls les administrateurs voient votre nom et votre position.</string>
+  <string name="op_join_ok">Rejoindre</string>
+  <string name="op_full_title">Opération complète</string>
+  <string name="op_full_text">« %1$s » a déjà **%2$d membres**, le maximum. Prévenez un administrateur : une place doit se libérer avant que vous puissiez entrer.</string>
+
+  <!-- Waiting for a group (tour4/01-attente A, U1 A; tour3/06-supprimer-groupe-apres, tour3/07-remise-attente-*) -->
+  <string name="op_my_position">Ma position</string>
+  <string name="op_my_position_sub">%1$s (vous) · envoyée aux administrateurs</string>
+  <string name="op_wait_title">En attente d\'un groupe</string>
+  <string name="op_wait_text">Vous êtes entré dans l\'opération. Un administrateur doit maintenant vous placer dans un groupe.</string>
+  <string name="op_wait_text_again">Vous restez dans l\'opération. Un administrateur doit vous replacer dans un groupe.</string>
+  <string name="op_wait_until">D\'ici là</string>
+  <string name="op_wait_no_positions">Vous ne voyez aucune position sur la carte</string>
+  <string name="op_wait_nothing">Ni croquis, ni waypoints, ni messages, ni noms</string>
+  <string name="op_wait_admins_see">Les administrateurs voient votre position tant que vous attendez</string>
+  <string name="op_quit">Quitter l\'opération</string>
+  <string name="op_wait_only_way">C\'est le seul moyen de ne plus envoyer sa position.</string>
+  <string name="op_group_deleted_banner">Le %1$s a été supprimé. Vous êtes de nouveau en attente.</string>
+  <string name="op_again_title">De nouveau en attente</string>
+  <string name="op_again_text">Un administrateur vous a sorti du %1$s. Vous restez dans l\'opération, mais vous ne voyez plus rien du partage tant que vous n\'êtes pas replacé dans un groupe.</string>
+  <string name="op_removed_title">Retiré de l\'opération</string>
+  <string name="op_removed_text">Le créateur de « %1$s » vous a retiré de l\'opération : vous ne recevez plus rien. Il faudra une nouvelle invitation pour revenir.</string>
+
+  <!-- « Administrer » (tour2/04-admin-sommaire, 04-admin-limites, tour3/06-supprimer-groupe-apres) -->
+  <string name="op_admin_title">Administrer</string>
+  <string name="op_admin_subtitle">%1$s · %2$d sur %3$d</string>
+  <string name="op_waiting">En attente</string>
+  <string name="op_waiting_names">%1$s : à placer dans un groupe</string>
+  <string name="op_waiting_many">%1$d personnes à placer dans un groupe</string>
+  <string name="op_roles">Rôles</string>
+  <string name="op_admins">Administrateurs</string>
+  <string name="op_op_chief_and_deputy">%1$s · adjoint : %2$s</string>
+  <string name="op_groups_title">Groupes</string>
+  <string name="op_group_chief_and_deputy">Chef : %1$s · adjoint : %2$s</string>
+  <string name="op_new_group">Nouveau groupe</string>
+  <string name="op_new_group_full">%1$d sur %2$d : supprimez-en un pour en créer un autre</string>
+  <string name="op_full_note">**%1$d membres sur %2$d** : « Inviter » est grisé jusqu\'à ce qu\'une place se libère.</string>
+
+  <!-- « En attente » and « Placer » (tour2/03-attente-admin) -->
+  <plurals name="op_persons">
+    <item quantity="one">%d personne</item>
+    <item quantity="other">%d personnes</item>
+  </plurals>
+  <string name="op_waiting_box">Ces personnes sont entrées avec l\'invitation. Elles ne voient **rien du partage** tant qu\'elles ne sont pas dans un groupe.</string>
+  <string name="op_arrived">Arrivé %1$s</string>
+  <string name="op_place">Placer</string>
+  <string name="op_place_title">Placer %1$s</string>
+  <string name="op_place_question">Dans quel groupe ?</string>
+  <string name="op_place_group_chief">%1$s · Chef : %2$s</string>
+  <string name="op_place_group_no_chief">%1$s · Sans chef</string>
+  <string name="op_place_button">Placer dans le %1$s</string>
+
+  <!-- The page of a group (tour2/04-admin-groupe, 04-admin-sans-chef, tour3/06-supprimer-groupe, 09-promotion-adjoint) -->
+  <string name="op_chief_and_deputy">Chef et adjoint</string>
+  <string name="op_change">Changer</string>
+  <string name="op_name">Nommer</string>
+  <string name="op_no_chief_named">Aucun chef nommé</string>
+  <string name="op_no_deputy">Pas d\'adjoint</string>
+  <string name="op_add_members">Ajouter des membres</string>
+  <string name="op_no_chief_box">Un groupe **sans chef** fonctionne : ses membres voient tout le monde et partagent dans leur groupe. Sans chef ni adjoint, personne du groupe ne remonte de croquis ni de waypoint au commandement.</string>
+  <string name="op_add_title">Ajouter au %1$s</string>
+  <string name="op_add_sub">Un membre est dans un seul groupe.</string>
+  <string name="op_moves">**%1$s** quittera le %2$s : la nouvelle affectation remplace l\'ancienne.</string>
+  <plurals name="op_add_button">
+    <item quantity="one">Ajouter %d membre</item>
+    <item quantity="other">Ajouter %d membres</item>
+  </plurals>
+
+  <!-- Naming a chief or a deputy (tour2/04-admin-chef) -->
+  <string name="op_nominate_sub">%1$s · parmi ses membres</string>
+  <string name="op_already_chief">Déjà chef de ce groupe</string>
+  <string name="op_nobody_deputy">Personne (pas d\'adjoint)</string>
+  <string name="op_nobody_chief">Personne (pas de chef)</string>
+  <string name="op_nominate_deputy_button">Nommer %1$s adjoint</string>
+  <string name="op_nominate_chief_button">Nommer %1$s chef</string>
+  <string name="op_op_chief_box">Le chef de l\'opération **écrit à toute l\'opération** (messages, croquis, waypoints). Son adjoint a les mêmes droits. Le poste peut rester vacant.</string>
+  <string name="op_chief">Chef</string>
+  <string name="op_deputy">Adjoint</string>
+  <string name="op_one_only">un seul</string>
+  <string name="op_same_rights">%1$s · mêmes droits</string>
+  <string name="op_leave_vacant">Laisser le poste de chef vacant</string>
+  <string name="op_remove_deputy">Retirer l\'adjoint</string>
+  <string name="op_keeps_roles">Il garde son groupe et ses autres rôles.</string>
+  <string name="op_nominate_op_chief_button">Nommer %1$s chef de l\'opération</string>
+  <string name="op_nominate_op_deputy_button">Nommer %1$s adjoint du chef de l\'opération</string>
+
+  <!-- « Administrateurs » (tour2/05-admins-createur, 05-admins-retirer) -->
+  <string name="op_admins_box_creator">Les administrateurs placent les arrivants, gèrent les groupes et nomment les chefs. **Vous seul**, créateur, les nommez et les retirez.</string>
+  <string name="op_admins_box_admin">Seul le créateur (**%1$s**) nomme et retire les administrateurs. Vous ne pouvez pas non plus retirer un membre de l\'opération.</string>
+  <string name="op_remove">Retirer</string>
+  <string name="op_admin_sub">%1$s · %2$s</string>
+  <string name="op_chief_of">chef du %1$s</string>
+  <string name="op_deputy_of">adjoint du %1$s</string>
+  <string name="op_search">Rechercher un membre</string>
+  <string name="op_already_admin">Déjà administrateur</string>
+  <string name="op_name_admin_button">Nommer %1$s administrateur</string>
+  <string name="op_remove_admin_title">Retirer %1$s des administrateurs ?</string>
+  <string name="op_remove_admin_text">Il reste membre du %1$s. Il ne pourra plus placer les arrivants, gérer les groupes ni nommer les chefs.</string>
+  <string name="op_remove_admin_text_post">Il reste membre du %1$s et %2$s. Il ne pourra plus placer les arrivants, gérer les groupes ni nommer les chefs.</string>
+  <string name="op_post_chief">chef de groupe</string>
+  <string name="op_post_deputy">adjoint du chef de groupe</string>
+  <string name="op_remove_role">Retirer le rôle</string>
+
+  <!-- The sheet of a member (tour2/05-retirer-membre, tour3/07-remise-attente-fiche, 07-remise-attente-adjoint) -->
+  <string name="op_member_sub">%1$s · %2$s · %3$s</string>
+  <string name="op_change_group">Changer de groupe</string>
+  <string name="op_change_group_sub">Aujourd\'hui : %1$s</string>
+  <string name="op_nominate_post">Nommer chef ou adjoint</string>
+  <string name="op_nominate_post_sub">Du %1$s</string>
+  <string name="op_name_chief_of">Nommer chef du %1$s</string>
+  <string name="op_instead_of">À la place de %1$s</string>
+  <string name="op_remove_deputy_post">Retirer le poste d\'adjoint</string>
+  <string name="op_stays_member">Il reste membre du groupe</string>
+  <string name="op_unassign">Remettre en attente</string>
+  <string name="op_unassign_sub">Il sort de son groupe, sans quitter l\'opération</string>
+  <string name="op_name_admin_row">Nommer administrateur</string>
+  <string name="op_reserved_creator">Réservé au créateur (%1$s)</string>
+  <string name="op_remove_member">Retirer de l\'opération</string>
+  <string name="op_remove_member_title">Retirer %1$s de l\'opération ?</string>
+  <string name="op_remove_member_text">Il ne reçoit plus rien et disparaît des cartes. Pour revenir, il lui faudra une nouvelle invitation, puis attendre d\'être replacé dans un groupe.</string>
+  <string name="op_unassign_title">Remettre %1$s en attente ?</string>
+  <string name="op_unassign_text">Il sort du %1$s mais reste dans l\'opération. Il ne voit plus rien du partage tant qu\'un administrateur ne l\'a pas replacé dans un groupe ; sa position reste visible des administrateurs.</string>
+  <string name="op_unassign_deputy">Son poste d\'adjoint devient vacant.</string>
+  <string name="op_unassign_chief">Son adjoint, %1$s, devient chef automatiquement.</string>
+
+  <!-- « Supprimer le Groupe … ? » (tour3/06-supprimer-groupe) -->
+  <string name="op_delete_title">Supprimer le %1$s ?</string>
+  <plurals name="op_delete_text">
+    <item quantity="one">Son membre repasse **en attente** : il ne voit plus rien du partage tant qu\'un administrateur ne l\'a pas replacé dans un groupe. Sa position reste visible des administrateurs.</item>
+    <item quantity="other">Ses %d membres repassent **en attente** : ils ne voient plus rien du partage tant qu\'un administrateur ne les a pas replacés dans un groupe. Leur position reste visible des administrateurs.</item>
+  </plurals>
+  <string name="op_delete_box">Les croquis, les waypoints et les messages du %1$s ne sont plus affichés.</string>
+
+  <!-- Leaving (tour2/08-quitter-membre, tour3/09-chef-quitte, 09-chef-operation-quitte, tour4/11-quitter-texte) -->
+  <string name="op_quit_title">Quitter l\'opération ?</string>
+  <string name="op_quit_text">Les autres sont prévenus et vous n\'apparaissez plus sur leur carte. Vos messages restent dans les fils ; vos croquis et vos waypoints restent affichés jusqu\'à ce que quelqu\'un les retire. Vous, vous ne recevez plus rien. Pour revenir, il faudra une nouvelle invitation, puis attendre d\'être replacé dans un groupe.</string>
+  <string name="op_quit_member_box">Changer de groupe ? Demandez à un administrateur : vous ne pouvez pas le faire vous-même.</string>
+  <string name="op_quit_chief_box">Vous êtes **chef du %1$s**. Votre adjoint, %2$s, devient chef automatiquement.</string>
+  <string name="op_quit_chief_alone_box">Vous êtes **chef du %1$s**. Le groupe sera « sans chef » jusqu\'à ce qu\'un administrateur en nomme un.</string>
+  <string name="op_quit_op_chief_box">Vous êtes **chef de l\'opération**. Votre adjoint, %1$s, devient chef automatiquement.</string>
+
+  <!-- The creator leaves (tour3/05-createur-A, tour4/09-glissiere, tour3/05-successeur, 05-successeur-aucun) -->
+  <string name="op_creator_quit_text">Vous êtes le **créateur**. Désignez un successeur parmi les administrateurs avant de partir.</string>
+  <string name="op_designate">Désigner un successeur</string>
+  <string name="op_or">ou</string>
+  <string name="op_dissolve_text">Sans successeur, l\'opération est **dissoute pour tous** : %1$s. Rien ne pourra être rétabli.</string>
+  <string name="op_dissolve_who">%1$s et %2$s</string>
+  <plurals name="op_dissolve_members">
+    <item quantity="one">%d membre</item>
+    <item quantity="other">%d membres</item>
+  </plurals>
+  <plurals name="op_dissolve_waiting">
+    <item quantity="one">%d personne en attente</item>
+    <item quantity="other">%d personnes en attente</item>
+  </plurals>
+  <string name="op_slide">Glisser pour dissoudre</string>
+  <string name="op_slide_more">jusqu\'au bout</string>
+  <string name="op_slide_release">Relâchez pour dissoudre</string>
+  <string name="op_successor_title">Qui vous succède ?</string>
+  <string name="op_successor_text">Un administrateur seulement. Il devient le créateur sans avoir à accepter ; il en est prévenu.</string>
+  <string name="op_successor_other">Quelqu\'un d\'autre ? Nommez-le d\'abord administrateur (« Administrer » ▸ « Administrateurs »).</string>
+  <string name="op_successor_button">Transmettre à %1$s et quitter</string>
+
+  <!-- What happened (tour2/08-dissolution, 08-successeur, tour3/09-promotion-*, tour4/05-promotion-*) -->
+  <string name="op_dissolved_title">Opération dissoute</string>
+  <string name="op_dissolved_text">Le créateur a dissous « %1$s ». Vous ne partagez plus votre position et ne recevez plus rien de cette opération.</string>
+  <string name="op_you_creator_title">Vous êtes le créateur</string>
+  <string name="op_you_creator_text">%1$s a quitté l\'opération et vous l\'a transmise. Vous seul nommez et retirez les administrateurs, et retirez un membre.</string>
+  <string name="op_you_creator_rights">Vous seul nommez et retirez les administrateurs, et retirez un membre.</string>
+  <string name="op_snack_creator">%1$s a quitté l\'opération. %2$s en est maintenant le créateur.</string>
+  <string name="op_you_chief_title">Vous êtes chef du %1$s</string>
+  <string name="op_you_chief_text">%1$s a quitté l\'opération. Vous étiez son adjoint : vous prenez sa place automatiquement, avec les mêmes droits. Le groupe n\'a plus d\'adjoint.</string>
+  <string name="op_you_op_chief_title">Vous êtes chef de l\'opération</string>
+  <string name="op_you_op_chief_text">%1$s a quitté l\'opération. Vous étiez son adjoint : vous prenez sa place automatiquement. Vous diffusez à toute l\'opération, comme avant ; le poste d\'adjoint est vacant.</string>
+  <string name="op_snack_promoted_group">%1$s a quitté l\'opération. %2$s, son adjoint, est maintenant chef du %3$s.</string>
+  <string name="op_snack_promoted_op">%1$s a quitté l\'opération. %2$s, son adjoint, est maintenant chef de l\'opération.</string>
+
+  <!-- The demonstration (debug tool, P39.8: no preview, CLAUDE.md « Tâches de debug ») -->
+  <string name="op_demo">Démonstration « Opération »</string>
+  <string name="op_demo_building">Préparation de la démonstration…</string>
+  <string name="op_demo_failed">La démonstration n\'a pas pu être préparée.</string>
+  <string name="op_demo_view_as">Voir comme…</string>
+  <string name="op_demo_view_as_title">Voir l\'opération comme</string>
+  <string name="op_demo_stop">Quitter la démonstration</string>
+</resources>

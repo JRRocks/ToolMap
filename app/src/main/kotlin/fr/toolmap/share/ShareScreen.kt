@@ -106,6 +106,7 @@ import fr.toolmap.core.settings.ValueEntry
 import fr.toolmap.draw.RouteIcons
 import fr.toolmap.map.MenuIcons
 import fr.toolmap.maps.MapsIcons
+import fr.toolmap.operation.ShareOperationEntry
 import fr.toolmap.settings.SettingsIcons
 import fr.toolmap.sketch.SketchIcons
 import fr.toolmap.ui.EntryField
@@ -166,6 +167,8 @@ fun ShareScreen(
     onNewGroupSketch: () -> Unit = {},
     onShareFavorites: () -> Unit = {},
     onAddFavorites: (GroupPoint) -> Unit = {},
+    // The « Opération » mode out of a group (P39.8, ADR-130): debug build type only, `null` everywhere else.
+    operationEntry: ShareOperationEntry? = null,
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -259,6 +262,7 @@ fun ShareScreen(
                 onAlertBack = { vm.recheckPhone() },
                 onOpenShare = { openShare = it.id },
                 onShare = { shareChoice = true },
+                operationEntry = operationEntry,
             )
         }
 
@@ -400,7 +404,7 @@ fun ShareScreen(
         ScanDialog(
             onCode = {
                 scanning = false
-                vm.handleCode(it)
+                if (operationEntry?.onCode?.invoke(it) != true) vm.handleCode(it)
             },
             onClose = { scanning = false },
         )
@@ -409,7 +413,7 @@ fun ShareScreen(
         PasteDialog(
             onSubmit = {
                 pasting = false
-                vm.handleCode(it)
+                if (operationEntry?.onCode?.invoke(it) != true) vm.handleCode(it)
             },
             onClose = { pasting = false },
         )
@@ -496,6 +500,7 @@ internal fun MainPage(
     onAlertBack: () -> Unit,
     onOpenShare: (GroupPoint) -> Unit = {},
     onShare: () -> Unit = {},
+    operationEntry: ShareOperationEntry? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     Scaffold(
@@ -531,6 +536,7 @@ internal fun MainPage(
                             }
                             item(R.string.share_settings_caption, SettingsIcons.Dashboard, action = onSettings)
                             item(R.string.share_help, MenuIcons.Help, action = onHelp)
+                            if (!ui.inGroup) operationEntry?.menuItems?.invoke { menu = false }
                             if (ui.inGroup) {
                                 item(R.string.share_leave, null, MaterialTheme.colorScheme.error, onLeave)
                             }
@@ -563,15 +569,18 @@ internal fun MainPage(
         ) {
             if (!ui.inGroup) {
                 GroupBlock(rows = listOf({ SelfLookLine(ui, onProfile) }))
-                NoGroup()
+                NoGroup(operationEntry?.startHint)
                 Button(onClick = onInvite, modifier = Modifier.fillMaxWidth().heightIn(min = MAIN_BUTTON_HEIGHT)) {
                     Icon(ShareIcons.GroupAdd, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text(stringResource(R.string.share_create), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        operationEntry?.createLabel ?: stringResource(R.string.share_create),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
                 }
                 Column {
                     Text(
-                        stringResource(R.string.share_join_title),
+                        operationEntry?.joinTitle ?: stringResource(R.string.share_join_title),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 8.dp),
@@ -581,6 +590,7 @@ internal fun MainPage(
                         JoinButton(MenuIcons.Link, stringResource(R.string.share_paste), onPaste)
                     }
                 }
+                operationEntry?.card?.invoke()
             } else {
                 val now = nowMs()
                 val up = serverUp(ui)
@@ -739,9 +749,9 @@ private fun SelfSendLine(
     }
 }
 
-/** « Aucun groupe »: an empty state that says what a group is for. */
+/** « Aucun groupe »: an empty state that says what a group is for; [hint] names the mode « Entre amis » (P39.8). */
 @Composable
-private fun NoGroup() {
+private fun NoGroup(hint: String? = null) {
     Column(
         Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 4.dp, start = 8.dp, end = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -764,7 +774,7 @@ private fun NoGroup() {
             modifier = Modifier.padding(top = 8.dp),
         )
         Text(
-            stringResource(R.string.share_start_hint),
+            hint ?: stringResource(R.string.share_start_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

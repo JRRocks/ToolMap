@@ -9,6 +9,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <application>
+        <!-- An invitation to an operation, toolmap://operation?d=... (P39.8, ADR-130): the « Opération » mode exists in
+             this build type only while it is designed (ADR-124). -->
+        <activity
+            android:name="fr.toolmap.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="toolmap" android:host="operation" />
+            </intent-filter>
+        </activity>
         <activity
             android:name="androidx.compose.ui.tooling.PreviewActivity"
             tools:node="remove" />
