@@ -50,7 +50,8 @@ def parse(path):
 
 def diff(a, b):
     """b minus a, key by key; from zero when the app's counters went back (its process was started again)."""
-    app = [k for k in b if k not in ("t", "uid.tx", "uid.rx")]
+    # A key gone, or a count gone down: a new process (one that has made no call yet has no key at all).
+    app = [k for k in set(a) | set(b) if k not in ("t", "uid.tx", "uid.rx")]
     restarted = any(b.get(k, 0) < a.get(k, 0) for k in app)
     out = {}
     for k in set(a) | set(b):

@@ -408,6 +408,7 @@ snap idle
 
 # ---- 4. A restarts, B off the network ----------------------------------------------------------------------------
 
+snap before-restart
 adb -s "$A" shell am force-stop "$pkg"
 step "4.waypoint-put" "$B" 30 put-waypoint
 restart_at="$(mono_ms)"
@@ -470,6 +471,7 @@ expect 6.dissolve traceKept true "$result"
 sleep 10
 airplane "$B" off
 step "6.back-online" "$B" 120 await-server ONLINE 120
+snap before-relaunch
 restart_app "$A"
 snap before-trace
 begin "6.ended-by-trace" "$B" 180 await-ended 180
