@@ -85,4 +85,6 @@ tasks.withType<Test>().configureEach {
     systemProperty("toolmap.engine.required", engineRequired.toString())
     systemProperty("toolmap.engine.bench", bench)
     systemProperty("toolmap.repo.dir", rootProject.rootDir.absolutePath)
+    // The long fuzzing of the « Opération » storage (P39.11) runs only with -Ptoolmap.hierarchy.fuzz=true.
+    systemProperty("toolmap.hierarchy.fuzz", providers.gradleProperty("toolmap.hierarchy.fuzz").orNull.orEmpty())
 }
