@@ -373,6 +373,12 @@ class OperationNode(
         // A phone behind on the operations also lacks the names they carry: they go with them.
         val lacksNames = theirs.namesMissing > 0 || missing.isNotEmpty()
         if (lacksNames && state.hasAccess(frame.sender) && state.hasAccess(self)) shareRoster()
+        // Who waits tells its name in its own lane only: a reader of that lane who lacks names gets it again (P39.10).
+        if (theirs.namesMissing > 0 && state.isWaiting(self) &&
+            state.readersOf(Channel.waiting(self)).any { it.id == frame.sender }
+        ) {
+            ownCard?.let { share(ShareKind.ROSTER, Channel.waiting(self), NameBook.encode(listOf(it))) }
+        }
     }
 
     private fun onKeys(frame: OpenedFrame) {
@@ -753,6 +759,12 @@ class OperationNode(
             for ((channel, who) in state.arrivals(before)) {
                 if (self in who) {
                     if (channel == Channel.ENSEMBLE) ownCard?.let { queueRoster(listOf(it)) }
+                    continue
+                }
+                // A new reader of this phone's waiting lane (an administrator named, a new creator) learns its name
+                // there too: whoever may place it knows whom it places (Q10, Q11, § 8.8; P39.10).
+                if (channel == Channel.waiting(self)) {
+                    ownCard?.let { share(ShareKind.ROSTER, channel, NameBook.encode(listOf(it))) }
                     continue
                 }
                 if (objects.resend(channel).isNotEmpty() &&

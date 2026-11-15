@@ -79,4 +79,63 @@ class OperationSimulationFindingsTest {
         assertEquals(a.n.epoch, c.n.epoch)
         assertEquals(a.n.replica.summary(), c.n.replica.summary())
     }
+
+    /**
+     * Who waits sends its name to the administrators and the creator, in its own lane, once let in (Q10, Q11, § 17
+     * reading 8): « les administrateurs savent qui ils placent ». An administrator named after that must learn it too.
+     */
+    @Test
+    fun `an administrator named while someone waits learns the name of who waits`() {
+        val (w, phones) = world(3)
+        val (a, b, c) = phones
+        a.create(card("Opération Vercors"), card("Alice"))
+        w.runFor(2_000)
+        val g = 0x31L
+        val group = card("Groupe Sud")
+        a.must(Change.CreateGroup(g, group.hidden))
+        a.call { it.learnAndShare(group) }
+        b.join(assertNotNull(a.call { it.invitation(a.clock() / 1000) }), card("Bruno"))
+        w.runFor(30_000)
+        assertIs<IssueResult.Issued>(a.call { it.admit(b.id) })
+        w.runFor(10_000)
+        a.must(Change.AssignMember(b.id, g))
+        w.runFor(30_000)
+        c.join(assertNotNull(a.call { it.invitation(a.clock() / 1000) }), card("Chloé"))
+        w.runFor(30_000)
+        assertIs<IssueResult.Issued>(a.call { it.admit(c.id) })
+        w.runFor(60_000)
+        assertTrue(c.n.state.isWaiting(c.id))
+        assertEquals("Chloé", a.n.names.nameOf(a.n.state, c.id), "the creator reads the name of who waits")
+        // B becomes an administrator: it reads C's lane from now on, and must know whom it would place.
+        a.must(Change.AddAdmin(b.id))
+        w.runFor(3 * 60_000L)
+        assertTrue(c.n.state.isWaiting(c.id))
+        assertEquals("Chloé", b.n.names.nameOf(b.n.state, c.id), "the new administrator reads the name of who waits")
+    }
+
+    /** The same name, for an administrator whose phone was off when the one who waits told it (seed 0x4). */
+    @Test
+    fun `an administrator away when someone was let in learns the name of who waits when it is back`() {
+        val (w, phones) = world(3)
+        val (a, b, c) = phones
+        a.create(card("Opération Belledonne"), card("Alice"))
+        w.runFor(2_000)
+        b.join(assertNotNull(a.call { it.invitation(a.clock() / 1000) }), card("Bruno"))
+        w.runFor(30_000)
+        assertIs<IssueResult.Issued>(a.call { it.admit(b.id) })
+        w.runFor(10_000)
+        a.must(Change.AddAdmin(b.id))
+        w.runFor(30_000)
+        c.join(assertNotNull(a.call { it.invitation(a.clock() / 1000) }), card("Chloé"))
+        w.runFor(30_000)
+        // B is off for an hour while C is let in and tells its name in its lane.
+        b.stopApp(killed = false)
+        assertIs<IssueResult.Issued>(a.call { it.admit(c.id) })
+        w.runFor(3_600_000L)
+        assertEquals("Chloé", a.n.names.nameOf(a.n.state, c.id))
+        b.startApp()
+        w.runFor(5 * 60_000L)
+        assertTrue(c.n.state.isWaiting(c.id))
+        assertEquals("Chloé", b.n.names.nameOf(b.n.state, c.id), "the administrator back reads the name of who waits")
+    }
 }
