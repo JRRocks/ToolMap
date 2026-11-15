@@ -220,7 +220,6 @@
   <string name="op_remove_role">Retirer le rôle</string>
 
   <!-- The sheet of a member (tour2/05-retirer-membre, tour3/07-remise-attente-fiche, 07-remise-attente-adjoint) -->
-  <string name="op_member_sub">%1$s · %2$s · %3$s</string>
   <string name="op_change_group">Changer de groupe</string>
   <string name="op_change_group_sub">Aujourd\'hui : %1$s</string>
   <string name="op_nominate_post">Nommer chef ou adjoint</string>

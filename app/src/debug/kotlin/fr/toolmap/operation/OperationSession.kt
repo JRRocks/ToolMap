@@ -94,6 +94,9 @@ class OperationSession
         val demo: StateFlow<DemoWorld?> = mutableDemo.asStateFlow()
         private val mutableDemoBusy = MutableStateFlow(false)
         val demoBusy: StateFlow<Boolean> = mutableDemoBusy.asStateFlow()
+
+        /** The demonstration could not be built (its step is in the event log and in logcat). */
+        val demoFailed = MutableStateFlow(false)
         private val seat = MutableStateFlow(real)
 
         /** The controller of the phone the screens show. */
@@ -426,6 +429,7 @@ class OperationSession
                 mutableDemoBusy.value = false
                 if (world == null) {
                     log("demo failed")
+                    demoFailed.value = true
                     return@launch
                 }
                 // The ages of the maquettes: « Arrivé il y a 3 minutes », « Hors ligne · il y a 14 minutes ».

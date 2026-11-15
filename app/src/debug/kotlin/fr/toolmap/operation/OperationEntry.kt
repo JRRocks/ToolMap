@@ -387,6 +387,7 @@ fun ShareWindows(
     val problem by session.joinProblem.collectAsStateWithLifecycle()
     val full by session.full.collectAsStateWithLifecycle()
     val busy by session.demoBusy.collectAsStateWithLifecycle()
+    val demoFailed by session.demoFailed.collectAsStateWithLifecycle()
     val extras by session.extras.collectAsStateWithLifecycle()
     question?.let { JoinWindow(session, it, defaultName) }
     problem?.let { p ->
@@ -433,6 +434,16 @@ fun ShareWindows(
                 }
             },
             confirmButton = {},
+        )
+    }
+    if (demoFailed) {
+        AlertDialog(
+            onDismissRequest = { session.demoFailed.value = false },
+            title = { Text(stringResource(R.string.op_demo)) },
+            text = { Text(stringResource(R.string.op_demo_failed)) },
+            confirmButton = {
+                TextButton(onClick = { session.demoFailed.value = false }) { Text(stringResource(R.string.action_ok)) }
+            },
         )
     }
     // What ended the operation for this phone, said on the screen it comes back to.
