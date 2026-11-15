@@ -3,15 +3,48 @@ package fr.toolmap.core.hierarchy.sim
 import org.junit.Assume
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 /**
  * The battery of tests by simulation of the « Opération » mode (P39.10, `docs/specs/group-hierarchy.md` § 21):
  * scenarios drawn from a seed, played by real [fr.toolmap.core.hierarchy.OperationNode]s on a simulated coordination
- * server and a rough network, then checked once the network has calmed down ([SimChecks]). The long series runs with
- * `-Ptoolmap.hierarchy.soak=true` (or a number of scenarios) and writes `core/build/hierarchy-soak.txt`; a failure is
- * shrunk to the shortest list of steps that still fails the same way, and given with its seed.
+ * server and a rough network, then checked once the network has calmed down ([SimChecks]). `./gradlew check` runs the
+ * fixed seeds below; the long series runs with `-Ptoolmap.hierarchy.soak=true` (or a number of scenarios) and writes
+ * `core/build/hierarchy-soak.txt`. A failure is shrunk to the shortest list of steps that still fails the same way,
+ * and given with its seed.
  */
 class OperationSimulationTest {
+    private fun runSeeds(
+        seeds: List<Long>,
+        setup: SimSetup,
+    ) {
+        val report = StringBuilder()
+        for (seed in seeds) {
+            val result = Scenarios.run(seed, setup)
+            if (result.ok) continue
+            // Bounded: a red `./gradlew check` must still say why within minutes.
+            val small = Scenarios.shrink(result, budget = 40)
+            report.appendLine(small.describe())
+            report.appendLine("  shortest failing scenario (${small.steps.size} steps of ${result.steps.size}):")
+            for (line in small.trail) report.appendLine("    $line")
+        }
+        assertTrue(report.isEmpty(), report.toString())
+    }
+
+    @Test
+    fun `six phones on a rough network`() = runSeeds(SMALL, SimSetup(phones = 6, steps = 90))
+
+    @Test
+    fun `twelve phones whose frames come out of order`() = runSeeds(MEDIUM, SimSetup(phones = 12, steps = 140))
+
+    @Test
+    fun `eight phones on a network that keeps the order of each writer`() =
+        runSeeds(ORDERED, SimSetup(phones = 8, steps = 120, faults = Faults.ORDERED_ROUGH))
+
+    @Test
+    fun `thirty phones, the limit of an operation`() =
+        runSeeds(LARGE, SimSetup(phones = 30, steps = 120, faults = Faults.ORDERED_ROUGH, positions = false))
+
     /** The long series: thousands of scenarios of every size; only with `-Ptoolmap.hierarchy.soak=…`. */
     @Test
     fun `the long series`() {
@@ -166,6 +199,11 @@ class OperationSimulationTest {
         }
 
     companion object {
+        /** Seeds checked one by one (`-Ptoolmap.hierarchy.explore`); they end with several members, in groups. */
+        val SMALL = listOf(3L, 7L, 8L, 9L)
+        val MEDIUM = listOf(0xCL)
+        val ORDERED = listOf(0x2AL)
+        val LARGE = listOf(0x1FL)
         val SOAK_SETUPS =
             listOf(
                 SimSetup(phones = 5, steps = 80),
