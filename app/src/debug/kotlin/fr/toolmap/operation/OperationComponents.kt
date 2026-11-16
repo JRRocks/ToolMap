@@ -80,13 +80,12 @@ fun rememberNow(periodMs: Long = NOW_PERIOD_MS): Long {
 fun groupColor(palette: Int?): Color =
     palette?.let { Color(OperationFacts.GROUP_COLORS[it % OperationFacts.GROUP_COLORS.size]) } ?: WAITING_GREY
 
-/** « Groupe Nord » for the group named « Nord ». */
+/**
+ * The name of a group as lists, headings and menus show it: the name alone, « Nord » (the user's answer N0, P39.13).
+ * In a sentence the string itself says « le groupe %1$s » (N1 A).
+ */
 @Composable
-fun groupTitle(name: String?): String =
-    stringResource(
-        R.string.op_group_display,
-        name ?: stringResource(R.string.op_name_unknown),
-    )
+fun groupTitle(name: String?): String = name ?: stringResource(R.string.op_name_unknown)
 
 @Composable
 fun memberName(

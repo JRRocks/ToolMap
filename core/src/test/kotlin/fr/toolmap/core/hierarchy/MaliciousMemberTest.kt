@@ -64,6 +64,14 @@ class MaliciousMemberTest {
                     Change.AdmitMember(intruder.memberId, Names.hide("Intrus").hidden, intruder.public),
                     Change.TransferCreator(m.id),
                     Change.Dissolve,
+                    // The names (2026-11-16): it renames nobody, itself included, nor the operation; it asks for
+                    // no name in another's place, takes back no other request and answers none.
+                    Change.RenameMember(m.id, Names.hide("Marc le chef").hidden),
+                    Change.RenameMember(s.l.id, Names.hide("Léa bis").hidden),
+                    Change.RenameEnsemble(Names.hide("Opération pirate").hidden),
+                    Change.RequestName(s.l.id, Names.hide("Léa ter").hidden),
+                    Change.WithdrawName(s.l.id),
+                    Change.AnswerName(s.l.id, Names.hide("Léa ter").hidden, accept = true),
                 )
             val ops = attacks.map { r.forgeAndSend(m, it) }
             for (p in honest) {
@@ -102,6 +110,9 @@ class MaliciousMemberTest {
                     Change.SetPost(HierarchyState.ROOT, Post.LEADER, s.l.id),
                     Change.CreateGroup(r.nonZero(), Names.hide("Est").hidden),
                     Change.AddAdmin(s.l.id),
+                    // A leader renames nobody of its group, nor itself: it asks, like everyone (2026-11-16).
+                    Change.RenameMember(s.m.id, Names.hide("Marc 2").hidden),
+                    Change.RenameMember(s.l.id, Names.hide("Cheffe").hidden),
                 ).map { r.forgeAndSend(s.l, it) }
             for (p in honest) {
                 for (op in byAdmin + byLeader) assertEquals(Rejection.FORBIDDEN, p.rejectionOf(op), "$p refuses $op")

@@ -31,6 +31,9 @@ sealed interface OpPage {
     data class GroupList(
         val group: Long,
     ) : OpPage
+
+    /** « Noms à valider » (`tour5/02-admin-valider` A). */
+    data object NameRequests : OpPage
 }
 
 /** A sheet over the page. */
@@ -71,6 +74,17 @@ sealed interface OpSheet {
     ) : OpSheet
 
     data object Successor : OpSheet
+
+    /** « Renommer Membre 11 » (`tour5/02-membre` A). */
+    data class RenameMember(
+        val member: Long,
+    ) : OpSheet
+
+    /** « Changer mon nom » (`tour5/02-demande-B`, `04-attente-nom`). */
+    data object MyName : OpSheet
+
+    /** « Renommer l'opération » (`tour5/02-operation`). */
+    data object RenameOperation : OpSheet
 }
 
 /** A question in a window. */
@@ -127,7 +141,7 @@ data class OperationNav(
 /** The form of « Nouvelle opération » (`tour4/10-creation` A). */
 data class CreateForm(
     val name: String = "",
-    /** The groups to make, by their names (« Nord » is written « Groupe Nord »). */
+    /** The groups to make, by their names (« Nord », written alone: the answer N0 of 2026-11-16). */
     val groups: List<String> = emptyList(),
     /** The index in [groups] of the creator's own group; `null`: « Aucun » (Q9). */
     val myGroup: Int? = null,
@@ -203,6 +217,29 @@ sealed interface Notice {
     data class NewOperationChief(
         val former: String,
         val chief: String,
+    ) : Notice
+
+    /** A message at the bottom of the screen of the renamed (`tour5/02-membre-B`: « Un administrateur vous a renommé »). */
+    data class RenamedByAdmin(
+        val name: String,
+    ) : Notice
+
+    /** A message at the bottom of the screen (`tour5/02-attente`: « Accepté : vous vous appelez maintenant … »). */
+    data class NameAccepted(
+        val name: String,
+    ) : Notice
+
+    /** A window (`tour5/02-refus` A): who refused is not said (N8 A). */
+    data class NameRefused(
+        val name: String,
+        val current: String,
+    ) : Notice
+
+    /** A window on the phone of an administrator whose answer came second (`tour5/02-admin-valider`, N6 A). */
+    data class AlreadyAnswered(
+        val by: String,
+        val name: String,
+        val accepted: Boolean,
     ) : Notice
 }
 
@@ -283,6 +320,19 @@ object Notices {
             } else if (now.members[me]?.group == id) {
                 out += Notice.NewGroupChief(named(before, gone), named(after, chief), groupNamed(id))
             }
+        }
+        // Its own name (P39.13): the answer to its request (N7 A, N8 A), or a new name an administrator gave it. The
+        // others are told nothing (N9 B).
+        val answer = after.nameAnswers[me]
+        val answered = answer != null && answer != before.nameAnswers[me] && answer.by != me
+        if (answer != null && answered) {
+            val asked = answer.name ?: "…"
+            out += if (answer.accepted) Notice.NameAccepted(asked) else Notice.NameRefused(asked, named(after, me))
+        }
+        val formerName = before.members.firstOrNull { it.id == me }?.name
+        val newName = after.members.firstOrNull { it.id == me }?.name
+        if (!answered && formerName != null && newName != null && newName != formerName) {
+            out += Notice.RenamedByAdmin(newName)
         }
         return out
     }

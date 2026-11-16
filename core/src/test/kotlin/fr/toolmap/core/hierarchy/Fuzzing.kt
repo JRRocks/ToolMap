@@ -103,6 +103,25 @@ internal fun fuzzCorpus(): List<ByteArray> {
                 Change.AdmitMember(b.memberId, Names.hide("B").hidden, b.public),
             ) as IssueResult.Issued
         ).op
+    // The names (2026-11-16): B asks, A refuses, A asks for its own and renames B and the operation; the state then
+    // carries a request and an answer.
+    val ask =
+        OpAuth.sign(Op(ensembleId, b.memberId, 1, 3, Change.RequestName(b.memberId, Names.hide("B2").hidden)), b)
+    replica.add(ask)
+    val named =
+        listOf(
+            Change.AnswerName(b.memberId, (ask.change as Change.RequestName).name, accept = false),
+            Change.RequestName(a.memberId, Names.hide("Chef 2").hidden),
+            Change.RenameMember(b.memberId, Names.hide("B3").hidden),
+            Change.RenameEnsemble(Names.hide("Op 2").hidden),
+        ).map { (replica.issue(it) as IssueResult.Issued).op }
+    // Signed but kept out of the replica, so its state still carries A's request.
+    val last = named.last()
+    val withdraw =
+        OpAuth.sign(
+            Op(ensembleId, a.memberId, last.seq + 1, last.clock + 1, Change.WithdrawName(a.memberId)),
+            a,
+        )
     val state = replica.state
     val card = Names.hide("Op")
     val server = fr.toolmap.core.p2p.RelayConfig.of("https://example.invalid", "key")
@@ -126,6 +145,7 @@ internal fun fuzzCorpus(): List<ByteArray> {
     val corpus = ArrayList<ByteArray>()
     corpus += HierarchyWire.encodeOp(genesis)
     corpus += HierarchyWire.encodeOps(listOf(genesis, admit))
+    corpus += HierarchyWire.encodeOps(listOf(ask) + named + withdraw)
     corpus += HierarchyWire.encodeSummary(replica.summary())
     corpus += HierarchyWire.encodeState(state)
     corpus += OperationSummary(replica.summary(), 7L, 1, mapOf(Channel.ENSEMBLE to 9L)).encode()

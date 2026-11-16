@@ -103,7 +103,8 @@ fun OperationRoot(
     // The messages at the bottom of the screen (`tour2/08-successeur`, `tour4/05-promotion-*`), one after the other.
     val message =
         extras.notices.firstOrNull {
-            it is Notice.NewCreator || it is Notice.NewGroupChief || it is Notice.NewOperationChief
+            it is Notice.NewCreator || it is Notice.NewGroupChief || it is Notice.NewOperationChief ||
+                it is Notice.RenamedByAdmin || it is Notice.NameAccepted
         }
     LaunchedEffect(message) {
         val shown = message ?: return@LaunchedEffect
@@ -118,12 +119,20 @@ fun OperationRoot(
                         R.string.op_snack_promoted_group,
                         shown.former,
                         shown.chief,
-                        resources.getString(R.string.op_group_display, shown.group),
+                        shown.group,
                     )
                 }
 
                 is Notice.NewOperationChief -> {
                     resources.getString(R.string.op_snack_promoted_op, shown.former, shown.chief)
+                }
+
+                is Notice.RenamedByAdmin -> {
+                    resources.getString(R.string.op_renamed_you, shown.name)
+                }
+
+                is Notice.NameAccepted -> {
+                    resources.getString(R.string.op_name_accepted, shown.name)
                 }
 
                 else -> {
@@ -141,7 +150,7 @@ fun OperationRoot(
     when (val page = nav.page) {
         OpPage.Main -> {
             if (facts.waiting) {
-                WaitingPage(session, facts, extras, nav, onBack)
+                WaitingPage(session, facts, extras, nav, snackbar, onBack)
             } else {
                 MainPage(session, facts, extras, nav, snackbar, onBack)
             }
@@ -169,6 +178,10 @@ fun OperationRoot(
 
         is OpPage.GroupList -> {
             GroupListPage(session, facts, page.group)
+        }
+
+        OpPage.NameRequests -> {
+            NameRequestsPage(session, facts)
         }
     }
     when (val sheet = nav.sheet) {
@@ -232,7 +245,17 @@ private fun MainPage(
             if (facts.isCreatorHere && ensemble != null && ensemble !in reminded) {
                 ReminderBanner(onTransfer = { session.sheet(OpSheet.Transfer) }, onOk = session::dismissReminder)
             }
-            GroupBlock(rows = listOf({ SelfShareLine(facts, self, sharing, session::setSharing) }))
+            GroupBlock(
+                rows =
+                    listOf({
+                        Column {
+                            SelfShareLine(facts, self, sharing, session::setSharing) { session.sheet(OpSheet.MyName) }
+                            facts.myNameRequest?.let { request ->
+                                PendingNameLine(request, facts.serverUp, onCancel = session::withdrawNameRequest)
+                            }
+                        }
+                    }),
+            )
             if (facts.showsAdminTiles) {
                 AdminTiles(
                     facts,
@@ -281,6 +304,14 @@ private fun OperationMenu(
             Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.share_more))
         }
         DropdownMenu(expanded = nav.menu, onDismissRequest = { session.menu(false) }) {
+            if (placed && facts.mayRenameOperation) {
+                // `tour5/02-operation` A (N10 A); « Changer mon nom » is the pencil of its own line (N5 B).
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.op_menu_rename_op)) },
+                    leadingIcon = { Icon(OperationIcons.Edit, contentDescription = null) },
+                    onClick = { session.sheet(OpSheet.RenameOperation) },
+                )
+            }
             if (placed && facts.isCreatorHere) {
                 DropdownMenuItem(
                     text = {
@@ -407,13 +438,14 @@ private fun ReminderBanner(
     }
 }
 
-/** « Partager ma position · Membre 5 (vous) · Groupe Nord » and its switch. */
+/** « Partager ma position · Membre 5 (vous) · Nord », the pencil of its name (`tour5/02-demande-B`, N5 B), the switch. */
 @Composable
 private fun SelfShareLine(
     facts: OperationFacts,
     self: Long,
     sharing: Boolean,
     onToggle: (Boolean) -> Unit,
+    onName: () -> Unit,
 ) {
     val group = facts.myGroup
     Row(
@@ -433,6 +465,7 @@ private fun SelfShareLine(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        if (facts.mayChangeOwnName) OwnNamePencil(onName)
         Box(Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
         Spacer(Modifier.width(12.dp))
         Switch(checked = sharing, onCheckedChange = onToggle)
@@ -450,22 +483,25 @@ private fun AdminTiles(
     onInvite: () -> Unit,
 ) {
     val waiting = facts.waitingMembers.size
+    val names = facts.nameRequestsToAnswer.size
+    val pending = waiting > 0 || names > 0
     val full = facts.full
     val adminTitle = stringResource(R.string.op_tile_admin)
     val inviteTitle = stringResource(R.string.op_tile_invite)
     val admin: @Composable (Modifier) -> Unit = { modifier ->
         val colors = MaterialTheme.colorScheme
+        // `tour5/02-admin` A (N4 A): « 2 en attente », « 1 nom à valider », one under the other.
+        val lines =
+            listOfNotNull(
+                if (waiting > 0) pluralStringResource(R.plurals.op_tile_admin_waiting, waiting, waiting) else null,
+                if (names > 0) pluralStringResource(R.plurals.op_tile_names, names, names) else null,
+            )
         Tile(
             icon = OperationIcons.ManageAccounts,
             title = adminTitle,
-            subtitle =
-                if (waiting > 0) {
-                    pluralStringResource(R.plurals.op_tile_admin_waiting, waiting, waiting)
-                } else {
-                    stringResource(R.string.op_tile_admin_roles)
-                },
-            back = if (waiting > 0) colors.tertiaryContainer else MaterialTheme.toolMap.panel,
-            fore = if (waiting > 0) colors.onTertiaryContainer else colors.onSurface,
+            subtitle = if (pending) lines.joinToString("\n") else stringResource(R.string.op_tile_admin_roles),
+            back = if (pending) colors.tertiaryContainer else MaterialTheme.toolMap.panel,
+            fore = if (pending) colors.onTertiaryContainer else colors.onSurface,
             enabled = true,
             onClick = onAdmin,
             modifier = modifier,
@@ -637,6 +673,7 @@ private fun WaitingPage(
     facts: OperationFacts,
     extras: Extras,
     nav: OperationNav,
+    snackbar: SnackbarHostState,
     onClose: () -> Unit,
 ) {
     val self = facts.self ?: return
@@ -650,6 +687,7 @@ private fun WaitingPage(
                 actions = { OperationMenu(session, facts, nav) },
             )
         },
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
@@ -661,7 +699,7 @@ private fun WaitingPage(
                     rich(
                         stringResource(
                             R.string.op_group_deleted_banner,
-                            stringResource(R.string.op_group_display, deleted.group),
+                            deleted.group,
                         ),
                     ),
                     BoxTone.ORANGE,
@@ -670,30 +708,40 @@ private fun WaitingPage(
             GroupBlock(
                 rows =
                     listOf({
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 72.dp)
-                                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            OpToken(facts.token(self), 48.dp)
-                            Column(Modifier.weight(1f).padding(start = 14.dp, end = 8.dp)) {
-                                Text(
-                                    stringResource(R.string.op_my_position),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                )
-                                Text(
-                                    stringResource(R.string.op_my_position_sub, memberName(facts, self)),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                        Column {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 72.dp)
+                                    .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                OpToken(facts.token(self), 48.dp)
+                                Column(Modifier.weight(1f).padding(start = 14.dp, end = 8.dp)) {
+                                    Text(
+                                        stringResource(R.string.op_my_position),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                    )
+                                    Text(
+                                        stringResource(R.string.op_my_position_sub, memberName(facts, self)),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                // `tour5/04-attente-nom` (N11 B): the pencil of its name instead of the lock.
+                                if (facts.mayChangeOwnName) {
+                                    OwnNamePencil { session.sheet(OpSheet.MyName) }
+                                } else {
+                                    Icon(
+                                        Icons.Filled.Lock,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
-                            Icon(
-                                Icons.Filled.Lock,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            facts.myNameRequest?.let { request ->
+                                PendingNameLine(request, facts.serverUp, onCancel = session::withdrawNameRequest)
+                            }
                         }
                     }),
             )
@@ -1021,15 +1069,17 @@ private fun InOperationNotices(
 ) {
     val notice =
         extras.notices.firstOrNull {
-            it is Notice.Unassigned || it is Notice.Creator || it is Notice.GroupChief || it is Notice.OperationChief
+            it is Notice.Unassigned || it is Notice.Creator || it is Notice.GroupChief || it is Notice.OperationChief ||
+                it is Notice.NameRefused || it is Notice.AlreadyAnswered
         } ?: return
+    val named = nameNoticeText(notice)
     val (icon, title, text) =
         when (notice) {
             is Notice.Unassigned -> {
                 Triple(
                     OperationIcons.Hourglass,
                     stringResource(R.string.op_again_title),
-                    stringResource(R.string.op_again_text, stringResource(R.string.op_group_display, notice.group)),
+                    stringResource(R.string.op_again_text, notice.group),
                 )
             }
 
@@ -1050,7 +1100,7 @@ private fun InOperationNotices(
                     Icons.Filled.Star,
                     stringResource(
                         R.string.op_you_chief_title,
-                        stringResource(R.string.op_group_display, notice.group),
+                        notice.group,
                     ),
                     stringResource(R.string.op_you_chief_text, notice.former),
                 )
@@ -1064,6 +1114,14 @@ private fun InOperationNotices(
                 )
             }
 
+            is Notice.NameRefused, is Notice.AlreadyAnswered -> {
+                Triple(
+                    if (notice is Notice.NameRefused) OperationIcons.Edit else OperationIcons.Info,
+                    named?.first.orEmpty(),
+                    named?.second?.text.orEmpty(),
+                )
+            }
+
             else -> {
                 return
             }
@@ -1073,7 +1131,7 @@ private fun InOperationNotices(
         onDismissRequest = { session.consume(notice) },
         icon = { Icon(icon, contentDescription = null) },
         title = { Text(title, textAlign = TextAlign.Center) },
-        text = { Text(text) },
+        text = { Text(named?.second ?: androidx.compose.ui.text.AnnotatedString(text)) },
         confirmButton = {
             TextButton(onClick = { session.consume(notice) }) { Text(stringResource(R.string.action_ok)) }
         },

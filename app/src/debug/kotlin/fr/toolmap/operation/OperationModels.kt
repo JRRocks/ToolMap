@@ -101,7 +101,7 @@ class OperationFacts(
     /** The name of [id], `null` while this phone does not know it. */
     fun name(id: Long): String? = byId[id]?.name ?: selfName?.takeIf { id == self }
 
-    /** The name of a group as this phone knows it (« Nord »); the screens write « Groupe Nord ». */
+    /** The name of a group as this phone knows it (« Nord »), written alone in lists and menus (N0, 2026-11-16). */
     fun groupName(id: Long): String? = view.groups.firstOrNull { it.id == id }?.name
 
     fun groupOf(member: Long): Long? = state?.members?.get(member)?.group

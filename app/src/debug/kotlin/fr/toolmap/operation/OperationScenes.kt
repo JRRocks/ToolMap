@@ -56,6 +56,8 @@ object OperationScenes {
 
     private fun page(vararg pages: OpPage) = OperationNav(pages = listOf(OpPage.Main) + pages)
 
+    private fun sudPage(s: OperationSession) = page(OpPage.Admin, OpPage.GroupPage(s.groupOf("Sud") ?: 0L))
+
     private val SCENES: List<Scene> =
         listOf(
             // Entry and creation.
@@ -196,6 +198,26 @@ object OperationScenes {
                     page(OpPage.Admin, OpPage.GroupPage(ouest)).copy(dialog = OpDialog.DeleteGroup(ouest))
                 }
             },
+            // Renaming (P39.13, `tour5`).
+            Scene("tour5-02-membre-A") { at(5) { s -> sudPage(s).copy(sheet = s.member(11)?.let(OpSheet::Member)) } },
+            Scene("tour5-02-membre-feuille") {
+                at(5) { s -> sudPage(s).copy(sheet = s.member(11)?.let(OpSheet::RenameMember)) }
+            },
+            Scene("tour5-02-groupe-A") {
+                at(5) { s -> page(OpPage.Admin, OpPage.GroupPage(s.groupOf("Ouest") ?: 0L)) }
+            },
+            Scene("tour5-02-groupe-B-feuille") {
+                at(5) { s ->
+                    val ouest = s.groupOf("Ouest") ?: 0L
+                    page(OpPage.Admin, OpPage.GroupPage(ouest)).copy(sheet = OpSheet.EditGroup(ouest))
+                }
+            },
+            Scene("tour5-02-demande-B") { at(7) },
+            Scene("tour5-02-demande-feuille") { at(7) { OperationNav(sheet = OpSheet.MyName) } },
+            Scene("tour5-02-demande-B-admin") { at(5) { OperationNav(sheet = OpSheet.MyName) } },
+            Scene("tour5-02-operation-A") { at(1) { OperationNav(menu = true) } },
+            Scene("tour5-02-operation-feuille") { at(1) { OperationNav(sheet = OpSheet.RenameOperation) } },
+            Scene("tour5-04-attente-nom") { at(21) { OperationNav(sheet = OpSheet.MyName) } },
             // Leaving.
             Scene("tour4-11-quitter-texte-membre") { at(7) { OperationNav(dialog = OpDialog.Quit) } },
             Scene("tour3-09-chef-quitte") { at(4) { OperationNav(dialog = OpDialog.Quit) } },
@@ -258,6 +280,26 @@ object OperationScenes {
                 told && at(5)
             },
             Scene("tour2-08-successeur-autres", changes = true) { at(7) },
+            Scene("tour5-02-attente-A", changes = true) {
+                val seven = member(7)
+                demoSeat(7)?.requestName("Guide 7")
+                val seen = {
+                    demoSeat(5)?.view?.value?.nameRequests.orEmpty().any { it.member == seven && it.requested != null }
+                }
+                waitFor(seen) && at(7)
+            },
+            Scene("tour5-02-admin-A", changes = true) { at(5) },
+            Scene("tour5-02-admin-A-administrer", changes = true) { at(5) { page(OpPage.Admin) } },
+            Scene("tour5-02-admin-valider-A", changes = true) { at(5) { page(OpPage.Admin, OpPage.NameRequests) } },
+            Scene("tour5-04-attente-nom-demande", changes = true) {
+                demoSeat(21)?.requestName("Pierre D.")
+                waitFor { demoSeat(21)?.view?.value?.nameRequests?.isNotEmpty() == true } && at(21)
+            },
+            Scene("tour5-02-attente-accepte", changes = true) {
+                forgetNotices(7)
+                member(7)?.let { demoSeat(5)?.answerName(it, accept = true) }
+                waitFor { noticesOf(7).any { it is Notice.NameAccepted } } && at(7)
+            },
             Scene("tour2-08-dissolution-autres", changes = true) {
                 forgetNotices(7)
                 demoSeat(5)?.dissolve()

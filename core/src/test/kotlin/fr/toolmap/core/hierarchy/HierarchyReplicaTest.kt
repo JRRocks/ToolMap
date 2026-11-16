@@ -688,7 +688,7 @@ class HierarchyReplicaTest {
         val group = state.groups.keys.takeIf { known }?.randomOrNull(random) ?: groupPool.random(random)
         val unit = if (random.nextInt(3) == 0) ROOT else group
         val post = if (random.nextBoolean()) Post.LEADER else Post.DEPUTY
-        return when (random.nextInt(40)) {
+        return when (random.nextInt(46)) {
             0, 1, 2, 3 -> {
                 admit(memberPool.random(random), "Membre ${random.nextInt(4)}")
             }
@@ -748,6 +748,33 @@ class HierarchyReplicaTest {
             // Rare: once it applies nothing else does.
             38 -> {
                 if (random.nextInt(5) == 0) Change.Dissolve else Change.AssignMember(member, group)
+            }
+
+            // The names (2026-11-16): a request applies only when its author is the member, an answer only to the
+            // request pending now.
+            40 -> {
+                Change.RenameMember(member, hidden("Nom ${random.nextInt(4)}"))
+            }
+
+            41, 42 -> {
+                Change.RequestName(member, hidden("Nom ${random.nextInt(4)}"))
+            }
+
+            43 -> {
+                Change.WithdrawName(member)
+            }
+
+            44 -> {
+                val pending = state.nameRequests.entries.takeIf { known }?.randomOrNull(random)
+                if (pending != null) {
+                    Change.AnswerName(pending.key, pending.value, random.nextBoolean())
+                } else {
+                    Change.AnswerName(member, hidden("Nom ${random.nextInt(4)}"), random.nextBoolean())
+                }
+            }
+
+            45 -> {
+                Change.RenameEnsemble(hidden("Sortie ${random.nextInt(3)}"))
             }
 
             else -> {
@@ -880,6 +907,11 @@ class HierarchyReplicaTest {
                 Change.ClearPost::class,
                 Change.TransferCreator::class,
                 Change.Dissolve::class,
+                Change.RenameMember::class,
+                Change.RequestName::class,
+                Change.WithdrawName::class,
+                Change.AnswerName::class,
+                Change.RenameEnsemble::class,
             )
         assertEquals(expected, seen.toSet(), "kinds of change applied")
         assertTrue(dissolved > 0, "some runs end dissolved")
@@ -892,6 +924,7 @@ class HierarchyReplicaTest {
                 Rejection.NOT_AN_ADMIN,
                 Rejection.NOT_A_MEMBER,
                 Rejection.TOO_MANY,
+                Rejection.NOT_PENDING,
             )
         assertTrue(refusals.containsAll(reasons), "refusals seen: $refusals")
     }

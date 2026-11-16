@@ -131,8 +131,17 @@ object SimOracle {
             val leadsGroup = commandsGroup(s, m)
             val all = commandsAll(s, m)
             when (kind) {
-                ShareKind.POSITION, ShareKind.ROSTER -> {
+                ShareKind.POSITION -> {
                     wanted += Channel.ENSEMBLE
+                }
+
+                ShareKind.ROSTER -> {
+                    wanted += Channel.ENSEMBLE
+                    // 2026-11-16: the creator and the administrators tell who waits the names it may know (the
+                    // operation's after a rename, its own), in its lane.
+                    if (m == s.creator || m in s.admins) {
+                        for (w in s.members.keys) if (waiting(s, w)) wanted += Channel.waiting(w)
+                    }
                 }
 
                 ShareKind.SKETCH, ShareKind.WAYPOINT -> {
@@ -194,19 +203,23 @@ object SimOracle {
         return access(s, target)
     }
 
-    /** § 8.8 and T14: every name with the access; the operation's and its own while waiting; none otherwise. */
+    /**
+     * § 8.8 and T14: every name with the access; the operation's and its own while waiting; none otherwise. The
+     * names of a member (2026-11-16): its name, the one it asked for while nobody answered, the last one answered.
+     */
     fun namesFor(
         s: HierarchyState,
         m: Long,
     ): Set<HiddenName> {
+        fun own(x: Long) = setOfNotNull(s.members[x]?.name, s.nameRequests[x], s.nameAnswers[x]?.name)
         if (access(s, m)) {
             val all = LinkedHashSet<HiddenName>()
             s.name?.let(all::add)
             s.groups.values.mapTo(all) { it.name }
-            s.members.values.mapTo(all) { it.name }
+            for (x in s.members.keys) all.addAll(own(x))
             return all
         }
-        if (!s.dissolved && waiting(s, m)) return setOfNotNull(s.name, s.members[m]?.name)
+        if (!s.dissolved && waiting(s, m)) return setOfNotNull(s.name) + own(m)
         return emptySet()
     }
 

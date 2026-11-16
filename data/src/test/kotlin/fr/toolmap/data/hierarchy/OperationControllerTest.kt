@@ -275,6 +275,98 @@ class OperationControllerTest {
         }
 
     @Test
+    fun `names - requests, answers, direct renames and a renamed operation, as the screens see them`() =
+        runBlocking {
+            val relay = MemoryServer()
+            val a = phone("a", relay)
+            val b = phone("b", relay)
+            val c = phone("c", relay)
+            a.create("Opération Vercors", "Alice")
+            val before = assertNotNull(a.invitationLink())
+            b.join(before, "Bruno")
+            settle(a, b)
+            assertNull(a.admit(a.view.value.joinRequests.single().member))
+            settle(a, b)
+            val aId = a.view.value.self!!
+            val bId = b.view.value.self!!
+            assertEquals(OperationPhase.WAITING, b.view.value.phase)
+
+            // B, waiting, asks; blank names are refused before anything is written.
+            assertEquals(Rejection.MALFORMED, b.requestName("   "))
+            assertNull(b.requestName("  Bruno B "))
+            settle(a, b)
+            val asked = a.view.value.nameRequests.single()
+            assertEquals(bId, asked.member)
+            assertEquals("Bruno B", asked.requested)
+            assertTrue(asked.seenAtMs > 0)
+            assertEquals(asked.copy(seenAtMs = 0), b.view.value.nameRequests.single().copy(seenAtMs = 0))
+            assertEquals("Bruno", a.view.value.members.first { it.id == bId }.name, "the old name stays")
+            // B may neither rename nor answer.
+            assertEquals(Rejection.FORBIDDEN, b.renameMember(aId, "Alicia"))
+            assertEquals(Rejection.FORBIDDEN, b.renameOperation("Opération pirate"))
+            assertEquals(Rejection.FORBIDDEN, b.answerName(bId, accept = true))
+
+            // A refuses: both see the answer; a second answer has nothing left to answer.
+            assertNull(a.answerName(bId, accept = false))
+            assertEquals(Rejection.NOT_PENDING, a.answerName(bId, accept = true))
+            settle(a, b)
+            val refused = NameAnswerView(bId, aId, "Bruno B", accepted = false)
+            assertEquals(refused, a.view.value.nameAnswers[bId])
+            assertEquals(refused, b.view.value.nameAnswers[bId])
+            assertTrue(a.view.value.nameRequests.isEmpty())
+
+            // B asks again (the answer goes), then takes it back.
+            assertNull(b.requestName("Bruno C"))
+            settle(a, b)
+            assertEquals("Bruno C", a.view.value.nameRequests.single().requested)
+            assertTrue(a.view.value.nameAnswers.isEmpty(), "a new request clears the last answer")
+            assertNull(b.withdrawNameRequest())
+            assertEquals(Rejection.NOT_PENDING, b.withdrawNameRequest())
+            settle(a, b)
+            assertTrue(a.view.value.nameRequests.isEmpty() && b.view.value.nameRequests.isEmpty())
+
+            // A renames B at once (trimmed), then the operation: B, still waiting, learns both.
+            assertEquals(Rejection.MALFORMED, a.renameMember(bId, " "))
+            assertNull(a.renameMember(bId, "  Bruno Z "))
+            assertNull(a.renameOperation("Opération Chartreuse"))
+            settle(a, b)
+            assertEquals("Bruno Z", a.view.value.members.first { it.id == bId }.name)
+            assertEquals("Bruno Z", b.view.value.members.first { it.id == bId }.name)
+            assertEquals("Opération Chartreuse", b.view.value.operationName)
+            assertEquals("Opération Chartreuse", a.preview(a.invitationLink()!!)?.operationName)
+
+            // C comes in with the invitation given before the rename: the former name until it is in.
+            assertEquals("Opération Vercors", c.preview(before)?.operationName)
+            assertEquals(StartResult.STARTED, c.join(before, "Chloé"))
+            settle(a, b, c)
+            assertEquals(OperationPhase.ASKING, c.view.value.phase)
+            assertEquals("Opération Vercors", c.view.value.operationName)
+            val cId = a.view.value.joinRequests.single().member
+            assertNull(a.admit(cId))
+            settle(a, b, c)
+            assertEquals(OperationPhase.WAITING, c.view.value.phase)
+            assertEquals("Opération Chartreuse", c.view.value.operationName)
+
+            // Placed, B and C are plain members: each sees its own request and answer, not the other's.
+            val group = a.createGroup("Nord").first!!
+            assertNull(a.place(bId, group))
+            assertNull(a.place(cId, group))
+            settle(a, b, c)
+            assertNull(b.requestName("Bruno Y"))
+            settle(a, b, c)
+            assertEquals(listOf("Bruno Y"), a.view.value.nameRequests.map { it.requested })
+            assertEquals(listOf("Bruno Y"), b.view.value.nameRequests.map { it.requested })
+            assertTrue(c.view.value.nameRequests.isEmpty(), "C does not see B's request")
+            assertNull(a.answerName(bId, accept = true))
+            settle(a, b, c)
+            val accepted = NameAnswerView(bId, aId, "Bruno Y", accepted = true)
+            assertEquals(accepted, a.view.value.nameAnswers[bId])
+            assertEquals(accepted, b.view.value.nameAnswers[bId])
+            assertTrue(c.view.value.nameAnswers.isEmpty(), "C does not see B's answer")
+            for (p in listOf(a, b, c)) assertEquals("Bruno Y", p.view.value.members.first { it.id == bId }.name)
+        }
+
+    @Test
     fun `without a server the operation lives on this phone and gives no invitation`() =
         runBlocking {
             val a =

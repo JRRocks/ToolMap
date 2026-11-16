@@ -146,6 +146,7 @@ class OperationNarrowScreensTest {
         session.at("operation chief", 5, page(OpPage.Admin, OpPage.OperationChief))
         session.at("admins 1", 1, page(OpPage.Admin, OpPage.Admins))
         session.at("admins 5", 5, page(OpPage.Admin, OpPage.Admins))
+        session.at("name requests", 5, page(OpPage.Admin, OpPage.NameRequests))
         // The sheets.
         val sheets =
             listOf(
@@ -162,6 +163,10 @@ class OperationNarrowScreensTest {
                 1 to OpSheet.Member(session.member(11)),
                 5 to OpSheet.Member(session.member(11)),
                 5 to OpSheet.Member(session.member(10)),
+                5 to OpSheet.RenameMember(session.member(11)),
+                7 to OpSheet.MyName,
+                5 to OpSheet.MyName,
+                1 to OpSheet.RenameOperation,
             )
         for ((n, sheet) in sheets) session.at("sheet $sheet ($n)", n, OperationNav(sheet = sheet))
         // The windows.

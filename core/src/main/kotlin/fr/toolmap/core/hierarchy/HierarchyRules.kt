@@ -82,6 +82,18 @@ enum class Operation(
     NAME_ENSEMBLE_DEPUTY(13),
     TRANSFER_CREATOR(14),
     DISSOLVE(15),
+
+    /** Giving a member a new name at once ([Change.RenameMember]). */
+    RENAME_MEMBER(16),
+
+    /** Asking for a new name, or taking the request back ([Change.RequestName], [Change.WithdrawName]). */
+    REQUEST_NAME(17),
+
+    /** Accepting or refusing a request of a new name ([Change.AnswerName]). */
+    ANSWER_NAME(18),
+
+    /** Giving the ensemble itself a new name ([Change.RenameEnsemble]). */
+    RENAME_ENSEMBLE(19),
     ;
 
     companion object {
@@ -183,6 +195,9 @@ class RightsTable private constructor(
                 Operation.NAME_GROUP_DEPUTY,
                 Operation.NAME_ENSEMBLE_LEADER,
                 Operation.NAME_ENSEMBLE_DEPUTY,
+                Operation.RENAME_MEMBER,
+                Operation.ANSWER_NAME,
+                Operation.RENAME_ENSEMBLE,
             )
 
         /** What only the creator decides: the administrators, who is put out, its own succession, the end. */
@@ -200,12 +215,16 @@ class RightsTable private constructor(
          * administrators and is the only one who puts a member out; the administrators (and the creator) admit,
          * make the groups, assign and name to every post; a member may leave by itself and nothing else. The
          * leaders have no right over the hierarchy: what they have more is what they may share ([ShareTable]).
+         * The answers of 2026-11-16 (names): the creator and the administrators rename any member, themselves and
+         * the ensemble, and answer the requests of a new name; every other member, the leaders and who waits
+         * included, only asks for its own.
          */
         val DEFAULT: RightsTable =
             (ADMINISTRATION + CREATION)
                 .fold(NONE) { table, op -> table.with(op, Role.CREATOR, Reach.ANYONE) }
                 .let { ADMINISTRATION.fold(it) { table, op -> table.with(op, Role.ADMIN, Reach.ANYONE) } }
                 .with(Operation.REMOVE_MEMBER, Role.MEMBER, Reach.SELF)
+                .with(Operation.REQUEST_NAME, Role.MEMBER, Reach.SELF)
     }
 }
 
@@ -348,10 +367,16 @@ enum class ShareReach(
 
     /** The author's own waiting lane ([Lane.WAITING]): to the administrators, while it waits for a group. */
     WAITING(64),
+
+    /**
+     * The waiting lane of another member ([Lane.WAITING]), for who reads it (the administrators and the creator):
+     * to tell the one who waits a name it may know (the ensemble's after a rename, its own).
+     */
+    WAITING_LANES(128),
     ;
 
     companion object {
-        internal const val ALL_BITS = 127
+        internal const val ALL_BITS = 255
     }
 }
 
@@ -453,6 +478,9 @@ class ShareTable private constructor(
                 // Names go to everyone who has a group or a post; the name of someone who waits, to the administrators.
                 .with(ShareKind.ROSTER, Role.MEMBER, ShareReach.ENSEMBLE)
                 .with(ShareKind.ROSTER, Role.WAITING, ShareReach.WAITING)
+                // 2026-11-16: who waits learns the new name of the ensemble, and its own, in its lane.
+                .with(ShareKind.ROSTER, Role.ADMIN, ShareReach.WAITING_LANES)
+                .with(ShareKind.ROSTER, Role.CREATOR, ShareReach.WAITING_LANES)
                 .let { table ->
                     ENSEMBLE_VOICES.fold(table) { t, role ->
                         // S2: they alone send to the whole ensemble; Q15: or to one precise group.

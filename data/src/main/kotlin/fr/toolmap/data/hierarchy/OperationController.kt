@@ -4,6 +4,7 @@ import fr.toolmap.core.hierarchy.Change
 import fr.toolmap.core.hierarchy.Channel
 import fr.toolmap.core.hierarchy.DissolutionAnnouncer
 import fr.toolmap.core.hierarchy.DissolutionTrace
+import fr.toolmap.core.hierarchy.HiddenName
 import fr.toolmap.core.hierarchy.HierarchySnapshot
 import fr.toolmap.core.hierarchy.HierarchyState
 import fr.toolmap.core.hierarchy.IssueResult
@@ -131,6 +132,27 @@ data class ShareTargets(
     val alertReaders: List<Long>,
 )
 
+/**
+ * A request of a new name nobody answered yet (2026-11-16), as the creator, the administrators and the one who asked
+ * see it: [requested] is `null` while this phone does not hold its card; [seenAtMs] is when this phone first saw it.
+ */
+data class NameRequestView(
+    val member: Long,
+    val requested: String?,
+    val seenAtMs: Long,
+)
+
+/**
+ * The last answer to the request of a new name of [member]: who answered ([by]), which name ([name], `null` while
+ * this phone does not hold its card), accepted or refused. Kept until the member asks again.
+ */
+data class NameAnswerView(
+    val member: Long,
+    val by: Long,
+    val name: String?,
+    val accepted: Boolean,
+)
+
 /** A change this phone wrote that the others' operations made lose afterwards ([fr.toolmap.core.hierarchy.HierarchyReplica.history]). */
 data class RefusedChange(
     val seq: Int,
@@ -152,6 +174,16 @@ data class OperationView(
     val members: List<MemberView> = emptyList(),
     val groups: List<GroupView> = emptyList(),
     val joinRequests: List<JoinRequestView> = emptyList(),
+    /**
+     * The requests of a new name nobody answered yet, oldest first: all of them for the creator and the
+     * administrators (who answer them), this phone's own for anyone else.
+     */
+    val nameRequests: List<NameRequestView> = emptyList(),
+    /**
+     * The last answer to each member's request of a new name, by member: all of them for the creator and the
+     * administrators (an answer that came too late shows who answered first), this phone's own for anyone else.
+     */
+    val nameAnswers: Map<Long, NameAnswerView> = emptyMap(),
     /** The last position of each member this phone may see, by member. */
     val positions: Map<Long, ReceivedPosition> = emptyMap(),
     /** The messages of each thread this phone reads, oldest first; its own included. */
@@ -225,6 +257,8 @@ data class InvitationPreview(
  * - Start: [create], [join] (with an invitation), [open] (a stored one, [ids]).
  * - Let in and place: [view] `.joinRequests`, [admit], [decline], [createGroup], [renameGroup], [deleteGroup],
  *   [place], [unassign], [setPost], [clearPost], [addAdmin], [removeAdmin], [removeMember], [check] to grey a button.
+ * - Names (2026-11-16): [renameMember] and [renameOperation] (the creator and the administrators), [requestName] and
+ *   [withdrawNameRequest] (the others), [answerName]; [view] `.nameRequests` and `.nameAnswers`.
  * - Invite: [invitationLink], [invitationQr], [renewInvitation] (also done by itself when someone leaves).
  * - Leave: [leave] (refused for the creator: [handOverAndLeave] or [dissolve]).
  * - Share: [sendPosition], [sendMessage], [sendAlert], [liftAlert], [putObject], [removeObject], where
@@ -280,6 +314,12 @@ class OperationController(
         /** The messages of the threads: stored, read back at [open] (R2). */
         val messages = MessageLog(contents.ensembleId)
         val alerts = LinkedHashMap<Long, ReceivedAlert>()
+
+        /**
+         * When this phone first saw each request of a new name pending now, by member ([NameRequestView.seenAtMs]).
+         * In memory: after a restart, a request still pending counts as seen when the operation opened again.
+         */
+        val nameRequestsSeen = HashMap<Long, Pair<HiddenName, Long>>()
         var saveDue = false
         var messagesDue = false
         var ended: Ending? = null
@@ -715,6 +755,64 @@ class OperationController(
             }.rejection()
         }
 
+    /**
+     * Gives [member] the name [name] at once (the creator and the administrators, for anyone and for themselves:
+     * 2026-11-16); a request of that member nobody answered goes. [Rejection.MALFORMED] for a name the format
+     * refuses (it is trimmed first).
+     */
+    suspend fun renameMember(
+        member: Long,
+        name: String,
+    ): Rejection? = issueNamed(name) { _, hidden -> Change.RenameMember(member, hidden) }
+
+    /**
+     * Asks for the new name [name] for this phone (everyone but the creator and the administrators, who rename
+     * themselves: [renameMember]); it replaces a request of before nobody answered. The name does not change until
+     * the creator or an administrator accepts it ([OperationView.nameAnswers] says what became of it).
+     */
+    suspend fun requestName(name: String): Rejection? =
+        issueNamed(name) { n, hidden -> Change.RequestName(n.self, hidden) }
+
+    /** Takes back this phone's request of a new name while nobody answered it ([Rejection.NOT_PENDING] if none). */
+    suspend fun withdrawNameRequest(): Rejection? =
+        onNode(Rejection.NO_ENSEMBLE) { n -> n.issue(Change.WithdrawName(n.self)).rejection() }
+
+    /**
+     * Accepts or refuses the request of a new name [member] has pending now. [Rejection.NOT_PENDING] when there is
+     * none any more (someone answered first: [OperationView.nameAnswers] says who and what, or it was taken back).
+     * An answer written here may still lose against another one written at the same moment elsewhere: then it shows
+     * in [OperationView.refused] with [Rejection.NOT_PENDING].
+     */
+    suspend fun answerName(
+        member: Long,
+        accept: Boolean,
+    ): Rejection? =
+        onNode(Rejection.NO_ENSEMBLE) { n ->
+            val pending = n.state.nameRequests[member] ?: return@onNode Rejection.NOT_PENDING
+            n.issue(Change.AnswerName(member, pending, accept)).rejection()
+        }
+
+    /**
+     * Gives the operation itself the name [name] (the creator and the administrators). Invitations given before
+     * stay valid and show the former name until the phone is let in; who waits for a group learns the new one.
+     */
+    suspend fun renameOperation(name: String): Rejection? =
+        issueNamed(name) { _, hidden -> Change.RenameEnsemble(hidden) }
+
+    /** Hides [name] (trimmed), writes the change [build] makes with it, then keeps and shares its card. */
+    private suspend fun issueNamed(
+        name: String,
+        build: (OperationNode, HiddenName) -> Change,
+    ): Rejection? =
+        onNode(Rejection.NO_ENSEMBLE) { n ->
+            val trimmed = name.trim()
+            if (!Names.valid(trimmed)) return@onNode Rejection.MALFORMED
+            val card = Names.hide(trimmed, random)
+            n.issue(build(n, card.hidden)).also {
+                if (it is IssueResult.Issued) n.learnAndShare(card)
+            }.rejection()
+        }
+
     suspend fun deleteGroup(group: Long) = change(Change.DeleteGroup(group))
 
     suspend fun place(
@@ -964,6 +1062,30 @@ class OperationController(
                 state.isWaiting(self) -> OperationPhase.WAITING
                 else -> OperationPhase.PLACED
             }
+        // The requests of a new name: when this phone first saw each one; the creator and the administrators see
+        // all of them and the answers, anyone else its own (2026-11-16).
+        val now = clock()
+        r.nameRequestsSeen.keys.retainAll(state.nameRequests.keys)
+        for ((member, requested) in state.nameRequests) {
+            if (r.nameRequestsSeen[member]?.first != requested) r.nameRequestsSeen[member] = requested to now
+        }
+        val answers = self == state.creator || self in state.admins
+        val nameRequests =
+            state.nameRequests
+                .filterKeys { answers || it == self }
+                .map { (member, requested) ->
+                    NameRequestView(member, n.names.nameOf(requested), r.nameRequestsSeen[member]?.second ?: now)
+                }.sortedWith { a, b ->
+                    if (a.seenAtMs != b.seenAtMs) {
+                        a.seenAtMs.compareTo(b.seenAtMs)
+                    } else {
+                        java.lang.Long.compareUnsigned(a.member, b.member)
+                    }
+                }
+        val nameAnswers =
+            state.nameAnswers
+                .filterKeys { answers || it == self }
+                .mapValues { (member, a) -> NameAnswerView(member, a.by, n.names.nameOf(a.name), a.accepted) }
         mutableView.value =
             OperationView(
                 phase = phase,
@@ -975,6 +1097,8 @@ class OperationController(
                 members = members,
                 groups = groups,
                 joinRequests = n.pendingJoins.map { JoinRequestView(it.member, it.card?.name, it.receivedAtMs) },
+                nameRequests = nameRequests,
+                nameAnswers = nameAnswers,
                 positions = r.positions.toMap(),
                 threads =
                     r.messages.threads().mapValues { (_, list) ->

@@ -25,6 +25,11 @@ data class Summary(
  * share, the role of who waits, the wider share reaches and the succession of the deputy. Versions 1 to 3 were
  * never deployed (private design branch): they are not read, a block of another version is refused as such.
  *
+ * Still version 4, 2026-11-16 (names): five changes more (codes 15 to 19: rename a member, ask for a name, take the
+ * request back, answer it, rename the ensemble), the rights and shares that go with them in the rules of a new
+ * ensemble, and a state block that ends with the requests of a name and the last answers when it has some. A block
+ * written before reads the same; a phone of before refuses the operations of a new ensemble (unknown rules).
+ *
  * Decoding refuses with a [WireException], and nothing else, whatever the bytes: truncated, too long, unknown codes,
  * or an operation not written the one way this version writes it (the proof of an operation signs its exact bytes).
  */
@@ -137,6 +142,16 @@ object HierarchyWire {
         }
         w.u16(state.deletedGroups.size)
         for (id in state.deletedGroups.sortedWith(UNSIGNED)) w.u64(id)
+        // The requests of a new name and the last answers (2026-11-16), only when there is one: a state without
+        // them is written as before, and a block written before reads as a state without them.
+        if (state.nameRequests.isNotEmpty() || state.nameAnswers.isNotEmpty()) {
+            w.u16(state.nameRequests.size)
+            for ((id, requested) in state.nameRequests.entries.sortedWith(BY_KEY)) name(w.u64(id), requested)
+            w.u16(state.nameAnswers.size)
+            for ((id, answer) in state.nameAnswers.entries.sortedWith(BY_KEY)) {
+                name(w.u64(id).u64(answer.by), answer.name).u8(if (answer.accepted) 1 else 0)
+            }
+        }
         return w.toByteArray()
     }
 
@@ -175,6 +190,32 @@ object HierarchyWire {
         }
         val deleted = LinkedHashSet<Long>()
         repeat(r.u16()) { if (!deleted.add(r.u64())) throw WireException("bad deleted group") }
+        val requests = LinkedHashMap<Long, HiddenName>()
+        val answers = LinkedHashMap<Long, NameAnswer>()
+        if (r.remaining != 0) {
+            val requestCount = r.u16()
+            if (requestCount > HierarchyLimits.FORMAT_MAX_MEMBERS) throw WireException("too many requests of a name")
+            repeat(requestCount) {
+                val id = r.u64()
+                if (requests.put(id, readName(r)) != null) throw WireException("bad request of a name")
+            }
+            val answerCount = r.u16()
+            if (answerCount > HierarchyLimits.FORMAT_MAX_MEMBERS) throw WireException("too many answers")
+            repeat(answerCount) {
+                val id = r.u64()
+                val by = r.u64()
+                val answered = readName(r)
+                val accepted =
+                    when (r.u8()) {
+                        0 -> false
+                        1 -> true
+                        else -> throw WireException("bad answer")
+                    }
+                if (answers.put(id, NameAnswer(by, answered, accepted)) != null) throw WireException("bad answer")
+            }
+            // Written only when there is one: an empty tail is not the one form of a state.
+            if (requests.isEmpty() && answers.isEmpty()) throw WireException("empty requests of a name")
+        }
         if (r.remaining != 0) throw WireException("trailing data")
         val state =
             HierarchyState(
@@ -189,6 +230,8 @@ object HierarchyWire {
                 groups = groups,
                 deletedGroups = deleted,
                 dissolved = flags and DISSOLVED != 0,
+                nameRequests = requests,
+                nameAnswers = answers,
             )
         state.inconsistency()?.let { throw WireException("inconsistent state: $it") }
         return state
@@ -275,6 +318,11 @@ object HierarchyWire {
             is Change.ClearPost -> w.u8(CLEAR_POST).u64(c.unit).u8(c.post.code)
             is Change.TransferCreator -> w.u8(TRANSFER_CREATOR).u64(c.member)
             Change.Dissolve -> w.u8(DISSOLVE)
+            is Change.RenameMember -> name(w.u8(RENAME_MEMBER).u64(c.member), c.name)
+            is Change.RequestName -> name(w.u8(REQUEST_NAME).u64(c.member), c.name)
+            is Change.WithdrawName -> w.u8(WITHDRAW_NAME).u64(c.member)
+            is Change.AnswerName -> name(w.u8(ANSWER_NAME).u64(c.member), c.name).u8(if (c.accept) 1 else 0)
+            is Change.RenameEnsemble -> name(w.u8(RENAME_ENSEMBLE), c.name)
         }
         return w.toByteArray()
     }
@@ -390,6 +438,34 @@ object HierarchyWire {
 
             DISSOLVE -> {
                 Change.Dissolve
+            }
+
+            RENAME_MEMBER -> {
+                val member = r.u64()
+                Change.RenameMember(member, readName(r))
+            }
+
+            REQUEST_NAME -> {
+                val member = r.u64()
+                Change.RequestName(member, readName(r))
+            }
+
+            WITHDRAW_NAME -> {
+                Change.WithdrawName(r.u64())
+            }
+
+            ANSWER_NAME -> {
+                val member = r.u64()
+                val name = readName(r)
+                when (r.u8()) {
+                    0 -> Change.AnswerName(member, name, accept = false)
+                    1 -> Change.AnswerName(member, name, accept = true)
+                    else -> throw WireException("bad answer")
+                }
+            }
+
+            RENAME_ENSEMBLE -> {
+                Change.RenameEnsemble(readName(r))
             }
 
             else -> {
@@ -550,4 +626,11 @@ object HierarchyWire {
     private const val CLEAR_POST = 12
     private const val TRANSFER_CREATOR = 13
     private const val DISSOLVE = 14
+
+    // 2026-11-16, names (same version: a block written before carries none of them and reads as it did).
+    private const val RENAME_MEMBER = 15
+    private const val REQUEST_NAME = 16
+    private const val WITHDRAW_NAME = 17
+    private const val ANSWER_NAME = 18
+    private const val RENAME_ENSEMBLE = 19
 }

@@ -149,6 +149,14 @@ class NameBook {
     @Synchronized
     fun nameOf(hidden: HiddenName?): String? = hidden?.let { cards[it]?.name }
 
+    /** The card that opens [hidden]; `null` when this phone was not told. */
+    @Synchronized
+    fun cardOf(hidden: HiddenName?): NameCard? = hidden?.let { cards[it] }
+
+    /** Of [names], the ones this phone does not know (yet). */
+    @Synchronized
+    fun missingOf(names: Collection<HiddenName>): List<HiddenName> = names.filter { it !in cards }
+
     /** The name of [member] in [state], or `null`. */
     fun nameOf(
         state: HierarchyState,
@@ -186,8 +194,11 @@ class NameBook {
     fun clear() = cards.clear()
 
     companion object {
-        /** More than the names an ensemble can carry: a card may come a little before its operation. */
-        const val MAX_CARDS = 2 * (HierarchyLimits.FORMAT_MAX_MEMBERS + HierarchyLimits.FORMAT_MAX_GROUPS + 1)
+        /**
+         * More than the names an ensemble can carry (three per member: its name, the one it asked for, the last one
+         * answered): a card may come a little before its operation.
+         */
+        const val MAX_CARDS = 2 * (3 * HierarchyLimits.FORMAT_MAX_MEMBERS + HierarchyLimits.FORMAT_MAX_GROUPS + 1)
 
         /** The payload of a [ShareKind.ROSTER] share: `n (2) | n × (salt (16), name)`. */
         fun encode(cards: List<NameCard>): ByteArray {

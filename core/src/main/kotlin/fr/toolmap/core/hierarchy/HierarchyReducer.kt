@@ -54,6 +54,12 @@ enum class Rejection {
     /** Already so: nothing to change. */
     NO_CHANGE,
 
+    /**
+     * No request of a new name waits for this answer or this withdrawal: another answer came first in the order of
+     * the operations, or the member took it back, asked for another one, or was renamed meanwhile.
+     */
+    NOT_PENDING,
+
     /** The limits of the ensemble are reached ([HierarchyLimits.maxMembers], [HierarchyLimits.maxGroups]). */
     TOO_MANY,
 
@@ -176,6 +182,9 @@ object HierarchyReducer {
                         members = state.members - member.id,
                         admins = state.admins - member.id,
                         groups = groupsWithout(state, member),
+                        // Its request of a new name and the last answer it had go with it.
+                        nameRequests = state.nameRequests - member.id,
+                        nameAnswers = state.nameAnswers - member.id,
                     ),
                 )
             }
@@ -304,6 +313,58 @@ object HierarchyReducer {
             Change.Dissolve -> {
                 yes(state.copy(dissolved = true))
             }
+
+            is Change.RenameMember -> {
+                val member = state.members[change.member] ?: return no(Rejection.NO_SUCH_MEMBER)
+                if (member.name == change.name) return no(Rejection.NO_CHANGE)
+                yes(
+                    state.copy(
+                        members = state.members + (member.id to member.copy(name = change.name)),
+                        // Renamed directly: the request nobody answered has no object any more.
+                        nameRequests = state.nameRequests - member.id,
+                    ),
+                )
+            }
+
+            is Change.RequestName -> {
+                val member = state.members[change.member] ?: return no(Rejection.NO_SUCH_MEMBER)
+                if (member.name == change.name || state.nameRequests[member.id] == change.name) {
+                    return no(Rejection.NO_CHANGE)
+                }
+                // A new request replaces the one pending; the last answer is kept only until the next request.
+                yes(
+                    state.copy(
+                        nameRequests = state.nameRequests + (member.id to change.name),
+                        nameAnswers = state.nameAnswers - member.id,
+                    ),
+                )
+            }
+
+            is Change.WithdrawName -> {
+                if (change.member !in state.members) return no(Rejection.NO_SUCH_MEMBER)
+                if (change.member !in state.nameRequests) return no(Rejection.NOT_PENDING)
+                yes(state.copy(nameRequests = state.nameRequests - change.member))
+            }
+
+            is Change.AnswerName -> {
+                val member = state.members[change.member] ?: return no(Rejection.NO_SUCH_MEMBER)
+                // Only the request pending now, with this very name: the first answer in the order decides.
+                if (state.nameRequests[member.id] != change.name) return no(Rejection.NOT_PENDING)
+                val members =
+                    if (change.accept) state.members + (member.id to member.copy(name = change.name)) else state.members
+                yes(
+                    state.copy(
+                        members = members,
+                        nameRequests = state.nameRequests - member.id,
+                        nameAnswers = state.nameAnswers + (member.id to NameAnswer(author, change.name, change.accept)),
+                    ),
+                )
+            }
+
+            is Change.RenameEnsemble -> {
+                if (state.name == change.name) return no(Rejection.NO_CHANGE)
+                yes(state.copy(name = change.name))
+            }
         }
     }
 
@@ -411,11 +472,27 @@ object HierarchyReducer {
                 if (change.post == Post.LEADER) state.leaderOf(change.unit) else state.deputyOf(change.unit)
             }
 
+            is Change.RenameMember -> {
+                change.member
+            }
+
+            is Change.RequestName -> {
+                change.member
+            }
+
+            is Change.WithdrawName -> {
+                change.member
+            }
+
+            is Change.AnswerName -> {
+                change.member
+            }
+
             is Change.CreateEnsemble, is Change.CreateGroup, is Change.RenameGroup, is Change.DeleteGroup -> {
                 null
             }
 
-            Change.Dissolve -> {
+            Change.Dissolve, is Change.RenameEnsemble -> {
                 null
             }
         }
@@ -454,11 +531,28 @@ object HierarchyReducer {
                 state.members[change.member]?.group
             }
 
+            // The group of the member whose name it is: what a table that lets a leader deal with its group reads.
+            is Change.RenameMember -> {
+                state.members[change.member]?.group
+            }
+
+            is Change.RequestName -> {
+                state.members[change.member]?.group
+            }
+
+            is Change.WithdrawName -> {
+                state.members[change.member]?.group
+            }
+
+            is Change.AnswerName -> {
+                state.members[change.member]?.group
+            }
+
             is Change.CreateEnsemble, is Change.AdmitMember, is Change.AddAdmin, is Change.RemoveAdmin -> {
                 null
             }
 
-            is Change.CreateGroup, is Change.TransferCreator, Change.Dissolve -> {
+            is Change.CreateGroup, is Change.TransferCreator, Change.Dissolve, is Change.RenameEnsemble -> {
                 null
             }
         }

@@ -24,14 +24,13 @@
   <string name="op_new_none">Aucun</string>
   <string name="op_new_info">Vous serez le **créateur** et le premier **administrateur**. Vous nommerez ensuite le chef de l\'opération, les chefs de groupe et d\'autres administrateurs.</string>
   <string name="op_new_create">Créer l\'opération et inviter</string>
-  <string name="op_group_display">Groupe %1$s</string>
 
   <!-- « Nouveau groupe », « Modifier le groupe » (tour2/04-admin-groupes) -->
   <string name="op_group_new_title">Nouveau groupe</string>
   <string name="op_group_first">1er groupe sur %1$d</string>
   <string name="op_group_rank">%1$de groupe sur %2$d</string>
   <string name="op_group_name">Nom du groupe</string>
-  <string name="op_group_create">Créer le Groupe %1$s</string>
+  <string name="op_group_create">Créer le groupe %1$s</string>
   <string name="op_group_create_blank">Créer le groupe</string>
   <string name="op_group_edit_title">Modifier le groupe</string>
   <string name="op_group_save">Enregistrer</string>
@@ -105,7 +104,7 @@
   <string name="op_transfer_title">Transmettre le rôle de créateur</string>
   <string name="op_transfer_text">À un administrateur. Il devient créateur aussitôt, sans avoir à accepter, et il en est prévenu.</string>
   <string name="op_admins_count">Administrateurs · %1$d</string>
-  <string name="op_transfer_stay">Vous restez dans l\'opération, dans le %1$s, comme membre.</string>
+  <string name="op_transfer_stay">Vous restez dans l\'opération, dans le groupe %1$s, comme membre.</string>
   <string name="op_transfer_phone">Sans cela, l\'ancien téléphone garderait l\'accès à ce que lit le commandement jusqu\'à la fin de l\'opération, et personne ne pourrait l\'en écarter.</string>
   <string name="op_transfer_button">Transmettre à %1$s</string>
   <string name="op_no_admin_title">Aucun autre administrateur</string>
@@ -134,9 +133,9 @@
   <string name="op_wait_admins_see">Les administrateurs voient votre position tant que vous attendez</string>
   <string name="op_quit">Quitter l\'opération</string>
   <string name="op_wait_only_way">C\'est le seul moyen de ne plus envoyer sa position.</string>
-  <string name="op_group_deleted_banner">Le %1$s a été supprimé. Vous êtes de nouveau en attente.</string>
+  <string name="op_group_deleted_banner">Le groupe %1$s a été supprimé. Vous êtes de nouveau en attente.</string>
   <string name="op_again_title">De nouveau en attente</string>
-  <string name="op_again_text">Un administrateur vous a sorti du %1$s. Vous restez dans l\'opération, mais vous ne voyez plus rien du partage tant que vous n\'êtes pas replacé dans un groupe.</string>
+  <string name="op_again_text">Un administrateur vous a sorti du groupe %1$s. Vous restez dans l\'opération, mais vous ne voyez plus rien du partage tant que vous n\'êtes pas replacé dans un groupe.</string>
   <string name="op_removed_title">Retiré de l\'opération</string>
   <string name="op_removed_text">Le créateur de « %1$s » vous a retiré de l\'opération : vous ne recevez plus rien. Il faudra une nouvelle invitation pour revenir.</string>
 
@@ -167,7 +166,7 @@
   <string name="op_place_question">Dans quel groupe ?</string>
   <string name="op_place_group_chief">%1$s · Chef : %2$s</string>
   <string name="op_place_group_no_chief">%1$s · Sans chef</string>
-  <string name="op_place_button">Placer dans le %1$s</string>
+  <string name="op_place_button">Placer dans le groupe %1$s</string>
 
   <!-- The page of a group (tour2/04-admin-groupe, 04-admin-sans-chef, tour3/06-supprimer-groupe, 09-promotion-adjoint) -->
   <string name="op_chief_and_deputy">Chef et adjoint</string>
@@ -177,9 +176,9 @@
   <string name="op_no_deputy">Pas d\'adjoint</string>
   <string name="op_add_members">Ajouter des membres</string>
   <string name="op_no_chief_box">Un groupe **sans chef** fonctionne : ses membres voient tout le monde et partagent dans leur groupe. Sans chef ni adjoint, personne du groupe ne remonte de croquis ni de waypoint au commandement.</string>
-  <string name="op_add_title">Ajouter au %1$s</string>
+  <string name="op_add_title">Ajouter au groupe %1$s</string>
   <string name="op_add_sub">Un membre est dans un seul groupe.</string>
-  <string name="op_moves">**%1$s** quittera le %2$s : la nouvelle affectation remplace l\'ancienne.</string>
+  <string name="op_moves">**%1$s** quittera le groupe %2$s : la nouvelle affectation remplace l\'ancienne.</string>
   <plurals name="op_add_button">
     <item quantity="one">Ajouter %d membre</item>
     <item quantity="other">Ajouter %d membres</item>
@@ -208,14 +207,14 @@
   <string name="op_admins_box_admin">Seul le créateur (**%1$s**) nomme et retire les administrateurs. Vous ne pouvez pas non plus retirer un membre de l\'opération.</string>
   <string name="op_remove">Retirer</string>
   <string name="op_admin_sub">%1$s · %2$s</string>
-  <string name="op_chief_of">chef du %1$s</string>
-  <string name="op_deputy_of">adjoint du %1$s</string>
+  <string name="op_chief_of">chef du groupe %1$s</string>
+  <string name="op_deputy_of">adjoint du groupe %1$s</string>
   <string name="op_search">Rechercher un membre</string>
   <string name="op_already_admin">Déjà administrateur</string>
   <string name="op_name_admin_button">Nommer %1$s administrateur</string>
   <string name="op_remove_admin_title">Retirer %1$s des administrateurs ?</string>
-  <string name="op_remove_admin_text">Il reste membre du %1$s. Il ne pourra plus placer les arrivants, gérer les groupes ni nommer les chefs.</string>
-  <string name="op_remove_admin_text_post">Il reste membre du %1$s et %2$s. Il ne pourra plus placer les arrivants, gérer les groupes ni nommer les chefs.</string>
+  <string name="op_remove_admin_text">Il reste membre du groupe %1$s. Il ne pourra plus placer les arrivants, gérer les groupes ni nommer les chefs.</string>
+  <string name="op_remove_admin_text_post">Il reste membre du groupe %1$s et %2$s. Il ne pourra plus placer les arrivants, gérer les groupes ni nommer les chefs.</string>
   <string name="op_post_chief">chef de groupe</string>
   <string name="op_post_deputy">adjoint du chef de groupe</string>
   <string name="op_remove_role">Retirer le rôle</string>
@@ -224,8 +223,8 @@
   <string name="op_change_group">Changer de groupe</string>
   <string name="op_change_group_sub">Aujourd\'hui : %1$s</string>
   <string name="op_nominate_post">Nommer chef ou adjoint</string>
-  <string name="op_nominate_post_sub">Du %1$s</string>
-  <string name="op_name_chief_of">Nommer chef du %1$s</string>
+  <string name="op_nominate_post_sub">Du groupe %1$s</string>
+  <string name="op_name_chief_of">Nommer chef du groupe %1$s</string>
   <string name="op_instead_of">À la place de %1$s</string>
   <string name="op_remove_deputy_post">Retirer le poste d\'adjoint</string>
   <string name="op_stays_member">Il reste membre du groupe</string>
@@ -237,24 +236,24 @@
   <string name="op_remove_member_title">Retirer %1$s de l\'opération ?</string>
   <string name="op_remove_member_text">Il ne reçoit plus rien et disparaît des cartes. Pour revenir, il lui faudra une nouvelle invitation, puis attendre d\'être replacé dans un groupe.</string>
   <string name="op_unassign_title">Remettre %1$s en attente ?</string>
-  <string name="op_unassign_text">Il sort du %1$s mais reste dans l\'opération. Il ne voit plus rien du partage tant qu\'un administrateur ne l\'a pas replacé dans un groupe ; sa position reste visible des administrateurs.</string>
+  <string name="op_unassign_text">Il sort du groupe %1$s mais reste dans l\'opération. Il ne voit plus rien du partage tant qu\'un administrateur ne l\'a pas replacé dans un groupe ; sa position reste visible des administrateurs.</string>
   <string name="op_unassign_deputy">Son poste d\'adjoint devient vacant.</string>
   <string name="op_unassign_chief">Son adjoint, %1$s, devient chef automatiquement.</string>
 
   <!-- « Supprimer le Groupe … ? » (tour3/06-supprimer-groupe) -->
-  <string name="op_delete_title">Supprimer le %1$s ?</string>
+  <string name="op_delete_title">Supprimer le groupe %1$s ?</string>
   <plurals name="op_delete_text">
     <item quantity="one">Son membre repasse **en attente** : il ne voit plus rien du partage tant qu\'un administrateur ne l\'a pas replacé dans un groupe. Sa position reste visible des administrateurs.</item>
     <item quantity="other">Ses %d membres repassent **en attente** : ils ne voient plus rien du partage tant qu\'un administrateur ne les a pas replacés dans un groupe. Leur position reste visible des administrateurs.</item>
   </plurals>
-  <string name="op_delete_box">Les croquis, les waypoints et les messages du %1$s ne sont plus affichés.</string>
+  <string name="op_delete_box">Les croquis, les waypoints et les messages du groupe %1$s ne sont plus affichés.</string>
 
   <!-- Leaving (tour2/08-quitter-membre, tour3/09-chef-quitte, 09-chef-operation-quitte, tour4/11-quitter-texte) -->
   <string name="op_quit_title">Quitter l\'opération ?</string>
   <string name="op_quit_text">Les autres sont prévenus et vous n\'apparaissez plus sur leur carte. Vos messages restent dans les fils ; vos croquis et vos waypoints restent affichés jusqu\'à ce que quelqu\'un les retire. Vous, vous ne recevez plus rien. Pour revenir, il faudra une nouvelle invitation, puis attendre d\'être replacé dans un groupe.</string>
   <string name="op_quit_member_box">Changer de groupe ? Demandez à un administrateur : vous ne pouvez pas le faire vous-même.</string>
-  <string name="op_quit_chief_box">Vous êtes **chef du %1$s**. Votre adjoint, %2$s, devient chef automatiquement.</string>
-  <string name="op_quit_chief_alone_box">Vous êtes **chef du %1$s**. Le groupe sera « sans chef » jusqu\'à ce qu\'un administrateur en nomme un.</string>
+  <string name="op_quit_chief_box">Vous êtes **chef du groupe %1$s**. Votre adjoint, %2$s, devient chef automatiquement.</string>
+  <string name="op_quit_chief_alone_box">Vous êtes **chef du groupe %1$s**. Le groupe sera « sans chef » jusqu\'à ce qu\'un administrateur en nomme un.</string>
   <string name="op_quit_op_chief_box">Vous êtes **chef de l\'opération**. Votre adjoint, %1$s, devient chef automatiquement.</string>
 
   <!-- The creator leaves (tour3/05-createur-A, tour4/09-glissiere, tour3/05-successeur, 05-successeur-aucun) -->
@@ -286,11 +285,11 @@
   <string name="op_you_creator_text">%1$s a quitté l\'opération et vous l\'a transmise. Vous seul nommez et retirez les administrateurs, et retirez un membre.</string>
   <string name="op_you_creator_rights">Vous seul nommez et retirez les administrateurs, et retirez un membre.</string>
   <string name="op_snack_creator">%1$s a quitté l\'opération. %2$s en est maintenant le créateur.</string>
-  <string name="op_you_chief_title">Vous êtes chef du %1$s</string>
+  <string name="op_you_chief_title">Vous êtes chef du groupe %1$s</string>
   <string name="op_you_chief_text">%1$s a quitté l\'opération. Vous étiez son adjoint : vous prenez sa place automatiquement, avec les mêmes droits. Le groupe n\'a plus d\'adjoint.</string>
   <string name="op_you_op_chief_title">Vous êtes chef de l\'opération</string>
   <string name="op_you_op_chief_text">%1$s a quitté l\'opération. Vous étiez son adjoint : vous prenez sa place automatiquement. Vous diffusez à toute l\'opération, comme avant ; le poste d\'adjoint est vacant.</string>
-  <string name="op_snack_promoted_group">%1$s a quitté l\'opération. %2$s, son adjoint, est maintenant chef du %3$s.</string>
+  <string name="op_snack_promoted_group">%1$s a quitté l\'opération. %2$s, son adjoint, est maintenant chef du groupe %3$s.</string>
   <string name="op_snack_promoted_op">%1$s a quitté l\'opération. %2$s, son adjoint, est maintenant chef de l\'opération.</string>
 
   <!-- The demonstration (debug tool, P39.8: no preview, CLAUDE.md « Tâches de debug ») -->
@@ -300,4 +299,52 @@
   <string name="op_demo_view_as">Voir comme…</string>
   <string name="op_demo_view_as_title">Voir l\'opération comme</string>
   <string name="op_demo_stop">Quitter la démonstration</string>
+
+  <!-- Renaming during the operation (P39.13; docs/previews/p39-groupes/tour5, answers of 2026-11-16) -->
+  <string name="op_rename">Renommer</string>
+  <string name="op_rename_sub">Le nouveau nom vaut pour toute l\'opération</string>
+  <string name="op_rename_member_title">Renommer %1$s</string>
+  <string name="op_name_field">Nom</string>
+  <string name="op_name_clear">Effacer le nom</string>
+  <string name="op_rename_member_note">Le nouveau nom remplace l\'ancien sur tous les téléphones de l\'opération. %1$s en est prévenu.</string>
+  <string name="op_renamed_you">Un administrateur vous a renommé « %1$s ».</string>
+  <string name="op_group_rename">Renommer le groupe</string>
+  <string name="op_group_rename_note">Ses membres et sa couleur ne changent pas.</string>
+  <string name="op_my_name_title">Changer mon nom</string>
+  <string name="op_my_name_field">Nouveau nom</string>
+  <string name="op_my_name_box">Un administrateur doit accepter. D\'ici là, tout le monde vous voit sous le nom **%1$s**.</string>
+  <string name="op_my_name_box_waiting">Un administrateur doit accepter. D\'ici là, les administrateurs vous voient sous le nom **%1$s**.</string>
+  <string name="op_my_name_send">Envoyer la demande</string>
+  <string name="op_my_name_admin">Vous êtes administrateur : le nouveau nom vaut tout de suite, pour toute l\'opération.</string>
+  <string name="op_my_name_creator">Vous êtes créateur : le nouveau nom vaut tout de suite, pour toute l\'opération.</string>
+  <string name="op_name_pending">Nom demandé : « %1$s »</string>
+  <string name="op_name_pending_sub">En attente d\'un administrateur</string>
+  <string name="op_name_pending_offline">Hors réseau : elle partira au retour du réseau</string>
+  <string name="op_name_accepted">Accepté : vous vous appelez maintenant « %1$s ».</string>
+  <string name="op_name_refused_title">Nom non accepté</string>
+  <string name="op_name_refused_text">Un administrateur n\'a pas accepté « %1$s ». Vous restez **%2$s**. Vous pouvez faire une autre demande.</string>
+  <string name="op_name_taken">Ce nom est déjà pris. Choisissez-en un autre.</string>
+  <string name="op_names_title">Noms à valider</string>
+  <plurals name="op_names_count">
+    <item quantity="one">%d demande</item>
+    <item quantity="other">%d demandes</item>
+  </plurals>
+  <plurals name="op_tile_names">
+    <item quantity="one">%d nom à valider</item>
+    <item quantity="other">%d noms à valider</item>
+  </plurals>
+  <string name="op_names_one">%1$s demande « %2$s »</string>
+  <string name="op_names_box">Un membre demande à changer de nom. **Le premier administrateur qui répond** décide pour tous. D\'ici là, tout le monde voit l\'ancien nom.</string>
+  <string name="op_names_asked">demandé %1$s</string>
+  <string name="op_names_footer">Le créateur et tous les administrateurs voient cette liste.</string>
+  <string name="op_refuse">Refuser</string>
+  <string name="op_accept">Accepter</string>
+  <string name="op_already_title">Déjà répondu</string>
+  <string name="op_already_accepted">**%1$s** a répondu avant vous : « %2$s » est accepté. Votre réponse n\'est pas prise en compte.</string>
+  <string name="op_already_refused">**%1$s** a répondu avant vous : « %2$s » est refusé. Votre réponse n\'est pas prise en compte.</string>
+  <string name="op_menu_rename_op">Renommer l\'opération…</string>
+  <string name="op_rename_op_title">Renommer l\'opération</string>
+  <string name="op_rename_op_field">Nom de l\'opération</string>
+  <string name="op_rename_op_note">Le nom est lu par toute personne qui reçoit l\'invitation. N\'y mettez rien de confidentiel.</string>
+  <string name="op_rename_op_box">Les invitations déjà données **restent valables**. Elles montrent l\'ancien nom jusqu\'à l\'entrée ; la personne voit ensuite « %1$s ».</string>
 </resources>

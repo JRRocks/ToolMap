@@ -93,10 +93,10 @@ import fr.toolmap.measure.MeasureViewModel
 import fr.toolmap.multizoom.MultiZoomScreen
 import fr.toolmap.multizoom.MultiZoomViewModel
 import fr.toolmap.navigate.NavigationViewModel
-import fr.toolmap.p2p.FileAuthStore
-import fr.toolmap.p2p.FirebaseRelayFactory
 import fr.toolmap.operation.OperationFeature
 import fr.toolmap.operation.OperationRequest
+import fr.toolmap.p2p.FileAuthStore
+import fr.toolmap.p2p.FirebaseRelayFactory
 import fr.toolmap.perf.EngineBench
 import fr.toolmap.perf.PerfIntent
 import fr.toolmap.print.PrintViewModel

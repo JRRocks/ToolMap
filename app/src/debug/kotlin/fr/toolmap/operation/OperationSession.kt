@@ -374,6 +374,55 @@ class OperationSession
         /** « Transmettre à … » (U8 A): the creator hands its role over and stays, as a member of its group. */
         fun transfer(successor: Long) = act("transfer") { change(Change.TransferCreator(successor)) }
 
+        // ---- names (P39.13) ----------------------------------------------------------------------------------------
+
+        /**
+         * A new name for [member] at once (N2 A, N14 A); [own]: the creator or an administrator renames itself, it is
+         * not told « Un administrateur vous a renommé ».
+         */
+        fun renameMember(
+            member: Long,
+            name: String,
+            own: Boolean = false,
+        ) {
+            val trimmed = name.trim()
+            if (own) trackerOf(controller).ownName = trimmed
+            act("renameMember") { if (Names.valid(trimmed)) renameMember(member, trimmed) else Rejection.MALFORMED }
+        }
+
+        /** « Envoyer la demande » (N3 A, N11 B): an administrator accepts or refuses it. */
+        fun requestName(name: String) =
+            act("requestName") {
+                if (Names.valid(name.trim())) requestName(name.trim()) else Rejection.MALFORMED
+            }
+
+        /** « Annuler » under its own line, while nobody answered (N7 A). */
+        fun withdrawNameRequest() = act("withdrawName", close = false) { withdrawNameRequest() }
+
+        /** « Accepter », « Refuser » (N6 A): an answer that came second is told « Déjà répondu ». */
+        fun answerName(
+            member: Long,
+            accept: Boolean,
+        ) {
+            val c = controller
+            val tracker = trackerOf(c)
+            scope.launch {
+                val rejection = c.answerName(member, accept)
+                refusal("answerName", rejection)
+                if (rejection == null) {
+                    tracker.myAnswers.add(member)
+                } else {
+                    tracker.tellIfAnswered(c.view.value, member)
+                }
+            }
+        }
+
+        /** « Renommer l'opération » (N10 A): the invitations already given stay valid. */
+        fun renameOperation(name: String) =
+            act("renameOperation") {
+                if (Names.valid(name.trim())) renameOperation(name.trim()) else Rejection.MALFORMED
+            }
+
         // ---- leaving -----------------------------------------------------------------------------------------------
 
         /** « Quitter l'opération »: a member leaves; before it was let in, its request is given up and wiped. */
@@ -560,6 +609,40 @@ class OperationSession
             var byItself = false
             private val admitting = HashSet<Long>()
 
+            /** The name this phone gave itself (creator, administrator): not told back as given by someone else. */
+            @Volatile var ownName: String? = null
+
+            /**
+             * The requests of a new name this phone answered (N6 A): when the answer of another administrator turns out
+             * to come first in the common order (it was out of network), this phone is told « Déjà répondu ».
+             */
+            val myAnswers: MutableSet<Long> =
+                java.util.concurrent.ConcurrentHashMap
+                    .newKeySet()
+
+            /** The answer to [member]'s request was another administrator's: « Déjà répondu ». */
+            fun tellIfAnswered(
+                v: OperationView,
+                member: Long,
+            ): Boolean {
+                val answer = v.nameAnswers[member] ?: return false
+                if (answer.by == v.self) return false
+                val by = v.members.firstOrNull { it.id == answer.by }?.name ?: "…"
+                val notice = Notice.AlreadyAnswered(by, answer.name ?: "…", answer.accepted)
+                extras.update { it.copy(notices = it.notices + notice) }
+                return true
+            }
+
+            /** What became of the answers of this phone, once the view settled. */
+            private fun followAnswers(v: OperationView) {
+                val done =
+                    myAnswers.filter { m ->
+                        tellIfAnswered(v, m) || v.nameRequests.any { it.member == m } ||
+                            v.hierarchy?.members?.containsKey(m) == false
+                    }
+                myAnswers.removeAll(done.toSet())
+            }
+
             fun start() {
                 scope.launch { controller.view.collect(::onView) }
                 scope.launch {
@@ -568,7 +651,13 @@ class OperationSession
                         val before = settled
                         settled = v
                         if (before == null) return@collect
-                        val found = Notices.between(before, v, byItself)
+                        followAnswers(v)
+                        val own = ownName
+                        val found =
+                            Notices.between(before, v, byItself).filterNot {
+                                it is Notice.RenamedByAdmin && it.name == own
+                            }
+                        if (own != null && v.members.firstOrNull { it.id == v.self }?.name == own) ownName = null
                         if (v.phase == OperationPhase.ENDED || v.phase == OperationPhase.NONE) byItself = false
                         if (found.isEmpty()) return@collect
                         val again = found.any { it is Notice.GroupDeleted || it is Notice.Unassigned }

@@ -313,11 +313,14 @@ class HierarchyChoicesTest {
         val own = w[H].frame(ShareKind.ROSTER, lane, NameBook.encode(listOf(card("Hotel"))))
         assertEquals(1, w[B].names.accept(w[B].share(own)))
         assertEquals("Hotel", w[B].names.nameOf(w[B].state, H))
-        // Nothing comes back: nobody may write in that lane but the one who waits, and it shares nothing else.
+        // Nothing comes back but names (2026-11-16: the ensemble's after a rename, its own): the administrators and
+        // the creator write nothing else in that lane, and the one who waits shares nothing else.
         for (author in listOf(A, B)) {
-            for (kind in ShareKind.entries) {
+            for (kind in ShareKind.entries - ShareKind.ROSTER) {
                 assertEquals(ShareRefusal.NOT_ALLOWED, w[author].sealRefusal(kind, lane, "x"), "$kind $author")
             }
+            val names = w[author].frame(ShareKind.ROSTER, lane, NameBook.encode(listOf(card("Sortie du jour"))))
+            assertEquals(setOf(A, B, H), w.openers(names), "$author")
         }
         for (kind in listOf(ShareKind.SKETCH, ShareKind.WAYPOINT, ShareKind.MESSAGE, ShareKind.ALERT)) {
             assertEquals(ShareRefusal.NOT_ALLOWED, w[H].sealRefusal(kind, lane, "x"), "$kind")

@@ -268,8 +268,8 @@ object SimChecks {
                     if (c.lane == Lane.UNIT) fail(sim, "keys:missing-unit", "${p.label} has no key for $c")
                 }
                 // The name of who waits goes to the administrators and the creator only (Q10, Q11, § 17 reading 8).
-                val waitingNames = st.waiting().filter { it.id != p.id }.map { it.name }.toSet()
-                val muteNames = st.waiting().filter { it.id in mute }.map { it.name }.toSet()
+                val waitingNames = st.waiting().filter { it.id != p.id }.flatMap { st.namesOf(it.id) }.toSet()
+                val muteNames = st.waiting().filter { it.id in mute }.flatMap { st.namesOf(it.id) }.toSet()
                 val mayKnowWaiting = p.id == st.creator || p.id in st.admins
                 val excused = p.n.names.missing(st).filter { it in muteNames }
                 if (excused.isNotEmpty()) {

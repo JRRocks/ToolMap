@@ -178,6 +178,24 @@ class HierarchyReplica(
     @Synchronized
     fun history(): List<Entry> = applied.toList()
 
+    /**
+     * Every name the ensemble had, in the order the operations gave them: the one of its first operation, then
+     * each rename that applied. An invitation given before a rename carries one of the former ones.
+     */
+    @Synchronized
+    fun ensembleNames(): Set<HiddenName> {
+        val names = LinkedHashSet<HiddenName>()
+        for (entry in applied) {
+            if (entry.rejection != null) continue
+            when (val change = entry.op.change) {
+                is Change.CreateEnsemble -> names.add(change.name)
+                is Change.RenameEnsemble -> names.add(change.name)
+                else -> Unit
+            }
+        }
+        return names
+    }
+
     /** What this phone holds, to send to another one. */
     @Synchronized
     fun summary(): Summary = Summary(ensembleId, contiguous.toMap(), digest ?: computeDigest().also { digest = it })
@@ -341,7 +359,10 @@ class HierarchyReplica(
          * (the posts of a group decide who reads its lane up and the lane of the leaders).
          */
         private val Change.movesReaders: Boolean
-            get() = this !is Change.RenameGroup && this !is Change.CreateGroup
+            get() =
+                this !is Change.RenameGroup && this !is Change.CreateGroup && this !is Change.RenameMember &&
+                    this !is Change.RequestName && this !is Change.WithdrawName && this !is Change.AnswerName &&
+                    this !is Change.RenameEnsemble
 
         private val BY_AUTHOR: Comparator<Map.Entry<Long, *>> =
             Comparator { a, b -> java.lang.Long.compareUnsigned(a.key, b.key) }

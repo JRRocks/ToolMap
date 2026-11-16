@@ -257,6 +257,11 @@ class HierarchyReducerTest {
                 deputy(ROOT, F),
                 Change.TransferCreator(B),
                 Change.Dissolve,
+                Change.RenameMember(F, hidden("Fox")),
+                // Asking for a name is everyone's own (Reach.SELF): asked for another member, refused to all.
+                Change.RequestName(F, hidden("Fox")),
+                Change.AnswerName(F, hidden("Fox"), accept = true),
+                Change.RenameEnsemble(hidden("Sortie 2")),
             )
         assertEquals(Operation.entries.toSet(), changes.map { it.operation }.toSet(), "one change per operation")
         // C leads the ensemble, D is its deputy, E leads a group: titles.
@@ -275,8 +280,11 @@ class HierarchyReducerTest {
                 Operation.DISSOLVE,
             )
         for (change in changes) {
-            assertNull(HierarchyReducer.check(a.state, A, change), "$change")
-            val expected = if (change.operation in creatorOnly) Rejection.FORBIDDEN else null
+            // F has no request pending: the answer is allowed, and refused for that (the rights come first).
+            val pending = if (change is Change.AnswerName) Rejection.NOT_PENDING else null
+            val self = if (change is Change.RequestName) Rejection.FORBIDDEN else null
+            assertEquals(self ?: pending, HierarchyReducer.check(a.state, A, change), "$change")
+            val expected = if (change.operation in creatorOnly) Rejection.FORBIDDEN else self ?: pending
             assertEquals(expected, HierarchyReducer.check(a.state, B, change), "$change")
         }
         // Someone who is not in the ensemble may do nothing.

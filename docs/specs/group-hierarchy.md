@@ -6,6 +6,7 @@
 > Mots : dans les écrans, « ensemble » se dit « opération » et « leader » se dit « chef » (§ 10 ter) ; dans le code et dans ce document, `ensemble` et `leader` restent les noms techniques.
 > La trace de dissolution gardée une semaine et les messages gardés sur le téléphone (réponses R1 et R2 du 2026-11-15, P39.9, ADR-131) sont au § 20.
 > Le premier essai de bout en bout, sur le vrai serveur de coordination et entre deux émulateurs (P39.12, ADR-134), est au § 23.
+> Renommer pendant l'opération (membres, groupes, opération) et les demandes de nom (P39.13, ADR-135, réponses N0 à N14 du 2026-11-16) sont au § 24.
 
 ## 1. Vocabulaire
 
@@ -46,7 +47,7 @@ Un arrivant est admis **sans groupe** (V2) : il est « en attente » jusqu'à ce
 - il n'est lecteur d'**aucun canal des autres** : aucune de leurs clés de contenu n'est enveloppée pour son téléphone, il ne peut donc rien déchiffrer de ce qu'ils partagent (§ 8), et le transport n'a rien à lui adresser ;
 - il ne lit **aucun nom de personne ni de groupe** (Q2) : les opérations qu'il détient ne portent que des empreintes ; les noms voyagent scellés avec la clé de tout l'ensemble, qu'il n'a pas (§ 8.8) ;
 - il lit **le nom de l'ensemble, et aucun autre** (T14) : son invitation en porte la carte, que son téléphone vérifie contre la première opération (§ 8.8) ;
-- **sa position part aux administrateurs seulement** (Q10) : il a une voie à lui (`Lane.WAITING`), lue par lui, les administrateurs et le créateur. Il y envoie sa position et le nom qu'il a choisi, rien d'autre ; personne d'autre n'a le droit d'y écrire : rien ne lui arrive. Tant qu'il attend, les administrateurs le voient toujours (T15) : l'écran ne lui offre pas de quoi couper sa position (§ 9) ;
+- **sa position part aux administrateurs seulement** (Q10) : il a une voie à lui (`Lane.WAITING`), lue par lui, les administrateurs et le créateur. Il y envoie sa position et le nom qu'il a choisi, rien d'autre ; personne d'autre n'a le droit d'y écrire : rien ne lui arrive. (2026-11-16, P39.13 : il y envoie aussi le nom qu'il demande, et les administrateurs et le créateur y écrivent les noms qu'il a le droit de connaître, celui de l'ensemble et le sien, rien d'autre ; § 24.) Tant qu'il attend, les administrateurs le voient toujours (T15) : l'écran ne lui offre pas de quoi couper sa position (§ 9) ;
 - il ne voit personne sur la carte ; seuls les administrateurs et le créateur l'y voient (`canSee`) ;
 - il n'alerte personne et ne reçoit aucune alerte, pas même celle du leader d'ensemble (§ 4.2) ;
 - il peut quitter l'ensemble, rien d'autre.
@@ -211,12 +212,18 @@ Chaque opération (`Op`) porte : l'ensemble, son **auteur**, son **numéro** che
 | `SetPost(unit, post, member)` | Le nomme leader ou adjoint de l'unité (`ROOT` : l'ensemble), à la place du précédent | Unité ou membre inconnu ; **pas membre de ce groupe** ; déjà à ce poste |
 | `ClearPost(unit, post)` | Laisse le poste vacant | Unité inconnue ; poste déjà vacant |
 | `TransferCreator(member)` | `member`, un administrateur, devient le créateur aussitôt ; l'auteur redevient un membre comme un autre | Pas membre ; déjà le créateur ; **pas administrateur** (`NOT_AN_ADMIN`, Q13) |
+| `RenameMember(member, name)` (2026-11-16, § 24) | Lui donne ce nom aussitôt ; sa demande en cours, s'il en avait une, tombe | Pas membre ; même nom caché (`NO_CHANGE`) |
+| `RequestName(member, name)` (2026-11-16, § 24) | Demande ce nom pour soi (qui attend compris) ; remplace la demande en cours ; efface la dernière réponse reçue | Pas membre ; c'est déjà son nom, ou déjà le nom demandé (`NO_CHANGE`) |
+| `WithdrawName(member)` (2026-11-16, § 24) | Retire sa demande tant que personne n'y a répondu (N7 A) | Pas membre ; aucune demande en cours (`NOT_PENDING`) |
+| `AnswerName(member, name, accept)` (2026-11-16, § 24) | Accepte (le membre prend ce nom) ou refuse la demande ; garde la réponse et son auteur (`NameAnswer`) ; la première réponse dans l'ordre des opérations décide (N3 A, N6 A) | Pas membre ; la demande en cours n'est pas ce nom-là : déjà répondue, retirée ou remplacée (`NOT_PENDING`) |
+| `RenameEnsemble(name)` (2026-11-16, § 24) | Renomme l'ensemble ; les invitations déjà données restent valables (N10 A) | Même nom caché (`NO_CHANGE`) |
 | `Dissolve` | Fin de l'ensemble pour tout le monde | — |
 
 - Une opération refusée ne change rien et garde son motif (`Rejection`), le même sur tous les téléphones : `HierarchyReplica.history()` permet de dire à l'auteur « votre changement n'a pas été retenu ».
 - `HierarchyReplica.issue(change)` vérifie d'abord sur le téléphone de l'auteur : un changement qu'il sait refusé n'est pas écrit du tout. `HierarchyReducer.check(state, author, change)` répond sans rien écrire (pour griser un bouton).
 - Un membre retiré peut être admis de nouveau : il revient en attente.
 - Le nom d'un membre est celui donné à l'admission ; il n'y a pas d'opération pour le changer, ni pour renommer l'ensemble (à ajouter si l'interface le demande).
+  - 2026-11-16 (P39.13, ADR-135, réponses N2, N3, N10 et N11 de l'utilisateur) : l'interface le demande ; cinq changements le font désormais (`RenameMember`, `RequestName`, `WithdrawName`, `AnswerName`, `RenameEnsemble`, ci-dessus et § 24). Seuls les ensembles créés depuis en ont les droits (les règles voyagent dans la première opération).
 - **Identifiant de l'ensemble** : 8 octets de SHA-256 de (auteur, contenu de `CreateEnsemble`, clés du créateur et règles comprises). Un ensemble n'a donc qu'une première opération possible, et qui reçoit l'identifiant (invitation) sait que les règles sont celles prévues.
 
 ## 6. Accord entre téléphones, sans autorité centrale
@@ -461,9 +468,13 @@ Testé (`SharedObjectsTest`) : l'arrivant placé dans un groupe, canal par canal
 
 **Le nom de celui qui entre** (Q11). Il choisit son nom ; son téléphone en fait la carte, et l'empreinte va dans l'opération qui l'admet. Tant qu'il attend, il envoie sa carte dans sa voie d'attente : les administrateurs savent qui ils placent, les autres non.
 
+2026-11-16 (P39.13, ADR-135, réponse N11 B) : qui attend peut aussi demander un autre nom ; la carte du nom demandé va dans sa voie d'attente, comme la sienne. Les administrateurs et le créateur y écrivent à leur tour les noms qu'il a le droit de connaître (celui de l'ensemble après un renommage, le sien une fois accepté), et rien d'autre (`ShareReach.WAITING_LANES`, § 24).
+
 **Le nom de l'ensemble, pour qui attend** (T14). L'invitation porte la **carte du nom de l'ensemble** (`NameBook.ensembleCard`, donnée par le téléphone qui invite : il a l'accès, donc la carte). Le téléphone invité s'en sert pour écrire « Rejoindre l'opération “…” ? », puis, dès qu'il détient la première opération, la vérifie : `NameBook.learnEnsembleName` ne garde la carte que si elle ouvre l'empreinte que cette opération a signée (et l'identifiant de l'ensemble, que l'invitation porte aussi, n'admet qu'une première opération, § 5) ; une carte qui ouvrirait un autre nom, de personne ou de groupe, est refusée. Avant cette vérification, le nom affiché n'est que ce que dit l'invitation. `HierarchyState.namesFor(membre)` dit quels noms un membre a le droit de connaître : tous s'il a l'accès ; le nom de l'ensemble et le sien s'il attend ; aucun s'il est dehors ou après la dissolution. Remis en attente, un téléphone honnête oublie les autres (`NameBook.prune(état, soi)`) ; retiré, il oublie tout.
 
 **Ce que cela donne à quiconque détient l'invitation.** Le nom de l'ensemble, en clair, et rien de plus : le sel de la carte ne sert qu'à cette empreinte-là, les autres noms ont chacun le leur. Détiennent l'invitation : celui qu'on invite, toute personne à qui le lien est transmis ou qui voit le QR, et un membre retiré qui l'a gardée. Le nom d'une opération n'est donc pas un secret : il ne faut rien y écrire de confidentiel (à dire sur l'écran de création, § 9). Il ne change pas après coup (pas d'opération pour renommer l'ensemble) : l'invitation ne peut pas devenir fausse.
+
+2026-11-16 (P39.13, ADR-135, réponse N10 A) : l'ensemble se renomme désormais (`RenameEnsemble`). Une invitation donnée avant reste valable : sa carte ouvre l'empreinte d'un nom que l'ensemble a porté, son téléphone l'accepte comme ancien nom et l'affiche jusqu'à connaître le nom d'aujourd'hui, qu'un administrateur ou le créateur lui donne dans sa voie d'attente (§ 24).
 
 **Ce que le moteur garantit pour les noms** : par les clés, aucun nom de personne ni de groupe à qui attend ni à qui est hors de l'ensemble ; le nom de l'ensemble à qui détient l'invitation. Entre membres qui ont l'accès, tous les noms sont connus de tous ; la règle « en entier ou en initiales » (Q17, T11, § 4.4) est une règle d'affichage.
 
@@ -1503,6 +1514,8 @@ Chacun est codé au plus près ; aucun n'a été montré avant d'être codé (co
 7. **Âge d'une arrivée, et depuis quand un membre est hors ligne** (`tour2/img/03-attente-admin.png`, « Arrivé il y a 3 minutes » ; listes des groupes) : comptés par ce téléphone depuis qu'il a vu la demande ou la personne en ligne. Pourquoi : ni le moteur ni le transport ne portent ces heures ; un administrateur qui ouvre l'application après une arrivée la voit arrivée à l'instant.
 8. **Écrans étroits** (320 dp, l'émulateur de la CI) : les tuiles « Administrer » et « Inviter » passent l'une sous l'autre quand leurs titres ne tiennent pas côte à côte (sinon « Admini ») ; le sous-titre de la barre d'une page de groupe (« Exercice Vallon · 5 membres », à côté de deux icônes) prend une taille un peu plus petite, 80 % au moins, au lieu de finir par « … ». Les maquettes sont dessinées à 412 dp ; ailleurs, une ligne trop longue passe à la ligne. Vérifié par `OperationNarrowScreensTest`.
 
+*Réponse de l'utilisateur, 2026-11-16* : sans choix (E3). Ses mots : « On y reviendra lors des tests terrains » ; ces écarts restent tels quels pour l'instant.
+
 ### Éléments laissés de côté (écrans d'un autre lot)
 
 La couche de la carte (jetons, étiquettes, fiches, `tour2/06-*`, `tour3/10-attente-carte`, `12-noms-carte*`, `tour4/06-etiquettes-*`) ; la fenêtre d'envoi et la liste des partages (`tour2/07-*`, `tour3/01-*`, `tour4/04-*`, `07-envoi-membre*`, `11-duree`, `11-retirer`) ; les messages et les fils (`tour2/07-messages*`, `tour3/03-*`, `tour4/07-fil-ferme*`, `07-ecrire-commandement*`) ; l'alerte (`tour3/02-*`, `tour4/02-*`, `03-*`) ; la fenêtre et la carte de l'arrivant (`tour3/11-arrivant*`) ; la notification Android du partage d'une opération ; « Réglages » et « Aide » du menu ⋮ ; le message propre à une invitation devenue ancienne (après un départ, R3 : la demande reste sans réponse). `tour3/08-inviter-complet` est codé (« Inviter » grisé à 30 sur 30) mais n'a pas de capture : la démonstration a 22 membres.
@@ -1532,21 +1545,31 @@ La recommandation est toujours la première.
 1. Choisie comme sur la maquette : la couleur entre dans le moteur (un champ du groupe, signé, changé par un administrateur) ; à faire par une session du moteur avant que les écrans la proposent. *(recommandé)*
 2. Donnée d'office dans l'ordre des groupes, sans choix (ce qui est codé).
 
+*Réponse de l'utilisateur, 2026-11-16* : 1 (L1). La couleur entre dans le moteur et part à tous les téléphones ; elle y est codée avant que l'écran la propose. À faire : P39.14.
+
 **L2. Le nom d'une personne en attente pour un administrateur nommé après son arrivée** (défaut 2)
 1. Le créateur ou un administrateur qui lit le nom le scelle aussi pour le nouvel administrateur (changement du transport, comme R1 et R2). *(recommandé)*
 2. « … » jusqu'au placement (ce qui est fait) ; un administrateur plus ancien la place.
+
+*Réponse de l'utilisateur, 2026-11-16* : 1 (L2). Les administrateurs qui connaissent le nom de qui attend le redonnent au nouvel administrateur. À faire : P39.14 (la même réponse vaut pour la question 6 du § 21, cas H).
 
 **L3. Qui a l'invitation entre-t-il sans qu'on l'accepte ?** (écart 2)
 1. Oui, comme sur les maquettes : il passe « En attente » dès qu'un administrateur a l'application ouverte ; on l'écarte ensuite par « Retirer de l'opération ». *(recommandé)*
 2. Non : une fenêtre « Membre 23 demande à entrer », avec « Accepter » et « Refuser », chez le créateur et les administrateurs (à dessiner).
 
+*Réponse de l'utilisateur, 2026-11-16* : 1 (L3). Qui a l'invitation entre sans acceptation, comme sur les maquettes ; on l'écarte par « Retirer de l'opération ». Rien à changer.
+
 **L4. La position d'une opération, écran éteint**
 1. Comme « Entre amis » : un service au premier plan et sa notification tant que « Partager ma position » est actif (notification à dessiner). *(recommandé)*
 2. Seulement tant que l'application tourne (ce qui est codé).
 
+*Réponse de l'utilisateur, 2026-11-16* : 1 (L4). La position d'une opération part aussi écran éteint, comme « Entre amis » ; la notification se dessine d'abord (aperçu). À faire : P39.14.
+
 **L5. « Scanner un code » coupé en « Scanner un » sur un écran de moins de ~360 dp** (bouton d'« Entre amis », déjà ainsi dans l'APK de release ; ce lot n'y touche pas)
 1. Le corriger aussi dans « Entre amis » : le texte du bouton passe sur deux lignes quand il ne tient pas (change l'écran de la release : aperçu avant). *(recommandé)*
 2. Laisser tel quel.
+
+*Réponse de l'utilisateur, 2026-11-16* : 1 (L5). Corriger « Scanner un code » coupé dans « Entre amis » : le texte passe sur deux lignes ; aperçu d'abord, c'est un écran de la version publiée. À faire : P39.14.
 
 ## 20. Remontée : trace de dissolution et messages gardés (P39.9, 2026-11-15)
 
@@ -1661,9 +1684,11 @@ Rien n'est retiré ni renommé ; `OperationView.ending` vaut toujours `Ending.DI
 1. **Un membre retiré pendant qu'il était hors réseau, qui revient dans la semaine de la dissolution, l'apprend par la trace (il ne savait pas qu'il avait été retiré) et en garde une à son tour. Que faire ?**
    a. L'accepter (recommandé) : il n'apprend que la fin de l'opération, rien d'autre ; la trace reste sans aucune liste de membres.
    b. Mettre dans la trace la liste des numéros des membres au moment de la dissolution (des numéros, sans nom), pour ne répondre qu'à eux.
+   *Réponse de l'utilisateur, 2026-11-16* : a (D1). L'accepter : rien à changer.
 2. **La dissolution n'arrive à un retardataire que si un téléphone qui garde la trace passe dans la salle pendant qu'il y est. Faut-il aussi déposer la preuve, chiffrée, sur le serveur, où il la lirait dès son arrivée ?**
    a. Non, rien sur le serveur (recommandé, ce qui est fait) : le serveur ne supprime rien de lui-même, la copie y resterait après la semaine si aucun gardien ne repassait l'enlever.
    b. Oui, la déposer, et la faire enlever par le premier téléphone qui garde la trace et passe dans la salle après la semaine.
+   *Réponse de l'utilisateur, 2026-11-16* : a (D2). Rien sur le serveur (ce qui est fait).
 
 ### Ce qui est vérifié, et comment
 
@@ -1750,23 +1775,37 @@ Ces cas changeraient une règle ou demanderaient un changement plus gros que la 
 
 **Cas A — un membre retiré pendant son absence continue d'inviter et d'admettre dans une copie morte.** Graine 0xc (douze téléphones, réseau rude), étapes 5 à 91 : P1, administrateur, perd le réseau 83 s ; P0 le retire pendant ce temps ; la clé d'invitation est renouvelée sans lui. P1 ne l'apprend jamais (limite connue, § 20 question 1) ; il continue d'admettre, avec ses invitations de l'époque 1, P6, P8 et P10, qui se croient membres d'une opération où P1 est administrateur ; l'opération réelle refuse leurs opérations (`NOT_A_MEMBER`) et ils ne lisent rien d'elle (vérifié : aucune clé du moment chez eux, rien entendu du tour de sondes). **Question 1. Faut-il prévenir un membre retiré pendant son absence ?** a. Oui : quand un téléphone l'entend parler sous l'ancienne clé, il lui renvoie, sous cette clé, l'opération qui l'a retiré (et rien d'autre) ; son application finit l'opération et le dit, ses invités l'apprennent à leur tour (recommandé ; ce qui passe sous l'ancienne clé ne dit que ce retrait). b. Non (ce qui est fait) : il reste dans une opération vide, et ceux qu'il invite aussi, jusqu'à ce qu'ils la quittent.
 
+*Réponse de l'utilisateur, 2026-11-16* : a (M1). On renvoie au membre retiré hors réseau seulement l'avis de son retrait. À faire : P39.14.
+
 **Cas B — un membre absent pendant plus de trois renouvellements ne revient jamais.** Graine 0x9 : P1 et P2 sont éteints des heures pendant que l'invitation est renouvelée quatre fois (un départ à chaque fois) ; chaque téléphone ne garde que les 4 dernières clés d'invitation (`OperationLinkState.KEPT_EPOCHS`, § 20) : plus personne n'ouvre leurs trames, et eux n'ouvrent plus rien. Ils restent dans l'opération sans rien recevoir, sans le savoir. De même pour qui demande à entrer : graine 0x1f (trente téléphones), P7 demande à entrer avec une invitation de l'époque 2 et n'est admis qu'une heure plus tard, à l'époque 6 ; il ne l'apprend jamais (il demande toujours), et P5, nommé administrateur ensuite, ne connaît pas son nom (seul celui qui attend le dit, dans sa voie d'attente ; P0, qui a gardé sa demande, le connaît).
 
 **Cas C — un membre en retard refuse la clé du moment quand celui qui l'a annoncée a été nommé pendant une époque qu'il a manquée.** Graine 0x29 : P0 passe la main à P2, administrateur depuis peu, et part ; P2 renouvelle l'invitation. P1 et P7, restés à l'époque 2, reçoivent bien la clé du moment (`grantTo`), mais ne savent pas que P2 est créateur (le passage de main voyage sous l'époque 3, qu'ils n'ont pas) : ils la refusent (`NOT_ALLOWED`), toutes les 10 s, pour toujours.
 
 **Question 2. Comment un membre absent longtemps revient-il ?** a. Garder les clés des 32 dernières époques (au lieu de 4 ; quelques centaines d'octets), et lui renvoyer sous son ancienne clé les opérations qu'il a manquées, quand il est membre : il revient tant qu'il n'y a pas eu plus de 31 renouvellements pendant son absence (recommandé ; un membre parti qui a gardé cette ancienne clé pourrait lire, pendant ce temps, la forme de la hiérarchie : ni nom, ni partage). b. Garder les clés de 32 époques seulement (cas B réglé, cas C non). c. Rien (ce qui est fait) : il faut lui redonner une invitation, il revient comme un membre neuf ; l'écran devra lui dire, quand il n'entend plus personne, de demander une invitation récente.
 
+*Réponse de l'utilisateur, 2026-11-16* : a (M2). Un membre absent revient de lui-même tant qu'il a manqué moins de 32 renouvellements. À faire : P39.14.
+
 **Cas D — deux opérations sous un même numéro après une application tuée.** Une opération part vers les autres avant que le stockage l'écrive (le contrôleur enregistre juste après) ; si l'application est tuée entre les deux, elle redémarre sans cette opération et peut écrire la suivante sous le même numéro. Les deux téléphones gardent alors la même des deux, partout (§ 6.1, signalé `CONFLICT_REPLACED`) : l'un des deux changements est perdu, sans refus à montrer. Vu une fois (graine 0xb). **Question 3. Faut-il enregistrer un changement avant de l'envoyer ?** a. Oui : l'automate attend que le contrôleur l'ait écrit (une écriture de plus avant chaque envoi d'un changement, quelques millisecondes) (recommandé). b. Non (ce qui est fait) : rare, et sans effet sur l'accord entre téléphones.
+
+*Réponse de l'utilisateur, 2026-11-16* : a (M3). Enregistrer chaque changement avant de l'envoyer. À faire : P39.14.
 
 **Cas E — nom de qui demande à entrer, pour un administrateur nommé après la demande** (relevé par la session des écrans, P39.8, § 19 de sa branche ; question L2 posée à l'utilisateur par la session principale) : la carte du nom d'une demande d'entrée n'est scellée que pour le créateur et les administrateurs que le demandeur connaît au moment où il l'envoie ; le demandeur la renvoie toutes les 20 s, et la refait dès qu'il apprend un nouvel administrateur (`sendJoin` quand les administrateurs changent), mais un administrateur nommé pendant que le demandeur ne reçoit plus le journal (renouvellement de l'invitation après sa demande) ne la lit pas. Non corrigé ici (en attente de la réponse à L2). À distinguer du défaut 3 ci-dessus, corrigé : il concerne un membre déjà admis, qui attend un groupe, et la carte qu'il envoie dans sa voie d'attente.
 
 **Cas F — un départ perdu : le partant a tout effacé, les autres ne l'apprennent jamais.** Graine 0xd (douze téléphones, réseau rude) : P0, créateur, passe la main à P2 puis part (étape 78) ; ses deux opérations ne parviennent à personne (écriture perdue sur le serveur, ou livrées après que son nœud de la salle a été effacé, 5 s plus tard) ; son téléphone a déjà tout effacé. Pour tous les autres, P0 reste le créateur, pour toujours : plus personne ne peut retirer un membre, nommer ou retirer un administrateur, passer la main, dissoudre (comme un téléphone de créateur perdu, S7), et P2 ne devient jamais créateur. Le même sort attend tout départ fait sans réseau : l'opération part vers les liaisons ouvertes, il n'y en a aucune, le téléphone efface tout. **Question 4. Un départ doit-il attendre d'avoir été reçu ?** a. Oui : le téléphone qui part garde l'opération, sans rien montrer d'autre qu'« en train de partir », jusqu'à ce qu'un autre téléphone ait reçu son départ (au plus une semaine), puis efface tout (recommandé). b. Refuser « Quitter » et « Passer la main » sans réseau. c. Rien (ce qui est fait).
 
+*Réponse de l'utilisateur, 2026-11-16* : a (M4). Le téléphone garde son départ jusqu'à ce qu'un autre l'ait reçu (« En train de partir », une semaine au plus). À faire : P39.14 (l'écran « En train de partir » passe d'abord par un aperçu).
+
 **Cas G — la clé d'invitation neuve redonnée à un partant par un téléphone en retard.** Un téléphone qui n'a pas encore appris un départ peut, pendant qu'il se propage, redonner la clé du moment à celui qui part (en la redonnant à un membre resté sur une ancienne clé, ou à tous quand deux clés d'une même époque se croisent, ADR-132) ; s'il n'y a pas d'autre départ ensuite, le partant la garde, et suit la forme de la hiérarchie. Vu une fois dans le jeu fixe (graine 0xd, avant la correction complète du défaut 3 ; la même graine ne le montre plus), puis deux fois dans les 50 premiers scénarios de la longue série (graine 0x50ac0004, dix-huit téléphones, réseau qui réordonne : P15 est retiré à 1:11:44, l'invitation est renouvelée aussitôt sans lui ; un téléphone qui reçoit la clé neuve avant le retrait la lui redonne). C'est la limite connue « pendant qu'un changement se propage » (§ 8.6), appliquée à la clé d'invitation. **Question 5. Faut-il renouveler encore l'invitation quand on voit la clé du moment remise à quelqu'un qui est parti ?** a. Oui : un créateur ou un administrateur qui voit une remise de la clé du moment faite à un membre parti renouvelle l'invitation, à une époque au-dessus (recommandé ; un renouvellement de plus, rare). b. Non (ce qui est fait).
+
+*Réponse de l'utilisateur, 2026-11-16* : a (M5). Un administrateur qui voit la nouvelle invitation arriver chez qui vient de partir renouvelle une fois de plus. À faire : P39.14.
 
 **Cas H — le nom de qui attend, pour un administrateur nommé après la perte de son téléphone.** Graine 0x50ac000a (longue série, dix-huit téléphones) : P15, admis, attend un groupe ; son téléphone est perdu pour de bon (étape 118) ; P16 est nommé administrateur ensuite (étape 143) : il ne connaîtra jamais le nom de P15. Seul celui qui attend dit son nom, dans sa voie d'attente (§ 4.2) ; le créateur, qui le connaît, ne peut pas le redonner. Même chose pour un téléphone qui attend et ne peut plus parler (cas B, graine 0x1f). **Question 6. Le créateur et les administrateurs peuvent-ils redonner, dans la voie d'attente, la carte du nom de qui attend ?** a. Oui : un lecteur de cette voie qui a la carte la redonne quand un autre lecteur dit qu'il lui manque des noms (recommandé ; même voie, mêmes lecteurs : personne ne lit rien de plus ; la table du § 4.2 change pour cette seule case). b. Non (ce qui est fait) : l'administrateur voit un membre en attente sans nom.
 
+*Réponse de l'utilisateur, 2026-11-16* : a, par la réponse à L2 (§ 19). À faire : P39.14.
+
 **Cas I — qui est entré avec la clé d'invitation qui perd ne rejoint jamais les autres.** Vu deux fois dans les 100 premiers scénarios de la longue série. Graine 0x50ac0022 (longue série, dix-huit téléphones) : P0, coupé des autres, renouvelle l'invitation (époque 4, à 0:18) ; P1 la renouvelle aussi pour les autres (à 0:22) ; P13 demande à entrer avec une invitation de P8 qui porte la clé de P1, et P3 l'admet (0:23) avant d'apprendre, au retour de P0, que la clé de P0 l'emporte (ADR-132). La clé gagnante est redonnée sous l'époque d'avant, que P13 n'a jamais eue : il reste seul à l'époque 4, sans le savoir ; l'opération est dissoute à l'époque 9 et aucune trace ne lui ouvre ses trames (celles qui gardent une époque 4 ont l'autre clé). **Question 7. Faut-il garder, un temps, la clé qui perd d'une époque, pour prévenir qui est entré avec elle ?** a. Oui : chaque téléphone garde en mémoire la clé perdante d'une époque (jusqu'à l'époque suivante), ouvre avec elle les trames qui ne s'ouvrent pas avec la gagnante, et redonne la gagnante sous la perdante (recommandé ; une clé de plus par époque, rien de lisible en plus pour qui n'a ni l'une ni l'autre). b. Non (ce qui est fait) : il lui faut une nouvelle invitation.
+
+*Réponse de l'utilisateur, 2026-11-16* : sans choix (M6), en attente. Ses mots : « Il devrait y avoir qu'une seul clés d'invitation. Et si un intru la trouve, il sera trié dans la fils d'attente. » La session principale lui pose une question de suivi (une clé changée par le créateur seul, ou une clé jamais changée, ce qui reviendrait sur R3) ; rien n'est fait d'ici là.
 
 ### Coûts (5, 15 et 30 membres)
 
@@ -2014,9 +2053,11 @@ Rien, aux deux runs : aucune étape n'a vu l'état `REFUSED`, chaque écriture a
    a. Répondre au premier résumé d'un téléphone aussitôt, puis à un seul toutes les 2 s, le plus récent (recommandé : même résultat, au plus deux réponses par rafale ; à faire dans le moteur, en accord avec les sessions de simulation et d'attaques).
    b. Ne pas répondre à un résumé qui montre son auteur en retard sur ses propres opérations (il est vieux : un téléphone n'est jamais en retard sur ce qu'il a écrit) ; plus simple, mais ne supprime qu'une partie des réponses.
    c. Laisser ainsi.
+   *Réponse de l'utilisateur, 2026-11-16* : a (M7). Ne répondre qu'au plus récent, une fois toutes les 2 secondes. À faire : P39.14.
 2. **Après une coupure du réseau, le mode « Opération » met jusqu'à 8 s pour se reconnecter, là où « Entre amis » le fait dès le retour du réseau. Faut-il qu'il suive le réseau comme « Entre amis » ?**
    a. Oui, dans le service qui fera tourner le mode « Opération », quand il sera écrit (recommandé).
    b. Non, 8 s suffisent.
+   *Réponse de l'utilisateur, 2026-11-16* : a (M8). Suivre le réseau comme « Entre amis », dans le service du mode « Opération » quand il sera écrit. À faire : P39.14, avec L4.
 
 ### Ce qui n'a pas pu être vérifié
 
@@ -2025,3 +2066,72 @@ Rien, aux deux runs : aucune étape n'a vu l'état `REFUSED`, chaque écriture a
 - **Plus de deux téléphones** : ni la rafale du défaut 1 avec plusieurs téléphones présents, ni les volumes à 30 membres (extrapolés ci-dessus), ni les rôles qu'un troisième téléphone ferait voir (adjoint, administrateur, deux groupes).
 - **Une coupure de plus de deux minutes** : au-delà, le serveur n'a plus les trames de l'autre et le rattrapage ne passe plus que par les résumés ; la coupure de l'essai (40 s) se rattrape par les trames que le serveur garde.
 - Le service qui fera tourner le mode « Opération » en tâche de fond n'existe pas encore : l'essai tient l'application au premier plan.
+
+## 24. Renommer pendant l'opération (P39.13, 2026-11-16)
+
+> Réponses de l'utilisateur du 2026-11-16 au cinquième passage de maquettes (`docs/previews/p39-groupes/tour5/`, questions N0 à N14, aperçus validés le même jour). Décision : ADR-135. Le moteur et les écrans de debug (mode « Opération », ADR-130) ; rien dans le type de build `release`.
+
+### Les réponses de l'utilisateur
+
+| Question | Réponse | Ce qui est fait |
+|---|---|---|
+| N0 | A | Le nom du groupe seul dans les listes et les menus (« Nord », plus « Groupe Nord ») ; à la création, « Nord » s'écrit seul |
+| N1 | A | « groupe » en minuscule dans les phrases |
+| N2 | A | Le créateur et les administrateurs renomment les autres (et eux-mêmes) |
+| N3 | A | Le créateur ou n'importe quel administrateur répond à une demande ; la première réponse décide |
+| N4 | A | Les demandes dans « Administrer » : la tuile orange compte aussi les noms à valider, une ligne « Noms à valider » sous « En attente » |
+| N5 | B | Un crayon sur sa propre ligne (écran de l'opération et écran d'attente) ; rien dans le menu ⋮ |
+| N6 | A | La première réponse compte ; l'autre administrateur voit « Déjà répondu » |
+| N7 | A | Le membre retire sa demande tant que personne n'a répondu (« Annuler » sous sa ligne) |
+| N8 | A | Refus : « Un administrateur n'a pas accepté », sans dire qui |
+| N9 | B | Les autres ne sont prévenus de rien ; le renommé l'est, par un message en bas de l'écran |
+| N10 | A | L'opération se renomme (menu ⋮, « Renommer l'opération… ») ; les invitations déjà données restent valables |
+| N11 | B | Qui attend peut demander un nom. Mot pour mot : « Même à solliciter pour qu'un admin sache de qui en parle plutôt que d'avoir "SM-S913U" son savoir nom/prenom ou autre information connu ». L'écran d'entrée n'est pas touché |
+| N12 | A | « Renommer le groupe » et « Supprimer le groupe » : deux lignes écrites en bas de la page du groupe, à la place des icônes du haut |
+| N13 | A | L'écran refuse un nom déjà pris (« Ce nom est déjà pris »), pour un membre comme pour un groupe. Précision : « Si on applique le même nom, au moins 1 info dois les différencier exemple leur groupe » : question N15, en attente, non codée |
+| N14 | A | « Renommer » en haut de la fiche d'un membre (administrateurs, créateur) |
+
+Sans choix (`tour5/questions.md`) : le nom du groupe seul dans les listes et les menus ; pendant l'attente d'une réponse, tout le monde voit l'ancien nom ; une demande faite hors réseau part au retour du réseau ; le créateur et les administrateurs changent leur propre nom sans demande (et ne reçoivent pas « Un administrateur vous a renommé »). Dans chaque feuille, le champ porte le nom actuel et une croix pour l'effacer ; « Enregistrer » reste grisé tant que rien n'a changé, que le nom est vide, trop long ou déjà pris.
+
+### Le nom proposé à l'entrée
+
+L'écran d'entrée (« Rejoindre l'opération ? ») propose le nom réglé dans l'application ; s'il est vide, le **modèle du téléphone** (`Build.MODEL`, par exemple « SM-S913U » : `ShareController.displayName`, `ShareModule.deviceName`). C'est ce que N11 corrige après coup : la personne demande un vrai nom, un administrateur l'accepte. L'écran d'entrée n'est pas changé (N11 B).
+
+### Le moteur
+
+- Cinq changements (§ 5) : `RenameMember`, `RequestName`, `WithdrawName`, `AnswerName`, `RenameEnsemble` ; codes 15 à 19 du format (`HierarchyWire`, `VERSION` 4 inchangée).
+- Droits (`RightsTable.DEFAULT`, `Operation` 16 à 19) :
+
+| Opération | Créateur | Administrateur | Autres membres (chefs, adjoints, qui attend) |
+|---|---|---|---|
+| `RENAME_MEMBER` | tout membre | tout membre | — |
+| `REQUEST_NAME` (et `WithdrawName`) | — | — | soi-même |
+| `ANSWER_NAME` | tout membre | tout membre | — |
+| `RENAME_ENSEMBLE` | oui | oui | — |
+
+- **Les opérations créées avant n'ont pas ces droits** : les règles voyagent, creuses, dans la première opération (§ 4, ADR-125) ; une case absente est un refus. Leurs écrans n'affichent ni crayon, ni « Renommer », ni « Renommer l'opération… » (l'écran le demande au moteur, `HierarchyReducer.check`). Pour essayer, créer une nouvelle opération.
+- **L'état** : `nameRequests` (membre → nom demandé, une demande à la fois) et `nameAnswers` (membre → `NameAnswer(by, name, accepted)`, la dernière réponse, gardée jusqu'à la demande suivante) ; écrits en fin de format, en option (un état gardé avant se relit). Un membre retiré emporte sa demande et sa réponse ; un membre renommé directement perd sa demande en cours.
+- **La première réponse décide** : `AnswerName` ne vaut que si la demande en cours porte ce nom ; l'ordre des opérations étant le même partout (§ 6), deux administrateurs qui répondent en même temps, même hors ligne, aboutissent au même résultat sur tous les téléphones ; la réponse arrivée seconde est refusée (`NOT_PENDING`) et son auteur le voit (« Déjà répondu », avec le nom de celui qui a répondu et sa réponse).
+- **Les noms** : comme au § 8.8, les opérations ne portent que des empreintes. Les cartes des noms d'un membre qui attend (le sien, celui qu'il demande) vont dans sa voie d'attente ; les administrateurs et le créateur y écrivent les noms qu'il a le droit de connaître (`HierarchyState.namesFor` : celui de l'ensemble, les siens), en partage « noms » seulement (`ShareReach.WAITING_LANES`) ; un seul le fait, les autres voient qu'il l'a fait. Ils le font à l'arrivée d'une voie d'attente dans un ensemble renommé, quand le résumé de qui attend dit qu'il lui manque un nom, et quand il revient en retard sur un renommage qui le concerne (l'ensemble, ou lui-même) : sans cette dernière règle, trouvée par `OperationNamesTest`, qui attendait hors réseau pendant un renommage gardait l'ancien nom. Un téléphone renommé garde la carte de son nouveau nom.
+- **Une invitation donnée avant un renommage** : sa carte ouvre un nom que l'ensemble a porté ; le téléphone invité l'affiche jusqu'à recevoir le nom d'aujourd'hui (N10 A).
+
+### Le contrôleur (`OperationController`)
+
+`renameMember(member, name)`, `requestName(name)`, `withdrawNameRequest()`, `answerName(member, accept)` (répond à la demande en cours de ce membre), `renameOperation(name)` ; chacun rend le motif d'un refus, ou rien. Une réponse refusée plus tard, quand les opérations se rejoignent, apparaît dans `OperationView.refused` comme tout changement non retenu. La vue donne aussi `nameRequests` (`NameRequestView` : membre, nom demandé, depuis quand ce téléphone la voit) et `nameAnswers` (`NameAnswerView` : membre, auteur, nom, accepté) ; le créateur et les administrateurs voient tout, chaque autre membre ne voit que les siennes (la carte d'une demande d'un membre placé voyage avec les autres noms : c'est la vue qui la cache, pas les clés).
+
+### Les écrans (mode « Opération », type `debug`)
+
+- **Sa propre ligne** (écran de l'opération, écran d'attente) : un crayon quand on peut changer son nom (N5 B). Administrateur ou créateur : « Votre nom », enregistré aussitôt. Sinon : « Demander un nom », envoyé aux administrateurs ; en attente, l'encadré dit que seuls les administrateurs le voient. Une demande en cours s'affiche sous la ligne (« Nom demandé », « Annuler »).
+- **Administrer** : la tuile orange compte les noms à valider ; la ligne « Noms à valider » ouvre la page des demandes (ancien nom → nouveau ; groupe ou « En attente », rôle, depuis quand ; « Refuser », « Accepter »).
+- **Fiche d'un membre** : « Renommer » en haut (N14 A) ; **page d'un groupe** : « Renommer le groupe », « Supprimer le groupe » en bas (N12 A) ; **menu ⋮** : « Renommer l'opération… » (N10 A).
+- **Ce que voit le renommé** : « Un administrateur vous a renommé » ; « Accepté : vous vous appelez maintenant … » ; une fenêtre au refus (N8 A). Les autres : rien (N9 B).
+- **Nom pris** (N13 A) : la feuille refuse un nom porté par un autre membre (ou par un autre groupe), sans tenir compte des majuscules ni des espaces autour ; c'est l'écran qui vérifie, pas le moteur (ADR-135, point 6).
+- Captures de la CI (`OperationScenes`) : `tour5-02-*` et `tour5-04-*`, à mettre à côté des aperçus validés.
+
+### Limites connues
+
+- Deux renommages simultanés vers le même nom, sur deux téléphones hors ligne, passent tous les deux : le moteur ne compare pas les noms (empreintes salées).
+- Un administrateur hors ligne ne voit pas qu'un autre a déjà répondu ; sa réponse est refusée au retour, il le voit alors (« Déjà répondu »).
+- « Depuis quand » une demande attend (`seenAtMs`) n'est gardé qu'en mémoire : après un redémarrage, c'est le moment où ce téléphone la revoit.
+- La longue simulation (§ 21) ne tire pas ces changements (ses suites à graine fixe restent les mêmes) ; ils sont couverts par l'accord aléatoire des copies (`HierarchyReplicaTest`), les attaques (`MaliciousMemberTest`), le fuzzing, `HierarchyNamesTest` (13) et `OperationNamesTest` (5).
+- N15 (deux membres de même nom, différenciés par le groupe) : en attente de la réponse de l'utilisateur.

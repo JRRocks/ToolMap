@@ -72,6 +72,13 @@ data class HierarchyState(
     val deletedGroups: Set<Long>,
     /** The creator ended the ensemble: nothing changes any more, nobody shares any more. */
     val dissolved: Boolean,
+    /**
+     * The requests of a new name nobody answered yet, by the member who asked ([Change.RequestName]): what the
+     * creator and the administrators have to answer. Its name does not change before an answer accepts it.
+     */
+    val nameRequests: Map<Long, HiddenName> = emptyMap(),
+    /** The last answer to a request of a new name, by member, kept until its next request ([Change.AnswerName]). */
+    val nameAnswers: Map<Long, NameAnswer> = emptyMap(),
 ) {
     /** `false` before the operation that creates the ensemble. */
     val created: Boolean get() = creator != null
@@ -300,11 +307,25 @@ data class HierarchyState(
             val commanded = if (role.commandsEnsemble) ROOT else own.takeIf { role.commandsGroup }
             val below = commanded != null && parentOf(scope) == commanded
             when (channel.lane) {
-                Lane.UNIT -> (has(ShareReach.ENSEMBLE) && scope == ROOT) || (has(ShareReach.OWN_UNIT) && scope == own)
-                Lane.UP -> (has(ShareReach.UP) && scope == own) || (has(ShareReach.UP_BELOW) && below)
-                Lane.DOWN -> has(ShareReach.GROUP_BELOW) && below
-                Lane.LEADERS -> has(ShareReach.LEADERS)
-                Lane.WAITING -> has(ShareReach.WAITING) && scope == author
+                Lane.UNIT -> {
+                    (has(ShareReach.ENSEMBLE) && scope == ROOT) || (has(ShareReach.OWN_UNIT) && scope == own)
+                }
+
+                Lane.UP -> {
+                    (has(ShareReach.UP) && scope == own) || (has(ShareReach.UP_BELOW) && below)
+                }
+
+                Lane.DOWN -> {
+                    has(ShareReach.GROUP_BELOW) && below
+                }
+
+                Lane.LEADERS -> {
+                    has(ShareReach.LEADERS)
+                }
+
+                Lane.WAITING -> {
+                    (has(ShareReach.WAITING) && scope == author) || (has(ShareReach.WAITING_LANES) && scope != author)
+                }
             }
         }
     }
@@ -427,25 +448,39 @@ data class HierarchyState(
         return if (viewer == target || sameGroup || holdsPost) NameLabel.FULL else NameLabel.INITIALS
     }
 
-    /** Every hidden name this state carries: the ensemble, its groups, its members. */
+    /**
+     * Every hidden name this state carries: the ensemble, its groups, its members, the names they asked for and
+     * the last name answered to each.
+     */
     fun hiddenNames(): Set<HiddenName> {
         val all = LinkedHashSet<HiddenName>()
         name?.let(all::add)
         groups.values.mapTo(all) { it.name }
         members.values.mapTo(all) { it.name }
+        all.addAll(nameRequests.values)
+        nameAnswers.values.mapTo(all) { it.name }
         return all
     }
 
     /**
+     * The hidden names about [member]: its name, the one it asked for when nobody answered yet, the one of the last
+     * answer it had. Where they go follows its own name: everyone who has access, or only its waiting lane while it
+     * waits for a group.
+     */
+    fun namesOf(member: Long): Set<HiddenName> =
+        setOfNotNull(members[member]?.name, nameRequests[member], nameAnswers[member]?.name)
+
+    /**
      * The hidden names [member] may be told: all of them when it has access; the name of the ensemble (the
-     * invitation carries its card, the user's answer T14) and its own when it waits for a group; none when it is
-     * not in the ensemble or the ensemble is dissolved. For someone who waits this is what an honest phone keeps
-     * ([NameBook.prune]); what closes the other names to it is the keys: their cards are sealed for who has access.
+     * invitation carries its card, the user's answer T14) and its own ones ([namesOf]) when it waits for a group;
+     * none when it is not in the ensemble or the ensemble is dissolved. For someone who waits this is what an honest
+     * phone keeps ([NameBook.prune]); what closes the other names to it is the keys: their cards are sealed for who
+     * has access.
      */
     fun namesFor(member: Long): Set<HiddenName> =
         when {
             hasAccess(member) -> hiddenNames()
-            !dissolved && isWaiting(member) -> setOfNotNull(name, members[member]?.name)
+            !dissolved && isWaiting(member) -> setOfNotNull(name) + namesOf(member)
             else -> emptySet()
         }
 
@@ -455,7 +490,9 @@ data class HierarchyState(
      */
     fun inconsistency(): String? {
         if (!created) {
-            val blank = members.isEmpty() && groups.isEmpty() && deletedGroups.isEmpty() && admins.isEmpty()
+            val blank =
+                members.isEmpty() && groups.isEmpty() && deletedGroups.isEmpty() && admins.isEmpty() &&
+                    nameRequests.isEmpty() && nameAnswers.isEmpty()
             val bare = leader == null && deputy == null && !dissolved && name == null
             return if (blank && bare) null else "content before the ensemble exists"
         }
@@ -489,6 +526,12 @@ data class HierarchyState(
             if (group.deputy != null && members[group.deputy]?.group != id) return "group deputy out of its group"
             if (group.leader != null && group.leader == group.deputy) return "group leader who is its own deputy"
         }
+        for ((id, requested) in nameRequests) {
+            if (id !in members || !requested.valid) return "bad request of a name"
+        }
+        for ((id, answer) in nameAnswers) {
+            if (id !in members || answer.by == 0L || !answer.name.valid) return "bad answer to a request of a name"
+        }
         return null
     }
 
@@ -515,6 +558,16 @@ data class HierarchyState(
             )
     }
 }
+
+/**
+ * The answer [by] gave to a request of the new name [name] ([Change.AnswerName]): [accepted], or refused. Who asked
+ * reads it (« un administrateur n'a pas accepté »), and so does an administrator whose own answer came too late.
+ */
+data class NameAnswer(
+    val by: Long,
+    val name: HiddenName,
+    val accepted: Boolean,
+)
 
 /** How a name is written on the map ([HierarchyState.nameLabel]). */
 enum class NameLabel {

@@ -132,6 +132,9 @@ class OperationNode(
     private val grantedAt = HashMap<Long, Long>()
     private val offeredAt = HashMap<Int, Long>()
     private val resendSeenAt = HashMap<Channel, Long>()
+
+    /** When another reader last told the names in each waiting lane: one administrator does it, not all of them. */
+    private val namesSeenAt = HashMap<Channel, Long>()
     private var previous: HierarchyState = replica.state
     private var lastJoinAt = Long.MIN_VALUE / 2
     private var lastSummaryAt = Long.MIN_VALUE / 2
@@ -141,6 +144,12 @@ class OperationNode(
     /** Whether the name of the operation its invitation carried is the one its first operation signed. */
     var inviteNameChecked: Boolean = inviteCard == null
         private set
+
+    /**
+     * Whether the name its invitation carried is one the ensemble had, the one of now or a former one (an
+     * invitation given before a rename stays valid): shown while this phone does not know the name of now.
+     */
+    private var inviteNameKnown = false
 
     var ending: OperationEnding? = null
         private set
@@ -168,7 +177,7 @@ class OperationNode(
         @Synchronized get() = drops.toMap()
     private val drops = HashMap<String, Int>()
 
-    private enum class Duty { KEY, RESEND, ROSTER, RENEW }
+    private enum class Duty { KEY, RESEND, ROSTER, RENEW, NAMES }
 
     private class Scheduled(
         val dueAt: Long,
@@ -201,9 +210,13 @@ class OperationNode(
     /** Whether this phone is let in (waiting for a group or placed). */
     val isMember: Boolean get() = self in state.members
 
-    /** The name of the operation: verified against its first operation, or what the invitation says until then. */
+    /**
+     * The name of the operation: verified against its operations, or what the invitation says until then. After a
+     * rename, an invitation given before still shows the former name, until this phone learns the one of now.
+     */
     @Synchronized
-    fun operationName(): String? = names.nameOf(state.name) ?: inviteCard?.name?.takeIf { !state.created }
+    fun operationName(): String? =
+        names.nameOf(state.name) ?: inviteCard?.name?.takeIf { !state.created || inviteNameKnown }
 
     /** What to keep beside the engine's parts ([OperationLinkState]). */
     @Synchronized
@@ -384,7 +397,18 @@ class OperationNode(
         if (theirs.namesMissing > 0 && state.isWaiting(self) &&
             state.readersOf(Channel.waiting(self)).any { it.id == frame.sender }
         ) {
-            ownCard?.let { share(ShareKind.ROSTER, Channel.waiting(self), NameBook.encode(listOf(it))) }
+            shareCards(Channel.waiting(self), ownCards(state))
+        }
+        // Who waits and lacks a name it may know (the ensemble renamed, or itself, while it was away) gets it in its
+        // lane from an administrator or the creator (2026-11-16); nothing else goes there.
+        if (theirs.namesMissing > 0 && frame.sender != self && state.isWaiting(frame.sender)) {
+            tellNames(Channel.waiting(frame.sender))
+        } else if (frame.sender != self && state.isWaiting(frame.sender) &&
+            missing.any { namesChangeFor(it.change, frame.sender) }
+        ) {
+            // Behind on a rename (away when it was written): its summary cannot say it lacks a name it does not know
+            // of yet; the names follow the operations, once, from the first reader of its lane linked.
+            tellNamesLater(state, Channel.waiting(frame.sender), renamedOnly = false)
         }
     }
 
@@ -482,7 +506,16 @@ class OperationNode(
             }
 
             ShareKind.ROSTER -> {
-                if (names.accept(opened) > 0) listener.onChanged()
+                // Another reader told the names of this waiting lane: this phone need not do it too.
+                if (opened.channel.lane == Lane.WAITING && opened.author != opened.channel.scope) {
+                    namesSeenAt[opened.channel] = now
+                }
+                if (names.accept(opened) > 0) {
+                    // Who waits keeps the ensemble's name and its own ones, nothing else, whoever wrote in its lane.
+                    if (state.isWaiting(self)) names.prune(state, self)
+                    refreshOwnCard()
+                    listener.onChanged()
+                }
             }
         }
     }
@@ -608,11 +641,31 @@ class OperationNode(
     @Synchronized
     fun decline(member: Long): Boolean = (joins.remove(member) != null).also { if (it) listener.onChanged() }
 
-    /** A name for a new group or a rename: its card is kept and shared with those who have the access. */
+    /**
+     * A name this phone just wrote into an operation (a new group, a rename, a request of a new name): its card is
+     * kept and shared where that name goes. With those who have the access, but the names of a member who waits for
+     * a group (its own, the one it asks for), which go to its waiting lane only: its own phone writes there, and so
+     * do the administrators and the creator. The name of the ensemble goes to every waiting lane too, so that who
+     * waits learns it after a rename (2026-11-16).
+     */
     @Synchronized
     fun learnAndShare(card: NameCard) {
         names.learn(card)
+        refreshOwnCard()
+        val state = state
+        val hidden = card.hidden
+        val about = state.members.keys.firstOrNull { hidden in state.namesOf(it) }
+        if (about != null && state.isWaiting(about)) {
+            shareCards(Channel.waiting(about), listOf(card))
+            return
+        }
         if (state.hasAccess(self)) queueRoster(listOf(card))
+        if (hidden == state.name) {
+            for (waiting in state.waiting()) {
+                val lane = Channel.waiting(waiting.id)
+                if (state.mayShare(self, ShareKind.ROSTER, lane)) shareCards(lane, listOf(card))
+            }
+        }
     }
 
     @Synchronized
@@ -758,13 +811,13 @@ class OperationNode(
             objects.prune(state, self)
             names.prune(state, self)
         }
-        if (!inviteNameChecked && inviteCard != null && state.created) {
-            inviteNameChecked = true
-            if (!names.learnEnsembleName(state, inviteCard)) {
-                Problems.expected("operation.invite.name", FrameRefused("card of another name"))
-            }
+        if (!inviteNameChecked && inviteCard != null && state.created) checkInviteName(state, inviteCard, member)
+        // Its own card while it is its name (a member renamed keeps the card of its new name: [refreshOwnCard]).
+        ownCard?.let { card ->
+            if (state.created && (!member || card.hidden in state.namesFor(self))) names.learn(card)
         }
-        ownCard?.let { card -> if (member || state.created) names.learn(card) }
+        refreshOwnCard()
+        namesSeenAt.keys.retainAll { it.lane == Lane.WAITING && state.isWaiting(it.scope) }
         joins.keys.removeAll { it in state.members }
         if (!mayInvite()) joins.clear()
         if (!member && state.created && before.creator == null) sendJoin()
@@ -774,17 +827,26 @@ class OperationNode(
             for (channel in ring.missing(state)) if (channel.lane == Lane.UNIT) wantKey(channel)
             // Names it lacks (a group made while it was away): its summary says so to a phone that has them.
             if (state.hasAccess(self) && names.missing(state).isNotEmpty()) links.keys.firstOrNull()?.let(::pull)
+            // Who waits and lacks the ensemble's name (renamed) or its own says so: a reader of its lane tells it.
+            if (state.isWaiting(self) && names.missingOf(state.namesFor(self)).isNotEmpty()) {
+                links.keys.firstOrNull()?.let(::pull)
+            }
         }
         if (!start && before.created) {
             for ((channel, who) in state.arrivals(before)) {
+                // A new waiting lane (someone let in, or put back to waiting) of a renamed ensemble: its member may
+                // only know a former name of it, from its invitation (2026-11-16).
+                if (channel.lane == Lane.WAITING && channel.scope != self && channel.scope in who) {
+                    tellNamesLater(state, channel)
+                }
                 if (self in who) {
-                    if (channel == Channel.ENSEMBLE) ownCard?.let { queueRoster(listOf(it)) }
+                    if (channel == Channel.ENSEMBLE) queueRoster(ownCards(state))
                     continue
                 }
                 // A new reader of this phone's waiting lane (an administrator named, a new creator) learns its name
                 // there too: whoever may place it knows whom it places (Q10, Q11, § 8.8; P39.10).
                 if (channel == Channel.waiting(self)) {
-                    ownCard?.let { share(ShareKind.ROSTER, channel, NameBook.encode(listOf(it))) }
+                    shareCards(channel, ownCards(state))
                     continue
                 }
                 if (objects.resend(channel).isNotEmpty() &&
@@ -868,7 +930,93 @@ class OperationNode(
             Duty.RENEW -> {
                 if (epoch < scheduled.epoch) renewInvitation()
             }
+
+            Duty.NAMES -> {
+                val c = channel ?: return
+                if ((namesSeenAt[c] ?: Long.MIN_VALUE) > scheduled.scheduledAt) return
+                tellNames(c)
+            }
         }
+    }
+
+    /**
+     * Tells the member who waits in [lane] the names it may know ([HierarchyState.namesFor]: the ensemble's, its
+     * own ones) that this phone holds, when it may write there (an administrator or the creator).
+     */
+    private fun tellNames(lane: Channel) {
+        val state = state
+        if (lane.lane != Lane.WAITING || !state.isWaiting(lane.scope) || lane.scope == self) return
+        if (!state.mayShare(self, ShareKind.ROSTER, lane)) return
+        shareCards(lane, state.namesFor(lane.scope).mapNotNull(names::cardOf))
+    }
+
+    /**
+     * Once a new waiting lane appears in an ensemble that was renamed: the first of its readers linked tells the
+     * names there a moment later (its member makes the lane's key first), the others only if it did not.
+     */
+    private fun tellNamesLater(
+        state: HierarchyState,
+        lane: Channel,
+        renamedOnly: Boolean = true,
+    ) {
+        if (!state.mayShare(self, ShareKind.ROSTER, lane)) return
+        if (renamedOnly && replica.ensembleNames().size < 2) return
+        val order = state.resenders(ShareKind.ROSTER, lane).filter { it != lane.scope }
+        schedule(Duty.NAMES, lane, rank(order)?.plus(RANK_STEP_MS))
+    }
+
+    /** Whether [change] gives [member], while it waits, a name it may know: the ensemble's, or its own. */
+    private fun namesChangeFor(
+        change: Change,
+        member: Long,
+    ): Boolean =
+        when (change) {
+            is Change.RenameEnsemble -> true
+            is Change.RenameMember -> change.member == member
+            is Change.AnswerName -> change.member == member
+            else -> false
+        }
+
+    /** The cards of this phone's own names ([HierarchyState.namesOf]) it holds; its own card before it is let in. */
+    private fun ownCards(state: HierarchyState): List<NameCard> =
+        state.namesOf(self).mapNotNull(names::cardOf).ifEmpty { listOfNotNull(ownCard) }
+
+    /** Its own card follows its name: renamed (directly, or its request accepted), the card of the new one. */
+    private fun refreshOwnCard() {
+        val current = state.members[self]?.name ?: return
+        if (ownCard?.hidden == current) return
+        names.cardOf(current)?.let { ownCard = it }
+    }
+
+    /**
+     * The card of its invitation, checked against the operations once they are there: the name of the ensemble now
+     * (kept), or a former one (an invitation given before a rename: shown until the one of now is known, not a
+     * problem). A card that opens neither is said once this phone is let in; before, its copy of the operations
+     * may still lack the rename the card comes from.
+     */
+    private fun checkInviteName(
+        state: HierarchyState,
+        card: NameCard,
+        member: Boolean,
+    ) {
+        when {
+            names.learnEnsembleName(state, card) || (card.valid && card.hidden in replica.ensembleNames()) -> {
+                inviteNameChecked = true
+                inviteNameKnown = true
+            }
+
+            member -> {
+                inviteNameChecked = true
+                Problems.expected("operation.invite.name", FrameRefused("card of another name"))
+            }
+        }
+    }
+
+    private fun shareCards(
+        channel: Channel,
+        cards: List<NameCard>,
+    ) {
+        for (chunk in cards.distinct().chunked(ROSTER_CHUNK)) share(ShareKind.ROSTER, channel, NameBook.encode(chunk))
     }
 
     private fun resend(channel: Channel) {
@@ -880,10 +1028,13 @@ class OperationNode(
     private fun mayResend(channel: Channel): Boolean =
         state.mayShare(self, ShareKind.WAYPOINT, channel) || state.mayShare(self, ShareKind.SKETCH, channel)
 
-    /** The names of those who have the access, for everyone who has it; not the names of who waits (Q10, Q11). */
+    /**
+     * The names of those who have the access, for everyone who has it; not the names of who waits (Q10, Q11), nor
+     * the one it asks for, nor the last one answered to it: those stay in its waiting lane.
+     */
     private fun shareRoster() {
         val state = state
-        val waiting = state.waiting().mapTo(HashSet()) { it.name }
+        val waiting = state.waiting().flatMapTo(HashSet()) { state.namesOf(it.id) }
         queueRoster(names.cardsFor(state).filter { it.hidden !in waiting })
     }
 
@@ -1052,7 +1203,15 @@ class OperationNode(
         val state = state
         val read = if (self in state.members) state.channelsReadBy(self) else emptyList()
         val digests = read.take(OperationSummary.MAX_CHANNELS).associateWith { objects.digest(it) }
-        val missing = if (state.hasAccess(self)) names.missing(state).size else 0
+        val missing =
+            when {
+                state.hasAccess(self) -> names.missing(state).size
+
+                // Who waits counts only what it may know: the ensemble's name, its own ones.
+                state.isWaiting(self) -> names.missingOf(state.namesFor(self)).size
+
+                else -> 0
+            }
         return OperationSummary(replica.summary(), keysDigest(state), missing, digests)
     }
 

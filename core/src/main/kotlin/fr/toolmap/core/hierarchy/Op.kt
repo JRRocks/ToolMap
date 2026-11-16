@@ -155,6 +155,60 @@ sealed interface Change {
         override val operation get() = Operation.DISSOLVE
     }
 
+    /**
+     * Gives [member] the name [name] at once: what the creator and the administrators do, for any member and for
+     * themselves (the user's answer of 2026-11-16). A request of a new name [member] made and nobody answered goes.
+     */
+    data class RenameMember(
+        val member: Long,
+        val name: HiddenName,
+    ) : Change {
+        override val operation get() = Operation.RENAME_MEMBER
+    }
+
+    /**
+     * [member] asks to be named [name] (the user's answer of 2026-11-16: whoever may not rename itself, a member who
+     * waits for a group included). Its name does not change until the creator or an administrator accepts
+     * ([AnswerName]); a request it made before and nobody answered is replaced, and the last answer it had is
+     * forgotten.
+     */
+    data class RequestName(
+        val member: Long,
+        val name: HiddenName,
+    ) : Change {
+        override val operation get() = Operation.REQUEST_NAME
+    }
+
+    /** [member] takes back its request of a new name while nobody answered it; checked like the request itself. */
+    data class WithdrawName(
+        val member: Long,
+    ) : Change {
+        override val operation get() = Operation.REQUEST_NAME
+    }
+
+    /**
+     * The creator or an administrator answers the request of [member] to be named [name]: [accept] gives it that
+     * name, else it keeps its own. Only the very request pending now: the first answer in the order of the
+     * operations decides, any later one changes nothing ([Rejection.NOT_PENDING]), the same on every phone.
+     */
+    data class AnswerName(
+        val member: Long,
+        val name: HiddenName,
+        val accept: Boolean,
+    ) : Change {
+        override val operation get() = Operation.ANSWER_NAME
+    }
+
+    /**
+     * A new name for the ensemble itself (the user's answer of 2026-11-16). The invitations given before stay valid:
+     * they carry the former name, shown until the phone is let in and learns this one.
+     */
+    data class RenameEnsemble(
+        val name: HiddenName,
+    ) : Change {
+        override val operation get() = Operation.RENAME_ENSEMBLE
+    }
+
     companion object {
         internal fun operationOf(
             unit: Long,
@@ -232,6 +286,26 @@ fun Change.isMalformed(): Boolean =
 
         Change.Dissolve -> {
             false
+        }
+
+        is Change.RenameMember -> {
+            member == 0L || !name.valid
+        }
+
+        is Change.RequestName -> {
+            member == 0L || !name.valid
+        }
+
+        is Change.WithdrawName -> {
+            member == 0L
+        }
+
+        is Change.AnswerName -> {
+            member == 0L || !name.valid
+        }
+
+        is Change.RenameEnsemble -> {
+            !name.valid
         }
     }
 

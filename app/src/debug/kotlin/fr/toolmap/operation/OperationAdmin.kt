@@ -81,33 +81,34 @@ fun AdminPage(
         session,
     ) {
         val waiting = facts.waitingMembers
-        if (waiting.isNotEmpty()) {
-            val names = waiting.map { memberName(facts, it) }
-            Row(
+        val requests = facts.nameRequestsToAnswer
+        if (waiting.isNotEmpty() || requests.isNotEmpty()) {
+            val fore = MaterialTheme.colorScheme.onTertiaryContainer
+            // « En attente », then « Noms à valider » (`tour5/02-admin` A, N4 A): what waits for a decision, in orange.
+            Column(
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.tertiaryContainer)
-                    .clickable { session.open(OpPage.WaitingList) }
-                    .heightIn(min = 72.dp)
-                    .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .background(MaterialTheme.colorScheme.tertiaryContainer),
             ) {
-                val fore = MaterialTheme.colorScheme.onTertiaryContainer
-                Icon(OperationIcons.Hourglass, contentDescription = null, tint = fore, modifier = Modifier.size(28.dp))
-                Column(Modifier.weight(1f).padding(start = 16.dp)) {
-                    Text(stringResource(R.string.op_waiting), style = MaterialTheme.typography.bodyLarge, color = fore)
-                    Text(
+                if (waiting.isNotEmpty()) {
+                    val names = waiting.map { memberName(facts, it) }
+                    OrangeRow(
+                        OperationIcons.Hourglass,
+                        stringResource(R.string.op_waiting),
                         if (names.size <= NAMED_WAITING) {
                             stringResource(R.string.op_waiting_names, names.joinToString(", "))
                         } else {
                             stringResource(R.string.op_waiting_many, names.size)
                         },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = fore,
-                    )
+                        waiting.size,
+                        fore,
+                    ) { session.open(OpPage.WaitingList) }
                 }
-                Count(waiting.size, fore)
+                if (waiting.isNotEmpty() && requests.isNotEmpty()) {
+                    HorizontalDivider(color = fore.copy(alpha = ORANGE_DIVIDER_ALPHA))
+                }
+                if (requests.isNotEmpty()) NameRequestsRow(facts) { session.open(OpPage.NameRequests) }
             }
         }
         Caption(stringResource(R.string.op_roles))
@@ -334,15 +335,6 @@ fun GroupPage(
             pluralStringResource(R.plurals.op_members, members.size, members.size),
         ),
         session,
-        actions = {
-            IconButton(onClick = { session.sheet(OpSheet.EditGroup(group)) }) {
-                Icon(OperationIcons.Edit, contentDescription = stringResource(R.string.op_group_edit_title))
-            }
-            IconButton(onClick = { session.dialog(OpDialog.DeleteGroup(group)) }) {
-                Icon(OperationIcons.Delete, contentDescription = stringResource(R.string.op_group_delete))
-            }
-        },
-        actionCount = 2,
     ) {
         if (chief == null) InfoBox(OperationIcons.Info, rich(stringResource(R.string.op_no_chief_box)), BoxTone.ORANGE)
         Caption(stringResource(R.string.op_chief_and_deputy))
@@ -422,6 +414,30 @@ fun GroupPage(
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.op_add_members))
         }
+        // N12 A (`tour5/02-groupe` A): two written lines at the bottom of the page instead of two icons in the bar.
+        GroupBlock(
+            rows =
+                listOf(
+                    {
+                        ActionLine(
+                            OperationIcons.Edit,
+                            stringResource(R.string.op_group_rename),
+                            null,
+                            start = 16.dp,
+                        ) { session.sheet(OpSheet.EditGroup(group)) }
+                    },
+                    {
+                        ActionLine(
+                            OperationIcons.Delete,
+                            stringResource(R.string.op_group_delete),
+                            null,
+                            color = MaterialTheme.colorScheme.error,
+                            chevron = false,
+                            start = 16.dp,
+                        ) { session.dialog(OpDialog.DeleteGroup(group)) }
+                    },
+                ),
+        )
     }
 }
 
@@ -624,8 +640,24 @@ fun AdminSheet(
                     PostChoiceSheet(session, facts, sheet.member)
                 }
 
-                OpSheet.NewGroup, is OpSheet.EditGroup -> {
-                    GroupSheet(session, facts, (sheet as? OpSheet.EditGroup)?.group)
+                OpSheet.NewGroup -> {
+                    NewGroupSheet(session, facts)
+                }
+
+                is OpSheet.EditGroup -> {
+                    RenameGroupSheet(session, facts, sheet.group)
+                }
+
+                is OpSheet.RenameMember -> {
+                    RenameMemberSheet(session, facts, sheet.member)
+                }
+
+                OpSheet.MyName -> {
+                    MyNameSheet(session, facts)
+                }
+
+                OpSheet.RenameOperation -> {
+                    RenameOperationSheet(session, facts)
                 }
 
                 OpSheet.Successor -> {
@@ -902,6 +934,12 @@ private fun MemberSheet(
             )
         }
     }
+    // N14 A (`tour5/02-membre` A): « Renommer » first, read like the other gestures.
+    if (member != facts.self && facts.mayRename(member)) {
+        ActionLine(OperationIcons.Edit, stringResource(R.string.op_rename), stringResource(R.string.op_rename_sub)) {
+            session.sheet(OpSheet.RenameMember(member))
+        }
+    }
     if (gestures.changeGroup && groupName != null) {
         ActionLine(
             OperationIcons.SwapHoriz,
@@ -1014,22 +1052,25 @@ private fun PostChoiceSheet(
     CancelLine(session)
 }
 
-/** « Nouveau groupe », « Modifier le groupe » of an operation (`tour2/04-admin-groupes`, without the colour). */
+/**
+ * « Nouveau groupe » of an operation (`tour2/04-admin-groupes`, without the colour); a name another group has is
+ * refused (`tour5/04-nom-pris`, N13 A). Renaming is [RenameGroupSheet].
+ */
 @Composable
-private fun GroupSheet(
+private fun NewGroupSheet(
     session: OperationSession,
     facts: OperationFacts,
-    group: Long?,
 ) {
-    var name by remember(group) { mutableStateOf(group?.let { facts.groupName(it) }.orEmpty()) }
+    var name by remember { mutableStateOf("") }
     val valid = fr.toolmap.core.hierarchy.Names.valid(name.trim())
+    val taken = name.isNotBlank() && facts.groupNameTaken(name, except = null)
     val rank = facts.groupOrder.size + 1
     SheetTitle(
-        stringResource(if (group == null) R.string.op_group_new_title else R.string.op_group_edit_title),
-        when {
-            group != null -> null
-            rank == 1 -> stringResource(R.string.op_group_first, facts.groupLimit)
-            else -> stringResource(R.string.op_group_rank, rank, facts.groupLimit)
+        stringResource(R.string.op_group_new_title),
+        if (rank == 1) {
+            stringResource(R.string.op_group_first, facts.groupLimit)
+        } else {
+            stringResource(R.string.op_group_rank, rank, facts.groupLimit)
         },
     )
     OutlinedTextField(
@@ -1037,32 +1078,12 @@ private fun GroupSheet(
         onValueChange = { name = it },
         label = { Text(stringResource(R.string.op_group_name)) },
         singleLine = true,
+        isError = taken,
+        supportingText = if (taken) ({ Text(stringResource(R.string.op_name_taken)) }) else null,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
     )
-    val label =
-        if (group == null) {
-            createLabel(name)
-        } else {
-            stringResource(R.string.op_group_save)
-        }
-    SheetButton(
-        label,
-        enabled = valid && (group == null || name.trim() != facts.groupName(group)),
-    ) { if (group == null) session.createGroup(name) else session.renameGroup(group, name) }
-    Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.Center) {
-        TextButton(onClick = { session.sheet(null) }, modifier = Modifier.heightIn(min = 48.dp)) {
-            Text(stringResource(R.string.action_cancel))
-        }
-        if (group != null) {
-            Spacer(Modifier.width(24.dp))
-            TextButton(
-                onClick = { session.dialog(OpDialog.DeleteGroup(group)) },
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) {
-                Text(stringResource(R.string.op_group_delete), color = MaterialTheme.colorScheme.error)
-            }
-        }
-    }
+    SheetButton(createLabel(name), enabled = valid && !taken) { session.createGroup(name) }
+    CancelLine(session)
 }
 
 /** The windows of the screens of the operation. */
@@ -1220,7 +1241,7 @@ fun Question(
 
 /** The frame of the pages of the administration: the band with the title, a column that scrolls. */
 @Composable
-private fun AdminScaffold(
+internal fun AdminScaffold(
     title: String,
     subtitle: String,
     session: OperationSession,
@@ -1305,6 +1326,33 @@ private fun SummaryLine(
             if (sub.isNotEmpty()) Sub(sub)
         }
         if (onClick != null) Count(count ?: 0, MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** A line of the orange block of « Administrer »: « En attente », « Noms à valider » (`tour5/02-admin` A). */
+@Composable
+fun OrangeRow(
+    icon: ImageVector,
+    title: String,
+    sub: String,
+    count: Int,
+    fore: Color,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .heightIn(min = 72.dp)
+            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = fore, modifier = Modifier.size(28.dp))
+        Column(Modifier.weight(1f).padding(start = 16.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = fore)
+            Text(sub, style = MaterialTheme.typography.bodySmall, color = fore)
+        }
+        Count(count, fore)
     }
 }
 
@@ -1398,13 +1446,14 @@ private fun VacantLine(
 
 /** A gesture of the sheet of a member. */
 @Composable
-private fun ActionLine(
+internal fun ActionLine(
     icon: ImageVector,
     title: String,
     sub: String?,
     color: Color = MaterialTheme.colorScheme.onSurface,
     iconTint: Color? = null,
     chevron: Boolean = true,
+    start: androidx.compose.ui.unit.Dp = 24.dp,
     onClick: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -1413,7 +1462,7 @@ private fun ActionLine(
             .fillMaxWidth()
             .heightIn(min = 64.dp)
             .clickable(onClick = onClick)
-            .padding(start = 24.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+            .padding(start = start, end = 16.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -1515,6 +1564,7 @@ private fun adminLine(
 }
 
 private const val NAMED_WAITING = 2
+private const val ORANGE_DIVIDER_ALPHA = 0.15f
 
 /** The bar around its title: paddings 4 + 4, the arrow 48, the title inset 12, and 4 to spare. */
 private val BAR_CHROME = 72.dp

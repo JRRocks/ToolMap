@@ -15,6 +15,7 @@ import fr.toolmap.core.p2p.ServerState
 import fr.toolmap.data.hierarchy.Ending
 import fr.toolmap.data.hierarchy.GroupView
 import fr.toolmap.data.hierarchy.MemberView
+import fr.toolmap.data.hierarchy.NameAnswerView
 import fr.toolmap.data.hierarchy.OperationPhase
 import fr.toolmap.data.hierarchy.OperationView
 import kotlin.test.Test
@@ -36,7 +37,7 @@ class OperationModelsTest {
         private val names = HashMap<HiddenName, String>()
         val groups = LinkedHashMap<String, Long>()
 
-        private fun hide(name: String): HiddenName = Names.hide(name).also { names[it.hidden] = name }.hidden
+        fun hide(name: String): HiddenName = Names.hide(name).also { names[it.hidden] = name }.hidden
 
         val replica: HierarchyReplica =
             HierarchyReplica.create(keys.getValue(1), hide("Membre 1"), hide("Exercice Vallon"), NONCE)
@@ -118,6 +119,10 @@ class OperationModelsTest {
                         )
                     },
                 mayInvite = me == state.creator || me in state.admins,
+                nameAnswers =
+                    state.nameAnswers.mapValues { (m, a) ->
+                        NameAnswerView(m, a.by, names[a.name], a.accepted)
+                    },
                 server = ServerState.ONLINE,
             )
         }
@@ -334,6 +339,36 @@ class OperationModelsTest {
             listOf<Notice>(Notice.NewCreator("Membre 1", "Membre 5")),
             Notices.between(before7, w.view(7, gone)),
         )
+    }
+
+    @Test
+    fun `a new name is told to the renamed and to who asked, the others are told nothing`() {
+        val w = Vallon()
+        // An administrator renames Membre 11 (N2 A): it is told, the others are not (N9 B).
+        val before11 = w.view(11)
+        val before7 = w.view(7)
+        val renamed = w.by(5, Change.RenameMember(w.id.getValue(11), w.hide("Éclaireur 11")))
+        assertEquals(
+            listOf<Notice>(Notice.RenamedByAdmin("Éclaireur 11")),
+            Notices.between(before11, w.view(11, renamed)),
+        )
+        assertEquals(emptyList(), Notices.between(before7, w.view(7, renamed)), "the others are told nothing")
+        // Membre 7 asks for a name (N11 B): refused, without saying by whom (N8 A), then accepted.
+        val guide = w.hide("Guide 7")
+        val asked = w.by(7, Change.RequestName(w.id.getValue(7), guide))
+        val refused = w.by(5, Change.AnswerName(w.id.getValue(7), guide, accept = false))
+        assertEquals(
+            listOf<Notice>(Notice.NameRefused("Guide 7", "Membre 7")),
+            Notices.between(w.view(7, asked), w.view(7, refused)),
+        )
+        val again = w.by(7, Change.RequestName(w.id.getValue(7), guide))
+        val accepted = w.by(9, Change.AnswerName(w.id.getValue(7), guide, accept = true))
+        assertEquals(
+            listOf<Notice>(Notice.NameAccepted("Guide 7")),
+            Notices.between(w.view(7, again), w.view(7, accepted)),
+            "accepted, and not also « renamed by an administrator »",
+        )
+        assertEquals(emptyList(), Notices.between(w.view(4, again), w.view(4, accepted)), "its chief is told nothing")
     }
 
     @Test
