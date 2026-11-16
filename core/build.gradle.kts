@@ -46,4 +46,7 @@ tasks.test {
     systemProperty("toolmap.hierarchy.soak", providers.gradleProperty("toolmap.hierarchy.soak").orNull.orEmpty())
     // One scenario played and told in full, without shrinking: -Ptoolmap.hierarchy.explore=<seed>:<phones>:<steps>.
     systemProperty("toolmap.hierarchy.explore", providers.gradleProperty("toolmap.hierarchy.explore").orNull.orEmpty())
+    // The long fuzzing of the « Opération » decoders (P39.11) runs only with -Ptoolmap.hierarchy.fuzz=true; the quick
+    // seeded part always runs in ./gradlew check.
+    systemProperty("toolmap.hierarchy.fuzz", providers.gradleProperty("toolmap.hierarchy.fuzz").orNull.orEmpty())
 }

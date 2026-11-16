@@ -1609,3 +1609,92 @@ Un scénario prend ≈ 13 s de calcul (plusieurs minutes pour 30 téléphones) :
 - **Les écrans** (P39.8) : la simulation appelle l'automate et le contrôleur comme les écrans le feront, sans eux.
 - **Un téléphone malveillant actif** (qui écrit ce qu'il ne devrait pas) : c'est P39.11 ; ici, le « jumeau modifié » ne fait qu'écouter et garder.
 - **Plus de 30 membres, plusieurs niveaux de groupes** : les limites de départ seulement (30 membres, 6 groupes, un niveau), celles avec lesquelles toute opération est créée.
+
+## 22. Tests : attaques et formats (P39.11, 2026-11-15)
+
+Session 119 (session cloud, demande de l'utilisateur du 2026-11-15 : « une batterie de test sur le partage en opération »). Branche partie de `claude/clever-edison-pi03p9` (conception + R1/R2, 0.4.251). **Des tests seulement** : aucun écran, aucun texte visible, aucune ressource, aucun fichier du mode « Entre amis » (`:p2p`, `core/…/p2p/`, `app/…/share/`). Les §§ 19, 21 et 23 sont à d'autres sessions (P39.10, P39.12) ; ce paragraphe ne les écrit pas.
+
+Chaque attaque est un test qui vérifie le résultat attendu par cette spécification : refus, signalement par `Problems.expected` (jamais un bogue, `SilentFailureTest` le garde), état inchangé, aucun plantage. Les tests partagent une salle simulée du serveur de coordination où chaque trame écrite arrive à chaque téléphone présent, une horloge du test, des clés de la plateforme, et des choix tirés d'un générateur à graines fixes (`AttackRoom`, `core/src/test/.../hierarchy/`).
+
+### Ce qui est essayé, et le résultat
+
+**Un membre malveillant à l'identité valide** (`MaliciousMemberTest`, `:core`) — son téléphone signe et envoie ce que l'application ne lui laisserait pas faire :
+
+| Attaque | Résultat vérifié |
+|---|---|
+| Signer une opération que son rôle ne permet pas (un membre qui se nomme administrateur ou chef, crée ou supprime un groupe, retire un membre, dissout… ; seize changements) | Gardée partout (pour que tous aient les mêmes opérations), **refusée partout** (`FORBIDDEN`), état inchangé, opération toujours en marche |
+| Un administrateur signe ce que seul le créateur peut ; un chef de groupe agit sur la hiérarchie | Refusé (`FORBIDDEN`), un seul administrateur, le créateur inchangé |
+| Se remettre dans l'opération après un retrait (s'auto-admettre, rejouer sa propre admission, redemander l'entrée sous l'ancienne clé) | Rien ne le laisse entrer ; sa demande sous l'ancienne clé d'invitation est écartée (`join.old_key`) ; il ne lit plus rien de la suite |
+| Écrire un message ou une alerte au nom d'un autre membre (scellé avec la vraie clé du canal, signé de sa propre clé) | Refusé par chaque lecteur (`FORGED` / `share.refused`), rien n'est lu |
+| Écrire dans un canal qu'il ne lit pas (le groupe d'un autre, la voie des chefs, la voie montante) | `NOT_ALLOWED` à l'envoi ; une trame bien scellée n'atteint aucun lecteur du canal visé |
+| Donner les lots de clés d'un canal à un téléphone qui ne doit pas l'avoir | Le téléphone ne lit toujours rien : aucune copie n'est enveloppée pour lui (vérifié même en capturant tous les lots et toutes les clés d'invitation) |
+| Envoyer des trames géantes (taille maximale du format, chaque genre) et en rafale (500 copies d'un partage) | Aucun plantage, état inchangé, un message rejoué compté une fois, l'opération marche encore après |
+| Lire les noms ou les positions qu'il ne doit pas voir (membre en attente) | Aucune position, aucun message, aucun nom sauf celui de l'opération ; vérifié sur les octets qu'il détient (opérations, état) |
+
+**Un ancien invité et un téléphone volé** (`MaliciousMemberTest`) : une invitation renouvelée avant d'être utilisée ne laisse plus entrer (la demande voyage sous l'ancienne époque, écartée) ; un téléphone retiré qui a gardé toutes ses clés de contenu et d'invitation n'ouvre aucun partage écrit après son retrait (la clé d'invitation a changé, les clés de contenu ont été refaites sans lui).
+
+**Un serveur de coordination menteur** (`LyingServerTest`, `:core`) — la salle livre ce qu'un serveur hostile ferait :
+
+| Mensonge | Résultat vérifié |
+|---|---|
+| Perdre, retarder, réordonner, doubler des trames (au hasard, graines fixes) | Tous les téléphones convergent (même état) une fois le rattrapage fait, et travaillent encore |
+| Rejouer et tronquer chaque trame d'opérations à de nombreux points | Rien ne change, aucun plantage |
+| Injecter des milliers de trames au hasard, et des enveloppes bien formées d'une autre clé d'invitation | Refusées (ne s'ouvrent pas), comptées, aucun bogue, état inchangé |
+| Mélanger les trames de deux opérations | Chaque opération garde son état ; aucune n'apprend un membre de l'autre |
+| Mélanger deux salles d'une même opération, ou d'opérations étrangères | Rien n'est lu de travers, aucun membre étranger n'entre |
+| Relier les identifiants d'un téléphone entre deux opérations | Impossible : une identité par opération, le même téléphone écrit sous deux identifiants sans rapport |
+
+**Ce que le serveur apprend des métadonnées, dit honnêtement** (`LyingServerTest`) : il voit, pour chaque trame, l'identifiant de membre qui l'écrit (propre à l'opération) et si elle va dans la case de position. Il ne voit **aucun nom** ni **aucune coordonnée en clair** (vérifié sur tous les octets de la salle, le nom de l'opération et une latitude très précise cherchés octet par octet). Un téléphone qui garde une trace parle sous un identifiant tiré au hasard, pas son identifiant de membre (§ 20). Il ne peut pas relier un téléphone d'une opération à l'autre.
+
+**Fuzzing des décodeurs** (`HierarchyFuzzTest`, `Fuzzing.kt`, `:core`) : octets au hasard et mutations (octet changé, inséré, tronqué, run poussé au maximum, tout au hasard) d'un corpus de trames valides, pour chaque décodeur du mode — `HierarchyWire` (opération, bloc, résumé, état, lot de clés), `OperationWire` (enveloppe, résumé, demande d'entrée, clé d'invitation, état de liaison, charges utiles, invitation en lien et en QR), cartes de noms, `HierarchySnapshot` (les cinq parties scellées), `DissolutionProof`/`Notice`/`Trace`. Vérifié : **aucune exception non attrapée** (seules `WireException`, et `IllegalArgumentException` pour les décodeurs de texte Base45/Base64, sont tolérées), **temps borné** (aucun décodage au-delà de 2 s), **aucune grosse allocation tirée d'une longueur annoncée** (une entrée courte qui déclare un compte au plafond n'agrandit pas le tas de plus de 2 Mo).
+
+**Stockage abîmé, tronqué, échangé** (`StorageAttackTest`, `:data`, sur un coffre logiciel) : les fichiers scellés ajoutés par P39.7 et P39.9 (`link.sealed`, `messages.sealed`) abîmés, tronqués, absents ou échangés entre deux opérations — refus propre (lu vide ou `null`, signalé, jamais de travers), l'opération se charge quand même ; un fichier de messages absent (opération de la 0.4.250) se lit vide **sans rien signaler** ; une trace échangée entre deux opérations est refusée (son sceau est lié à l'identifiant du fichier) et effacée ; un fuzzing seedé corrompt au hasard tous les fichiers d'une opération (les quatre parties, l'identité, la clé de stockage, le lien, les messages) : `open`/`load`/`loadLink`/`loadMessages` ne lèvent jamais rien, ne lisent rien d'une autre opération, aucun bogue. Les quatre parties, l'identité, la clé de stockage et les traces étaient déjà attaquées par `StoredOperationTest` et `DissolutionTracesTest` (P39.6, P39.9).
+
+### Défaut trouvé et corrigé
+
+- **Une grosse allocation tirée d'une longueur annoncée, dans `HierarchySnapshot`** (ADR-133). Cause : les parties relues construisaient leurs listes par `List(count) { … }`, qui **pré-dimensionne** le tableau au compte lu avant de lire le premier élément. Plafond `MAX_COUNT = 2²⁰`, donc une entrée de 6 octets déclarant 2²⁰ faisait allouer ≈ 5 Mo (mesuré) avant l'échec « tronqué ». Correction (commit à lui, `[P39.11] Correction : …`) : un `readList(r) { … }` qui agrandit un `ArrayList` au fil des éléments réellement lus, borné par la taille de l'entrée ; même résultat pour toute entrée valide. Fichier : `core/src/main/kotlin/fr/toolmap/core/hierarchy/HierarchySnapshot.kt`. Test qui le montre : `HierarchyFuzzTest`, « a short input with a huge announced length is refused without a big allocation » (il échoue si un décodeur pré-dimensionne de nouveau, vérifié en réintroduisant la faute). **Gravité réelle faible** : ces fichiers sont scellés par le téléphone, un tiers ne peut pas y mettre d'octets arbitraires (l'authentification AES-GCM échoue d'abord) ; le cas n'est atteint que par une vraie corruption du disque, déjà refusée et rattrapée par le réseau.
+
+Aucun autre défaut n'a été trouvé : les décodeurs des trames (adversariales) bornent leurs comptes au plus juste ou lisent par `ByteReader.bytes(n)`, qui vérifie la place avant d'allouer.
+
+### Risques qui restent (dits honnêtement)
+
+- **Antidatage d'un administrateur retiré** (§ 6.4) : un administrateur retiré qui a gardé la clé d'invitation de l'époque d'avant peut signer, après coup, une admission et un placement datés **avant** son propre retrait ; ils s'appliquent sur tous les téléphones (leur auteur avait le droit à ce point de l'ordre), et un second téléphone à lui entre ainsi dans l'opération. Un test le **fixe** (`MaliciousMemberTest`, « known limit — a removed administrator antedates… ») : il montre ce que l'attaque obtient aujourd'hui, pour que le jour où un point de reprise (§ 6.4) ferme le cas, le test le dise. Non corrigé ici : la parade (point de reprise, état signé qui remplace le passé) est un gros chantier qui changerait le moteur.
+- **Un membre placé malveillant recopie ce qu'il lit** : aucune cryptographie ne l'empêche (§ 8.6). Hors de portée d'un test de format.
+- **Rejeu d'un partage encore valable** : une trame captée et renvoyée reste valable tant que son auteur a le droit ; le branchement doit contrôler la date ou le numéro dans la charge utile (§ 8.6), ce que les tests du serveur menteur vérifient pour les positions (écartées si plus anciennes), les messages et les alertes (écartés si déjà vus ou de plus de 6 h).
+- **La longueur `MAX_COUNT` de `HierarchySnapshot`** reste un garde-fou large ; `readList` la rend sans effet sur l'allocation, mais un fichier scellé légitime de plusieurs Mo se relit toujours (ce qui est voulu).
+
+### Cas non corrigés et questions pour l'utilisateur
+
+Aucun cas trouvé par cette batterie n'exige une décision de l'utilisateur : le seul défaut (allocation) est corrigé, et la seule limite (antidatage) est déjà connue (§ 6.4) et déjà posée en question ailleurs. Rien de nouveau à trancher.
+
+### Comment relancer le long fuzzing
+
+Le fuzzing seedé rapide tourne dans `./gradlew check` (graines fixes, environ 7 s pour `:core` et 3 s pour `:data`, bien sous la limite de 90 s). La longue série passe derrière une propriété :
+
+```bash
+./gradlew :core:test :data:testDebugUnitTest --tests '*HierarchyFuzzTest' --tests '*StorageAttackTest' -Ptoolmap.hierarchy.fuzz=true
+```
+
+Elle a été **lancée dans la session 119** : son résultat est consigné au journal (session 119).
+
+### Ce qui n'a pas pu être vérifié
+
+- Deux téléphones réels et le vrai serveur de coordination : la salle est simulée (JVM), sans réseau. Le comportement d'un serveur Firebase réel face à ces trames (déjà conforme aux règles publiées : même forme JSON, salle de 32 caractères hexadécimaux, nom vide dans le battement) reste à voir en vrai (P39.12).
+- La batterie est en JVM pure : rien sur émulateur (aucun écran, aucun code d'application n'est touché). Le contrôle sur émulateur de la CI reste celui des §§ 16, 17 et 20.
+- Le temps et la mémoire sont mesurés sur la JVM de la machine de build, pas sur un téléphone.
+
+### Blocage CI connu : un test instable de P39.9 (à trancher par l'utilisateur)
+
+La batterie elle-même est verte (en local et dans `./gradlew check`). Mais le run « CI » de la branche de P39.11 est **rouge**, et toujours sur **un seul test, qui n'est pas de P39.11** : `OperationTraceTest` (P39.9, `data/src/test/.../hierarchy/`, commit 08827e3), le test « a phone away at the dissolution learns it from a trace on day 6 ».
+
+- **Ce qui se passe** : sur l'émulateur partagé de la CI (2 cœurs, chargé), une assertion **sans message** de ce test échoue (`java.lang.AssertionError at OperationTraceTest.kt:148`). Le test fait revenir un téléphone absent, attend qu'il apprenne la dissolution par la trace d'un autre dans la salle, puis vérifie, entre autres sans message : qu'aucun `operation.dissolution.refused` n'a été signalé, et que le téléphone qui garde la trace est présent dans la salle.
+- **Ce qui devrait se passer** : le test passe, comme en local.
+- **Reproductibilité** : **jamais reproduit en local** — 18 exécutions (8 de la classe seule, 6 de tout `:data`, 4 sous forte charge CPU avec huit processus `yes`), toutes vertes. Il est passé deux fois sur la CI de P39.9 (runs n° 208 et 211). Il échoue sur la CI de P39.11 (runs n° 215 et 217). C'est donc une **instabilité de synchronisation propre à la contention de l'émulateur de la CI**, sensible au tour de rôle des tâches postées entre deux contrôleurs sur leurs exécuteurs à un seul fil.
+- **Lien avec P39.11** : aucun connu. P39.11 ne modifie pas `OperationTraceTest` ni `OperationController` ; le seul changement du moteur de cette session (`HierarchySnapshot.readList`, ADR-133) donne le même résultat au bit près et ne touche pas le chemin de la trace. Une tentative de durcir le `settle` du test (boucle de drainage de plus) n'a **pas** corrigé le défaut (run n° 217 encore rouge) ; elle a été **annulée**, le test de P39.9 laissé intact.
+- **Gravité** : le code du mode « Opération » n'est pas en cause (le défaut est dans l'ordonnancement du test, ou au plus un `operation.dissolution.refused` transitoire et sans effet pendant l'échange). Mais la condition « CI verte » de la tâche P39.11 n'est pas remplie tant qu'il échoue.
+
+**Question pour l'utilisateur** (ce test est à P39.9 / la session principale ; cette session ne le réécrit pas de force) :
+
+1. **La session principale (ou P39.9) rend `OperationTraceTest` « jour 6 » déterministe** (recommandé) : attendre l'échange de la salle par une condition (par ex. sonder jusqu'à `endedByTrace`, borné), au lieu d'un nombre fixe de tours de `settle` ; et, si un `operation.dissolution.refused` transitoire est réellement émis pendant l'échange, décider s'il faut l'éviter côté transport ou le tolérer dans l'assertion. Garde la CI exigeante.
+2. **Cette session tente un correctif plus poussé du test**, sans pouvoir le vérifier en local (il n'y échoue jamais) : risque de ne pas corriger le vrai défaut, et de toucher un fichier d'une autre tâche en cours.
+3. **Accepter l'instabilité pour l'instant** et fusionner P39.11 quand un run « CI » passe (le défaut est à ~50 % ; non recommandé : contraire à la règle « un test instable se corrige, il ne se relance pas »).
