@@ -204,7 +204,7 @@ object OperationScenes {
                 at(5) { s -> sudPage(s).copy(sheet = s.member(11)?.let(OpSheet::RenameMember)) }
             },
             Scene("tour5-02-groupe-A") {
-                at(5) { s -> page(OpPage.Admin, OpPage.GroupPage(s.groupOf("Ouest") ?: 0L)) }
+                at(5) { s -> page(OpPage.Admin, OpPage.GroupPage(s.groupOf("Ouest") ?: 0L)).copy(toEnd = true) }
             },
             Scene("tour5-02-groupe-B-feuille") {
                 at(5) { s ->
@@ -281,6 +281,8 @@ object OperationScenes {
             },
             Scene("tour2-08-successeur-autres", changes = true) { at(7) },
             Scene("tour5-02-attente-A", changes = true) {
+                // The window « Vous êtes le créateur » of the hand-over before must not cover the captures of Membre 5.
+                forgetNotices(5, 7)
                 val seven = member(7)
                 demoSeat(7)?.requestName("Guide 7")
                 val seen = {

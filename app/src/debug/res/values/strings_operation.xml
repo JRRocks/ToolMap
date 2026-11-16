@@ -317,7 +317,7 @@
   <string name="op_my_name_send">Envoyer la demande</string>
   <string name="op_my_name_admin">Vous êtes administrateur : le nouveau nom vaut tout de suite, pour toute l\'opération.</string>
   <string name="op_my_name_creator">Vous êtes créateur : le nouveau nom vaut tout de suite, pour toute l\'opération.</string>
-  <string name="op_name_pending">Nom demandé : « %1$s »</string>
+  <string name="op_name_pending">Nom demandé : « %1$s »</string>
   <string name="op_name_pending_sub">En attente d\'un administrateur</string>
   <string name="op_name_pending_offline">Hors réseau : elle partira au retour du réseau</string>
   <string name="op_name_accepted">Accepté : vous vous appelez maintenant « %1$s ».</string>

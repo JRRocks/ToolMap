@@ -122,10 +122,13 @@ data class OperationNav(
     val menu: Boolean = false,
     /** Where the thumb of « Glisser pour dissoudre » is held, 0 to 1 (a capture); `null`: where the finger puts it. */
     val slide: Float? = null,
+    /** The page is shown scrolled to its end (a capture: the lines at the bottom of the page of a group, `tour5`). */
+    val toEnd: Boolean = false,
 ) {
     val page: OpPage get() = pages.last()
 
-    fun open(next: OpPage): OperationNav = copy(pages = pages + next, sheet = null, dialog = null, menu = false)
+    fun open(next: OpPage): OperationNav =
+        copy(pages = pages + next, sheet = null, dialog = null, menu = false, toEnd = false)
 
     /** Back: the window, then the sheet, then the page; `null` when the screen itself closes. */
     fun back(): OperationNav? =
