@@ -56,6 +56,7 @@ import fr.toolmap.core.geo.ZoomMapping
 import fr.toolmap.core.layers.FavoritesExport
 import fr.toolmap.core.layers.FavoritesFileCodec
 import fr.toolmap.core.maps.OnlineCatalog
+import fr.toolmap.core.p2p.RelayConfig
 import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.problem.catchExpected
 import fr.toolmap.core.settings.ThemeMode
@@ -65,6 +66,7 @@ import fr.toolmap.crash.CrashActivity
 import fr.toolmap.crash.CrashReporter
 import fr.toolmap.data.hierarchy.HierarchyKeysCheck
 import fr.toolmap.data.hierarchy.HierarchyOperationCheck
+import fr.toolmap.data.hierarchy.OperationEndToEnd
 import fr.toolmap.data.sources.SourceRepository
 import fr.toolmap.data.tiles.OfflineMode
 import fr.toolmap.data.tiles.TileLocation
@@ -91,6 +93,8 @@ import fr.toolmap.measure.MeasureViewModel
 import fr.toolmap.multizoom.MultiZoomScreen
 import fr.toolmap.multizoom.MultiZoomViewModel
 import fr.toolmap.navigate.NavigationViewModel
+import fr.toolmap.p2p.FileAuthStore
+import fr.toolmap.p2p.FirebaseRelayFactory
 import fr.toolmap.perf.EngineBench
 import fr.toolmap.perf.PerfIntent
 import fr.toolmap.print.PrintViewModel
@@ -125,6 +129,7 @@ import fr.toolmap.wizard.SourceWizardViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.io.FileDescriptor
 import java.io.PrintWriter
 import javax.inject.Inject
@@ -797,6 +802,20 @@ class MainActivity : ComponentActivity() {
         writer: PrintWriter,
         args: Array<out String>?,
     ) {
+        // `… operation-e2e <command> …`: the end-to-end trial of the « Opération » mode on the real coordination server,
+        // between two devices (P39.12, ADR-134), debug only. It answers alone (nothing else of the dump is written):
+        // the script asks it every second.
+        val trial = args?.indexOf(OperationEndToEnd.DUMP_ARGUMENT) ?: -1
+        if (BuildConfig.DEV_TOOLS && trial >= 0) {
+            OperationEndToEnd.dump(
+                this,
+                args.orEmpty().drop(trial + 1),
+                writer,
+                { client -> FirebaseRelayFactory(FileAuthStore(File(filesDir, OperationEndToEnd.AUTH_FILE)), client) },
+                RelayConfig.of(BuildConfig.FIREBASE_DB_URL, BuildConfig.FIREBASE_API_KEY).takeIf(RelayConfig::isUsable),
+            )
+            return
+        }
         super.dump(prefix, fd, writer, args)
         if (BuildConfig.PERF_LOG && args?.contains(EngineBench.DUMP_ARGUMENT) == true) {
             val started = EngineBench.start()

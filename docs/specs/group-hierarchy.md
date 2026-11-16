@@ -5,6 +5,7 @@
 > Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15, celle des clés et du stockage au § 16, celle du transport et du contrôleur au § 17 ; le quatrième passage de maquettes (écarts avant de coder) est au § 18.
 > Mots : dans les écrans, « ensemble » se dit « opération » et « leader » se dit « chef » (§ 10 ter) ; dans le code et dans ce document, `ensemble` et `leader` restent les noms techniques.
 > La trace de dissolution gardée une semaine et les messages gardés sur le téléphone (réponses R1 et R2 du 2026-11-15, P39.9, ADR-131) sont au § 20.
+> Le premier essai de bout en bout, sur le vrai serveur de coordination et entre deux émulateurs (P39.12, ADR-134), est au § 23.
 
 ## 1. Vocabulaire
 
@@ -1698,3 +1699,135 @@ La batterie elle-même est verte (en local et dans `./gradlew check`). Mais le r
 1. **La session principale (ou P39.9) rend `OperationTraceTest` « jour 6 » déterministe** (recommandé) : attendre l'échange de la salle par une condition (par ex. sonder jusqu'à `endedByTrace`, borné), au lieu d'un nombre fixe de tours de `settle` ; et, si un `operation.dissolution.refused` transitoire est réellement émis pendant l'échange, décider s'il faut l'éviter côté transport ou le tolérer dans l'assertion. Garde la CI exigeante.
 2. **Cette session tente un correctif plus poussé du test**, sans pouvoir le vérifier en local (il n'y échoue jamais) : risque de ne pas corriger le vrai défaut, et de toucher un fichier d'une autre tâche en cours.
 3. **Accepter l'instabilité pour l'instant** et fusionner P39.11 quand un run « CI » passe (le défaut est à ~50 % ; non recommandé : contraire à la règle « un test instable se corrige, il ne se relance pas »).
+
+## 23. Tests : bout en bout sur le vrai serveur (P39.12, 2026-11-15)
+
+Pour la session principale (session 120, branche `claude/wizardly-noether-wcttgl`, partie de `claude/clever-edison-pi03p9` a4d1b8d, 0.4.251 : la branche de conception plus P39.9 ; `.conception-privee` présent). Décision d'architecture : ADR-134. Les §§ 19 à 22 sont aux sessions parallèles (écrans, simulation, attaques) ; ce paragraphe ne les écrit pas. Rien de visible ne change ; le partage « Entre amis » n'est pas touché (aucun fichier de `:p2p`, de `core/…/p2p/` ni de `app/…/share/`).
+
+### Ce qui est construit
+
+- **`:data`, paquet `fr.toolmap.data.hierarchy`** : `OperationEndToEnd` (le point d'entrée `dumpsys … operation-e2e`, outils de debug seulement, et `EndToEndSession`, les commandes au-dessus d'un `OperationController`) ; `TrafficMeter` (compteurs : appels au serveur par sorte, octets des corps, trames par genre). Test JVM : `OperationEndToEndTest` (le scénario du script sur deux téléphones d'une salle en mémoire).
+- **`:app`** : une ligne d'aiguillage dans `MainActivity.dump` (`BuildConfig.DEV_TOOLS`), qui donne à l'essai le relais Firebase d'« Entre amis » tel qu'il est (`FirebaseRelayFactory`, son client OkHttp avec le compteur, une identité anonyme à l'essai) et le serveur intégré à l'APK.
+- **Outils** : `tools/emulator/operation-e2e.sh` (le scénario, deux appareils), `tools/emulator/operation-e2e-measures.py` (le tableau des mesures) ; `.github/workflows/operation-e2e.yml` (deux émulateurs API 34, vrai serveur).
+
+### Le scénario
+
+A et B sont deux émulateurs de la même machine ; « Exercice », « Alpha », « Bravo », « Nord » sont des noms fictifs ; les positions sont la place fictive des tests (45,2° N, 5,7° E, un pas de 0,0001° par position). Chaque ligne est une étape du script, avec ce qu'elle doit rendre ; le script s'arrête à la première qui ne le rend pas.
+
+| Étape | Qui | Ce qui se passe | Résultat attendu |
+|---|---|---|---|
+| 1.create | A | crée l'opération, sa salle sur le vrai serveur | `STARTED`, serveur `ONLINE`, A peut inviter |
+| 1.join, 1.request-seen | B, A | B lit l'invitation (venue de A par adb) et demande à entrer | B lit le nom de l'opération, serveur `ONLINE` ; A voit la demande **avec le nom de B** (R5) |
+| 1.admit, 1.waiting | A, B | A admet B | B en attente (`WAITING`) |
+| 1.organize, 1.placed | A, B | A crée le groupe « Nord », y place B, le nomme chef du groupe, se nomme chef de l'opération | B placé, lit le nom du groupe et celui de A ; son alerte part aux chefs (`LEADERS`) |
+| 2.positions | B, A | B envoie 5 positions, une toutes les 2 s | A reçoit la dernière (et les autres sauf celles que le serveur a remplacées) |
+| 3.messages | A, B | un message dans chaque fil où chacun écrit | l'autre reçoit ceux des fils qu'il lit, **et aucun autre** (3 s de plus pour s'en assurer) |
+| 3.alert | A, B | une alerte chacun, puis levée | l'autre la reçoit (selon le rang : A, chef de l'opération, à tous ; B, chef de groupe, aux chefs), puis ne la voit plus |
+| 3.waypoint | A, B | un waypoint dans un lieu que B lit, puis retiré | B le voit, puis ne le voit plus |
+| (une minute) | A, B | rien n'est partagé | ce que coûtent deux téléphones placés, seuls |
+| 4.reopen, 4.caught-up | A | l'application de A est tuée ; B met un waypoint ; A redémarre et rouvre l'opération | A en ligne, avec le waypoint de B |
+| 4.cut … 4.waypoint-in | B, A | B en mode avion 40 s ; A renomme le groupe et met un waypoint ; B revient | B voit le serveur injoignable, puis de nouveau en ligne, le nouveau nom et le waypoint |
+| 5.leave, 5.departure-seen | B, A | B quitte l'opération | B : fin (`OUT`), plus rien de gardé ; A : B parti, **clé d'invitation renouvelée** (R3) |
+| 5.join-old, 5.old-invitation | B, A | B (nouvelle identité) redemande avec l'ancienne invitation | A ne voit aucune demande ; ses demandes arrivent et sont écartées (`join.old_key`) |
+| 6.join … 6.waiting | B, A | B revient avec une nouvelle invitation ; A l'admet | B en attente |
+| 6.cut, 6.dissolve | B, A | B en mode avion ; A dissout | A : fin (`DISSOLVED`), une trace gardée 7 jours |
+| 6.back-online | B | B revient, seul dans la salle (A l'a quittée, ses trames avec lui) | serveur `ONLINE` |
+| 6.announce, 6.ended-by-trace | A, B | l'application de A redémarre et vient au premier plan (`announceDissolutions`) | B apprend la dissolution **par la trace** (R1) et garde à son tour une trace |
+| 6.window-over | A | le moment d'écoute de la trace (2 min) | fini de lui-même ; A quitte la salle |
+
+À la fin, quoi qu'il arrive, les deux applications quittent la salle (`reset`) et le mode avion est coupé. Le script vérifie aussi qu'aucune des deux n'a planté (Java, natif) ni bloqué (ANR).
+
+### Ce qui est mesuré, et comment
+
+- **Latence de chaque étape** : temps rendu par l'application (`…Ms` : durée sur l'appareil ; `…AtMs` : heure de l'appareil) et temps d'attente du script. Entre les deux appareils, la latence est l'heure de réception chez l'un moins l'heure d'envoi chez l'autre, corrigée de l'écart de leurs horloges (lu par adb, au mieux de cinq essais, avec sa marge).
+- **Octets** : les corps HTTP des appels au serveur, en montée et en descente, comptés sur le fil (avant décompression, sans en-têtes ni TLS) par un intercepteur réseau du client OkHttp du relais ; et tout le trafic de l'application (`TrafficStats`, TLS compris, les tuiles de la carte aussi).
+- **Écritures sur le serveur** : chaque appel qui n'est pas une lecture (présence, position, trame de contrôle, nettoyage, départ), par appareil, par tronçon et par minute ; les trames de l'opération par genre (opérations, résumé, lot de clés, partage, demande d'entrée, clé d'invitation, dissolution, position).
+- Les relevés sont dans l'artefact du run (`operation-e2e/` : `steps.txt`, `counters.txt`, `measures.txt`, et les lignes logcat de l'application, filtrées et nettoyées) et dans le journal du job.
+
+### Résultats
+
+**Sur la JVM** (salle en mémoire, `OperationEndToEndTest`, 2 tests) : le scénario du script passe en entier, sauf la coupure de réseau (étape 4, sans réseau à couper) et l'attente des deux minutes du moment d'écoute. Deux lectures en sont sorties, sans défaut :
+
+- **Deux positions dans la même seconde** : la seconde est écartée comme un rejeu (`position.old` : l'heure d'une position est en secondes, et une position qui n'est pas plus récente que la dernière est refusée). Un GPS donne au plus une position par seconde ; le script les espace de 2 s.
+- **À la dissolution, la vue dit « fini » un instant avant de dire la trace** (`phase = ENDED` publiée par l'appel, puis `traceKeptUntilMs` à la fin de l'effacement) : un écran qui lit la trace doit suivre la vue (`StateFlow`), pas la première valeur `ENDED`. L'essai attend donc la trace quelques secondes après la fin.
+
+**Sur le vrai serveur, entre deux émulateurs : toutes les étapes passées**, au premier run (run n° 1 du workflow « Opération, bout en bout », 43763114261, commit b03b57f, 0.4.252, 2026-11-15 ; deux émulateurs Android 14, API 34, sur la même machine de la CI, 4 cœurs et 16 Go, démarrés en 72 s ; scénario de 5 min 47 s du premier `reset` au dernier contrôle, dont 2 min de moment d'écoute de la trace). Écart des horloges A − B : −56 ms, lu à 104 ms près : les latences entre les deux appareils sont corrigées de cet écart, à ± 52 ms. « En ligne » : l'état `ONLINE` du relais (identité anonyme, heure du serveur, flux de la salle ouvert).
+
+| Étape | Résultat | Temps |
+|---|---|---|
+| 1.create (A) | `STARTED`, en ligne, peut inviter | 159 ms pour créer et garder ; 1,48 s jusqu'à « en ligne » |
+| 1.join (B) | invitation lue, nom de l'opération lu, `ASKING`, en ligne | 1,98 s jusqu'à « en ligne » |
+| 1.request-seen (A) | la demande, **avec le nom de B** (R5) | 3,6 s après le début de l'attente de A, soit environ 1,5 s après que B est en ligne |
+| 1.admit → 1.waiting | B en attente, sa position vers sa voie d'attente | 190 ms |
+| 1.organize → 1.placed | B placé, lit le nom du groupe et celui de A ; son alerte part aux chefs | 1,2 s (groupe, placement, deux postes, noms, clés) |
+| 2.positions | 5 sur 5 reçues, dans le canal du groupe | 166, 170, 180, 167, 218 ms |
+| 3.messages A → B | A écrit dans 2 fils (l'opération, le commandement du groupe), B lit les deux : 2 reçus | 141 ms (l'opération), 406 ms (le commandement : clé de la voie faite à la demande) |
+| 3.messages B → A | B écrit dans 2 fils (son groupe, le commandement), A ne lit que le commandement : 1 reçu, **aucun autre** pendant 3 s de plus | 294 ms |
+| 3.alert A → B | dans l'opération (A, chef de l'opération : tous les membres placés) | 131 ms ; levée vue en 132 ms |
+| 3.alert B → A | dans la voie des chefs (B, chef de groupe) | 314 ms ; levée vue en 197 ms |
+| 3.waypoint A → B | dans l'opération | 148 ms ; retiré, vu en 163 ms |
+| 4.reopen, 4.caught-up (A) | l'application de A tuée ; B met un waypoint ; A relancée : opération rouverte, en ligne, le waypoint de B déjà là | 200 ms pour rouvrir, 1,7 s jusqu'à « en ligne », 5,0 s depuis le lancement de l'application |
+| 4.cut (B) | mode avion : serveur injoignable | 560 ms |
+| 4.back-online … 4.waypoint-in (B) | après 40 s sans réseau : de nouveau en ligne, le nouveau nom du groupe et le waypoint de A rattrapés aussitôt | **8,0 s** après le retour du réseau pour être en ligne (défaut 2), puis 1 ms et 0 ms |
+| 5.leave → 5.departure-seen | B : fin `OUT` ; A : B parti, clé d'invitation renouvelée | **3,4 s** (défaut 1) |
+| 5.join-old → 5.old-invitation | B (identité neuve) avec l'ancienne invitation : en ligne, `ASKING` ; A : aucune demande montrée en 45 s, **5 demandes écartées** (`join.old_key`) | 45 s |
+| 6.join → 6.request-seen | nouvelle invitation : la demande avec le nom | 2,0 s |
+| 6.admit → 6.waiting | B en attente | 201 ms |
+| 6.cut, 6.dissolve | B injoignable en 155 ms ; A : `DISSOLVED`, une trace gardée 7 jours, plus aucune opération gardée | 55 ms |
+| 6.back-online (B) | seul dans la salle (A l'a quittée, ses trames avec lui) | 3,5 s |
+| 6.announce → 6.ended-by-trace | A (application relancée, au premier plan) annonce 1 trace ; B : `DISSOLVED` **par la trace** (R1), et garde la sienne | 1,2 s |
+| 6.window-over (A) | moment d'écoute fini de lui-même, A quitte la salle | 120 s |
+
+**Run n° 2** (43766232396, commit 30e21bc, 0.4.253, le même soir) : **toutes les étapes passées de nouveau**, aux mêmes temps à quelques dizaines de millisecondes près (positions 157 à 179 ms ; messages 181 et 481 ms de A vers B, 304 ms de B vers A ; alertes 168 et 323 ms, levées 218 et 185 ms ; waypoint 227 ms, retiré 211 ms ; admission 294 ms, placement 1,4 s ; de nouveau en ligne 8,0 s après la coupure ; départ vu en 3,4 s ; dissolution par la trace 1,2 s). Ce qu'il montre en plus : **renouvellement vérifié** (époque 1 à l'entrée de B, 2 après son départ, 0,6 s après que A l'a vu partir ; la nouvelle invitation porte l'époque 2) ; le départ de B efface son stockage en 54 ms ; **aucune réponse du serveur autre qu'un succès**, sur les deux appareils ; l'attente d'une trame avant son écriture (défaut 1).
+
+**Run n° 3** (43769156127, commit f3e652c, 0.4.253) : **toutes les étapes passées une troisième fois** ; les compteurs relevés juste avant chaque relance donnent enfin le total de l'essai (5 min 38 s de scénario, deux téléphones) : **A 97 écritures** (24 battements, 71 trames de contrôle ; 46 Ko de corps envoyés, 128 Ko reçus), **B 108** (16 battements, 5 positions, 84 trames de contrôle ; 44 Ko envoyés, 235 Ko reçus) ; pour toute l'application, 203 et 222 Ko envoyés, 257 et 555 Ko reçus (dont environ 290 Ko de tuiles de la carte au démarrage de B). Sur les 155 trames de contrôle écrites, **52 sont des lots de clés** (19 de A, 33 de B), 32 des opérations, 30 des partages, 27 des résumés, 12 des demandes d'entrée ; la rafale du défaut 1 se retrouve (B après sa reconnexion : attente moyenne 1,35 s, 36 écritures plus d'une seconde ; A relancé : 1,30 s, 13).
+
+Le renouvellement de la clé d'invitation (R3) est prouvé au run n° 1 par les demandes écartées de l'étape 5 (une demande n'est écartée ainsi que sous une clé plus ancienne que celle du moment), pas par l'étape 5.departure-seen : l'application de A ayant été relancée à l'étape 4, l'époque qu'elle comparait était perdue, et la vérification passait d'elle-même (défaut de l'essai, corrigé : l'époque est lue au début de l'attente, et le script compare l'époque de A au moment de l'entrée de B et à celui de la nouvelle invitation).
+
+**Mesures du run n° 1** (corps HTTP : sans en-têtes ni TLS ; « appli » : tout le trafic de l'application d'après `TrafficStats`, TLS, en-têtes et tuiles de la carte compris) :
+
+| Tronçon | Appareil | Durée | Écritures | dont présence / position / contrôle | Corps ↑ / ↓ | Appli ↑ / ↓ |
+|---|---|---|---|---|---|---|
+| création, entrée, placement | A | 10 s | 19 | 1 / 0 / 18 | 8,2 / 15,6 Ko | 40,8 / 38,4 Ko |
+| création, entrée, placement | B | 10 s | 12 | 1 / 0 / 11 | 3,7 / 15,3 Ko | 34,3 / 295,8 Ko (tuiles de la carte) |
+| 5 positions | B | 9 s | 6 | 1 / 5 / 0 | 1,5 / 1,9 Ko | 9,3 / 6,1 Ko |
+| fils, alertes, waypoint | A | 12 s | 9 | 1 / 0 / 8 | 2,7 / 5,6 Ko | 14,7 / 10,2 Ko |
+| fils, alertes, waypoint | B | 12 s | 5 | 0 / 0 / 5 | 1,6 / 5,5 Ko | 8,8 / 8,8 Ko |
+| **une minute sans partage** | A | 60 s | **5** | 4 / 0 / 1 | 392 / 1 396 o | 7,0 / 4,4 Ko |
+| **une minute sans partage** | B | 60 s | **5** | 4 / 0 / 1 | 416 / 1 396 o | 7,1 / 4,1 Ko |
+| moment d'écoute de la trace (R1) | A | 123 s | 11 | 9 / 0 / 1 | 1,6 / 6,2 Ko | — (application relancée juste avant) |
+
+- **Deux téléphones placés qui ne partagent rien : 5 écritures par minute et par appareil** (un battement de présence toutes les 15 s, un résumé par minute), soit 300 par heure ; 0,4 Ko de corps envoyés et 1,4 Ko reçus par minute (le flux de la salle porte les écritures des deux), mais **7 Ko envoyés par minute pour toute l'application** : chaque écriture porte dans son adresse le jeton du compte anonyme (`?auth=…`, environ 1 Ko), comme pour « Entre amis » (`FirebaseRest`), ce qui pèse plus que les trames.
+- **Une position : une écriture** (case de position du membre), environ 300 octets de corps.
+- **Le moment d'écoute d'une trace** (R1) : 2 minutes, un flux, 11 écritures (9 battements, la réponse qui porte la preuve, l'effacement de son nœud en partant), environ 1,6 Ko de corps envoyés et 6 Ko reçus : ce que le § 20 estimait (« environ 8 battements »).
+- Ce qui reçoit grandit avec le nombre de téléphones : chaque appareil lit toutes les écritures de la salle. Sans partage, à 30 téléphones, environ 30 × 5 écritures par minute à lire par appareil (≈ 21 Ko de corps par minute et par appareil d'après les 1,4 Ko mesurés pour 2 ; extrapolé, non mesuré).
+- Les tronçons où une application a été relancée (étapes 4 et 6 pour A) sont faussés au run n° 1 (les compteurs repartent de zéro avec le processus) : le tableau du script en tient compte depuis (« redémarrée »), et compte aussi les écritures par genre de trame, l'attente d'une trame avant son écriture et les réponses du serveur autres qu'un succès (run suivant).
+
+### Défauts trouvés
+
+1. **Une rafale de réponses inutiles après chaque reconnexion, qui retarde de quelques secondes ce qui suit** (non corrigé ici : question 1). Ce qui le montre (run n° 1) : pendant la coupure de B et son retour, le nœud de B confie 22 trames à son relais et reçoit 52 trames (à chaque ouverture de son flux, le serveur redonne les trames de contrôle de A des 120 dernières secondes) ; au tronçon suivant, 38 écritures de contrôle pour 17 trames confiées : une vingtaine d'écritures en retard, et l'opération de départ de B écrite derrière elles, vue par A **3,4 s** après (0,13 à 0,4 s pour tout le reste). Même chose chez A après sa relance (17 écritures de contrôle pour 4 trames confiées dans le tronçon). La cause : `OperationNode.onSummary` répond à chaque résumé qu'il entend, y compris les vieux résumés que le serveur redonne, par les opérations qui manquaient alors à l'autre, par **tous** ses lots de clés dès que les empreintes diffèrent (`KeyRing.batchesFor`), et par les objets de chaque canal dont l'empreinte diffère ; seul un résumé identique entendu deux fois en 5 s n'a qu'une réponse ; et le relais écrit une trame à la fois. Sur tout l'essai, B a ainsi envoyé 21 lots de clés et en a reçu 45, pour deux téléphones. **Le run n° 2 le mesure** : à sa reconnexion, B reçoit 53 trames que le serveur lui redonne (14 opérations, 8 résumés, 17 lots de clés, 14 partages) et confie à son relais 21 trames en réponse (12 lots de clés, 4 partages, 3 opérations, 2 résumés) ; elles attendent ensuite leur écriture **1,46 s en moyenne, 22 écritures plus d'une seconde**, et l'opération de départ de B passe derrière (vue par A en 3,39 s). Chez A relancé : 22 trames confiées (12 lots de clés), attente moyenne **2,05 s**, 19 écritures plus d'une seconde. En dehors de ces rafales, une trame attend de 0 à 76 ms avant son écriture (408 ms en moyenne pendant la création, 18 trames en 10 s). Sans effet sur l'état (les doublons sont reconnus), mais une vingtaine d'écritures et quelques secondes de retard à chaque retour d'un téléphone, et davantage avec plus de téléphones présents (chacun redonne ses 120 s). La correction toucherait la règle d'échange du moteur (`:core`, sur lequel travaillent les sessions de simulation et d'attaques) : elle n'est pas faite ici. Le run suivant donne le détail par genre et l'attente des trames.
+2. **Après une coupure, 8 s avant d'être de nouveau en ligne** (non corrigé ici : question 2). Ce qui le montre (run n° 1) : B en ligne 8,0 s après la fin du mode avion, puis tout rattrapé aussitôt (1 ms). La cause : personne ne dit au relais de l'opération que le réseau est revenu (`RelayTransport.onNetwork`, `reconnectNow`, qu'« Entre amis » appelle depuis son suivi du réseau dans `ShareController`) ; il attend son prochain essai (1, 2, 4 puis 8 s au plus, `FirebaseRelay`). La correction a sa place dans le service qui fera tourner le mode « Opération » (pas encore écrit) : petite, mais hors de ce qui existe aujourd'hui.
+
+Défauts de l'essai lui-même, corrigés pendant la session : le résultat de la dissolution et du départ lu avant que la trace soit écrite et le stockage effacé (la vue dit « fini » une cinquantaine de millisecondes avant ; l'essai attend désormais la trace et l'effacement : ce n'est pas un défaut de l'application, mais un écran qui lit la trace doit suivre la vue, pas sa première valeur `ENDED`) ; l'époque comparée après une relance (ci-dessus) ; les durées du script et de l'application mesurées sur l'horloge murale, qui a reculé deux fois d'environ une demi-seconde sur la machine de la CI pendant le run n° 1 (deux temps d'attente négatifs) : horloge monotone désormais, l'horloge murale ne servant qu'à comparer les deux appareils.
+
+### Ce que le serveur a refusé
+
+Rien, aux deux runs : aucune étape n'a vu l'état `REFUSED`, chaque écriture attendue est arrivée de l'autre côté, y compris les battements de présence **au nom vide** (`n: ""`, accepté par les règles publiées : l'ADR-129 le disait « à voir en vrai »), les salles de 32 caractères hexadécimaux, les trames de contrôle des sept genres (jusqu'au lot de clés et à la preuve de dissolution) et les positions dans la case de position. Au run n° 2, le compteur des réponses du serveur le dit en nombres : aucune réponse autre qu'un succès (2xx), ni chez A ni chez B, sur tout l'essai.
+
+### Questions pour l'utilisateur
+
+1. **Après chaque reconnexion d'un téléphone, le serveur lui redonne les deux dernières minutes des autres, et il répond à chaque vieux résumé : une vingtaine d'envois inutiles et environ 3 s de retard pour ce qui suit. Que faire ?**
+   a. Répondre au premier résumé d'un téléphone aussitôt, puis à un seul toutes les 2 s, le plus récent (recommandé : même résultat, au plus deux réponses par rafale ; à faire dans le moteur, en accord avec les sessions de simulation et d'attaques).
+   b. Ne pas répondre à un résumé qui montre son auteur en retard sur ses propres opérations (il est vieux : un téléphone n'est jamais en retard sur ce qu'il a écrit) ; plus simple, mais ne supprime qu'une partie des réponses.
+   c. Laisser ainsi.
+2. **Après une coupure du réseau, le mode « Opération » met jusqu'à 8 s pour se reconnecter, là où « Entre amis » le fait dès le retour du réseau. Faut-il qu'il suive le réseau comme « Entre amis » ?**
+   a. Oui, dans le service qui fera tourner le mode « Opération », quand il sera écrit (recommandé).
+   b. Non, 8 s suffisent.
+
+### Ce qui n'a pas pu être vérifié
+
+- **Deux vrais téléphones**, le réseau mobile, le passage du Wi-Fi au réseau mobile, l'écran éteint, la batterie : l'essai tourne sur deux émulateurs d'une même machine, sur le réseau de la machine de la CI, application au premier plan et écran allumé.
+- Les téléphones à Keystore matériel (TEE, StrongBox) : celui de l'émulateur est logiciel.
+- **Plus de deux téléphones** : ni la rafale du défaut 1 avec plusieurs téléphones présents, ni les volumes à 30 membres (extrapolés ci-dessus), ni les rôles qu'un troisième téléphone ferait voir (adjoint, administrateur, deux groupes).
+- **Une coupure de plus de deux minutes** : au-delà, le serveur n'a plus les trames de l'autre et le rattrapage ne passe plus que par les résumés ; la coupure de l'essai (40 s) se rattrape par les trames que le serveur garde.
+- Le service qui fera tourner le mode « Opération » en tâche de fond n'existe pas encore : l'essai tient l'application au premier plan.
