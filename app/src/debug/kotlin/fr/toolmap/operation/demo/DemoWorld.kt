@@ -133,12 +133,25 @@ class DemoWorld private constructor(
             if (!letIn(2..PLACED)) return failed("join", progress)
             progress("groups")
             val groups = HashMap<String, Long>()
+
+            // One change at a time, seen by every phone let in before the next one (run « CI » n° 232, 2026-11-16):
+            // twenty phones in one process, answering one another's crossing summaries with their key batches, may
+            // fill the heap of the emulator of the CI.
+            fun everyone(seen: (HierarchyState) -> Boolean) =
+                (1..PLACED).all { n -> seats.getValue(n).view.value.hierarchy?.let(seen) == true }
             for ((name, members) in GROUPS) {
                 val group = creator.createGroup(name).first ?: return failed("group $name", progress)
                 groups[name] = group
+                if (!until({ "group $name" }, progress) { everyone { group in it.groups } }) {
+                    return failed("group $name seen", progress)
+                }
                 for (n in members) {
-                    val refused = creator.place(ids.getValue(n), group)
+                    val member = ids.getValue(n)
+                    val refused = creator.place(member, group)
                     if (refused != null) return failed("place $n", progress)
+                    if (!until({ "place $n" }, progress) { everyone { it.members[member]?.group == group } }) {
+                        return failed("place $n seen", progress)
+                    }
                 }
             }
             progress("posts")

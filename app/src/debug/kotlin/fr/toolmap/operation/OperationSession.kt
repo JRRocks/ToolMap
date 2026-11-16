@@ -471,9 +471,14 @@ class OperationSession
             scope.launch {
                 mutableDemo.value?.close()
                 mutableDemo.value = null
+                val started = System.currentTimeMillis()
                 val world =
                     withContext(Dispatchers.Default) {
-                        DemoWorld.build(File(context.cacheDir, DEMO_FOLDER)) { step -> log("demo $step") }
+                        // Each step with its time and the heap in use: what the log of the CI shows of a slow build.
+                        DemoWorld.build(File(context.cacheDir, DEMO_FOLDER)) { step ->
+                            val heap = Runtime.getRuntime().run { (totalMemory() - freeMemory()) / (1024 * 1024) }
+                            log("demo $step · ${(System.currentTimeMillis() - started) / 1000} s · heap $heap MB")
+                        }
                     }
                 mutableDemoBusy.value = false
                 if (world == null) {
