@@ -217,7 +217,9 @@ object OperationScenes {
             Scene("tour5-02-demande-B-admin") { at(5) { OperationNav(sheet = OpSheet.MyName) } },
             Scene("tour5-02-operation-A") { at(1) { OperationNav(menu = true) } },
             Scene("tour5-02-operation-feuille") { at(1) { OperationNav(sheet = OpSheet.RenameOperation) } },
-            Scene("tour5-04-attente-nom") { at(21) { OperationNav(sheet = OpSheet.MyName) } },
+            Scene("tour5-04-attente-nom") {
+                at(21) { OperationNav(sheet = OpSheet.MyName, nameDraft = "Prénom N.") }
+            },
             Scene("tour5-04-nom-pris") { at(7) { OperationNav(sheet = OpSheet.MyName, nameDraft = "Membre 9") } },
             Scene("tour5-04-nom-pris-createur") {
                 at(1) { OperationNav(sheet = OpSheet.MyName, nameDraft = "Relais 1") }

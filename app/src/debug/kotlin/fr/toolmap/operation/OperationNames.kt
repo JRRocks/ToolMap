@@ -155,7 +155,8 @@ fun NameSheet(
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
     )
-    if (box != null) Box(Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) { box(trimmed) }
+    // A name already taken: the error alone, without the box (`04-nom-pris`).
+    if (box != null && !isTaken) Box(Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) { box(trimmed) }
     SheetButton(button, enabled = Names.valid(trimmed) && changed && !isTaken) { onSave(trimmed) }
     CancelLine(session)
 }
