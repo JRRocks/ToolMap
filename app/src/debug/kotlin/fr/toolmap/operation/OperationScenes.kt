@@ -218,6 +218,10 @@ object OperationScenes {
             Scene("tour5-02-operation-A") { at(1) { OperationNav(menu = true) } },
             Scene("tour5-02-operation-feuille") { at(1) { OperationNav(sheet = OpSheet.RenameOperation) } },
             Scene("tour5-04-attente-nom") { at(21) { OperationNav(sheet = OpSheet.MyName) } },
+            Scene("tour5-04-nom-pris") { at(7) { OperationNav(sheet = OpSheet.MyName, nameDraft = "Membre 9") } },
+            Scene("tour5-04-nom-pris-createur") {
+                at(1) { OperationNav(sheet = OpSheet.MyName, nameDraft = "Relais 1") }
+            },
             // Leaving.
             Scene("tour4-11-quitter-texte-membre") { at(7) { OperationNav(dialog = OpDialog.Quit) } },
             Scene("tour3-09-chef-quitte") { at(4) { OperationNav(dialog = OpDialog.Quit) } },
@@ -294,7 +298,7 @@ object OperationScenes {
             Scene("tour5-02-admin-A-administrer", changes = true) { at(5) { page(OpPage.Admin) } },
             Scene("tour5-02-admin-valider-A", changes = true) { at(5) { page(OpPage.Admin, OpPage.NameRequests) } },
             Scene("tour5-04-attente-nom-demande", changes = true) {
-                demoSeat(21)?.requestName("Pierre D.")
+                demoSeat(21)?.requestName("Prénom N.")
                 waitFor { demoSeat(21)?.view?.value?.nameRequests?.isNotEmpty() == true } && at(21)
             },
             Scene("tour5-02-attente-accepte", changes = true) {

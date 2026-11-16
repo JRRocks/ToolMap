@@ -168,6 +168,12 @@ class OperationScreensTest {
         session.show(5, OperationNav(sheet = OpSheet.MyName))
         seen("Vous êtes administrateur")
         absent("Envoyer la demande")
+        // A name another member holds is refused, whatever its case (`tour5/04-nom-pris`, N13 A); a free one is not.
+        session.show(7, OperationNav(sheet = OpSheet.MyName, nameDraft = " membre 9 "))
+        seen("Ce nom est déjà pris. Choisissez-en un autre.")
+        session.show(1, OperationNav(sheet = OpSheet.MyName, nameDraft = "Relais 1"))
+        absent("Ce nom est déjà pris. Choisissez-en un autre.")
+        seen("Vous êtes créateur")
         session.show(5, OperationNav(sheet = OpSheet.Nominate(groupOf(session, "Nord"), Post.DEPUTY)))
         seen("Adjoint du chef de groupe")
         seen("Déjà chef de ce groupe")

@@ -268,7 +268,7 @@ class OperationSession
         fun open(page: OpPage) = nav.update { it.open(page) }
 
         fun sheet(sheet: OpSheet?) {
-            nav.update { it.copy(sheet = sheet, menu = false) }
+            nav.update { it.copy(sheet = sheet, menu = false, nameDraft = null) }
             if (sheet == OpSheet.Invite) loadInvitation()
         }
 

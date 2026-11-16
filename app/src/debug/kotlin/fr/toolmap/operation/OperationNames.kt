@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.hierarchy.Change
 import fr.toolmap.core.hierarchy.HiddenName
@@ -111,7 +112,8 @@ fun NameSheet(
     box: (@Composable (String) -> Unit)? = null,
     onSave: (String) -> Unit,
 ) {
-    var name by remember(current) { mutableStateOf(current.orEmpty()) }
+    val draft = session.nav.collectAsStateWithLifecycle().value.nameDraft
+    var name by remember(current, draft) { mutableStateOf(draft ?: current.orEmpty()) }
     val trimmed = name.trim()
     val isTaken = trimmed.isNotEmpty() && taken(trimmed)
     val changed = trimmed != current?.trim()
@@ -123,7 +125,14 @@ fun NameSheet(
         singleLine = true,
         isError = isTaken,
         trailingIcon = {
-            if (name.isNotEmpty()) {
+            if (isTaken) {
+                // `04-nom-pris`: the mark of the error in place of the cross.
+                Icon(
+                    OperationIcons.ErrorMark,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (name.isNotEmpty()) {
                 IconButton(onClick = { name = "" }) {
                     Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.op_name_clear))
                 }

@@ -110,4 +110,6 @@ Images : 03-doublon, 03-doublon-B. En attente de la réponse : rien n'est codé.
 
 Sans choix : qui attend un groupe demande un nouveau nom par le même crayon que les membres (04-attente-nom) ; l'écran refuse un nom déjà pris, en rouge, bouton grisé (04-nom-pris), pour un membre, un groupe ou soi-même.
 
+**04-attente-nom et 04-nom-pris validés par l'utilisateur le 2026-11-16** (« Oui, les deux », réponse relayée par la session principale) ; codés dans P39.13, captures de la CI `tour5-04-attente-nom`, `tour5-04-attente-nom-demande`, `tour5-04-nom-pris` et `tour5-04-nom-pris-createur` à mettre à côté. Le prénom d'exemple de 04-attente-nom est devenu « Prénom N. » (dépôt public : aucun prénom dans les images, même inventé).
+
 Le nom qu'un arrivant reçoit d'office est le modèle de son téléphone (« SM-S913U ») : c'est le nom réglé dans l'application, prérempli sur « Rejoindre l'opération ? » ; l'écran d'entrée n'est pas changé (aperçu d'abord).

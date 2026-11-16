@@ -124,17 +124,19 @@ data class OperationNav(
     val slide: Float? = null,
     /** The page is shown scrolled to its end (a capture: the lines at the bottom of the page of a group, `tour5`). */
     val toEnd: Boolean = false,
+    /** What the field of a name sheet holds at first (a capture: a name already taken, `tour5/04-nom-pris`). */
+    val nameDraft: String? = null,
 ) {
     val page: OpPage get() = pages.last()
 
     fun open(next: OpPage): OperationNav =
-        copy(pages = pages + next, sheet = null, dialog = null, menu = false, toEnd = false)
+        copy(pages = pages + next, sheet = null, dialog = null, menu = false, toEnd = false, nameDraft = null)
 
     /** Back: the window, then the sheet, then the page; `null` when the screen itself closes. */
     fun back(): OperationNav? =
         when {
             dialog != null -> copy(dialog = null, slide = null)
-            sheet != null -> copy(sheet = null)
+            sheet != null -> copy(sheet = null, nameDraft = null)
             menu -> copy(menu = false)
             pages.size > 1 -> copy(pages = pages.dropLast(1))
             else -> null
