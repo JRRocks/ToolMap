@@ -95,6 +95,8 @@ import fr.toolmap.multizoom.MultiZoomViewModel
 import fr.toolmap.navigate.NavigationViewModel
 import fr.toolmap.p2p.FileAuthStore
 import fr.toolmap.p2p.FirebaseRelayFactory
+import fr.toolmap.operation.OperationFeature
+import fr.toolmap.operation.OperationRequest
 import fr.toolmap.perf.EngineBench
 import fr.toolmap.perf.PerfIntent
 import fr.toolmap.print.PrintViewModel
@@ -132,6 +134,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileDescriptor
 import java.io.PrintWriter
+import java.util.Optional
 import javax.inject.Inject
 
 /** The app's screens; swapped in place over the map, kept in a back stack (no navigation library, RS1). */
@@ -151,6 +154,9 @@ private enum class Screen {
     ABOUT,
     MULTI_ZOOM,
     SHARE_FAVORITES,
+
+    /** « Nouvelle opération » (P39.8): debug build type only ([BuildConfig.OPERATION_MODE]). */
+    OPERATION_NEW,
 }
 
 @AndroidEntryPoint
@@ -176,6 +182,13 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var updateController: UpdateController
+
+    // The « Opération » mode (P39.8, ADR-130): bound in the debug build type only, empty in a release.
+    @Inject
+    lateinit var operationFeature: Optional<OperationFeature>
+
+    private val operation: OperationFeature?
+        get() = if (BuildConfig.OPERATION_MODE) operationFeature.orElse(null) else null
 
     private val viewModel: MapViewModel by viewModels()
     private val downloadViewModel: DownloadViewModel by viewModels()
@@ -339,6 +352,20 @@ class MainActivity : ComponentActivity() {
                         LaunchedEffect(Unit) {
                             // A pairing link opened from a message or a browser shows the sharing screen.
                             shareViewModel.openRequests.collect { open(Screen.SHARE) }
+                        }
+                        LaunchedEffect(Unit) {
+                            // An invitation to an operation, the demonstration, a capture (debug build type only).
+                            operation?.requests?.collect { request ->
+                                when (request) {
+                                    OperationRequest.SHARE -> {
+                                        stack = BackStack.open(listOf(Screen.MAP), Screen.SHARE, Screen.MAP)
+                                    }
+
+                                    OperationRequest.CREATE -> {
+                                        open(Screen.OPERATION_NEW)
+                                    }
+                                }
+                            }
                         }
                         val incomingFavorites by favoritesImport.incoming.collectAsStateWithLifecycle()
                         val keysToType by favoritesImport.keysToType.collectAsStateWithLifecycle()
@@ -658,52 +685,74 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         Screen.SHARE -> {
-                                            ShareScreen(
-                                                vm = shareViewModel,
-                                                onBack = ::back,
-                                                onShowOnMap = { lat, lon ->
-                                                    tracksViewModel.fitMapTo(MapRequest(lat, lon, lat, lon))
-                                                    toMap()
-                                                },
-                                                onGoTo = { lat, lon, name ->
-                                                    navigationViewModel.setTarget(NavTarget(lat, lon, name))
-                                                    toMap()
-                                                },
-                                                mapCenter = {
-                                                    viewModel.state.value.camera
-                                                        .let { LonLat(it.lon, it.lat) }
-                                                },
-                                                onShowArea = { point ->
-                                                    tracksViewModel.fitMapTo(shareViewModel.areaOf(point))
-                                                    toMap()
-                                                },
-                                                onNewGroupTrack = {
-                                                    drawViewModel.startGroupTrack()
-                                                    toMap()
-                                                },
-                                                onNewGroupSketch = {
-                                                    sketchViewModel.startForGroup(
-                                                        resources.getString(
-                                                            R.string.sketch_default_name,
-                                                            NameDates.formatDay(System.currentTimeMillis()),
-                                                        ),
-                                                    )
-                                                    toMap()
-                                                },
-                                                onShareFavorites = {
-                                                    favoritesViewModel.open(null)
-                                                    favoritesFromGroup = true
-                                                    open(Screen.SHARE_FAVORITES)
-                                                },
-                                                onAddFavorites = { point ->
-                                                    point.favoritesText()?.let {
-                                                        favoritesImport.receive(
-                                                            it,
-                                                            FavoritesExport.fileName(point.name),
+                                            val op = operation
+                                            val inOperation = op?.active?.collectAsStateWithLifecycle()?.value == true
+                                            if (op != null && inOperation) {
+                                                op.OperationScreen(onBack = ::back)
+                                            } else {
+                                                ShareScreen(
+                                                    vm = shareViewModel,
+                                                    onBack = ::back,
+                                                    onShowOnMap = { lat, lon ->
+                                                        tracksViewModel.fitMapTo(MapRequest(lat, lon, lat, lon))
+                                                        toMap()
+                                                    },
+                                                    onGoTo = { lat, lon, name ->
+                                                        navigationViewModel.setTarget(NavTarget(lat, lon, name))
+                                                        toMap()
+                                                    },
+                                                    mapCenter = {
+                                                        viewModel.state.value.camera
+                                                            .let { LonLat(it.lon, it.lat) }
+                                                    },
+                                                    onShowArea = { point ->
+                                                        tracksViewModel.fitMapTo(shareViewModel.areaOf(point))
+                                                        toMap()
+                                                    },
+                                                    onNewGroupTrack = {
+                                                        drawViewModel.startGroupTrack()
+                                                        toMap()
+                                                    },
+                                                    onNewGroupSketch = {
+                                                        sketchViewModel.startForGroup(
+                                                            resources.getString(
+                                                                R.string.sketch_default_name,
+                                                                NameDates.formatDay(System.currentTimeMillis()),
+                                                            ),
                                                         )
-                                                    }
-                                                },
-                                            )
+                                                        toMap()
+                                                    },
+                                                    onShareFavorites = {
+                                                        favoritesViewModel.open(null)
+                                                        favoritesFromGroup = true
+                                                        open(Screen.SHARE_FAVORITES)
+                                                    },
+                                                    onAddFavorites = { point ->
+                                                        point.favoritesText()?.let {
+                                                            favoritesImport.receive(
+                                                                it,
+                                                                FavoritesExport.fileName(point.name),
+                                                            )
+                                                        }
+                                                    },
+                                                    operationEntry =
+                                                        op?.shareEntry(onCreate = { open(Screen.OPERATION_NEW) }),
+                                                )
+                                                op?.ShareDialogs(defaultName = { shareViewModel.ui.value.myName })
+                                            }
+                                        }
+
+                                        Screen.OPERATION_NEW -> {
+                                            val op = operation
+                                            if (op == null) {
+                                                LaunchedEffect(Unit) { back() }
+                                            } else {
+                                                op.CreateScreen(
+                                                    defaultName = { shareViewModel.ui.value.myName },
+                                                    onClose = ::back,
+                                                    onCreated = ::back,
+                                                )
+                                            }
                                         }
 
                                         Screen.AVAILABLE -> {
@@ -835,6 +884,9 @@ class MainActivity : ComponentActivity() {
                 "$prefix${HierarchyOperationCheck.DUMP_ARGUMENT} ${if (started) "started" else "already running"}",
             )
         }
+        // `… operation-screens …`: the demonstration and the screens of the « Opération » mode, for the captures of
+        // the CI (P39.8, tools/emulator/operation-screens.sh); debug build type only.
+        if (BuildConfig.DEV_TOOLS && args != null) operation?.dump(args, writer)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -859,6 +911,12 @@ class MainActivity : ComponentActivity() {
         }
         val data = intent?.data
         EventLog.event("app.intent", "action" to intent?.action, "scheme" to data?.scheme)
+        // An invitation to an operation (`toolmap://operation?d=…`, P39.8): debug build type only.
+        if (intent?.action == Intent.ACTION_VIEW && data?.scheme == PAIR_SCHEME &&
+            operation?.onLink(data.toString()) == true
+        ) {
+            return
+        }
         if (intent?.action == Intent.ACTION_VIEW && data?.scheme == PAIR_SCHEME) {
             shareViewModel.onLink(data.toString())
             return

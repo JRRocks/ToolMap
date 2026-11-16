@@ -2,7 +2,7 @@
 
 > Demande de l'utilisateur (2026-11-13) : `docs/PLAN.md` § P39. Décisions d'architecture : ADR-125 (journal d'opérations), ADR-126 (clés de contenu et signatures), ADR-127 (canaux, noms cachés, objets durables).
 > Ce document décrit le **moteur** (P39.2, mis aux règles de l'utilisateur par P39.4, puis à ses choix du second tour et à ses précisions S1 à S7 le 2026-11-14, puis à ses réponses du troisième tour, T1 à T17, le même jour) : la logique, dans `:core`, paquet `fr.toolmap.core.hierarchy`. Rien n'est branché : ni transport, ni stockage, ni écran. Le système de groupe actuel (`fr.toolmap.core.p2p`, `docs/specs/p2p-sharing.md`) n'est pas modifié.
-> Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15, celle des clés et du stockage au § 16, celle du transport et du contrôleur au § 17 ; le quatrième passage de maquettes (écarts avant de coder) est au § 18.
+> Les questions du premier tour sont au § 10, les réponses de l'utilisateur aux § 10 bis à 10 quinquies (le moteur les applique), les questions du second tour au § 12, la remontée de la session 103 au § 13, celle de la mise aux choix du second tour (§ 10 quater et 10 quinquies) au § 14, celle de la mise aux réponses du troisième tour (T1 à T17, § 10 sexies) au § 15, celle des clés et du stockage au § 16, celle du transport et du contrôleur au § 17 ; le quatrième passage de maquettes (écarts avant de coder) est au § 18, les choix de l'utilisateur sur ce passage et sur les questions du § 17 au § 10 septies ; la remontée du premier lot d'écrans (P39.8) au § 19.
 > Mots : dans les écrans, « ensemble » se dit « opération » et « leader » se dit « chef » (§ 10 ter) ; dans le code et dans ce document, `ensemble` et `leader` restent les noms techniques.
 > La trace de dissolution gardée une semaine et les messages gardés sur le téléphone (réponses R1 et R2 du 2026-11-15, P39.9, ADR-131) sont au § 20.
 > Le premier essai de bout en bout, sur le vrai serveur de coordination et entre deux émulateurs (P39.12, ADR-134), est au § 23.
@@ -762,6 +762,55 @@ T17 1 · D'accord pour tout
 
 **Moteur** : seuls T4, T13 et T14 lui demandent un changement (alerte d'un chef de groupe sans son groupe, alerte d'un administrateur vers tous les chefs, nom de l'opération porté par l'invitation) ; il est relancé sur ces trois points le 2026-11-14. Aucun écran n'est codé à ce jour.
 
+## 10 septies. Choix du quatrième passage (2026-11-15)
+
+Choix faits par l'utilisateur sur les maquettes du quatrième passage (`docs/previews/p39-groupes/tour4/`, § 18) et sur les questions du transport (§ 17). U1 à U10 sont les questions du § 2 de `tour4/REMONTEE.md` (toujours la variante A) ; E1 valide les dix écarts sans choix de son § 3 ; R1 à R5 sont les « Questions pour l'utilisateur » 1 à 5 du § 17 ; E2 valide ses « Lectures faites là où la spécification ne tranche pas ». Bloc recopié tel quel :
+
+```text
+Choix P39 tour 4 (écarts et échange)
+U1 A · La ligne « Ma position » reste, avec un cadenas
+U2 A · Oui : « Le Groupe Est ne la reçoit pas, sauf son chef »
+U3 A · La ligne d'alerte est grise : « Aucun chef nommé pour la recevoir »
+U4 A · Une seule liste, du plus proche au plus large
+U5 A · Une ligne grise avec un cadenas : « Fil fermé : ce groupe n'a ni chef ni adjoint »
+U6 A · « Au chef et à son adjoint »
+U7 A · « Seul le Groupe Nord le verra. »
+U8 A · Un bouton « Transmettre » à côté de « Compris »
+U9 A · Sous le champ du nom, en petit
+U10 A · Pas de durée : il reste affiché jusqu'à ce que quelqu'un le retire
+R1 A · Chaque téléphone garde une semaine une trace fermée de l'opération
+R2 A · Oui, les 500 derniers de chaque fil
+R3 A · Oui : après un départ, on redonne une invitation (ce qui est fait)
+R4 A · Celui intégré à l'application (ce qui est fait)
+R5 A · Oui, lui et les autres administrateurs seulement (ce qui est fait)
+E1 1 · D'accord pour tout
+E2 1 · D'accord pour tout
+```
+
+Précisions affichées à l'utilisateur sur sa page de choix : R1 A, la trace ne sert qu'à annoncer la dissolution aux retardataires ; elle ne contient ni position, ni nom, ni message. R2 A, les messages sont scellés avec l'opération et effacés avec elle.
+
+**Lecture de la session des écrans** (session 116 ; chaque ligne reprend le sens donné dans `tour4/REMONTEE.md` et au § 17) :
+
+- **U1 A** : l'écran d'attente garde la ligne « Ma position » (« Membre 21 (vous) · envoyée aux administrateurs ») avec un cadenas à la place de l'interrupteur ; sous « Quitter l'opération », « C'est le seul moyen de ne plus envoyer sa position. » ; seul le nom de l'opération y est écrit (T14, T15).
+- **U2 A** : la feuille d'alerte d'un administrateur ou du créateur qui n'est pas chef dit, sous « Tous les chefs · 7 personnes », « Le Groupe Est ne la reçoit pas, sauf son chef (Membre 14). ».
+- **U3 A** : la règle T13 reste (une seule destination par personne) ; sans aucun chef ni autre administrateur nommé, la ligne « Envoyer une alerte » du créateur est grise (« Aucun chef nommé pour la recevoir ») et, touchée, explique et mène à « Administrer ». Le moteur ne change pas.
+- **U4 A** : chef de groupe et administrateur à la fois, une seule liste de quatre lignes, du plus proche au plus large : « Mon groupe », « Commandement », « Un groupe » (liste déroulante), « Toute l'opération » ; « Mon groupe » cochée à l'ouverture.
+- **U5 A** : dans « Commandement », le fil d'un groupe sans chef ni adjoint reste à sa place, en ligne grise avec un cadenas : « Fil fermé : ce groupe n'a ni chef ni adjoint ».
+- **U6 A** : dans le fil d'un groupe ouvert par le commandement, le champ de saisie dit « Au chef et à son adjoint » ; une ligne en tête du fil nomme ses lecteurs.
+- **U7 A** : sous la ligne unique de la fenêtre d'envoi d'un membre : « Seul le Groupe Nord le verra. ».
+- **U8 A** : le bandeau du créateur a « Transmettre » à côté de « Compris » ; « Transmettre » ouvre la feuille « Transmettre le rôle de créateur » (administrateurs seulement ; il reste dans l'opération, dans son groupe, comme membre ; ce que garderait l'ancien téléphone). Le menu ⋮ du créateur a aussi « Transmettre le rôle de créateur… » au-dessus de « Quitter l'opération… » (écart 10, validé par E1).
+- **U9 A** : sous le champ du nom de l'opération, en petit : « Le nom est lu par toute personne qui reçoit l'invitation, même avant d'être placée dans un groupe. N'y mettez rien de confidentiel. ».
+- **U10 A** : un waypoint ou un croquis d'une opération n'a pas de durée : il reste affiché jusqu'à ce que quelqu'un le retire (T12, ce que fait le moteur) ; « Quitter l'opération ? » dit « restent affichés jusqu'à ce que quelqu'un les retire ».
+- **R1 A** (question 1 du § 17) : chaque téléphone garde une semaine une trace fermée de l'opération dissoute, qui ne sert qu'à annoncer la dissolution à un téléphone resté absent ; elle ne contient ni position, ni nom, ni message. Changement du transport, codé par la session P39.9 (session 117), pas par les écrans.
+- **R2 A** (question 2) : les 500 derniers messages de chaque fil restent après un redémarrage de l'application, scellés avec l'opération et effacés avec elle. Codé par la session P39.9.
+- **R3 A** (question 3) : la clé d'invitation est renouvelée après chaque départ ; les invitations données avant ne marchent plus (ce qui est fait). Rien ne change.
+- **R4 A** (question 4) : les opérations passent par le serveur intégré à l'application (ce qui est fait).
+- **R5 A** (question 5) : le créateur et les administrateurs lisent le nom de qui demande à entrer avant de l'admettre, personne d'autre (ce qui est fait).
+- **E1 1** : les dix écarts sans choix du § 3 de `tour4/REMONTEE.md` sont validés tels que dessinés (ligne rouge « à tous les chefs », étiquettes de l'alerte reçue, créateur seul, ligne « Messages » des écrans de promotion, étiquettes de la carte, contraste de « jusqu'au bout », écran de création avec « Est » coché et « Aucun », texte de « Quitter l'opération ? », retrait d'un partage, entrée « Transmettre le rôle de créateur… » du menu ⋮).
+- **E2 1** : les neuf lectures du § 17 (nom lu par les administrateurs avant l'admission, salle tirée au hasard, invitation renouvelée après chaque départ, serveur intégré, messages et alertes en mémoire, alerte et sa levée, une opération ouverte à la fois, cartes des noms de qui attend, taille d'un objet durable) sont validées ; la cinquième est remplacée par R2 A.
+
+**Conséquence** : toutes les maquettes sont validées (P39.5 terminé le 2026-11-15). Pour coder, le dessin le plus récent de chaque écran fait foi : `tour4/`, puis `tour3/`, puis `tour2/`. U1 à U10 ne changent que les écrans ; seuls R1 et R2 changent le transport (session P39.9).
+
 ## 11. Fichiers et tests
 
 | Fichier (`core/src/main/kotlin/fr/toolmap/core/hierarchy/`) | Contenu |
@@ -1353,6 +1402,151 @@ Pour la session principale et pour la session qui codera les écrans (session 11
 ## 18. Quatrième passage de maquettes : les écarts avant de coder (2026-11-15)
 
 Les écarts listés au § 10 sexies (« Écarts à remontrer en aperçu avant de les coder ») et les deux textes du § 15 (« Deux textes d'écran à montrer en maquette ») sont dessinés dans `docs/previews/p39-groupes/tour4/` (session 114) : chaque image montre le dessin validé au tour 3 à côté de la proposition. Trois écarts de plus, trouvés en relisant ce document : la durée des waypoints et des croquis, que T12 et le moteur n'ont pas ; qui peut retirer un partage (T12) ; une troisième paire d'étiquettes collées sur la carte. Les questions U1 à U10 et la liste des écarts sans choix sont dans `tour4/REMONTEE.md`. **Aucune décision n'est écrite ici** : l'utilisateur n'a pas encore répondu ; ses réponses iront dans un paragraphe à part, comme au § 10 sexies.
+
+## 19. Remontée : écrans, premier lot (P39.8, 2026-11-15)
+
+Session 116, branche `claude/kind-lamport-kw07cf`, partie de `conception/groupes-hierarchiques` (5808ed3, 0.4.250) ; ADR-130. Les écrans suivent les maquettes validées (§ 10 septies) ; pour chaque écran, le dessin le plus récent fait foi (`tour4/`, puis `tour3/`, puis `tour2/`). R1 et R2 (trace de la dissolution, messages gardés) ne sont pas codés ici : ils sont à la session P39.9.
+
+### Ce qui est codé
+
+Le mode n'existe que dans le type de build `debug` (`app/src/debug/`, ADR-130) : l'APK de release et celui de benchmark restent ceux d'avant, sans code, sans texte et sans lien `toolmap://operation` du mode (drapeau `BuildConfig.OPERATION_MODE`, faux hors debug). Textes en français dans `app/src/debug/res/values/strings_operation.xml` ; thèmes de jour et de nuit de l'application.
+
+1. **Entrée** (`tour2/01-entree-A`) : l'écran « Partage de position » hors groupe garde « Entre amis » (mêmes boutons, mêmes trames, même comportement) ; dans l'APK de debug, trois textes changent (« Entre amis : créez un groupe et invitez les autres par un code, ou rejoignez celui d'un autre. », « Créer un groupe entre amis », « Rejoindre un groupe ou une opération ») et la carte « Opération · Nouveau » (« Créer une opération ») vient dessous. Un code scanné ou collé, ou un lien ouvert, qui est une invitation d'opération mène à la question d'entrée ; tout autre code va à « Entre amis » comme avant.
+2. **« Nouvelle opération »** (`tour4/10-creation` A, U9 A) : nom et note U9, groupes de départ (Nord, Sud, Est proposés ; ajout, renommage, suppression ; 6 au plus), « Votre groupe » (Est coché, « Aucun » possible), encadré ; « Créer l'opération et inviter » ouvre l'écran de l'opération et la feuille d'invitation.
+3. **Écran de l'opération** (`tour3/08-inviter` A, `tour4/08-rappel-A`, `tour4/05-promotion-*`) : titre et compte ; bandeau du créateur avec « Transmettre » et « Compris » (U8 A ; « Compris » le retire pour de bon sur ce téléphone) ; « Partager ma position » ; tuiles « Administrer » (orange avec « n en attente » quand quelqu'un attend) et « Inviter » (« 22 sur 30 » ; grisée « Complet · 30 sur 30 ») ; « Mon groupe » et ses membres (rôle, état en ligne) ; « Toute l'opération » et ses groupes (chef ou « Sans chef », en ligne), chacun ouvrant la liste du groupe avec les noms entiers (`tour3/12-noms-liste` A) ; menu ⋮ : « Transmettre le rôle de créateur… » (créateur), « Quitter l'opération… ».
+4. **Invitation** (`tour3/08-inviter-invitation`) : feuille avec le code QR, « Envoyer le lien » et le compte (« 22 sur 30 · 20 placés, 2 en attente »).
+5. **Entrée d'un second téléphone** (`tour3/04-entree-nom`, `04-entree-nom-etats`) : « Rejoindre l'opération ? » avec le nom de l'opération et « Votre nom » prérempli (le nom donné dans « Entre amis », sinon celui du téléphone) ; « Rejoindre » grisé tant que le nom est vide ; « Opération complète » pour le 31e (`tour2/04-admin-limites`).
+6. **Attente** (`tour4/01-attente` A, U1 A) : le nom de l'opération seul, « Ma position » avec un cadenas (« envoyée aux administrateurs »), « Quitter l'opération » et « C'est le seul moyen de ne plus envoyer sa position. » ; bandeau après la suppression de son groupe (`tour3/06-supprimer-groupe-apres`), fenêtre après une remise en attente (`tour3/07-remise-attente-confirmation`).
+7. **Administration** (`tour2/03-attente-admin`, `04-admin-*`, `05-*` ; `tour3/06-supprimer-groupe`, `07-remise-attente-*`) : sommaire (en attente, chef de l'opération et adjoint, groupes, administrateurs, limites) ; liste d'attente, la plus récente arrivée d'abord, et « Placer » ; page d'un groupe (chef, adjoint, membres, « Ajouter des membres », « Modifier le groupe », suppression) ; nominations (chef de l'opération et adjoint, chef et adjoint de groupe, « Personne ») ; fiche d'un membre (changer de groupe, nommer chef ou adjoint, retirer le poste d'adjoint, remettre en attente, nommer administrateur, retirer de l'opération ; chez un administrateur, les gestes du créateur sont grisés avec un cadenas et « Réservé au créateur ») ; administrateurs (nommer, retirer : créateur seul) ; nouveau groupe et renommage.
+8. **Départs** (`tour2/08-*`, `tour3/05-createur-A`, `05-successeur`, `09-*`, `tour4/09-glissiere`, `11-quitter-texte`, `05-promotion-*`) : « Quitter l'opération ? » d'un membre, d'un chef de groupe et du chef de l'opération (leur adjoint devient chef) ; départ du créateur (« Désigner un successeur » ou « Glisser pour dissoudre », jusqu'au bout) ; choix du successeur parmi les administrateurs ; transmission du rôle sans quitter (U8 A) ; ce que voient les autres ensuite : messages en bas de l'écran (nouveau créateur, nouveau chef), fenêtres « Vous êtes le créateur », « Vous êtes chef du Groupe … », « Vous êtes chef de l'opération » ; sur « Partage de position », « Opération dissoute » et « Retiré de l'opération ».
+9. **Ce que chaque rôle voit et peut faire** est calculé hors de l'affichage (`OperationFacts`, `app/src/debug/kotlin/fr/toolmap/operation/OperationModels.kt`) et couvert par des tests JVM (`OperationModelsTest`), l'affichage par un test Robolectric (`OperationScreensTest`) et la démonstration par `DemoWorldTest`.
+
+### Démonstration et « Voir comme » (APK de debug seulement)
+
+- **Où** : « Partage de position », hors groupe, menu ⋮ ▸ « Démonstration « Opération » ». Une fois prête (quelques secondes ; « Préparation de la démonstration… »), l'écran de l'opération s'ouvre du téléphone de Membre 1. Dans son menu ⋮ : « Voir comme… » (les membres en ligne avec leurs rôles) et « Quitter la démonstration ».
+- **Quoi** : « Exercice Vallon », Groupes Nord, Sud, Est et Ouest (sans chef), 20 placés et 2 en attente (Membres 21 et 22) ; Membre 1 créateur et administrateur dans le Groupe Est ; Membre 2 chef de l'opération, Membre 3 adjoint ; Membres 5 et 9 administrateurs ; chefs et adjoints de groupe comme sur les maquettes ; Membres 8, 12 et 20 hors ligne. « Voir comme » : la personne en attente (21), un membre (7), un chef de groupe (4, 9 ou 14), le chef de l'opération (2), un administrateur (5).
+- **Comment** : 22 contrôleurs réels (`OperationController`), chacun avec son stockage dans le cache de l'application et un coffre de clés en mémoire, reliés par une salle de serveur simulée en mémoire, comme `OperationControllerTest` : rien ne va au serveur, rien n'entre dans le Keystore, tout s'efface en quittant la démonstration. Les gestes faits dans la démonstration jouent vraiment entre les téléphones simulés (placer, nommer, quitter, dissoudre).
+- **Le vrai chemin** marche aussi : la carte « Opération » crée une vraie opération sur le serveur de coordination intégré, et un second téléphone la rejoint par le code QR ou le lien.
+
+### Les captures et leurs maquettes
+
+Les captures sont dans l'artefact `emulator-check` du run « CI », dossier `operation/` : une image par scène, plus neuf de nuit (`…-nuit.png`). Les textes de chaque écran sont dans le journal du job (lignes « == <capture>.png »), lisibles quand les artefacts ne le sont pas. Une capture porte le nom de la maquette à laquelle la comparer ; « M n » : le téléphone de Membre n.
+
+| Capture | Maquette | Écran |
+|---|---|---|
+| `tour2-01-entree-A` (et `-nuit`) | `tour2/img/01-entree-A.png` (`01-entree-nuit.png`) | « Partage de position » hors groupe, sans opération |
+| `tour4-10-creation-A` (et `-nuit`) | `tour4/img/10-creation.png` A (`10-creation-B.png` : A de nuit) | « Nouvelle opération » |
+| `tour4-10-creation-A-nouveau-groupe` | `tour2/img/04-admin-groupes.png` (feuille « Nouveau groupe ») | « Ajouter un groupe » touché (écart 4) |
+| `tour4-08-rappel-A` | `tour4/img/08-rappel-A.png`, gauche | M1, créateur |
+| `tour4-08-rappel-A-feuille` | `tour4/img/08-rappel-A.png`, droite | « Transmettre le rôle de créateur » |
+| `tour4-08-rappel-B-menu` | `tour4/img/08-rappel-B.png`, le menu ⋮ (écart validé par E1) | menu ⋮ du créateur |
+| `tour3-08-inviter-A` (et `-nuit`) | `tour3/img/08-inviter.png` A (`08-inviter-invitation.png` : écran de nuit) | M5, administrateur |
+| `tour3-08-inviter-invitation` | `tour3/img/08-inviter-invitation.png` | feuille d'invitation (code QR) |
+| `tour3-08-inviter-B-membre` | `tour3/img/08-inviter-B.png`, écran d'un membre | M7, membre |
+| `tour3-12-noms-liste-A` | `tour3/img/12-noms-liste.png` A | M7 : la liste du Groupe Sud |
+| `tour3-04-entree-nom` | `tour3/img/04-entree-nom.png` | « Rejoindre l'opération ? », nom prérempli |
+| `tour3-04-entree-nom-etats` (et `-nuit`) | `tour3/img/04-entree-nom-etats.png` | le nom effacé, « Rejoindre » grisé |
+| `tour2-04-admin-limites-31e` | `tour2/img/04-admin-limites.png`, la 31e personne | « Opération complète » (écart 3) |
+| `tour4-01-attente-A` (et `-nuit`) | `tour4/img/01-attente.png` A (`01-attente-B.png` : A de nuit) | M21, en attente |
+| `tour2-04-admin-sommaire` (et `-nuit`) | `tour2/img/04-admin-sommaire.png` (`04-admin-nuit.png`) | M5 : « Administrer » |
+| `tour2-03-attente-admin` | `tour2/img/03-attente-admin.png`, gauche | M5 : « En attente » |
+| `tour2-03-attente-admin-placer` | `tour2/img/03-attente-admin.png`, droite | « Placer Membre 21 » |
+| `tour2-04-admin-groupe` (et `-nuit`) | `tour2/img/04-admin-groupe.png` (`04-admin-nuit.png`) | M5 : Groupe Nord |
+| `tour2-04-admin-groupe-ajouter` | `tour2/img/04-admin-groupe.png`, « Ajouter au Groupe Nord » | ajout de membres |
+| `tour2-04-admin-chef` | `tour2/img/04-admin-chef.png` | M5 : chef de l'opération et adjoint |
+| `tour2-04-admin-chef-adjoint` | `tour2/img/04-admin-chef.png`, nomination | adjoint du Groupe Nord (« Déjà chef de ce groupe ») |
+| `tour2-04-admin-groupes-nouveau` | `tour2/img/04-admin-groupes.png`, « Nouveau groupe » | sans choix de couleur (écart 1) |
+| `tour2-04-admin-groupes-modifier` | `tour2/img/04-admin-groupes.png`, « Modifier le groupe » | idem |
+| `tour2-04-admin-sans-chef` | `tour2/img/04-admin-sans-chef.png` | M5 : Groupe Ouest, sans chef |
+| `tour2-05-admins-createur` | `tour2/img/05-admins-createur.png` | M1 : « Administrateurs » |
+| `tour2-05-admins-createur-nommer` | `tour2/img/05-admins-createur.png`, « Nommer un administrateur » | M1 |
+| `tour2-05-admins-retirer` | `tour2/img/05-admins-retirer.png` | M1 : retirer Membre 5 |
+| `tour2-05-admins-retirer-administrateur` | `tour2/img/05-admins-retirer.png`, chez un administrateur | M5 : « Seul le créateur… » |
+| `tour2-05-retirer-membre` | `tour2/img/05-retirer-membre.png` | M1 : fiche de Membre 11 |
+| `tour3-07-remise-attente-fiche` | `tour3/img/07-remise-attente-fiche.png` | M5 : la même fiche, gestes du créateur grisés |
+| `tour3-07-remise-attente-adjoint` | `tour3/img/07-remise-attente-adjoint.png`, la fiche | M5 : Membre 10, adjoint |
+| `tour3-07-remise-attente-confirmation` | `tour3/img/07-remise-attente-confirmation.png` | M5 : « Remettre Membre 11 en attente ? » |
+| `tour3-07-remise-attente-adjoint-confirmation` (et `-nuit`) | `tour3/img/07-remise-attente-adjoint.png`, la confirmation | M5 : Membre 10 |
+| `tour2-05-retirer-confirmation` | `tour2/img/05-retirer-confirmation.png` | M1 : « Retirer Membre 11 de l'opération ? » |
+| `tour3-06-supprimer-groupe` | `tour3/img/06-supprimer-groupe.png` | M5 : « Supprimer le Groupe Ouest ? » |
+| `tour4-11-quitter-texte-membre` | `tour4/img/11-quitter-texte.png` | M7 : « Quitter l'opération ? » |
+| `tour3-09-chef-quitte` | `tour3/img/09-chef-quitte.png` | M4, chef du Groupe Nord |
+| `tour3-09-chef-operation-quitte` | `tour3/img/09-chef-operation-quitte.png` | M2, chef de l'opération |
+| `tour3-05-createur-A` | `tour3/img/05-createur-A.png` | M1 : la fenêtre aux deux sorties |
+| `tour4-09-glissiere` (et `-nuit`) | `tour4/img/09-glissiere.png` (`09-glissiere-nuit.png`) | pendant le glissement |
+| `tour3-05-createur-A-au-bout` | `tour3/img/05-createur-A-glissement.png`, au bout | « Relâchez pour dissoudre » |
+| `tour3-05-successeur` | `tour3/img/05-successeur.png` | « Qui vous succède ? » |
+| `tour3-06-supprimer-groupe-apres` | `tour3/img/06-supprimer-groupe-apres.png`, gauche | M5 : « Administrer » après la suppression du Groupe Ouest |
+| `tour3-06-supprimer-groupe-apres-membre` | `tour3/img/06-supprimer-groupe-apres.png`, droite | M18, revenu en attente |
+| `tour3-07-remise-attente-confirmation-membre` | `tour3/img/07-remise-attente-confirmation.png`, ce que voit le membre | M11, remis en attente |
+| `tour3-09-promotion-adjoint` | `tour3/img/09-promotion-adjoint.png` | M5 après le départ de Membre 4 |
+| `tour4-05-promotion-groupe` | `tour4/img/05-promotion-groupe.png` (sans « Messages », écart 6) | M7 |
+| `tour3-09-promotion-operation` | `tour3/img/09-promotion-operation.png` | M3 après le départ de Membre 2 |
+| `tour4-05-promotion-operation` | `tour4/img/05-promotion-operation.png` (sans « Messages ») | M7 |
+| `tour2-05-retirer-confirmation-retire` | `tour2/img/05-retirer-confirmation.png`, ce que voit le retiré | M13 retiré : « Partage de position » |
+| `tour2-08-successeur` | `tour2/img/08-successeur.png`, gauche | M5, devenu créateur |
+| `tour2-08-successeur-autres` | `tour2/img/08-successeur.png`, droite | M7 : le message en bas de l'écran |
+| `tour2-08-dissolution-autres` | `tour2/img/08-dissolution.png`, droite | M7 : « Opération dissoute » |
+
+53 scènes, plus 9 de nuit : 62 captures. Les 11 dernières scènes changent la démonstration (suppression d'un groupe, remise en attente, départs, retrait, transmission, dissolution) : elles sont prises après les autres, dans cet ordre.
+
+### Écarts à remontrer en aperçu
+
+Chacun est codé au plus près ; aucun n'a été montré avant d'être codé (consigne de la session principale : décrire ici l'image, la différence et la raison).
+
+1. **Couleur des groupes** (`tour2/img/04-admin-groupes.png`, « Couleur (celles déjà prises sont pâles) » ; groupes de départ de `tour4/img/10-creation.png`) : aucun choix ; chaque groupe prend la première couleur libre d'une liste de huit dans l'ordre de création (bleu, orange, vert, violet, rose, brun, cyan, olive), la même sur tous les téléphones. Pourquoi : le moteur ne porte pas de couleur de groupe ; une couleur choisie sur un téléphone n'irait pas aux autres sans changer le moteur et son format. Question L1.
+2. **Entrée sans geste d'acceptation** (`tour2/img/03-attente-admin.png`) : la demande d'entrée signée (nom lisible du créateur et des administrateurs seulement, R5) est admise par le premier téléphone d'administrateur ou du créateur, application ouverte, qui lit le nom ; la personne passe alors « En attente ». Pourquoi : les maquettes ne dessinent pas d'acceptation, et le contrôleur demande qu'un administrateur admette. Tant qu'aucun administrateur n'a l'application ouverte, le demandeur voit déjà l'écran d'attente sans être encore dans l'opération : sa position ne part pas encore, alors que la ligne dit « envoyée aux administrateurs ». Question L3.
+3. **« Opération complète » après « Rejoindre »** (`tour2/img/04-admin-limites.png`, la 31e personne « qui scanne ») : le message vient quand la 31e personne a touché « Rejoindre » et que son téléphone a lu l'opération ; sa demande est alors abandonnée et effacée. Pourquoi : l'invitation ne dit pas combien l'opération a de membres (le nombre change, l'invitation non) ; le téléphone ne le sait qu'en lisant le journal, après sa demande.
+4. **Feuilles non dessinées, faites par analogie** : « Nouveau groupe » ouvert depuis « Nouvelle opération » (la feuille de `tour2/04-admin-groupes`, sans couleur ; tant que le nom est vide, le bouton grisé dit « Créer le groupe ») ; « Nommer chef ou adjoint » ouvert depuis la fiche d'un membre (`tour3/07-remise-attente-fiche` montre la ligne, pas la feuille) : titre « Nommer chef ou adjoint », « Du Groupe … », deux choix (« Chef de groupe », « Adjoint du chef de groupe »), « Nommer », « Annuler ».
+5. **Nom inconnu** : quand un téléphone ne peut pas lire un nom (qui attend, vu par un membre placé ; une personne arrivée avant qu'on soit administrateur, défaut 2 ci-dessous), la ligne et le jeton portent « … ». Les maquettes ne dessinent pas ce cas.
+6. **Lignes menant à des écrans pas encore codés, retirées** : sur l'écran de l'opération, « Envoyer une alerte » et « Messages » (`tour3/08-inviter` A, `tour4/08-rappel-A`, `tour4/05-promotion-*`) et l'icône de carte au bout de chaque membre ; dans « Administrer », « Tous les membres » (`tour2/04-admin-sommaire`). Les écrans gardent leur ordre et leurs marges ; rien n'annonce ce qui manque.
+7. **Âge d'une arrivée, et depuis quand un membre est hors ligne** (`tour2/img/03-attente-admin.png`, « Arrivé il y a 3 minutes » ; listes des groupes) : comptés par ce téléphone depuis qu'il a vu la demande ou la personne en ligne. Pourquoi : ni le moteur ni le transport ne portent ces heures ; un administrateur qui ouvre l'application après une arrivée la voit arrivée à l'instant.
+8. **Écrans étroits** (320 dp, l'émulateur de la CI) : les tuiles « Administrer » et « Inviter » passent l'une sous l'autre quand leurs titres ne tiennent pas côte à côte (sinon « Admini ») ; le sous-titre de la barre d'une page de groupe (« Exercice Vallon · 5 membres », à côté de deux icônes) prend une taille un peu plus petite, 80 % au moins, au lieu de finir par « … ». Les maquettes sont dessinées à 412 dp ; ailleurs, une ligne trop longue passe à la ligne. Vérifié par `OperationNarrowScreensTest`.
+
+### Éléments laissés de côté (écrans d'un autre lot)
+
+La couche de la carte (jetons, étiquettes, fiches, `tour2/06-*`, `tour3/10-attente-carte`, `12-noms-carte*`, `tour4/06-etiquettes-*`) ; la fenêtre d'envoi et la liste des partages (`tour2/07-*`, `tour3/01-*`, `tour4/04-*`, `07-envoi-membre*`, `11-duree`, `11-retirer`) ; les messages et les fils (`tour2/07-messages*`, `tour3/03-*`, `tour4/07-fil-ferme*`, `07-ecrire-commandement*`) ; l'alerte (`tour3/02-*`, `tour4/02-*`, `03-*`) ; la fenêtre et la carte de l'arrivant (`tour3/11-arrivant*`) ; la notification Android du partage d'une opération ; « Réglages » et « Aide » du menu ⋮ ; le message propre à une invitation devenue ancienne (après un départ, R3 : la demande reste sans réponse). `tour3/08-inviter-complet` est codé (« Inviter » grisé à 30 sur 30) mais n'a pas de capture : la démonstration a 22 membres.
+
+### Défauts trouvés par la démonstration (contrôleur et transport, P39.7)
+
+1. **Hors ligne non publié** : quand la liaison d'un téléphone se ferme, `OperationController` ne publie pas de nouvelle vue ; les autres le voient « en ligne » jusqu'au changement suivant. La démonstration force une nouvelle vue (en demandant le lien d'invitation) après avoir coupé Membres 8, 12 et 20. À corriger dans le contrôleur.
+2. **Administrateur nommé après une arrivée** : la carte du nom d'une personne en attente est scellée pour le créateur et les administrateurs connus au moment de sa demande ; un administrateur nommé ensuite ne lit pas ce nom (« … ») tant qu'elle n'est pas placée, alors que c'est lui qui doit la placer. La démonstration nomme donc ses administrateurs avant l'arrivée de Membres 21 et 22. Question L2.
+
+### Ce qui est vérifié, et comment
+
+- `./gradlew :app:testDebugUnitTest --tests 'fr.toolmap.operation.*'` : 17 tests, 0 échec (`OperationModelsTest` 15 : droits et vues de chaque rôle, gestes grisés, textes des jetons, avis ; `DemoWorldTest` : les faits des maquettes, de chaque place ; `OperationScreensTest` : les écrans de chaque rôle dessinés par Robolectric, ce qui y est et ce qui n'y est pas).
+- `OperationNarrowScreensTest` (Robolectric, 320 dp, rendu natif du texte) : aucun texte du mode coupé, tronqué par « … » ni privé de lignes, de la place de chaque rôle, feuilles et fenêtres comprises.
+- Compilation des types `release` et `benchmark` sans le mode (aucun fichier de `app/src/debug` n'y entre) ; `SilentFailureTest` et `RegexPortabilityTest` lisent aussi `src/debug` (`core/build.gradle.kts`).
+- Build complet, run « CI » et relecture des captures : journal, session 116. Run « CI » n° 212 : 62 captures prises, aucun plantage ni ANR ; leurs textes (journal du job) sont ceux des maquettes. La relecture a trouvé les feuilles hautes ouvertes à mi-hauteur (boutons du bas cachés), corrigé ensuite : les feuilles du mode s'ouvrent entières. Sur l'émulateur de la CI, en anglais, les âges s'écrivent « 14 minutes ago » (« il y a 14 minutes » sur un téléphone en français).
+
+### Ce qui n'est pas vérifié
+
+- Un téléphone réel (le rendu, le code QR scanné par un autre téléphone, le lien ouvert depuis une messagerie) ; deux téléphones réels sur le vrai serveur de coordination (le contrôle sur émulateur n'utilise que la démonstration en mémoire) ; la batterie ; la position envoyée écran éteint (aucun service au premier plan pour une opération : elle ne part que tant que l'application tourne).
+- Le passage d'une opération à l'autre et le retour à « Entre amis » après une dissolution sur un vrai téléphone.
+
+### Questions pour l'utilisateur
+
+La recommandation est toujours la première.
+
+**L1. La couleur d'un groupe** (`tour2/04-admin-groupes`, écart 1)
+1. Choisie comme sur la maquette : la couleur entre dans le moteur (un champ du groupe, signé, changé par un administrateur) ; à faire par une session du moteur avant que les écrans la proposent. *(recommandé)*
+2. Donnée d'office dans l'ordre des groupes, sans choix (ce qui est codé).
+
+**L2. Le nom d'une personne en attente pour un administrateur nommé après son arrivée** (défaut 2)
+1. Le créateur ou un administrateur qui lit le nom le scelle aussi pour le nouvel administrateur (changement du transport, comme R1 et R2). *(recommandé)*
+2. « … » jusqu'au placement (ce qui est fait) ; un administrateur plus ancien la place.
+
+**L3. Qui a l'invitation entre-t-il sans qu'on l'accepte ?** (écart 2)
+1. Oui, comme sur les maquettes : il passe « En attente » dès qu'un administrateur a l'application ouverte ; on l'écarte ensuite par « Retirer de l'opération ». *(recommandé)*
+2. Non : une fenêtre « Membre 23 demande à entrer », avec « Accepter » et « Refuser », chez le créateur et les administrateurs (à dessiner).
+
+**L4. La position d'une opération, écran éteint**
+1. Comme « Entre amis » : un service au premier plan et sa notification tant que « Partager ma position » est actif (notification à dessiner). *(recommandé)*
+2. Seulement tant que l'application tourne (ce qui est codé).
+
+**L5. « Scanner un code » coupé en « Scanner un » sur un écran de moins de ~360 dp** (bouton d'« Entre amis », déjà ainsi dans l'APK de release ; ce lot n'y touche pas)
+1. Le corriger aussi dans « Entre amis » : le texte du bouton passe sur deux lignes quand il ne tient pas (change l'écran de la release : aperçu avant). *(recommandé)*
+2. Laisser tel quel.
 
 ## 20. Remontée : trace de dissolution et messages gardés (P39.9, 2026-11-15)
 

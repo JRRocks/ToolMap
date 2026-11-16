@@ -34,8 +34,11 @@ tasks.test {
     val fixturesDir = rootProject.file("fixtures")
     systemProperty("fixtures.dir", fixturesDir.absolutePath)
     inputs.dir(fixturesDir).withPropertyName("fixtures")
-    // RegexPortabilityTest reads the regular expressions of every module's main sources.
-    val mainSources = rootProject.subprojects.map { it.projectDir.resolve("src/main") }
+    // RegexPortabilityTest reads the regular expressions of every module's main sources, SilentFailureTest their
+    // failures; the sources of the debug build type (the « Opération » screens, P39.8) after them.
+    val mainSources =
+        rootProject.subprojects.map { it.projectDir.resolve("src/main") } +
+            rootProject.subprojects.map { it.projectDir.resolve("src/debug") }
     systemProperty("main.sources", mainSources.joinToString(File.pathSeparator) { it.absolutePath })
     inputs
         .files(mainSources.map { dir -> fileTree(dir) { include("**/*.kt") } })

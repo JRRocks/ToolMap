@@ -20,6 +20,7 @@ Ne sont pas concernées : les modifications sans effet visible (logique, perform
 
 - **Ce qui est publié** (release GitHub `android-<version>`, lien donné comme « la version », archive du Drive, mise à jour proposée aux téléphones) est toujours l'APK du **type de build `release`** : `ToolMap-release-<version>.apk`, compilé par la CI à chaque push, signé avec la clé de publication, contrôlé sur émulateur.
 - **L'APK de debug** (`ToolMap-debug-<version>.apk`) n'existe sur GitHub qu'en **artefact** `toolmap-debug-apk` du run : il sert pendant la conception (outils d'essai, mesures). Jamais dans une release, jamais sur le Drive, plus de pré-release `debug-<sha7>`.
+- Demande de l'utilisateur, 2026-11-15 : l'APK de debug d'un run vert de la branche privée est copié dans le dossier Drive « APK debug » (`ToolMap-debug-<version>.apk`) pour l'essai sur téléphone ; « APK release/ » reste réservé aux APK de release.
 - Dans un message, **dire le type de chaque APK** dont on donne le lien.
 
 ## ⚠️ Aucune version publiée sans passage sur un émulateur (demande de l'utilisateur, 2026-11-09)
