@@ -93,6 +93,8 @@ object OperationScenes {
             // Arrival and wait.
             Scene("tour3-04-entree-nom") { joinScene(name = null) },
             Scene("tour3-04-entree-nom-etats") { joinScene(name = "") },
+            // No name set in the app (N16 A): the field empty is `tour3-04-entree-nom`, a name written is this one.
+            Scene("tour5-05-entree-sans-nom-ecrit") { joinScene(name = "Prénom N.") },
             Scene("tour2-04-admin-limites-31e") {
                 entry()
                 full.value = "Exercice Vallon"
@@ -307,6 +309,22 @@ object OperationScenes {
                 forgetNotices(7)
                 member(7)?.let { demoSeat(5)?.answerName(it, accept = true) }
                 waitFor { noticesOf(7).any { it is Notice.NameAccepted } } && at(7)
+            },
+            // Two members of the same name (N15 A, `tour5/03-doublon`): Membre 5, now creator and chief of Nord, and
+            // Membre 9, chief of Sud, both « Relais 5 »; Membre 8 takes « Guide 7 », the name Membre 7 has in Nord.
+            Scene("tour5-03-doublon-A", changes = true) {
+                forgetNotices(8, 9)
+                val creator = demoSeat(5)
+                for ((number, name) in listOf(5 to "Relais 5", 9 to "Relais 5", 8 to "Guide 7")) {
+                    member(number)?.let { creator?.renameMember(it, name) }
+                }
+                val twice = { name: String ->
+                    demoSeat(5)?.view?.value?.members.orEmpty().count { it.name == name } == 2
+                }
+                waitFor { twice("Relais 5") && twice("Guide 7") } && at(5) { page(OpPage.Admin) }
+            },
+            Scene("tour5-03-doublon-B-groupe", changes = true) {
+                at(5) { s -> page(OpPage.Admin, OpPage.GroupPage(s.groupOf("Nord") ?: 0L)) }
             },
             Scene("tour2-08-dissolution-autres", changes = true) {
                 forgetNotices(7)

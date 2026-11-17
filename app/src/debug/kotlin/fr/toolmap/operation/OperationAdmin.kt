@@ -739,7 +739,7 @@ private fun AddMembersSheet(
             Checkbox(checked = id in chosen, onCheckedChange = { chosen = if (it) chosen + id else chosen - id })
             OpToken(facts.token(id), 36.dp, Modifier.padding(start = 4.dp))
             Text(
-                memberName(facts, id),
+                memberTitle(facts, id),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.weight(1f).padding(start = 14.dp),
             )
@@ -924,7 +924,7 @@ private fun MemberSheet(
     ) {
         OpToken(facts.token(member), 56.dp)
         Column(Modifier.padding(start = 16.dp)) {
-            Text(memberName(facts, member), style = MaterialTheme.typography.headlineSmall)
+            Text(memberTitle(facts, member), style = MaterialTheme.typography.headlineSmall)
             Text(
                 listOfNotNull(
                     groupName,

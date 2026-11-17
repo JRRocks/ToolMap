@@ -87,11 +87,66 @@ fun groupColor(palette: Int?): Color =
 @Composable
 fun groupTitle(name: String?): String = name ?: stringResource(R.string.op_name_unknown)
 
+/**
+ * The name of a member wherever it is written; when another member carries the same name, its group follows in
+ * brackets, then its rank of arrival within the same group (« Relais 5 (Nord) », « Guide 7 (Nord, 1) », N15 A).
+ */
 @Composable
 fun memberName(
     facts: OperationFacts,
     id: Long,
+): String =
+    nameMark(facts, id)?.let { stringResource(R.string.op_name_mark, bareName(facts, id), it) } ?: bareName(facts, id)
+
+@Composable
+private fun bareName(
+    facts: OperationFacts,
+    id: Long,
 ): String = facts.name(id) ?: stringResource(R.string.op_name_unknown)
+
+/** What follows a name another member carries too (N15 A): « Nord », « Nord, 1 », « En attente », « 2 ». */
+@Composable
+private fun nameMark(
+    facts: OperationFacts,
+    id: Long,
+): String? {
+    val mark = facts.nameMark(id) ?: return null
+    val place =
+        when {
+            mark.group != null -> groupTitle(facts.groupName(mark.group))
+            mark.waiting -> stringResource(R.string.op_waiting)
+            else -> null
+        }
+    val rank = mark.rank ?: return place
+    return place?.let { stringResource(R.string.op_name_mark_rank, it, rank) } ?: rank.toString()
+}
+
+/**
+ * The name of a member as the title of a line or a sheet: the mark of a name carried twice in grey after it (N15 A,
+ * `tour5/03-doublon`), « (vous) » after both on its own line.
+ */
+@Composable
+fun memberTitle(
+    facts: OperationFacts,
+    id: Long,
+    you: Boolean = false,
+): AnnotatedString {
+    val name = bareName(facts, id)
+    // The texts around the name: « … (Nord) » in grey, then « … (vous) » as the line writes it.
+    val marked = nameMark(facts, id)?.let { stringResource(R.string.op_name_mark, HOLE, it).split(HOLE) }
+    val self = if (you) stringResource(R.string.op_self, HOLE).split(HOLE) else null
+    val grey = MaterialTheme.colorScheme.onSurfaceVariant
+    return buildAnnotatedString {
+        self?.let { append(it.first()) }
+        marked?.let { withStyle(SpanStyle(color = grey)) { append(it.first()) } }
+        append(name)
+        marked?.let { withStyle(SpanStyle(color = grey)) { append(it.last()) } }
+        self?.let { append(it.last()) }
+    }
+}
+
+/** Where a name goes in a string of a line, to style what is around it. */
+private const val HOLE = "\u0000"
 
 @Composable
 fun roleText(word: RoleWord): String =
@@ -329,9 +384,10 @@ fun MemberLine(
         Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    if (you) stringResource(R.string.op_self, memberName(facts, id)) else memberName(facts, id),
+                    memberTitle(facts, id, you),
                     style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
+                    // A name carried twice goes on with its group: to the next line rather than cut (N15 A).
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )

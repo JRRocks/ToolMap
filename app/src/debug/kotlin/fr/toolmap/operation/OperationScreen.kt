@@ -1021,7 +1021,7 @@ fun CandidateLine(
         Column(Modifier.padding(start = 14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    memberName(facts, id),
+                    memberTitle(facts, id),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
                 )

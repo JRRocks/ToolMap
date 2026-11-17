@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -388,11 +391,14 @@ fun createLabel(name: String): String =
         stringResource(R.string.op_group_create, name.trim())
     }
 
-/** The windows of the « Opération » mode over the screen of the sharing. */
+/**
+ * The windows of the « Opération » mode over the screen of the sharing; [setName] is the name set in the app, empty
+ * when none is (N16 A: the phone model is not offered to come in with).
+ */
 @Composable
 fun ShareWindows(
     session: OperationSession,
-    defaultName: () -> String,
+    setName: () -> String,
 ) {
     val question by session.join.collectAsStateWithLifecycle()
     val problem by session.joinProblem.collectAsStateWithLifecycle()
@@ -400,7 +406,7 @@ fun ShareWindows(
     val busy by session.demoBusy.collectAsStateWithLifecycle()
     val demoFailed by session.demoFailed.collectAsStateWithLifecycle()
     val extras by session.extras.collectAsStateWithLifecycle()
-    question?.let { JoinWindow(session, it, defaultName) }
+    question?.let { JoinWindow(session, it, setName) }
     problem?.let { p ->
         val text =
             when (p) {
@@ -486,15 +492,24 @@ fun ShareWindows(
     }
 }
 
-/** « Rejoindre l'opération ? » with « Votre nom » already filled (`tour3/04-entree-nom`, `-etats`). */
+/**
+ * « Rejoindre l'opération ? » with « Votre nom » filled with the name set in the app (`tour3/04-entree-nom`, `-etats`);
+ * empty, the cursor in it and a grey help when none is set, red only once a name written is erased (N16 A,
+ * `tour5/05-entree-sans-nom`, `-ecrit`). « Rejoindre » waits for a name.
+ */
 @Composable
 private fun JoinWindow(
     session: OperationSession,
     question: JoinQuestion,
-    defaultName: () -> String,
+    setName: () -> String,
 ) {
-    val name = question.name ?: remember(question.invitation) { defaultName() }
+    val preset = remember(question.invitation) { setName().trim() }
+    val name = question.name ?: preset
     val missing = name.isBlank()
+    // Nothing is wrong yet while the field shows that no name is set (N16 A): red once a name written is erased.
+    val error = missing && (question.name != null || preset.isNotEmpty())
+    val focus = remember { FocusRequester() }
+    if (preset.isEmpty()) LaunchedEffect(question.invitation) { focus.requestFocus() }
     AlertDialog(
         onDismissRequest = session::cancelJoin,
         icon = { Icon(OperationIcons.AccountTree, contentDescription = null) },
@@ -512,25 +527,40 @@ private fun JoinWindow(
                         onValueChange = session::typeJoinName,
                         label = { Text(stringResource(R.string.op_join_name)) },
                         singleLine = true,
-                        isError = missing,
-                        trailingIcon = {
-                            if (missing) {
-                                Icon(
-                                    OperationIcons.ErrorMark,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                            } else {
-                                Icon(OperationIcons.Edit, contentDescription = null)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
+                        isError = error,
+                        trailingIcon =
+                            when {
+                                error -> {
+                                    {
+                                        Icon(
+                                            OperationIcons.ErrorMark,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
+                                }
+
+                                missing -> {
+                                    null
+                                }
+
+                                else -> {
+                                    { Icon(OperationIcons.Edit, contentDescription = null) }
+                                }
+                            },
+                        modifier = Modifier.fillMaxWidth().focusRequester(focus),
                     )
                     val colors = MaterialTheme.colorScheme
                     Text(
-                        stringResource(if (missing) R.string.op_join_name_missing else R.string.op_join_name_hint),
+                        stringResource(
+                            when {
+                                error -> R.string.op_join_name_missing
+                                preset.isEmpty() -> R.string.op_join_name_none
+                                else -> R.string.op_join_name_hint
+                            },
+                        ),
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (missing) colors.error else colors.onSurfaceVariant,
+                        color = if (error) colors.error else colors.onSurfaceVariant,
                         modifier = Modifier.padding(start = 4.dp, top = 6.dp),
                     )
                 }

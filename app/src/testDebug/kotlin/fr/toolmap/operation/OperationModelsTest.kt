@@ -393,6 +393,37 @@ class OperationModelsTest {
         assertTrue(first > 0 && names.drop(first).all { it in OperationScenes.changing })
     }
 
+    @Test
+    fun `two members of the same name are told apart by their group, then by their arrival`() {
+        val w = Vallon()
+        val nord = w.groups.getValue("Nord")
+        val sud = w.groups.getValue("Sud")
+        // Membre 5 (Nord) and Membre 9 (Sud) both took « Relais 5 » (`tour5/03-doublon`): the group tells them apart.
+        w.must(Change.RenameMember(w.id.getValue(5), w.hide("Relais 5")))
+        w.must(Change.RenameMember(w.id.getValue(9), w.hide("Relais 5")))
+        // Membre 7 and Membre 8, both in Nord, took « Guide 7 », written otherwise (`03-doublon-B`): their arrival
+        // order too; Membre 21, who waits for a group, the same name.
+        w.must(Change.RenameMember(w.id.getValue(7), w.hide("Guide 7")))
+        w.must(Change.RenameMember(w.id.getValue(8), w.hide(" guide 7 ")))
+        w.must(Change.RenameMember(w.id.getValue(21), w.hide("GUIDE 7")))
+        for (self in listOf(1, 4, 11)) {
+            val f = facts(w, self)
+            val mark = { n: Int -> f.nameMark(w.id.getValue(n)) }
+            assertEquals(NameMark(nord, waiting = false, rank = null), mark(5), "seen by Membre $self")
+            assertEquals(NameMark(sud, waiting = false, rank = null), mark(9))
+            assertEquals(NameMark(nord, waiting = false, rank = 1), mark(7), "the first arrived")
+            assertEquals(NameMark(nord, waiting = false, rank = 2), mark(8))
+            assertEquals(NameMark(null, waiting = true, rank = null), mark(21))
+            assertNull(mark(4), "a name of its own has no mark")
+            assertNull(mark(1))
+        }
+        // Back to a name of its own: the other loses its mark too.
+        w.must(Change.RenameMember(w.id.getValue(9), w.hide("Relais 9")))
+        val f = facts(w, 1)
+        assertNull(f.nameMark(w.id.getValue(5)))
+        assertNull(f.nameMark(w.id.getValue(9)))
+    }
+
     private companion object {
         const val NONCE = 7L
         const val GROUP = 0x100L

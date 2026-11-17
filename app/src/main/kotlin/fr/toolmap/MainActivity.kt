@@ -738,7 +738,7 @@ class MainActivity : ComponentActivity() {
                                                     operationEntry =
                                                         op?.shareEntry(onCreate = { open(Screen.OPERATION_NEW) }),
                                                 )
-                                                op?.ShareDialogs(defaultName = { shareViewModel.ui.value.myName })
+                                                op?.ShareDialogs(setName = { shareViewModel.ui.value.settings.name })
                                             }
                                         }
 

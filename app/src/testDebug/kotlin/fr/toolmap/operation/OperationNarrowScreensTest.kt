@@ -4,10 +4,17 @@ import android.app.Application
 import android.os.Looper
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.core.app.ApplicationProvider
 import fr.toolmap.core.hierarchy.HierarchyState
@@ -124,7 +131,7 @@ class OperationNarrowScreensTest {
                 CompositionLocalProvider(LocalFormats provides Formats()) {
                     Box {
                         OperationRoot(session, onBack = {})
-                        ShareWindows(session, defaultName = { "Membre 23" })
+                        ShareWindows(session, setName = { "Membre 23" })
                     }
                 }
             }
@@ -217,8 +224,58 @@ class OperationNarrowScreensTest {
         assertTrue(cut.isEmpty(), "texts cut at 320 dp:\n" + cut.distinct().joinToString("\n"))
     }
 
+    @Test
+    fun `with no name set in the app, the entry is empty, fits, and « Rejoindre » waits for a name`() {
+        val session = session(demo = false)
+        var setName = ""
+        // The empty field takes the caret, which blinks for ever: the clock is moved by hand, or the rule would never
+        // be idle (as in `TracksRenderTest`).
+        rule.mainClock.autoAdvance = false
+        rule.setContent {
+            ToolMapTheme {
+                CompositionLocalProvider(LocalFormats provides Formats()) {
+                    Box(Modifier.fillMaxSize()) { ShareWindows(session, setName = { setName }) }
+                }
+            }
+        }
+        val none = "Aucun nom n'est réglé dans l'application"
+        val missing = "Il faut un nom pour entrer."
+
+        fun shown(text: String) = rule.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+
+        fun step(where: String) {
+            rule.mainClock.advanceTimeBy(SETTLE_MS)
+            checkTexts(where)
+        }
+
+        fun join() = rule.onNode(hasText("Rejoindre") and hasClickAction())
+        // `tour5/05-entree-sans-nom` A: empty, a grey help, nothing in red, « Rejoindre » grey.
+        session.join.value = JoinQuestion("code-1", "Exercice Vallon")
+        step("join, no name")
+        assertTrue(shown(none) && !shown(missing) && !shown("SM-"), "empty field, grey help")
+        join().assertIsNotEnabled()
+        // `05-entree-sans-nom-ecrit` A: a name written, « Rejoindre » active, the same help.
+        session.typeJoinName("Prénom N.")
+        step("join, name written")
+        assertTrue(shown(none), "the same help")
+        join().assertIsEnabled()
+        // Erased: red, as before.
+        session.typeJoinName("")
+        step("join, name erased")
+        assertTrue(shown(missing) && !shown(none), "red once erased")
+        join().assertIsNotEnabled()
+        // A name set in the app fills the field, as before.
+        setName = "Guide 21"
+        session.join.value = JoinQuestion("code-2", "Exercice Vallon")
+        step("join, name set")
+        assertTrue(shown("Guide 21") && shown("C'est le nom réglé dans l'application") && !shown(none), "name set")
+        join().assertIsEnabled()
+        assertTrue(cut.isEmpty(), "texts cut at 320 dp:\n" + cut.distinct().joinToString("\n"))
+    }
+
     private companion object {
         const val DEMO_WAIT_MS = 120_000
         const val POLL_MS = 100L
+        const val SETTLE_MS = 200L
     }
 }

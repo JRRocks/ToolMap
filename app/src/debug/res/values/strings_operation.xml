@@ -71,6 +71,9 @@
   <string name="op_menu_transfer_sub">À un administrateur ; vous restez membre</string>
   <string name="op_menu_quit">Quitter l\'opération…</string>
   <string name="op_name_unknown">…</string>
+  <!-- N15 A (tour5/03-doublon): a name another member carries too, followed by its group, then its rank of arrival -->
+  <string name="op_name_mark">%1$s (%2$s)</string>
+  <string name="op_name_mark_rank">%1$s, %2$d</string>
 
   <!-- Roles (tour2/00-roles-et-droits, Q8 A: one word per role) -->
   <string name="op_role_op_chief">Chef de l\'opération</string>
@@ -116,6 +119,8 @@
   <string name="op_join_name">Votre nom</string>
   <string name="op_join_name_hint">C\'est le nom réglé dans l\'application. Vous pouvez en écrire un autre pour cette opération.</string>
   <string name="op_join_name_missing">Il faut un nom pour entrer.</string>
+  <!-- N16 A (tour5/05-entree-sans-nom): no name set in the app, the field is empty -->
+  <string name="op_join_name_none">Aucun nom n\'est réglé dans l\'application. Écrivez celui que les administrateurs verront : il en faut un pour entrer.</string>
   <string name="op_join_text">Vous arrivez « en attente ». Tant qu\'un administrateur ne vous a pas placé dans un groupe, vous ne voyez rien du partage ; seuls les administrateurs voient votre nom et votre position.</string>
   <string name="op_join_ok">Rejoindre</string>
   <string name="op_full_title">Opération complète</string>

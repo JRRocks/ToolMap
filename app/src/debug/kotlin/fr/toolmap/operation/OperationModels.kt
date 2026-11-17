@@ -22,6 +22,16 @@ enum class RoleWord {
     ADMIN,
 }
 
+/**
+ * What follows the name of a member when another member carries the same name (N15 A, `tour5/03-doublon`): its
+ * [group], or [waiting] for a group, and its [rank] of arrival when another of the same name stands at the same place.
+ */
+data class NameMark(
+    val group: Long?,
+    val waiting: Boolean,
+    val rank: Int?,
+)
+
 /** A mark on a token (V4 A): filled for a chief, hollow for its deputy. */
 enum class Mark { FULL, HOLLOW }
 
@@ -105,6 +115,35 @@ class OperationFacts(
     fun groupName(id: Long): String? = view.groups.firstOrNull { it.id == id }?.name
 
     fun groupOf(member: Long): Long? = state?.members?.get(member)?.group
+
+    /**
+     * The marks of the members whose name another member carries too (N15 A): compared as the sheets refuse a name
+     * taken (N13 A), in the order the members came, the same on every phone.
+     */
+    private val marks: Map<Long, NameMark> by lazy {
+        val order = state?.members?.keys ?: byId.keys
+        val clusters = ArrayList<MutableList<Long>>()
+        for (id in order) {
+            val known = name(id)?.takeIf { it.isNotBlank() } ?: continue
+            val same = clusters.firstOrNull { sameName(name(it.first()), known) }
+            if (same != null) same += id else clusters += mutableListOf(id)
+        }
+        buildMap {
+            for (same in clusters.filter { it.size > 1 }) {
+                val places = same.associateWith { groupOf(it) to (state?.isWaiting(it) == true) }
+                val shared = places.values.groupingBy { it }.eachCount()
+                val ranks = HashMap<Pair<Long?, Boolean>, Int>()
+                for (id in same) {
+                    val place = places.getValue(id)
+                    val rank = if (shared.getValue(place) > 1) ranks.merge(place, 1, Int::plus) else null
+                    put(id, NameMark(place.first, place.second, rank))
+                }
+            }
+        }
+    }
+
+    /** What tells [id] apart from another member of the same name (N15 A); `null` when its name is its own. */
+    fun nameMark(id: Long): NameMark? = marks[id]
 
     val myGroup: Long? get() = self?.let(::groupOf)
 

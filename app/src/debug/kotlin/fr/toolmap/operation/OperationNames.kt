@@ -90,7 +90,8 @@ fun OperationFacts.groupNameTaken(
     except: Long?,
 ): Boolean = view.groups.any { it.id != except && sameName(it.name, name) }
 
-private fun sameName(
+/** Two names are the same without regard to capitals or the spaces around them (N13 A, N15 A). */
+internal fun sameName(
     known: String?,
     typed: String,
 ): Boolean = known != null && known.trim().equals(typed.trim(), ignoreCase = true)

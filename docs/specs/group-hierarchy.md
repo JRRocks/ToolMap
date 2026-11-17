@@ -1807,6 +1807,8 @@ Ces cas changeraient une règle ou demanderaient un changement plus gros que la 
 
 *Réponse de l'utilisateur, 2026-11-16* : sans choix (M6), en attente. Ses mots : « Il devrait y avoir qu'une seul clés d'invitation. Et si un intru la trouve, il sera trié dans la fils d'attente. » La session principale lui pose une question de suivi (une clé changée par le créateur seul, ou une clé jamais changée, ce qui reviendrait sur R3) ; rien n'est fait d'ici là.
 
+*Réponse de l'utilisateur, 2026-11-16 (tour 6, M6 1)* : « Une seule clé à la fois : seul le créateur la change, après chaque départ ». R3 A reste (la clé d'invitation change après chaque départ) ; seul le créateur la change, les administrateurs ne la changent plus en relais ; le créateur hors ligne, elle change à son retour. La règle de convergence (époque égale, plus petit identifiant gagnant, ADR-132) reste en filet de sécurité. En marche normale, il n'y a plus qu'une clé par époque. À faire : P39.14, avec son ADR.
+
 ### Coûts (5, 15 et 30 membres)
 
 Mesurés par `OperationCostTest` (`-Ptoolmap.hierarchy.soak=true`, `core/build/hierarchy-cost.txt`) : l'opération construite (groupes de cinq avec un chef et un adjoint, un administrateur, le créateur chef de l'opération), puis 10 minutes simulées de positions toutes les 30 s, réseau calme ; trames et octets comptés à la sortie et à l'entrée de chaque téléphone, signatures, vérifications et accords de clé comptés par un fournisseur de cryptographie de test, temps de calcul du fil passé dans l'automate (JVM de la machine de session, pas un téléphone).
@@ -2090,12 +2092,18 @@ Rien, aux deux runs : aucune étape n'a vu l'état `REFUSED`, chaque écriture a
 | N12 | A | « Renommer le groupe » et « Supprimer le groupe » : deux lignes écrites en bas de la page du groupe, à la place des icônes du haut |
 | N13 | A | L'écran refuse un nom déjà pris (« Ce nom est déjà pris »), pour un membre comme pour un groupe. Précision : « Si on applique le même nom, au moins 1 info dois les différencier exemple leur groupe » : question N15, en attente, non codée |
 | N14 | A | « Renommer » en haut de la fiche d'un membre (administrateurs, créateur) |
+| N15 | A | (tour 6, 2026-11-16, aperçus 03-doublon et 03-doublon-B) Deux membres au même nom : le groupe entre parenthèses, en gris, après le nom, partout ; dans un même groupe, l'ordre d'arrivée s'ajoute (« Guide 7 (Nord, 1) ») |
+| N16 | 1 | (tour 6, 2026-11-16) Le champ « Votre nom » de l'écran d'entrée reste vide quand aucun nom n'est réglé dans l'application ; il faut l'écrire pour entrer. Aperçus 05-entree-sans-nom et 05-entree-sans-nom-ecrit validés en variante A le même jour (« A, texte gris ») : aide en gris, rouge seulement quand on efface un nom écrit |
 
 Sans choix (`tour5/questions.md`) : le nom du groupe seul dans les listes et les menus ; pendant l'attente d'une réponse, tout le monde voit l'ancien nom ; une demande faite hors réseau part au retour du réseau ; le créateur et les administrateurs changent leur propre nom sans demande (et ne reçoivent pas « Un administrateur vous a renommé »). Dans chaque feuille, le champ porte le nom actuel et une croix pour l'effacer ; « Enregistrer » reste grisé tant que rien n'a changé, que le nom est vide, trop long ou déjà pris.
 
 ### Le nom proposé à l'entrée
 
 L'écran d'entrée (« Rejoindre l'opération ? ») propose le nom réglé dans l'application ; s'il est vide, le **modèle du téléphone** (`Build.MODEL`, par exemple « SM-S913U » : `ShareController.displayName`, `ShareModule.deviceName`). C'est ce que N11 corrige après coup : la personne demande un vrai nom, un administrateur l'accepte. L'écran d'entrée n'est pas changé (N11 B).
+
+N16 1 (tour 6, 2026-11-16) : le champ reste vide quand aucun nom n'est réglé, et l'on ne peut pas entrer tant qu'il est vide. Aperçus `tour5/img/05-entree-sans-nom*.png` ; rien n'est codé avant le « oui » sur l'aperçu.
+
+*Aperçu validé le 2026-11-16, variante A (« A, texte gris »)* : l'écran d'entrée reçoit le nom réglé dans l'application (`ShareSettings.name`), plus le modèle du téléphone ; vide, le champ a le curseur, l'aide dit en gris « Aucun nom n'est réglé dans l'application. Écrivez celui que les administrateurs verront : il en faut un pour entrer. » et « Rejoindre » reste grisé ; un nom écrit puis effacé met le champ en rouge (« Il faut un nom pour entrer. »), comme avant ; un nom réglé remplit le champ, comme avant. La création d'une opération garde le nom réglé, ou le modèle du téléphone.
 
 ### Le moteur
 
@@ -2126,7 +2134,8 @@ L'écran d'entrée (« Rejoindre l'opération ? ») propose le nom réglé dans 
 - **Fiche d'un membre** : « Renommer » en haut (N14 A) ; **page d'un groupe** : « Renommer le groupe », « Supprimer le groupe » en bas (N12 A) ; **menu ⋮** : « Renommer l'opération… » (N10 A).
 - **Ce que voit le renommé** : « Un administrateur vous a renommé » ; « Accepté : vous vous appelez maintenant … » ; une fenêtre au refus (N8 A). Les autres : rien (N9 B).
 - **Nom pris** (N13 A) : la feuille refuse un nom porté par un autre membre (ou par un autre groupe), sans tenir compte des majuscules ni des espaces autour ; c'est l'écran qui vérifie, pas le moteur (ADR-135, point 6).
-- Captures de la CI (`OperationScenes`) : `tour5-02-*` et `tour5-04-*`, à mettre à côté des aperçus validés.
+- **Deux membres au même nom** (N15 A) : quand plusieurs membres portent le même nom (comparé sans majuscules ni espaces autour, comme le refus de N13), chacun est suivi, partout où son nom s'écrit, de son groupe entre parenthèses (« Relais 5 (Nord) », « Relais 5 (Sud) »), en gris dans les listes et les titres ; « En attente » pour qui attend un groupe ; dans un même groupe (ou en attente tous les deux), l'ordre d'arrivée dans l'opération s'ajoute (« Guide 7 (Nord, 1) », « Guide 7 (Nord, 2) »), le même sur tous les téléphones (l'ordre des membres de l'état). Un nom inconnu de ce téléphone n'est comparé à rien. C'est l'écran qui le calcule (`OperationFacts.nameMark`), le moteur n'en sait rien.
+- Captures de la CI (`OperationScenes`) : `tour5-02-*`, `tour5-03-doublon*` et `tour5-04-*`, à mettre à côté des aperçus validés.
 
 ### Limites connues
 
@@ -2134,4 +2143,4 @@ L'écran d'entrée (« Rejoindre l'opération ? ») propose le nom réglé dans 
 - Un administrateur hors ligne ne voit pas qu'un autre a déjà répondu ; sa réponse est refusée au retour, il le voit alors (« Déjà répondu »).
 - « Depuis quand » une demande attend (`seenAtMs`) n'est gardé qu'en mémoire : après un redémarrage, c'est le moment où ce téléphone la revoit.
 - La longue simulation (§ 21) ne tire pas ces changements (ses suites à graine fixe restent les mêmes) ; ils sont couverts par l'accord aléatoire des copies (`HierarchyReplicaTest`), les attaques (`MaliciousMemberTest`), le fuzzing, `HierarchyNamesTest` (13) et `OperationNamesTest` (5).
-- N15 (deux membres de même nom, différenciés par le groupe) : en attente de la réponse de l'utilisateur.
+- N15 (deux membres de même nom) : réponse A du 2026-11-16 (tour 6), codée (« Les écrans », deux membres au même nom).

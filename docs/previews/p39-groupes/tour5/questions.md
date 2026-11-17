@@ -113,3 +113,17 @@ Sans choix : qui attend un groupe demande un nouveau nom par le même crayon que
 **04-attente-nom et 04-nom-pris validés par l'utilisateur le 2026-11-16** (« Oui, les deux », réponse relayée par la session principale) ; codés dans P39.13, captures de la CI `tour5-04-attente-nom`, `tour5-04-attente-nom-demande`, `tour5-04-nom-pris` et `tour5-04-nom-pris-createur` à mettre à côté. Le prénom d'exemple de 04-attente-nom est devenu « Prénom N. » (dépôt public : aucun prénom dans les images, même inventé).
 
 Le nom qu'un arrivant reçoit d'office est le modèle de son téléphone (« SM-S913U ») : c'est le nom réglé dans l'application, prérempli sur « Rejoindre l'opération ? » ; l'écran d'entrée n'est pas changé (aperçu d'abord).
+
+## Réponses du tour 6 (2026-11-16)
+
+Réponses de l'utilisateur relayées par la session principale, toutes comme recommandé :
+
+> N15 A · Le groupe après le nom, en gris, partout
+> M6 1 · Une seule clé à la fois : seul le créateur la change, après chaque départ
+> N16 1 · Le champ reste vide : il faut écrire son nom pour entrer
+
+- **N15 A** : validé sur les images 03-doublon et 03-doublon-B (côté A, ordre d'arrivée dans un même groupe compris) ; codé dans P39.13.
+- **M6 1** : seul le créateur change la clé d'invitation, après chaque départ (R3 A reste) ; les administrateurs ne la changent plus en relais ; le créateur hors ligne, la clé change à son retour ; la règle de convergence (époque égale, plus petit identifiant gagnant) reste en filet de sécurité. Consigné dans la spécification et le plan (P39.14), non codé ici ; l'ADR revient à la session P39.14.
+- **N16 1** : le champ « Votre nom » de « Rejoindre l'opération ? » reste vide quand aucun nom n'est réglé dans l'application ; on ne peut pas entrer tant qu'il est vide. Aperçu : images 05-entree-sans-nom, 05-entree-sans-nom-ecrit et 05-entree-sans-nom-BC (A recommandé : aide en gris, rien en rouge ; B : rouge dès l'ouverture ; C : « Il faut un nom pour entrer. » en gris). En attente du « oui » sur l'aperçu : rien n'est codé.
+
+**05-entree-sans-nom et 05-entree-sans-nom-ecrit validés en variante A par l'utilisateur le 2026-11-16** (« A, texte gris », réponse relayée par la session principale) ; B et C écartées. Codé dans P39.13 : champ vide quand aucun nom n'est réglé dans l'application, curseur dedans, « Rejoindre » grisé tant qu'il est vide, aide en gris (« Aucun nom n'est réglé dans l'application. Écrivez celui que les administrateurs verront : il en faut un pour entrer. »), rouge seulement quand on efface un nom écrit, inchangé quand un nom est réglé. Captures de la CI `tour3-04-entree-nom`, `tour3-04-entree-nom-etats` et `tour5-05-entree-sans-nom-ecrit` à mettre à côté.

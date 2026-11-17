@@ -29,9 +29,12 @@ interface OperationFeature {
     @Composable
     fun shareEntry(onCreate: () -> Unit): ShareOperationEntry
 
-    /** The windows of this mode over the screen of the sharing (« Rejoindre l'opération ? », what happened). */
+    /**
+     * The windows of this mode over the screen of the sharing (« Rejoindre l'opération ? », what happened); [setName] is
+     * the name set in the app, empty when none is.
+     */
     @Composable
-    fun ShareDialogs(defaultName: () -> String)
+    fun ShareDialogs(setName: () -> String)
 
     /** The screen of the operation open on this phone. */
     @Composable

@@ -1347,6 +1347,26 @@ function joinConfirm3(state) {
     [tbtn('Annuler'), join], { top: 150, icon: 'account_tree' }) }).replace('>Pixel 7<', '>Membre 21<');
 }
 
+/* ---------- N16 (tour 6) · Entering when no name is set in the application ---------- */
+/** o: value (empty: nothing written), focus (the cursor in the field), err (red), help, off (« Rejoindre » greyed), device (the name of the screen behind). */
+function joinConfirm6(o) {
+  const empty = !o.value;
+  const bg = t.night ? t.scHigh : t.panel;
+  const border = o.err ? `2px solid ${t.err}` : o.focus ? `2px solid ${t.pri}` : `1px solid ${t.outline}`;
+  const label = o.err ? t.err : o.focus ? t.pri : t.on2;
+  const cursor = `<span style="display:inline-block;width:2px;height:22px;background:${o.err ? t.err : t.pri};vertical-align:middle;margin-left:1px"></span>`;
+  const value = (o.value || '') + (o.focus || o.err ? cursor : '');
+  const icon = o.err ? ic('error', t.err, 20) : empty ? '' : ic('edit', t.on2, 20);
+  const fld = `<div style="position:relative;margin:14px 0 6px;height:56px;border:${border};border-radius:12px;display:flex;align-items:center;gap:12px;padding:0 12px 0 16px"><div style="flex:1;min-width:0;font-size:16px;color:${t.on}">${value}</div>${icon}<div style="position:absolute;left:12px;top:-9px;padding:0 4px;font-size:12px;line-height:16px;color:${label};background:${bg}">Votre nom</div></div>`;
+  const join = o.off ? `<div style="display:inline-flex;height:40px;padding:0 12px;border-radius:12px;align-items:center;font-size:14px;font-weight:500;color:${t.night ? 'rgba(221,231,234,.38)' : 'rgba(18,32,39,.38)'}">Rejoindre</div>` : tbtn('Rejoindre');
+  return curHors({ tight: true, hint: FRIENDS_HINT, create: 'Créer un groupe entre amis', joinCap: JOIN_CAP, after: opCard('button'), over: dialog("Rejoindre l'opération ?",
+    `<div style="font-size:16px;line-height:22px;color:${t.on};font-weight:500">${OP}</div>${fld}<div style="padding:0 4px 12px">${hint(o.help, o.err ? t.err : null)}</div>Vous arrivez « en attente ». Tant qu'un administrateur ne vous a pas placé dans un groupe, vous ne voyez rien du partage ; seuls les administrateurs voient votre nom et votre position.`,
+    [tbtn('Annuler'), join], { top: 150, icon: 'account_tree' }) }).replace('>Pixel 7<', `>${o.device || 'SM-S913U'}<`);
+}
+const N16_CUR = "C'est le nom réglé dans l'application. Vous pouvez en écrire un autre pour cette opération.";
+const N16_A = "Aucun nom n'est réglé dans l'application. Écrivez celui que les administrateurs verront : il en faut un pour entrer.";
+const N16_MISSING = 'Il faut un nom pour entrer.';
+
 /* ---------- 5 · The creator leaves: the slide that dissolves (Q4), the successor among the administrators (Q13) ---------- */
 /** Slide from left to right, like answering a call. state: 'rest' | 'mid' | 'end'. */
 function slideTrack(state, o) {
@@ -2242,7 +2262,17 @@ SH('04-attente-nom', '4', 'Qui attend un groupe demande un nouveau nom · N11 B'
 SH('04-nom-pris', '4', 'Un nom déjà pris · N13 A', "Le nom est comparé à ceux que ce téléphone connaît : les membres, et pour un groupe les autres groupes.", duo(
   ph(PR + ' · un membre', 'new', mode('A', () => opMain5(7, { pencil: true, over: errSheet(nameSheet('Changer mon nom', null, 'Nouveau nom', 'Membre&nbsp;9', 'Ce nom est déjà pris. Choisissez-en un autre.', 'Envoyer la demande', { err: true, off: true })) })), "Cadre et texte en rouge, bouton grisé tant que le nom est pris. Pareil pour renommer un membre, un groupe ou l'opération."),
   ph(PR + ' · le créateur', 'new', mode('A', () => opMain5(1, { pencil: true, over: nameSheet('Changer mon nom', null, 'Nouveau nom', 'Relais&nbsp;1', `Vous êtes créateur : le nouveau nom vaut tout de suite, pour toute l'opération.`, 'Enregistrer') })), "Le créateur et les administrateurs changent leur nom sans demande ; le texte dit « créateur » ou « administrateur ».")));
-const Q5 = (n, title, choices, imgs) => `<li><b>N${n}. ${title}</b><br>${choices}${imgs ? `<br><span style="font-size:13px">Images : ${imgs}</span>` : ''}</li>`;
+chapter(5, 'Entrer sans nom réglé · N16 (tour 6)', "Votre réponse N16 1 : quand aucun nom n'est réglé dans l'application, le champ « Votre nom » reste vide, et il faut y écrire un nom pour entrer. Aujourd'hui, c'est le modèle du téléphone qui le remplit.");
+SH('05-entree-sans-nom', '5', "Le champ vide à l'ouverture", "Téléphone sans nom réglé dans l'application : l'écran « Entre amis » derrière montre le modèle du téléphone.", duo(
+  ph('Actuel', 'cur', mode('A', () => joinConfirm6({ value: 'SM-S913U', help: N16_CUR })), "Le modèle du téléphone remplit le champ, et le texte dit à tort que c'est le nom réglé dans l'application."),
+  ph(PA, 'reco', mode('A', () => joinConfirm6({ focus: true, help: N16_A, off: true })), "Le champ est vide, le curseur dedans ; « Rejoindre » reste grisé. Le texte dit pourquoi le champ est vide et ce qu'il faut y écrire. Rien en rouge : rien n'est encore faux.")));
+SH('05-entree-sans-nom-ecrit', '5', 'Le nom écrit, et le cas inchangé', "À gauche, la suite de A ; à droite, un téléphone qui a un nom réglé dans l'application : rien ne change pour lui.", duo(
+  ph(PA + ' · nom écrit', 'reco', mode('A', () => joinConfirm6({ value: 'Prénom&nbsp;N.', focus: true, help: N16_A })), "« Rejoindre » devient actif dès qu'un nom est écrit. Effacé, le champ redevient rouge : « Il faut un nom pour entrer. », comme aujourd'hui."),
+  ph('Inchangé · un nom réglé', 'cur', mode('A', () => joinConfirm6({ value: 'Guide&nbsp;21', help: N16_CUR, device: 'Guide 21' })), "Le nom réglé dans l'application remplit le champ, comme aujourd'hui.")));
+SH('05-entree-sans-nom-BC', '5', 'Les deux autres formulations', "Même champ vide et même bouton grisé ; seul le texte sous le champ change.", duo(
+  ph(PB, 'new', mode('A', () => joinConfirm6({ err: true, help: N16_MISSING, off: true })), "Rouge dès l'ouverture, avec la phrase d'aujourd'hui quand on efface le nom. Plus court, mais l'écran signale une faute avant qu'on ait rien fait."),
+  ph('Proposé C', 'new', mode('A', () => joinConfirm6({ focus: true, help: N16_MISSING, off: true })), "Le même texte en gris : court, mais il ne dit pas pourquoi le champ est vide ni ce que verront les administrateurs.")));
+const Q5 =(n, title, choices, imgs) => `<li><b>N${n}. ${title}</b><br>${choices}${imgs ? `<br><span style="font-size:13px">Images : ${imgs}</span>` : ''}</li>`;
 OUT.push(`<div class="intro" id="choix"><h1>Les questions du tour 5</h1><p>La recommandation est toujours le choix A. Le détail et les raisons sont dans questions.md.</p><ul class="qs">` +
   Q5(1, 'Le mot « groupe » dans une phrase', "A le mot reste, en minuscule · B jamais le mot", '01-phrases, 01-textes-phrases') +
   Q5(2, 'Qui renomme les autres', 'A le créateur et les administrateurs · B aussi les chefs de groupe, pour leur groupe', '02-droits') +
