@@ -1,7 +1,9 @@
 package fr.toolmap.core.hierarchy.sim
 
 import fr.toolmap.core.hierarchy.OperationFrames
+import fr.toolmap.core.hierarchy.OperationNode
 import fr.toolmap.core.p2p.MeshLink
+import fr.toolmap.core.p2p.RelayPresence
 import java.util.PriorityQueue
 import java.util.SplittableRandom
 
@@ -165,8 +167,9 @@ class FrameViolation(
  * The simulated world (P39.10): a virtual clock, a queue of events, and the coordination server with the rules of the
  * real one (`FirebaseRelay`, `firebase/database.rules.json`, spec § 17):
  *
- * - one room; every participant writes a heartbeat every 15 s; a relay opens the link of a participant whose last
- *   heartbeat is 40 s old at most, and closes it after 75 s without one (evaluated every 5 s and at each heartbeat);
+ * - one room; every participant writes a heartbeat every [presence] period (a minute in an operation, P39.15); a relay
+ *   opens the link of a participant whose last heartbeat is recent enough, and closes it after a longer silence (160 s
+ *   and 300 s in an operation; evaluated every 5 s and at each heartbeat);
  * - a frame whose first byte is 4 goes to the writer's position slot, the last one only (300 bytes at most); one
  *   position write at a time, the newest waiting one goes; a position waits during a cut and goes at reconnection;
  * - any other frame is a control frame (4 500 bytes at most on the server; the operation keeps them under 4 096),
@@ -183,6 +186,12 @@ class World(
     var now: Long = START_MS
         private set
     var faults: Faults = Faults.CALM
+
+    /** The heartbeat and the delays of the room: those of an operation (P39.15), or of before to compare. */
+    var presence: RelayPresence = RelayPresence.OPERATION
+
+    /** Between two summaries of a node; the phones read it when their node starts. */
+    var summaryEveryMs: Long = OperationNode.SUMMARY_EVERY_MS
 
     /** The randomness of the network; [reseed] gives each step of a scenario its own. */
     var noise = SplittableRandom(seed)
@@ -284,7 +293,7 @@ class World(
         p.second()
         if (!p.running || p.run != run) return
         if (s % PRESENCE_EVERY_S == 0L) evaluate(p)
-        if (p.connected && s % HEARTBEAT_S == 0L) heartbeat(p)
+        if (p.connected && s % presence.heartbeatS == 0L) heartbeat(p)
         if (p.connected && s % CLEANUP_S == 0L) cleanUp(p)
         at(now + 1_000) { secondOf(p, run) }
     }
@@ -396,11 +405,11 @@ class World(
         for (view in r.peers.values) {
             val age = now - view.lastBeat
             if (!view.open) {
-                if (age <= OPEN_WITHIN_MS && view.lastBeat > view.droppedAt) {
+                if (age <= presence.openWithinMs && view.lastBeat > view.droppedAt) {
                     view.open = true
                     opening += view.id
                 }
-            } else if (age > CLOSE_AFTER_MS) {
+            } else if (age > presence.closeAfterMs) {
                 view.open = false
                 view.droppedAt = now
                 closing += view.id
@@ -590,11 +599,8 @@ class World(
 
     companion object {
         const val START_MS = 1_800_000_000_000L
-        const val HEARTBEAT_S = 15L
         const val PRESENCE_EVERY_S = 5L
         const val CLEANUP_S = 60L
-        const val OPEN_WITHIN_MS = 40_000L
-        const val CLOSE_AFTER_MS = 75_000L
         const val CONTROL_MAX_AGE_MS = 150_000L
         const val OWN_FRAME_TTL_MS = 120_000L
         const val POSITION_SLOT_BYTES = 300

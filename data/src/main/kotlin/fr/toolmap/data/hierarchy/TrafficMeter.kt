@@ -4,6 +4,9 @@ import fr.toolmap.core.hierarchy.FrameGenre
 import fr.toolmap.core.hierarchy.OperationFrames
 import fr.toolmap.core.p2p.LinkListener
 import fr.toolmap.core.p2p.MeshLink
+import fr.toolmap.core.p2p.RelayConfig
+import fr.toolmap.core.p2p.RelayPresence
+import fr.toolmap.core.p2p.RelayTransport
 import fr.toolmap.core.p2p.RelayTransportFactory
 import fr.toolmap.core.problem.catchExpected
 import okhttp3.Interceptor
@@ -91,12 +94,20 @@ class TrafficMeter : Interceptor {
 
     /** The same factory, whose transports hand over links and frames that are counted on the way. */
     fun wrap(factory: RelayTransportFactory): RelayTransportFactory =
-        RelayTransportFactory {
-            config,
-            groupId,
-            listener,
-            ->
-            factory.create(config, groupId, CountingListener(listener))
+        object : RelayTransportFactory {
+            override fun create(
+                config: RelayConfig,
+                groupId: ByteArray,
+                listener: LinkListener,
+            ): RelayTransport = factory.create(config, groupId, CountingListener(listener))
+
+            // The presence of the mode goes through: the meter counts, it changes no rhythm.
+            override fun create(
+                config: RelayConfig,
+                groupId: ByteArray,
+                listener: LinkListener,
+                presence: RelayPresence,
+            ): RelayTransport = factory.create(config, groupId, CountingListener(listener), presence)
         }
 
     private fun frame(

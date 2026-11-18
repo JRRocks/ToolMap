@@ -2193,3 +2193,54 @@ N16 1 (tour 6, 2026-11-16) : le champ reste vide quand aucun nom n'est réglé, 
 - « Depuis quand » une demande attend (`seenAtMs`) n'est gardé qu'en mémoire : après un redémarrage, c'est le moment où ce téléphone la revoit.
 - La longue simulation (§ 21) ne tire pas ces changements (ses suites à graine fixe restent les mêmes) ; ils sont couverts par l'accord aléatoire des copies (`HierarchyReplicaTest`), les attaques (`MaliciousMemberTest`), le fuzzing, `HierarchyNamesTest` (13) et `OperationNamesTest` (5).
 - N15 (deux membres de même nom) : réponse A du 2026-11-16 (tour 6), codée (« Les écrans », deux membres au même nom).
+
+## 25. Rythme d'envoi des positions (P39.15, 2026-11-18)
+
+> Choix de l'utilisateur du 2026-11-18 (§ 10 octies : 2 a, F1 A, F2 B modifié, F3 A, validation « 1 a, 2 a »). Décision : ADR-136. Le moteur et les écrans de debug (mode « Opération », ADR-130) ; rien dans le type de build `release` ; « Entre amis » ne change pas.
+
+### Le moteur
+
+- **Un changement** : `SetPositionInterval(seconds)`, code 20 du format (`HierarchyWire`, `VERSION` 4 inchangée), 4 octets après le code. **Un droit** : `SET_POSITION_INTERVAL` (`Operation` 20), dans les règles par défaut pour le créateur, les administrateurs et le chef de l'opération (`ENSEMBLE_LEADER`), tous pour l'ensemble (`Reach.ANYONE`) ; l'adjoint du chef de l'opération l'a par son chef (R8). Les chefs de groupe, leurs adjoints, les membres et qui attend ne l'ont pas. R5 reste vrai pour toutes les autres opérations : le chef de l'opération n'a aucun droit sur la hiérarchie.
+- **L'état** : `HierarchyState.positionIntervalS`, 60 par défaut. Écrit seulement s'il diffère de 60 : drapeau 2 de l'état, puis la valeur sur 4 octets après les drapeaux. Au décodage : drapeau inconnu, valeur par défaut écrite, valeur hors bornes : refusés (une seule forme par état). Le stockage garde les opérations, pas l'état : un téléphone qui redémarre rejoue le changement.
+- **Bornes** : 1 s à 24 h (`MIN_POSITION_INTERVAL_S`, `MAX_POSITION_INTERVAL_S`), celles de la fenêtre d'« Entre amis » (F2 B modifié), écrites dans `:core`. Hors bornes : malformé (`Change.isMalformed`), refusé à l'écriture (`AddResult.MALFORMED`), au décodage et dans le journal reçu d'un autre téléphone. La même valeur qu'aujourd'hui : `NO_CHANGE`.
+- **Accord** : comme tout changement, dans l'ordre commun des opérations ; deux changements simultanés (le chef de l'opération à 30 s, son adjoint à 5 min, hors ligne tous les deux) donnent la même valeur partout, la dernière dans cet ordre.
+- **Les rythmes du mode « Opération »** (`RelayPresence.OPERATION`, `OperationNode.SUMMARY_EVERY_MS`) :
+
+| | Avant (0.4.261) | Opération, P39.15 | « Entre amis » (inchangé) |
+|---|---|---|---|
+| Position | 15 s, sans réglage | le réglage, une minute par défaut, appliqué dès qu'il change | le réglage de chacun |
+| Signal de présence | 15 s | 1 min | 15 s |
+| Lien ouvert si le dernier signal a moins de | 40 s | 160 s | 40 s |
+| Lien fermé après, sans signal | 75 s | 300 s | 75 s |
+| Résumé de l'opération | 1 min | 5 min | — |
+| Alertes | tout de suite | tout de suite | tout de suite |
+
+- **Un défaut trouvé en chemin** (`OperationSimulationFindingsTest`, « un administrateur absent… apprend le nom de qui attend ») : avec le résumé à 5 min, le nom n'arrivait qu'au résumé suivant. Une demande (`pull`) refusée parce qu'une autre venait de partir (une toutes les 2 s, `PULL_EVERY_MS`) était perdue ; elle est maintenant gardée et repart au tour suivant (`pullLater`), et un téléphone à qui il manque le nom d'un membre qui attend le demande à ce membre, s'il le voit.
+
+### Les écrans (mode « Opération », type `debug`)
+
+- **Ligne « Fréquence d'envoi »** (F1 A, `tour6/img/02-q1-A`), sous « Partager ma position » : « Toutes les minutes », ou « Toutes les » et la durée (« Toutes les 45 s ») ; une flèche pour qui peut la changer (le téléphone le demande au moteur, `OperationFacts.mayChangeRhythm`), qui ouvre la feuille ; pour les autres, un cadenas et « Réglée par le chef de l'opération », et rien ne s'ouvre.
+- **Feuille « Réglages d'envoi »** (F2 B modifié, `05-q2-B-modifie`, `-2`, `-3`) : le curseur d'« Entre amis » (`PresetSlider`) de 1 à 10 min, un cran par minute, les minutes sous les crans (« 1 min », « 2 », … « 5 min », … « 10 min »), celle de la valeur en gras ; la pastille ouvre la fenêtre d'« Entre amis » (`ValueDialog`, 1 s à 24 h, sans « Déplacement minimal ») ; de 1 à 29 s, l'avertissement de l'opération (« Moins de 30 s : plus de batterie pour tout le monde, et le serveur gratuit peut atteindre sa limite du mois. »), « OK » actif. Une valeur hors des crans reste exacte dans la pastille, le curseur va au cran le plus proche (à égalité, le plus bas) ; seul un curseur déplacé remplace la valeur. « Appliquer » applique (rien si la valeur n'a pas changé), « Annuler » ferme.
+- **« Entre amis »** : son curseur n'a pas d'étiquettes (paramètre facultatif, absent), sa fenêtre garde son avertissement sous 5 s.
+- **États que les images validées ne montraient pas** (questions F4 à F7, `tour6/etats/index.html`, `tour6/img/06-…` à `09-…`, envoyées le 2026-11-18, réponse attendue) : ce que voient les autres quand le rythme change, l'écran de qui attend, une opération créée avant, l'ordre des lignes avec un nom demandé. Le code fait pour l'instant le plus simple : seule la ligne change (F4 A), rien sur l'écran d'attente (F5 B), dans une opération créée avant le texte des membres et un cadenas pour tous (F6 B), « Nom demandé » puis « Fréquence d'envoi » (F7 A).
+- Captures de la CI (`OperationScenes`) : `tour6-02-q1-A`, `tour6-02-q1-A-membre`, `tour6-05-q2-B-modifie`, `-fenetre`, `-2`, `-3`, et `tour6-02-q1-A-45-s-membre` (après « Appliquer » à 45 s, parmi les scènes qui changent la démonstration).
+
+### Versions mélangées
+
+- **Un téléphone en 0.4.261** ne connaît ni le droit 20 ni le code 20 : il refuse la première opération d'une opération créée après (« unknown operation in the rights ») et ne peut pas la rejoindre ; il ne lit donc jamais le changement.
+- **Une opération créée en 0.4.261** n'a pas la case du droit (les règles voyagent dans la première opération) : personne n'y change le rythme, qui se lit à une minute. Un téléphone à jour y envoie sa position toutes les minutes et son signal de présence toutes les minutes ; un téléphone en 0.4.261 y garde 15 s pour les deux. Le 0.4.261 ouvre un lien sur un signal de moins de 40 s et le ferme après 75 s sans signal : un téléphone à jour, qui bat toutes les 60 s, y reste présent la plupart du temps, mais un signal en retard de plus de 15 s ferme le lien, qui se rouvre au signal suivant.
+
+### Coût remesuré
+
+Mesuré par `OperationCostTest` (`./gradlew :core:test --tests '*OperationCostTest*' -Ptoolmap.hierarchy.soak=true`, `core/build/hierarchy-cost.txt`) : la même opération que le § 21 (groupes de cinq avec un chef et un adjoint, un administrateur, le créateur chef de l'opération), 10 minutes simulées, réseau calme, une fois au rythme d'avant (positions toutes les 15 s, présence 15 s, résumé 1 min) et une fois à celui de P39.15 (positions toutes les minutes, présence 1 min, résumé 5 min). « Échanges » : trames écrites et reçues par un téléphone ; « signaux » : signaux de présence écrits et lus. JVM du poste, pas un téléphone.
+
+| Membres | Échanges par téléphone (trames/min, octets/min), avant → après | Signaux par téléphone, avant → après | Calcul dans l'automate, par téléphone | Serveur, écritures de la salle par minute, avant → après |
+|---|---|---|---|---|
+| 5 | 25,3 → 6,0 ; 4 703 → 1 121 o | 20 → 5 | 10,9 → 2,5 ms/min | 50,3 → 12,0 |
+| 15 | 75,8 → 18,1 ; 14 095 → 3 378 o | 60 → 15 | 30,9 → 8,0 ms/min | 150,8 → 36,1 |
+| 30 | 151,4 → 36,2 ; 28 121 → 6 755 o | 120 → 30 | 61,7 → 15,4 ms/min | 301,4 → 72,2 |
+
+- **Après / avant, à toutes les tailles** : échanges, trames et octets **24 %** (−76 %), signaux 25 %, écritures du serveur 24 %. L'estimation du § 10 octies (−65 %, extrapolée de la mesure de deux téléphones du § 23) était prudente : elle gardait une part fixe que la simulation ne montre pas en régime établi (ni accord de clé, ni changement de l'opération pendant la mesure).
+- **Par position**, rien ne change : une signature, une vérification par téléphone qui l'entend ; 2,5 ms (5 membres) à 15,4 ms (30 membres) de calcul dans les automates de toute la salle par position envoyée et entendue.
+- Le test court (`five members for ten minutes, the rhythm of P39_15 against the one of before`, dans `./gradlew check`) vérifie que les échanges par téléphone baissent d'au moins la moitié ; la longue série écrit le tableau ci-dessus.
+- **Ce qui n'est pas mesuré** : un vrai téléphone (batterie, radio, écran éteint), le vrai serveur (P39.12 le fait pour deux téléphones), le réseau mobile.

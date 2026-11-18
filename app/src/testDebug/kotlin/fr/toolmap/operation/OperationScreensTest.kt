@@ -196,6 +196,59 @@ class OperationScreensTest {
         assertTrue(session.view.value.phase == OperationPhase.PLACED)
     }
 
+    @Test
+    fun `the rhythm of the positions shows to all, opens to who may change it, and warns under 30 s`() {
+        val session = session()
+        rule.setContent {
+            ToolMapTheme {
+                CompositionLocalProvider(LocalFormats provides Formats()) { OperationRoot(session, onBack = {}) }
+            }
+        }
+        val locked = "Réglée par le chef de l'opération"
+        // F1 A (`tour6/img/02-q1-A`): an arrow to the creator, an administrator, the chief of the operation and its
+        // deputy; a lock and who sets it to a chief of group and to a member.
+        for (n in listOf(1, 5, 2, 3)) {
+            session.show(n)
+            seen("Fréquence d'envoi")
+            seen("Toutes les minutes")
+            absent(locked)
+        }
+        for (n in listOf(4, 7)) {
+            session.show(n)
+            seen("Toutes les minutes")
+            seen(locked)
+        }
+        // F2 B modifié (`05-q2-B-modifie`): the minutes under the steps, the box, « Appliquer ».
+        session.show(1, OperationNav(sheet = OpSheet.Frequency(draft = 120)))
+        seen("Réglages d'envoi")
+        seen("2 min")
+        seen("10 min")
+        seen("Pour tout le monde dans l'opération.")
+        seen("Appliquer")
+        // A typed value off the steps keeps its pill (`-2`); under 30 s the window warns (2 a, `-3`), not at 30 s.
+        session.show(1, OperationNav(sheet = OpSheet.Frequency(draft = 45)))
+        seen("45 s")
+        session.show(1, OperationNav(sheet = OpSheet.Frequency(draft = 20, typing = true)))
+        seen("Moins de 30 s : plus de batterie pour tout le monde")
+        // The window keeps what was typed while it is open: closed first, then opened on 30 s.
+        session.show(1)
+        session.show(1, OperationNav(sheet = OpSheet.Frequency(draft = 30, typing = true)))
+        absent("Moins de 30 s")
+        // « Appliquer » with 45 s: the line of every phone says so.
+        session.setPositionInterval(45)
+        var waited = 0
+        while (session.demoSeat(7)?.view?.value?.hierarchy?.positionIntervalS != 45 && waited < DEMO_WAIT_MS) {
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(POLL_MS)
+            waited += POLL_MS.toInt()
+        }
+        session.show(7)
+        seen("Toutes les 45 s")
+        seen(locked)
+        session.show(1)
+        seen("Toutes les 45 s")
+    }
+
     private companion object {
         const val DEMO_WAIT_MS = 120_000
         const val POLL_MS = 100L

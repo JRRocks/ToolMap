@@ -352,4 +352,11 @@
   <string name="op_rename_op_field">Nom de l\'opération</string>
   <string name="op_rename_op_note">Le nom est lu par toute personne qui reçoit l\'invitation. N\'y mettez rien de confidentiel.</string>
   <string name="op_rename_op_box">Les invitations déjà données **restent valables**. Elles montrent l\'ancien nom jusqu\'à l\'entrée ; la personne voit ensuite « %1$s ».</string>
+  <!-- The rhythm of the positions (P39.15): tour6/img/02-q1-A (F1 A) and 05-q2-B-modifie, -2, -3 (F2 B modifié, 2 a), validated on 2026-11-18. -->
+  <string name="op_freq_every_minute">Toutes les minutes</string>
+  <string name="op_freq_every">Toutes les %1$s</string>
+  <string name="op_freq_locked">Réglée par le chef de l\'opération</string>
+  <string name="op_freq_box">**Pour tout le monde dans l\'opération.** Plus espacé : moins de batterie et de données, des positions moins fraîches. Les alertes partent toujours tout de suite.</string>
+  <string name="op_freq_warn">Moins de 30 s : plus de batterie pour tout le monde, et le serveur gratuit peut atteindre sa limite du mois.</string>
+  <string name="op_freq_apply">Appliquer</string>
 </resources>

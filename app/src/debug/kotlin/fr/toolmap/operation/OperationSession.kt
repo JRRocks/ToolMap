@@ -5,6 +5,7 @@ import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.toolmap.core.eventlog.EventLog
 import fr.toolmap.core.hierarchy.Change
+import fr.toolmap.core.hierarchy.HierarchyState
 import fr.toolmap.core.hierarchy.Names
 import fr.toolmap.core.hierarchy.OperationInviteCodec
 import fr.toolmap.core.hierarchy.Post
@@ -423,6 +424,10 @@ class OperationSession
                 if (Names.valid(name.trim())) renameOperation(name.trim()) else Rejection.MALFORMED
             }
 
+        /** « Appliquer » of « Réglages d'envoi » (P39.15, F2 B modifié): the rhythm of the positions of everyone. */
+        fun setPositionInterval(seconds: Int) =
+            act("setPositionInterval") { change(Change.SetPositionInterval(seconds)) }
+
         // ---- leaving -----------------------------------------------------------------------------------------------
 
         /** « Quitter l'opération »: a member leaves; before it was let in, its request is given up and wiped. */
@@ -565,18 +570,27 @@ class OperationSession
 
         // ---- what runs by itself -----------------------------------------------------------------------------------
 
-        /** The position of this phone, to the operation, while « Partager ma position » is on or while it waits. */
+        /**
+         * The position of this phone, to the operation, while « Partager ma position » is on or while it waits, at the
+         * rhythm of the operation (P39.15: a minute unless its chief changed it); a new rhythm applies at once.
+         */
         private fun sendPositions() {
             scope.launch {
-                combine(seat, view.map { it.phase }.distinctUntilChanged(), sharing) { c, phase, on ->
+                val every =
+                    view
+                        .map { it.hierarchy?.positionIntervalS ?: HierarchyState.DEFAULT_POSITION_INTERVAL_S }
+                        .distinctUntilChanged()
+                combine(seat, view.map { it.phase }.distinctUntilChanged(), sharing, every) { c, phase, on, seconds ->
                     c.takeIf { phase == OperationPhase.WAITING || (phase == OperationPhase.PLACED && on) }
+                        ?.let { it to seconds }
                 }.distinctUntilChanged()
-                    .flatMapLatest { c ->
-                        if (c == null) {
+                    .flatMapLatest { sending ->
+                        if (sending == null) {
                             emptyFlow()
                         } else {
+                            val (c, seconds) = sending
                             location
-                                .fixes(POSITION_EVERY_MS, 0f)
+                                .fixes(seconds * SECOND_MS, 0f)
                                 .map { c to it }
                                 .catch { e ->
                                     if (e.isGpsRefusal()) Problems.expected("operation.position.gps", e) else throw e
@@ -711,7 +725,7 @@ class OperationSession
             private const val REQUESTS = 8
             private const val SETTLE_MS = 1_200L
             private const val MINUTE = 60_000L
-            private const val POSITION_EVERY_MS = 15_000L
+            private const val SECOND_MS = 1_000L
             private const val DEFAULT_NAME = "ToolMap"
             const val LOG_TAG = "ToolMapOperation"
             private val IN_OPERATION = setOf(OperationPhase.ASKING, OperationPhase.WAITING, OperationPhase.PLACED)

@@ -31,6 +31,7 @@ import fr.toolmap.core.p2p.MeshLink
 import fr.toolmap.core.p2p.PairingCodec
 import fr.toolmap.core.p2p.PeerFix
 import fr.toolmap.core.p2p.RelayConfig
+import fr.toolmap.core.p2p.RelayPresence
 import fr.toolmap.core.p2p.RelayTransport
 import fr.toolmap.core.p2p.RelayTransportFactory
 import fr.toolmap.core.p2p.ServerState
@@ -486,7 +487,7 @@ class OperationController(
                         bytes: ByteArray,
                     ) = post { node.receive(peer, bytes) }
                 }
-            val t = factory.create(server, node.room, listener)
+            val t = factory.create(server, node.room, listener, RelayPresence.OPERATION)
             // No name in clear on the server: the room only sees who writes (the member identifier) and ciphertext.
             t.identity = TransportIdentity(node.room, node.self, "", 0)
             t.onState = { state ->
@@ -928,7 +929,7 @@ class OperationController(
                 continue
             }
             val a = Announcing(trace, now + TRACE_WINDOW_MS)
-            val t = factory.create(server, trace.room, a)
+            val t = factory.create(server, trace.room, a, RelayPresence.OPERATION)
             // As in the operation, no name on the server; and an identifier drawn for the trace, not the member's.
             t.identity = TransportIdentity(trace.room, trace.sender, "", 0)
             a.transport = t

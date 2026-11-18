@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P39.15 · états non dessinés</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+:root{--pg-bg:#ffffff;--pg-on:#122027;--pg-on2:#506169;--pg-line:#D5DEE2;--petrol:#163A4A;--teal:#14918C;--tile:#E2ECEF}
+*{box-sizing:border-box}
+body{font-family:Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#DDE5E8;color:var(--pg-on);-webkit-font-smoothing:antialiased}
+#p39-root{width:660px;margin:0 auto}
+.intro,section.shot{width:660px;background:var(--pg-bg);padding:18px 14px 20px;margin:0 0 14px}
+.intro h1{font-size:22px;line-height:28px;font-weight:500;margin:0 0 8px;color:var(--petrol)}
+.intro p,.intro li{font-size:14.5px;line-height:21px;color:var(--pg-on2);margin:6px 0}
+.intro ul{margin:4px 0;padding-left:20px}
+.intro b{color:var(--pg-on);font-weight:500}
+.chapter{width:660px;background:var(--petrol);color:#fff;padding:14px;margin:0 0 14px;font-size:19px;line-height:25px;font-weight:500}
+.chapter small{display:block;font-size:14px;line-height:20px;font-weight:400;color:#C9D6DC;margin-top:2px}
+section.shot>header{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+.num{flex:none;min-width:40px;height:40px;padding:0 6px;border-radius:20px;background:var(--petrol);color:#fff;font-size:19px;font-weight:500;display:flex;align-items:center;justify-content:center}
+section.shot h2{font-size:20px;line-height:26px;font-weight:500;margin:0;color:var(--petrol)}
+section.shot header p{font-size:14.5px;line-height:21px;color:var(--pg-on2);margin:4px 0 0}
+section.shot header p b,.txt b,.note b{color:var(--pg-on);font-weight:500}
+.fname{font-size:12px;line-height:16px;color:#7C8A90;margin-top:12px;text-align:right}
+.duo{display:flex;gap:16px;align-items:flex-start;justify-content:center;margin-top:6px}
+.duo+.duo{margin-top:18px}
+.phc{margin:0;width:308px;flex:none}
+.tag{display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:13px;font-size:13.5px;font-weight:500;margin-bottom:8px;white-space:nowrap}
+.tag.cur{background:#E2ECEF;color:#163A4A}
+.tag.new{background:#14918C;color:#fff}
+.tag.reco{background:#163A4A;color:#fff}
+.tag.night{background:#0C1A20;color:#7FD6D1}
+.k-ph{width:308px;height:648px;overflow:hidden;border-radius:22px;border:1px solid #9FB1B8;position:relative;background:#000}
+.k-in{width:360px;height:760px;transform:scale(.8556);transform-origin:0 0;position:relative;overflow:hidden;font-family:Roboto,system-ui,sans-serif}
+.phc figcaption{font-size:13.5px;line-height:19px;color:var(--pg-on2);margin-top:8px}
+.phc figcaption b{color:var(--pg-on);font-weight:500}
+.txt{flex:1;min-width:0;font-size:14.5px;line-height:21px;color:var(--pg-on2);padding-top:34px}
+.txt h3,.note h3{font-size:16px;line-height:22px;font-weight:500;color:var(--petrol);margin:14px 0 4px}
+.txt h3:first-child{margin-top:0}
+.txt p{margin:4px 0}.txt ul,.note ul{margin:4px 0;padding-left:20px}.txt li,.note li{margin:3px 0}
+.note{margin-top:16px;padding:12px 14px;border-radius:14px;background:#F2F5F6;font-size:14.5px;line-height:21px;color:var(--pg-on2)}
+.note.reco{background:#D3EEEC;color:#0B5B57}.note.reco b{color:#06302E}
+.note.ask{background:#FBDCC2;color:#3A1E05}.note.ask b{color:#3A1E05}
+.note h3:first-child{margin-top:0}
+.sub{font-size:16px;line-height:22px;font-weight:500;color:var(--petrol);margin:20px 0 8px}
+.roles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.role{border-radius:14px;background:#F2F5F6;padding:10px 12px;display:flex;gap:10px}
+.role .ri{flex:none;width:40px;height:40px;display:flex;align-items:center;justify-content:center}
+.role .rn{font-size:15px;font-weight:500;line-height:20px;color:var(--pg-on)}
+.role .rd{font-size:13px;line-height:18px;color:var(--pg-on2);margin-top:2px}
+table.rights{width:100%;border-collapse:collapse;font-size:13.5px;line-height:18px}
+table.rights th{font-size:11.5px;line-height:14px;font-weight:500;color:var(--pg-on);padding:6px 2px;vertical-align:bottom;width:64px;text-align:center}
+table.rights th:first-child{text-align:left;width:auto;font-size:13px;color:var(--pg-on2)}
+table.rights td{padding:7px 2px;border-top:1px solid var(--pg-line);text-align:center;color:var(--pg-on)}
+table.rights td:first-child{text-align:left;padding-right:6px}
+table.rights tr.sec td{background:#F2F5F6;font-weight:500;color:var(--petrol);font-size:13px;padding:5px 8px;text-align:left}
+.ty,.tn,.tq{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:13px;font-weight:700}
+.ty{background:#D3EEEC;color:#0B5B57}.tn{color:#9AA8AE}.tq{background:#FBDCC2;color:#3A1E05;font-size:11.5px;width:auto;min-width:24px;padding:0 6px;border-radius:12px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--pg-on2);margin-top:8px;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.toc{margin:8px 0 0;padding:0;list-style:none;columns:2;column-gap:18px}
+.toc li{font-size:14px;line-height:20px;margin:0 0 4px;break-inside:avoid}
+.toc a{color:var(--petrol);text-decoration:none;font-weight:500}
+@media (max-width:680px){#p39-root{zoom:calc(100vw / 660px)}}
+section.shot h2{overflow-wrap:normal;word-break:normal;hyphens:none}
+.qs{margin:8px 0 0;padding:0;list-style:none}
+.qs li{font-size:14.5px;line-height:21px;color:var(--pg-on2);margin:0 0 10px}
+.qs li b{color:var(--pg-on);font-weight:500}
+
+table.tx{width:100%;border-collapse:collapse;font-size:13.5px;line-height:18px;color:var(--pg-on)}
+table.tx th{font-size:12px;line-height:16px;font-weight:500;color:var(--pg-on2);text-align:left;padding:6px;border-bottom:1px solid var(--pg-line)}
+table.tx td{padding:7px 6px;border-top:1px solid var(--pg-line);vertical-align:top}
+table.tx td:first-child{color:var(--pg-on2);width:36%}
+table.tx.four td:first-child{width:25%}
+table.tx td.old{color:#8A5A2B}
+table.tx td.nw{color:#0B5B57;font-weight:500}
+table.tx td.nb{color:var(--pg-on)}
+table.rights sup{font-size:10px;color:#7C8A90}
+.k-cap{width:308px;height:616px;overflow:hidden;border-radius:22px;border:1px solid #9FB1B8;background:#000}
+.k-cap img{display:block;width:308px;height:616px}
+table.r6 th{width:150px;font-size:13px;line-height:16px}
+table.r6 td{padding:8px 2px}
+table.r6 td:first-child{font-size:14px}
+</style>
+<style>
+.ph{width:308px;height:648px;border:1px solid #9FB1B8;border-radius:22px;overflow:hidden;background:#F2F5F6;position:relative}
+.sl{width:306px;background-repeat:no-repeat;background-size:660px auto}
+.q6{background-image:url("../img/02-q1-A.png")}
+.att{background-image:url("../../tour4/img/01-attente.png")}
+.nom{background-image:url("../../tour5/img/02-attente.png")}
+.hb{position:absolute;bottom:4px;left:110px;width:86px;height:3px;border-radius:2px;background:#8C9599}
+.strip{position:relative;width:306px;background:#F2F5F6}
+.cd{position:absolute;left:10px;width:288px;top:0;bottom:0;background:#fff;display:flex;align-items:center}
+.cd.end{border-radius:0 0 11px 11px}
+.cd.or{background:#FBDCC2}
+.dv{position:absolute;left:10px;width:288px;top:0;height:1px;background:#D5DEE2}
+.clk{width:22px;height:22px;margin-left:24px;fill:#5B666C;flex:none}
+.col{margin-left:18px;flex:1;min-width:0}
+.t{font-size:13.6px;line-height:17px;color:#191C1E}
+.s{font-size:10.3px;line-height:13.5px;color:#41484D}
+.lk{width:20px;height:20px;margin-right:14px;fill:#41484D;flex:none}
+.patch{position:absolute;background:#fff}
+.snack{position:absolute;left:11px;width:288px;top:582px;min-height:42px;border-radius:8px;background:#27353B;color:#fff;font-size:11.6px;line-height:15px;padding:6px 14px;display:flex;align-items:center;box-sizing:border-box}
+</style></head><body><div id="p39-root">
+<section class="shot" id="b6"><header><div class="num">6</div><div><h2>Quand le rythme change · question F4</h2><p>Téléphone de Membre 7, membre du groupe Nord. Le créateur vient d'appliquer 45 s (F2 B modifié). Que voient les autres téléphones ?</p></div></header><div class="duo">
+<figure class="phc"><span class="tag reco">A (recommandée)</span><div class="ph">
+<div class="sl q6" style="height:646px;background-position:-339px -139px"></div>
+<div class="patch" style="left:73px;top:171px;width:95px;height:14px"></div><div class="s" style="position:absolute;left:74px;top:171px;font-size:10.3px">Toutes les 45 s</div>
+</div><figcaption>Seule la ligne change : « Toutes les 45 s ». Rien d'autre ne s'affiche, sur aucun téléphone.</figcaption></figure>
+<figure class="phc"><span class="tag new">B</span><div class="ph">
+<div class="sl q6" style="height:646px;background-position:-339px -139px"></div>
+<div class="patch" style="left:73px;top:171px;width:95px;height:14px"></div><div class="s" style="position:absolute;left:74px;top:171px;font-size:10.3px">Toutes les 45 s</div>
+<div class="snack">Fréquence d'envoi : toutes les 45 s, pour toute l'opération.</div>
+</div><figcaption>La ligne change, et un message s'affiche en bas de l'écran de chaque téléphone, comme pour un nom accepté.</figcaption></figure>
+</div><div class="fname">06-f4-changement.png</div></section>
+<section class="shot" id="b7"><header><div class="num">7</div><div><h2>En attente d'un groupe · question F5</h2><p>Téléphone de Membre 21, qui attend d'être placé. Il envoie déjà sa position aux administrateurs, au rythme de l'opération.</p></div></header><div class="duo">
+<figure class="phc"><span class="tag reco">A (recommandée)</span><div class="ph">
+<div class="sl att" style="height:139px;background-position:-339px -139px"></div>
+<div class="strip" style="height:8px"><div class="cd "></div></div>
+<div class="strip" style="height:56.5px"><div class="cd end"><svg class="clk" viewBox="0 0 24 24"><path d="M11.99,2C6.47,2 2,6.48 2,12s4.47,10 9.99,10C17.520,22 22,17.52 22,12S17.52,2 11.99,2zM12,20c-4.42,0 -8,-3.58 -8,-8s3.58,-8 8,-8 8,3.58 8,8 -3.58,8 -8,8zM12.5,7L11,7v6l5.25,3.15 0.75,-1.23 -4.5,-2.67z"/></svg><div class="col"><div class="t">Fréquence d'envoi</div><div class="s">Toutes les minutes</div><div class="s">Réglée par le chef de l'opération</div></div><svg class="lk" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div><div class="dv"></div></div>
+<div class="sl att" style="height:442.5px;background-position:-339px -286px"></div>
+<div class="hb"></div>
+</div><figcaption>La même ligne, avec son cadenas, sous « Ma position » : son téléphone envoie lui aussi à ce rythme.</figcaption></figure>
+<figure class="phc"><span class="tag cur">B · comme aujourd'hui (U1 A)</span><div class="ph">
+<div class="sl att" style="height:646px;background-position:-339px -139px"></div>
+</div><figcaption>Rien de plus : l'écran d'attente validé (U1 A) ne change pas.</figcaption></figure>
+</div><div class="fname">07-f5-attente.png</div></section>
+<section class="shot" id="b8"><header><div class="num">8</div><div><h2>Une opération créée avant ce changement · question F6</h2><p>Téléphone de Membre 1, créateur d'une opération créée avec l'APK 0.4.261. Ses règles ne prévoient pas ce réglage : personne ne peut le changer, une minute reste.</p></div></header><div class="duo">
+<figure class="phc"><span class="tag reco">A (recommandée)</span><div class="ph">
+<div class="sl q6" style="height:230px;background-position:-15px -139px"></div>
+<div class="strip" style="height:56.5px"><div class="cd end"><svg class="clk" viewBox="0 0 24 24"><path d="M11.99,2C6.47,2 2,6.48 2,12s4.47,10 9.99,10C17.520,22 22,17.52 22,12S17.52,2 11.99,2zM12,20c-4.42,0 -8,-3.58 -8,-8s3.58,-8 8,-8 8,3.58 8,8 -3.58,8 -8,8zM12.5,7L11,7v6l5.25,3.15 0.75,-1.23 -4.5,-2.67z"/></svg><div class="col"><div class="t">Fréquence d'envoi</div><div class="s">Toutes les minutes</div><div class="s">Fixée à la création de l'opération</div></div><svg class="lk" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div><div class="dv"></div></div>
+<div class="sl q6" style="height:359.5px;background-position:-15px -421px"></div>
+<div class="hb"></div>
+</div><figcaption>Un cadenas, même pour le créateur, et « Fixée à la création de l'opération » : c'est vrai pour tout le monde.</figcaption></figure>
+<figure class="phc"><span class="tag new">B</span><div class="ph">
+<div class="sl q6" style="height:230px;background-position:-15px -139px"></div>
+<div class="strip" style="height:56.5px"><div class="cd end"><svg class="clk" viewBox="0 0 24 24"><path d="M11.99,2C6.47,2 2,6.48 2,12s4.47,10 9.99,10C17.520,22 22,17.52 22,12S17.52,2 11.99,2zM12,20c-4.42,0 -8,-3.58 -8,-8s3.58,-8 8,-8 8,3.58 8,8 -3.58,8 -8,8zM12.5,7L11,7v6l5.25,3.15 0.75,-1.23 -4.5,-2.67z"/></svg><div class="col"><div class="t">Fréquence d'envoi</div><div class="s">Toutes les minutes</div><div class="s">Réglée par le chef de l'opération</div></div><svg class="lk" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div><div class="dv"></div></div>
+<div class="sl q6" style="height:359.5px;background-position:-15px -421px"></div>
+<div class="hb"></div>
+</div><figcaption>Le texte des membres, « Réglée par le chef de l'opération », même sur le téléphone du créateur.</figcaption></figure>
+</div><div class="fname">08-f6-ancienne-operation.png</div></section>
+<section class="shot" id="b9"><header><div class="num">9</div><div><h2>Avec un nom demandé · question F7</h2><p>Téléphone de Membre 7, qui a demandé le nom « Guide 7 » (N7 A) : dans quel ordre viennent les deux lignes sous « Partager ma position » ?</p></div></header><div class="duo">
+<figure class="phc"><span class="tag reco">A (recommandée)</span><div class="ph">
+<div class="sl nom" style="height:187px;background-position:-15px -119px"></div>
+<div class="strip" style="height:8px"><div class="cd or"></div></div>
+<div class="strip" style="height:56.5px"><div class="cd end"><svg class="clk" viewBox="0 0 24 24"><path d="M11.99,2C6.47,2 2,6.48 2,12s4.47,10 9.99,10C17.520,22 22,17.52 22,12S17.52,2 11.99,2zM12,20c-4.42,0 -8,-3.58 -8,-8s3.58,-8 8,-8 8,3.58 8,8 -3.58,8 -8,8zM12.5,7L11,7v6l5.25,3.15 0.75,-1.23 -4.5,-2.67z"/></svg><div class="col"><div class="t">Fréquence d'envoi</div><div class="s">Toutes les minutes</div><div class="s">Réglée par le chef de l'opération</div></div><svg class="lk" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div></div>
+<div class="sl nom" style="height:394.5px;background-position:-15px -314px"></div>
+<div class="hb"></div>
+</div><figcaption>« Nom demandé » reste collé à la ligne du nom qu'il change ; « Fréquence d'envoi » vient après.</figcaption></figure>
+<figure class="phc"><span class="tag new">B</span><div class="ph">
+<div class="sl nom" style="height:146px;background-position:-15px -119px"></div>
+<div class="strip" style="height:56.5px"><div class="cd "><svg class="clk" viewBox="0 0 24 24"><path d="M11.99,2C6.47,2 2,6.48 2,12s4.47,10 9.99,10C17.520,22 22,17.52 22,12S17.52,2 11.99,2zM12,20c-4.42,0 -8,-3.58 -8,-8s3.58,-8 8,-8 8,3.58 8,8 -3.58,8 -8,8zM12.5,7L11,7v6l5.25,3.15 0.75,-1.23 -4.5,-2.67z"/></svg><div class="col"><div class="t">Fréquence d'envoi</div><div class="s">Toutes les minutes</div><div class="s">Réglée par le chef de l'opération</div></div><svg class="lk" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div><div class="dv"></div></div>
+<div class="sl nom" style="height:443.5px;background-position:-15px -265px"></div>
+<div class="hb"></div>
+</div><figcaption>« Fréquence d'envoi » toujours juste sous « Partager ma position » ; « Nom demandé » vient après.</figcaption></figure>
+</div><div class="fname">09-f7-nom-demande.png</div></section>
+</div></body></html>

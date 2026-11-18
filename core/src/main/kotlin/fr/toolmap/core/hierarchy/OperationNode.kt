@@ -106,6 +106,8 @@ class OperationNode(
     private val listener: OperationListener,
     private val clock: () -> Long,
     private val random: SecureRandom = SecureRandom(),
+    /** Between two summaries to the linked phones; a link that opens gets one at once (P39.15: five minutes). */
+    private val summaryEveryMs: Long = SUMMARY_EVERY_MS,
 ) {
     val self: Long = keys.memberId
     val ensembleId: Long = replica.ensembleId
@@ -128,6 +130,12 @@ class OperationNode(
     private val lastFix = HashMap<Long, Long>()
     private val seenTexts = LinkedHashSet<Pair<Long, Long>>()
     private val pulledAt = HashMap<Long, Long>()
+
+    /**
+     * Asks [pull] put off by [PULL_EVERY_MS]: they go at the next tick once it has passed. Lost, they waited for the
+     * next summary, five minutes away since P39.15.
+     */
+    private val pullLater = LinkedHashSet<Long>()
     private val answeredAt = HashMap<Long, Pair<Long, Int>>()
     private val grantedAt = HashMap<Long, Long>()
     private val offeredAt = HashMap<Int, Long>()
@@ -279,7 +287,8 @@ class OperationNode(
             run(key.first, key.second, scheduled)
         }
         if (!isMember && now - lastJoinAt >= JOIN_EVERY_MS) sendJoin()
-        if (links.isNotEmpty() && now - lastSummaryAt >= SUMMARY_EVERY_MS) {
+        for (peer in pullLater.toList()) if (peer in links) pull(peer) else pullLater -= peer
+        if (links.isNotEmpty() && now - lastSummaryAt >= summaryEveryMs) {
             lastSummaryAt = now
             broadcast(FrameGenre.SUMMARY, ourSummary().encode())
         }
@@ -826,7 +835,15 @@ class OperationNode(
         if (member) {
             for (channel in ring.missing(state)) if (channel.lane == Lane.UNIT) wantKey(channel)
             // Names it lacks (a group made while it was away): its summary says so to a phone that has them.
-            if (state.hasAccess(self) && names.missing(state).isNotEmpty()) links.keys.firstOrNull()?.let(::pull)
+            val lacking = names.missing(state)
+            if (state.hasAccess(self) && lacking.isNotEmpty()) {
+                links.keys.firstOrNull()?.let(::pull)
+                // The name of who waits is told in its own lane, by its phone only: that phone is asked too, at once,
+                // not at the next summary (five minutes since P39.15).
+                for (m in state.members.values) {
+                    if (m.name in lacking && m.id in links && state.isWaiting(m.id)) pull(m.id)
+                }
+            }
             // Who waits and lacks the ensemble's name (renamed) or its own says so: a reader of its lane tells it.
             if (state.isWaiting(self) && names.missingOf(state.namesFor(self)).isNotEmpty()) {
                 links.keys.firstOrNull()?.let(::pull)
@@ -1150,7 +1167,11 @@ class OperationNode(
 
     private fun pull(peer: Long) {
         val now = clock()
-        if (now - (pulledAt[peer] ?: Long.MIN_VALUE / 2) < PULL_EVERY_MS) return
+        if (now - (pulledAt[peer] ?: Long.MIN_VALUE / 2) < PULL_EVERY_MS) {
+            pullLater += peer
+            return
+        }
+        pullLater -= peer
         pulledAt[peer] = now
         sendTo(links[peer], FrameGenre.SUMMARY, ourSummary().encode())
     }
@@ -1312,7 +1333,12 @@ class OperationNode(
         private const val MS = 1000L
         const val RANK_STEP_MS = 1_500L
         const val JOIN_EVERY_MS = 20_000L
-        const val SUMMARY_EVERY_MS = 60_000L
+
+        /**
+         * Five minutes (the user's answer 2 a of 2026-11-18; a minute until 0.4.261): what a phone missed comes back
+         * within five minutes at worst, at once when a link opens.
+         */
+        const val SUMMARY_EVERY_MS = 300_000L
         const val PULL_EVERY_MS = 2_000L
         const val ANSWER_EVERY_MS = 5_000L
         const val GRANT_EVERY_MS = 10_000L

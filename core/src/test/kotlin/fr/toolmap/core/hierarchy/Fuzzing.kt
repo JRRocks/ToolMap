@@ -114,6 +114,7 @@ internal fun fuzzCorpus(): List<ByteArray> {
             Change.RequestName(a.memberId, Names.hide("Chef 2").hidden),
             Change.RenameMember(b.memberId, Names.hide("B3").hidden),
             Change.RenameEnsemble(Names.hide("Op 2").hidden),
+            Change.SetPositionInterval(30),
         ).map { (replica.issue(it) as IssueResult.Issued).op }
     // Signed but kept out of the replica, so its state still carries A's request.
     val last = named.last()

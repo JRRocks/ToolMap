@@ -79,6 +79,11 @@ data class HierarchyState(
     val nameRequests: Map<Long, HiddenName> = emptyMap(),
     /** The last answer to a request of a new name, by member, kept until its next request ([Change.AnswerName]). */
     val nameAnswers: Map<Long, NameAnswer> = emptyMap(),
+    /**
+     * Seconds between two positions of every phone of the ensemble ([Change.SetPositionInterval]): a minute from the
+     * creation, and for an ensemble created before the setting existed (0.4.261), which never carries it.
+     */
+    val positionIntervalS: Int = DEFAULT_POSITION_INTERVAL_S,
 ) {
     /** `false` before the operation that creates the ensemble. */
     val created: Boolean get() = creator != null
@@ -538,6 +543,16 @@ data class HierarchyState(
     companion object {
         /** The ensemble as a unit, and the parent of the groups of the first level. Never the identifier of a group. */
         const val ROOT = 0L
+
+        /** The rhythm of the positions of an ensemble nobody changed: a minute (the user's answer of 2026-11-18). */
+        const val DEFAULT_POSITION_INTERVAL_S = 60
+
+        /**
+         * The window of the rhythm, the one of « Entre amis » (1 s to 24 h, `ShareCadence`), written here and not
+         * read from there: every phone must refuse the same values for ever, whatever « Entre amis » becomes.
+         */
+        const val MIN_POSITION_INTERVAL_S = 1
+        const val MAX_POSITION_INTERVAL_S = 86_400
 
         private val BY_MEMBER_ID = Comparator<Member> { a, b -> java.lang.Long.compareUnsigned(a.id, b.id) }
         private val BY_GROUP_ID = Comparator<Group> { a, b -> java.lang.Long.compareUnsigned(a.id, b.id) }

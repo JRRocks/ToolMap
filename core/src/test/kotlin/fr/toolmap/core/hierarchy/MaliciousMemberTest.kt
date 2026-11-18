@@ -72,6 +72,8 @@ class MaliciousMemberTest {
                     Change.RequestName(s.l.id, Names.hide("Léa ter").hidden),
                     Change.WithdrawName(s.l.id),
                     Change.AnswerName(s.l.id, Names.hide("Léa ter").hidden, accept = true),
+                    // The rhythm of the positions (2026-11-18) is not a member's.
+                    Change.SetPositionInterval(5),
                 )
             val ops = attacks.map { r.forgeAndSend(m, it) }
             for (p in honest) {

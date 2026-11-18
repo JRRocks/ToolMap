@@ -4,11 +4,13 @@ import fr.toolmap.core.hierarchy.Change
 import fr.toolmap.core.hierarchy.HierarchyState
 import fr.toolmap.core.hierarchy.IssueResult
 import fr.toolmap.core.hierarchy.Names
+import fr.toolmap.core.hierarchy.OperationNode
 import fr.toolmap.core.hierarchy.Post
 import fr.toolmap.core.hierarchy.Role
 import fr.toolmap.core.hierarchy.ShareOutcome
 import fr.toolmap.core.p2p.PeerFix
 import fr.toolmap.core.p2p.RelayConfig
+import fr.toolmap.core.p2p.RelayPresence
 import fr.toolmap.core.problem.Problem
 import fr.toolmap.core.problem.Problems
 import org.junit.Assume
@@ -140,11 +142,12 @@ class CountingProvider : Provider("ToolMapCount", "1.0", "counts signatures and 
 /**
  * What the « Opération » mode costs (P39.10, `docs/specs/group-hierarchy.md` § 21): an operation of 5, 15 or 30
  * members in groups of five, each with a leader and a deputy, the creator leading it with an administrator; every
- * phone sends its position every 30 s (the default cadence of the sharing, `p2p-sharing.md` § 6) for ten minutes of the
- * simulated server. Counted per phone: frames and bytes written and received, writes on the server, signatures,
- * verifications and key agreements (by the JVM's provider), time spent in the node. `./gradlew check` measures 5
- * members for two minutes and checks the counts per position; the three sizes run with the long series
- * (`-Ptoolmap.hierarchy.soak=…`) and write `core/build/hierarchy-cost.txt`.
+ * phone sends its position at the rhythm of the operation ([Rhythm]) for ten minutes of the simulated server.
+ * Counted per phone: frames and bytes written and received, writes on the server, signatures, verifications and key
+ * agreements (by the JVM's provider), time spent in the node. `./gradlew check` measures 5 members for two minutes
+ * and checks the counts per position, then 5 members for ten minutes at the rhythms of before and after P39.15; the
+ * three sizes at both rhythms run with the long series (`-Ptoolmap.hierarchy.soak=…`) and write
+ * `core/build/hierarchy-cost.txt`.
  */
 class OperationCostTest {
     private val problems = ArrayList<Problem>()
@@ -167,6 +170,25 @@ class OperationCostTest {
 
     private val server = RelayConfig.of("https://example.invalid", "key")
 
+    /** The rhythms of the « Opération » mode: positions, presence on the server, summaries between phones. */
+    enum class Rhythm(
+        val positionS: Long,
+        val presence: RelayPresence,
+        val summaryEveryMs: Long,
+        val label: String,
+    ) {
+        /** Up to 0.4.261: `OperationSession.POSITION_EVERY_MS`, the heartbeat of « Entre amis », a summary a minute. */
+        BEFORE(15, RelayPresence.SHARE, 60_000L, "before P39.15: positions every 15 s, presence 15 s, summary 1 min"),
+
+        /** P39.15 (the user's answer 2 a of 2026-11-18), with the rhythm of a new operation: a minute. */
+        OPERATION(
+            60,
+            RelayPresence.OPERATION,
+            OperationNode.SUMMARY_EVERY_MS,
+            "P39.15: positions every minute, presence 1 min, summary 5 min",
+        ),
+    }
+
     class PhoneCost {
         var signs = 0L
         var verifies = 0L
@@ -182,15 +204,25 @@ class OperationCostTest {
         val serverPositionWrites: Long,
         val signsPerPosition: Double,
         val verifiesPerPositionHeard: Double,
+        /** Frames and bytes a phone writes and receives in a minute, on average over the phones. */
+        val framesPerPhoneMin: Double,
+        val bytesPerPhoneMin: Double,
+        /** Heartbeats a phone writes and reads in a minute (it reads those of every other phone). */
+        val heartbeatsPerPhoneMin: Double,
+        /** Writes on the server in a minute for the whole room: positions, control frames, heartbeats, clean-ups. */
+        val serverWritesMin: Double,
     )
 
-    /** Builds an operation of [n] members, then measures [minutes] of positions every [cadenceS] seconds. */
+    /** Builds an operation of [n] members, then measures [minutes] at the [rhythm] of an operation. */
     private fun measure(
         n: Int,
         minutes: Int,
-        cadenceS: Long = 30,
+        rhythm: Rhythm = Rhythm.OPERATION,
     ): Cost {
+        val cadenceS = rhythm.positionS
         val w = World(n.toLong() * 1_000)
+        w.presence = rhythm.presence
+        w.summaryEveryMs = rhythm.summaryEveryMs
         val phones = List(n) { i -> SimPhone(w, i, "P$i", KeyPool.keys(i, 70L + i), 0L, 500L + i, server) }
         val counts = phones.associate { it.label to PhoneCost() }
         CryptoCount.sink = { what ->
@@ -331,6 +363,31 @@ class OperationCostTest {
                 heard,
                 agreements,
             )
+        val frames =
+            phones.sumOf { p ->
+                val b = before.getValue(p.label)
+                (p.framesWritten - b.first) + (p.framesReceived - b.third.first)
+            }
+        val bytes =
+            phones.sumOf { p ->
+                val b = before.getValue(p.label)
+                (p.bytesWritten - b.second) + (p.bytesReceived - b.third.second)
+            }
+        val serverWrites =
+            (st.positionWrites - stats0.first) + (st.controlWrites - stats0.second) +
+                (st.heartbeatWrites - stats0.third) + (st.cleanupWrites - cleanups0)
+        // Every phone reads the whole room: a heartbeat is written by one phone and read by the others.
+        val beats = st.heartbeatWrites - stats0.third
+        lines +=
+            (
+                "  per phone: %.1f frames/min and %.0f B/min written and received, %.1f heartbeats/min written and " +
+                    "read; server: %.1f writes/min for the room"
+            ).format(
+                frames.toDouble() / n * perMin,
+                bytes.toDouble() / n * perMin,
+                beats * perMin,
+                serverWrites * perMin,
+            )
         val cpu = phones.sumOf { it.cpuNs - cpuBefore.getValue(it.label) }
         lines +=
             "  time in the nodes: %.0f µs per position sent and heard by every phone (sum of all phones)"
@@ -344,6 +401,10 @@ class OperationCostTest {
             st.positionWrites - stats0.first,
             signs.toDouble() / maxOf(1, sent),
             verifies.toDouble() / maxOf(1L, heard),
+            frames.toDouble() / n * perMin,
+            bytes.toDouble() / n * perMin,
+            beats * perMin,
+            serverWrites * perMin,
         )
     }
 
@@ -358,19 +419,55 @@ class OperationCostTest {
         assertTrue(perHeard in 1.0..1.2, "verifications per position heard: $perHeard\n$detail")
     }
 
-    /** The three sizes, ten minutes each: only with the long series. */
+    /** What a phone exchanges in a minute: frames written and received, heartbeats written and read. */
+    private fun Cost.exchanges() = framesPerPhoneMin + heartbeatsPerPhoneMin
+
+    /** The rhythm of after against the one of before: what is left of each count, in %. */
+    private fun compare(
+        before: Cost,
+        after: Cost,
+    ): String =
+        (
+            "  after / before, per phone: exchanges %.0f %%, frames %.0f %%, bytes %.0f %%, heartbeats %.0f %%; " +
+                "server writes %.0f %%"
+        ).format(
+            100 * after.exchanges() / before.exchanges(),
+            100 * after.framesPerPhoneMin / before.framesPerPhoneMin,
+            100 * after.bytesPerPhoneMin / before.bytesPerPhoneMin,
+            100 * after.heartbeatsPerPhoneMin / before.heartbeatsPerPhoneMin,
+            100 * after.serverWritesMin / before.serverWritesMin,
+        )
+
+    @Test
+    fun `five members for ten minutes, the rhythm of P39_15 against the one of before`() {
+        val before = measure(5, 10, Rhythm.BEFORE)
+        val after = measure(5, 10, Rhythm.OPERATION)
+        val detail = (before.lines + after.lines + compare(before, after)).joinToString("\n")
+        println(detail)
+        // The estimate of § 10 octies: about a third of the exchanges left (−65 %) with a position a minute.
+        assertTrue(after.exchanges() < 0.5 * before.exchanges(), "exchanges per phone\n$detail")
+        assertTrue(after.serverWritesMin < 0.5 * before.serverWritesMin, "writes on the server\n$detail")
+        assertEquals(after.positionsSent * 4, after.positionsHeard, "every other member hears every position")
+    }
+
+    /** The three sizes, ten minutes each, at both rhythms: only with the long series. */
     @Test
     fun `the costs for 5, 15 and 30 members`() {
         val soak = System.getProperty("toolmap.hierarchy.soak").orEmpty()
         Assume.assumeTrue("only with -Ptoolmap.hierarchy.soak=…", soak.isNotEmpty() && soak != "false")
         val out = StringBuilder()
         for (n in listOf(5, 15, 30)) {
-            val t0 = System.currentTimeMillis()
-            val c = measure(n, 10)
-            val wall = (System.currentTimeMillis() - t0) / 1000
-            val minutes = c.minutes.toInt()
-            out.appendLine("== $n members, positions every 30 s, $minutes min measured ($wall s of wall time)")
-            for (l in c.lines) out.appendLine(l)
+            val costs =
+                Rhythm.entries.map { rhythm ->
+                    val t0 = System.currentTimeMillis()
+                    val c = measure(n, 10, rhythm)
+                    val wall = (System.currentTimeMillis() - t0) / 1000
+                    val minutes = c.minutes.toInt()
+                    out.appendLine("== $n members, ${rhythm.label}, $minutes min measured ($wall s of wall time)")
+                    for (l in c.lines) out.appendLine(l)
+                    c
+                }
+            out.appendLine(compare(costs[0], costs[1]))
         }
         File(System.getProperty("user.dir"), "build/hierarchy-cost.txt").writeText(out.toString())
         println(out)

@@ -53,6 +53,7 @@ class HierarchyWireTest {
             Change.WithdrawName(C),
             Change.AnswerName(C, hidden("Charlie 3"), accept = true),
             Change.RenameEnsemble(hidden("Sortie d'hiver")),
+            Change.SetPositionInterval(HierarchyState.MAX_POSITION_INTERVAL_S),
         )
     private val ops = changes.mapIndexed { i, change -> signedOp(0x1234_5678_9ABC_DEF0, A, i + 1, 10L + i, change) }
 
@@ -75,7 +76,7 @@ class HierarchyWireTest {
 
     @Test
     fun `every change survives the format, with its proof`() {
-        assertEquals(19, changes.map { it::class }.toSet().size, "one sample per kind of change")
+        assertEquals(20, changes.map { it::class }.toSet().size, "one sample per kind of change")
         for (op in ops) {
             val bytes = HierarchyWire.encodeOp(op)
             assertEquals(HierarchyWire.Kind.OP, HierarchyWire.kindOf(bytes))
@@ -108,8 +109,9 @@ class HierarchyWireTest {
         val bravo = HierarchyWire.encodeOp(signedOp(1, A, 1, 1, admit(B, "Bravo-en-clair")))
         assertEquals(-1, String(bravo, Charsets.ISO_8859_1).indexOf("Bravo-en-clair"))
         // The first operation of an ensemble, with the rules of the start: the largest of all.
-        // 2026-11-16: 537 before the names, then 7 cells of rights and 2 of shares more, 3 bytes each.
-        assertEquals(537 + 9 * 3, HierarchyWire.encodeOp(ops[1]).size)
+        // 2026-11-16: 537 before the names, then 7 cells of rights and 2 of shares more, 3 bytes each; 2026-11-18,
+        // 3 cells more (the rhythm of the positions: creator, administrators, leader of the ensemble).
+        assertEquals(537 + 9 * 3 + 3 * 3, HierarchyWire.encodeOp(ops[1]).size)
         assertEquals(beforeChange + 1 + 16 + proofBytes + HiddenName.BYTES, 206)
         assertEquals(328, admission.size)
         // An operation never travels without its proof.

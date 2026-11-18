@@ -8,6 +8,7 @@ import fr.toolmap.core.p2p.MsgType
 import fr.toolmap.core.p2p.PairingPayload
 import fr.toolmap.core.p2p.RelayConfig
 import fr.toolmap.core.p2p.RelayPaths
+import fr.toolmap.core.p2p.RelayPresence
 import fr.toolmap.core.p2p.RelayTransport
 import fr.toolmap.core.p2p.RelayTransportFactory
 import fr.toolmap.core.p2p.ServerState
@@ -44,7 +45,7 @@ import kotlin.concurrent.withLock
 /**
  * The server side of the sharing (ADR-033): a room of a Firebase Realtime Database used as a bus. Every member writes
  * its frames under its own node of `rooms/<room>/b` and streams the whole `b` node, so one write reaches the whole
- * group. A member is present while its heartbeat (server time, every [HEARTBEAT_S] s) is recent; each present member is
+ * group. A member is present while its heartbeat (server time, every [RelayPresence.heartbeatS] s) is recent; each present member is
  * handed to the group logic as a [MeshLink]. Frames are the same sealed frames as in the direct mode: the server only
  * ever sees ciphertext.
  *
@@ -59,6 +60,8 @@ class FirebaseRelay(
     private val http: OkHttpClient = OkHttpClient(),
     endpoints: FirebaseEndpoints = FirebaseEndpoints(),
     private val clockMs: () -> Long = System::currentTimeMillis,
+    /** The heartbeat and the delays of the mode: « Entre amis » unless told (P39.15). */
+    private val presence: RelayPresence = RelayPresence.SHARE,
 ) : RelayTransport {
     /**
      * The relay's connections, in a pool of their own: a connection opened on a network keeps using it until Android
@@ -742,13 +745,13 @@ class FirebaseRelay(
             for (p in peers.values) {
                 val age = now - p.lastBeat
                 if (p.link == null) {
-                    if (!p.banned && age <= OPEN_WITHIN_MS && p.lastBeat > p.droppedAt) {
+                    if (!p.banned && age <= presence.openWithinMs && p.lastBeat > p.droppedAt) {
                         val link = RelayLink(p.id)
                         p.link = link
                         opened += p to link
                         EventLog.event("relay.peer.open", "peer" to MeshNode.hex(p.id), "beatAgeMs" to age)
                     }
-                } else if (age > CLOSE_AFTER_MS) {
+                } else if (age > presence.closeAfterMs) {
                     EventLog.event("relay.peer.close", "peer" to MeshNode.hex(p.id), "beatAgeMs" to age)
                     p.link?.closed = true
                     p.link = null
@@ -779,13 +782,13 @@ class FirebaseRelay(
         }.toString()
 
     /**
-     * Sends the heartbeat when [HEARTBEAT_S] seconds of wall clock have passed (or the clock went back), checked every
+     * Sends the heartbeat when [RelayPresence.heartbeatS] seconds of wall clock have passed (or the clock went back), checked every
      * second: a timer's own delay does not count the time the processor sleeps, and stretched to 90 s screen off
      * (P21.5 q).
      */
     private fun beatIfDue() {
         val t = clockMs()
-        if (t >= lastBeatAt && t - lastBeatAt < HEARTBEAT_S * MS_PER_S) return
+        if (t >= lastBeatAt && t - lastBeatAt < presence.heartbeatS * MS_PER_S) return
         lastBeatAt = t
         heartbeat()
     }
@@ -1063,13 +1066,9 @@ class FirebaseRelay(
     }
 
     companion object {
-        const val HEARTBEAT_S = 15L
         const val PRESENCE_EVERY_S = 5L
         const val CLEANUP_S = 60L
 
-        /** A member is linked while its last heartbeat is at most this old (two missed beats plus margin). */
-        const val OPEN_WITHIN_MS = 40_000L
-        const val CLOSE_AFTER_MS = 75_000L
         const val CONTROL_MAX_AGE_MS = 150_000L
         const val OWN_FRAME_TTL_MS = 120_000L
         private const val WRITE_TIMEOUT_S = 20L
@@ -1139,4 +1138,11 @@ class FirebaseRelayFactory(
         groupId: ByteArray,
         listener: LinkListener,
     ): RelayTransport = FirebaseRelay(config, groupId, listener, authStore, http, endpoints)
+
+    override fun create(
+        config: RelayConfig,
+        groupId: ByteArray,
+        listener: LinkListener,
+        presence: RelayPresence,
+    ): RelayTransport = FirebaseRelay(config, groupId, listener, authStore, http, endpoints, presence = presence)
 }

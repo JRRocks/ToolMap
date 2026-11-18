@@ -269,10 +269,38 @@ interface RelayTransport : MeshTransport {
     fun close()
 }
 
+/**
+ * How often a member tells the server it is there, and how long the others wait for it: a link opens while its last
+ * heartbeat is at most [openWithinMs] old, and closes once it is more than [closeAfterMs] old. A property of the mode,
+ * not a setting.
+ */
+enum class RelayPresence(
+    val heartbeatS: Long,
+    val openWithinMs: Long,
+    val closeAfterMs: Long,
+) {
+    /** « Entre amis »: every 15 s; two missed beats plus a margin to open, five to close. */
+    SHARE(15L, 40_000L, 75_000L),
+
+    /**
+     * An operation (P39.15, the user's answer 2 a of 2026-11-18): every minute, the delays in proportion; a phone
+     * that is gone is seen after five minutes instead of about one.
+     */
+    OPERATION(60L, 160_000L, 300_000L),
+}
+
 fun interface RelayTransportFactory {
     fun create(
         config: RelayConfig,
         groupId: ByteArray,
         listener: LinkListener,
     ): RelayTransport
+
+    /** The same, with the [presence] of the mode; a transport without a heartbeat of its own ignores it. */
+    fun create(
+        config: RelayConfig,
+        groupId: ByteArray,
+        listener: LinkListener,
+        presence: RelayPresence,
+    ): RelayTransport = create(config, groupId, listener)
 }

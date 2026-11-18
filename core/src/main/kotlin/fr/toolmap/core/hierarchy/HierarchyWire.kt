@@ -30,6 +30,11 @@ data class Summary(
  * ensemble, and a state block that ends with the requests of a name and the last answers when it has some. A block
  * written before reads the same; a phone of before refuses the operations of a new ensemble (unknown rules).
  *
+ * Still version 4, 2026-11-18 (the rhythm of the positions): one change more (code 20, the seconds on 4 bytes), the
+ * right that goes with it in the rules of a new ensemble, and a flag of the state block followed by the rhythm when it
+ * is not the minute. A block written before reads the same, with the minute; a phone of before refuses the operations
+ * of a new ensemble (unknown rules), and so never meets this change.
+ *
  * Decoding refuses with a [WireException], and nothing else, whatever the bytes: truncated, too long, unknown codes,
  * or an operation not written the one way this version writes it (the proof of an operation signs its exact bytes).
  */
@@ -45,6 +50,9 @@ object HierarchyWire {
     /** `version | kind | ensemble | lane | scope | key | share kind | author`: the clear part of a share. */
     internal const val SHARE_HEADER_BYTES = 36
     private const val DISSOLVED = 1
+
+    /** The state carries a rhythm of the positions other than [HierarchyState.DEFAULT_POSITION_INTERVAL_S]. */
+    private const val POSITION_INTERVAL = 2
     private const val DEPUTY_SUCCEEDS = 1
 
     enum class Kind(
@@ -127,7 +135,11 @@ object HierarchyWire {
     fun encodeState(state: HierarchyState): ByteArray {
         val w = header(Kind.STATE).u64(state.ensembleId)
         name(w, requireNotNull(state.name) { "no state to write before the ensemble exists" })
-        w.u8(if (state.dissolved) DISSOLVED else 0)
+        val ownInterval = state.positionIntervalS != HierarchyState.DEFAULT_POSITION_INTERVAL_S
+        w.u8((if (state.dissolved) DISSOLVED else 0) or (if (ownInterval) POSITION_INTERVAL else 0))
+        // The rhythm of the positions (2026-11-18), only when it is not the minute: a state that has the minute is
+        // written as before, and a block written before reads as a state that has it.
+        if (ownInterval) w.i32(state.positionIntervalS)
         w.u64(state.creator ?: 0L).u64(state.leader ?: 0L).u64(state.deputy ?: 0L)
         rules(w, state.rules)
         w.u16(state.members.size)
@@ -160,7 +172,15 @@ object HierarchyWire {
         val ensemble = r.u64()
         val name = readName(r)
         val flags = r.u8()
-        if (flags and DISSOLVED.inv() != 0) throw WireException("unknown state flag")
+        if (flags and (DISSOLVED or POSITION_INTERVAL).inv() != 0) throw WireException("unknown state flag")
+        val interval = if (flags and POSITION_INTERVAL != 0) r.i32() else HierarchyState.DEFAULT_POSITION_INTERVAL_S
+        // Written only when it is not the minute: the minute written is not the one form of a state.
+        if (flags and POSITION_INTERVAL != 0 && interval == HierarchyState.DEFAULT_POSITION_INTERVAL_S) {
+            throw WireException("default rhythm written")
+        }
+        if (interval !in HierarchyState.MIN_POSITION_INTERVAL_S..HierarchyState.MAX_POSITION_INTERVAL_S) {
+            throw WireException("rhythm out of bounds")
+        }
         val creator = r.u64().takeIf { it != 0L }
         val leader = r.u64().takeIf { it != 0L }
         val deputy = r.u64().takeIf { it != 0L }
@@ -232,6 +252,7 @@ object HierarchyWire {
                 dissolved = flags and DISSOLVED != 0,
                 nameRequests = requests,
                 nameAnswers = answers,
+                positionIntervalS = interval,
             )
         state.inconsistency()?.let { throw WireException("inconsistent state: $it") }
         return state
@@ -323,6 +344,7 @@ object HierarchyWire {
             is Change.WithdrawName -> w.u8(WITHDRAW_NAME).u64(c.member)
             is Change.AnswerName -> name(w.u8(ANSWER_NAME).u64(c.member), c.name).u8(if (c.accept) 1 else 0)
             is Change.RenameEnsemble -> name(w.u8(RENAME_ENSEMBLE), c.name)
+            is Change.SetPositionInterval -> w.u8(SET_POSITION_INTERVAL).i32(c.seconds)
         }
         return w.toByteArray()
     }
@@ -466,6 +488,11 @@ object HierarchyWire {
 
             RENAME_ENSEMBLE -> {
                 Change.RenameEnsemble(readName(r))
+            }
+
+            SET_POSITION_INTERVAL -> {
+                // Read whatever it is: a value out of the window is refused as malformed, as every phone does.
+                Change.SetPositionInterval(r.i32())
             }
 
             else -> {
@@ -633,4 +660,7 @@ object HierarchyWire {
     private const val WITHDRAW_NAME = 17
     private const val ANSWER_NAME = 18
     private const val RENAME_ENSEMBLE = 19
+
+    // 2026-11-18, the rhythm of the positions (same version: a block written before carries none).
+    private const val SET_POSITION_INTERVAL = 20
 }

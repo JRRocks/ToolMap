@@ -1,6 +1,7 @@
 package fr.toolmap.operation
 
 import android.util.Log
+import fr.toolmap.core.hierarchy.Change
 import fr.toolmap.core.hierarchy.Post
 import kotlinx.coroutines.delay
 import java.io.PrintWriter
@@ -219,6 +220,17 @@ object OperationScenes {
             Scene("tour5-02-demande-B-admin") { at(5) { OperationNav(sheet = OpSheet.MyName) } },
             Scene("tour5-02-operation-A") { at(1) { OperationNav(menu = true) } },
             Scene("tour5-02-operation-feuille") { at(1) { OperationNav(sheet = OpSheet.RenameOperation) } },
+            // The rhythm of the positions (P39.15): F1 A, then F2 B modifié and its warning under 30 s (2 a).
+            Scene("tour6-02-q1-A") { at(1) },
+            Scene("tour6-02-q1-A-membre") { at(7) },
+            Scene("tour6-05-q2-B-modifie") { at(1) { OperationNav(sheet = OpSheet.Frequency(draft = 2 * MINUTE_S)) } },
+            Scene("tour6-05-q2-B-modifie-fenetre") {
+                at(1) { OperationNav(sheet = OpSheet.Frequency(draft = 45, typing = true)) }
+            },
+            Scene("tour6-05-q2-B-modifie-2") { at(1) { OperationNav(sheet = OpSheet.Frequency(draft = 45)) } },
+            Scene("tour6-05-q2-B-modifie-3") {
+                at(1) { OperationNav(sheet = OpSheet.Frequency(draft = 20, typing = true)) }
+            },
             Scene("tour5-04-attente-nom") {
                 at(21) { OperationNav(sheet = OpSheet.MyName, nameDraft = "Prénom N.") }
             },
@@ -326,6 +338,11 @@ object OperationScenes {
             Scene("tour5-03-doublon-B-groupe", changes = true) {
                 at(5) { s -> page(OpPage.Admin, OpPage.GroupPage(s.groupOf("Nord") ?: 0L)) }
             },
+            // « Appliquer » with 45 s on the phone of the creator (now Membre 5): what Membre 7 reads.
+            Scene("tour6-02-q1-A-45-s-membre", changes = true) {
+                demoSeat(5)?.change(Change.SetPositionInterval(45))
+                waitFor { demoSeat(7)?.view?.value?.hierarchy?.positionIntervalS == 45 } && at(7)
+            },
             Scene("tour2-08-dissolution-autres", changes = true) {
                 forgetNotices(7)
                 demoSeat(5)?.dissolve()
@@ -337,6 +354,7 @@ object OperationScenes {
         )
 
     private const val SLIDING = 0.45f
+    private const val MINUTE_S = 60
     private const val SETTLE_MS = 900L
     private const val WAIT_MS = 30_000L
     private const val POLL_MS = 100L

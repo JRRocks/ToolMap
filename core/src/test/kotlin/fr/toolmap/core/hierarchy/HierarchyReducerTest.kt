@@ -263,7 +263,14 @@ class HierarchyReducerTest {
                 Change.AnswerName(F, hidden("Fox"), accept = true),
                 Change.RenameEnsemble(hidden("Sortie 2")),
             )
-        assertEquals(Operation.entries.toSet(), changes.map { it.operation }.toSet(), "one change per operation")
+        assertEquals(
+            Operation.entries.toSet() - Operation.SET_POSITION_INTERVAL,
+            changes.map {
+                it.operation
+            }.toSet(),
+            "one change per operation",
+        )
+        // The rhythm of the positions is the one right of the leader of the ensemble: `HierarchyRhythmTest`.
         // C leads the ensemble, D is its deputy, E leads a group: titles.
         for (author in listOf(C, D, E)) {
             val phone = a.copyFor(author)

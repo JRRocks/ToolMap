@@ -254,7 +254,7 @@ private fun MainPage(
                                 PendingNameLine(request, facts.serverUp, onCancel = session::withdrawNameRequest)
                             }
                         }
-                    }),
+                    }, { FrequencyLine(facts) { session.sheet(OpSheet.Frequency()) } }),
             )
             if (facts.showsAdminTiles) {
                 AdminTiles(

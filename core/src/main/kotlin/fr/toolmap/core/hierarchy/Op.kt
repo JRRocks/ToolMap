@@ -209,6 +209,18 @@ sealed interface Change {
         override val operation get() = Operation.RENAME_ENSEMBLE
     }
 
+    /**
+     * The one rhythm at which every phone of the ensemble sends its position, [seconds] between two (the user's
+     * answer of 2026-11-18, spec § 10 octies): the same for everyone, a minute until someone changes it. Any value of
+     * the window of « Entre amis » ([HierarchyState.MIN_POSITION_INTERVAL_S] to [HierarchyState.MAX_POSITION_INTERVAL_S]);
+     * any other is refused by every phone.
+     */
+    data class SetPositionInterval(
+        val seconds: Int,
+    ) : Change {
+        override val operation get() = Operation.SET_POSITION_INTERVAL
+    }
+
     companion object {
         internal fun operationOf(
             unit: Long,
@@ -306,6 +318,10 @@ fun Change.isMalformed(): Boolean =
 
         is Change.RenameEnsemble -> {
             !name.valid
+        }
+
+        is Change.SetPositionInterval -> {
+            seconds !in HierarchyState.MIN_POSITION_INTERVAL_S..HierarchyState.MAX_POSITION_INTERVAL_S
         }
     }
 

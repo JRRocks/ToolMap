@@ -174,6 +174,9 @@ class OperationNarrowScreensTest {
                 7 to OpSheet.MyName,
                 5 to OpSheet.MyName,
                 1 to OpSheet.RenameOperation,
+                1 to OpSheet.Frequency(),
+                1 to OpSheet.Frequency(draft = 45),
+                1 to OpSheet.Frequency(draft = 20, typing = true),
             )
         for ((n, sheet) in sheets) session.at("sheet $sheet ($n)", n, OperationNav(sheet = sheet))
         // The windows.

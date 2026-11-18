@@ -5,6 +5,7 @@ import fr.toolmap.core.hierarchy.Post
 import fr.toolmap.core.hierarchy.ShareKind
 import fr.toolmap.core.p2p.PeerFix
 import fr.toolmap.core.p2p.RelayConfig
+import fr.toolmap.core.p2p.RelayPresence
 import fr.toolmap.core.problem.Problem
 import fr.toolmap.core.problem.Problems
 import kotlinx.coroutines.runBlocking
@@ -421,8 +422,9 @@ class OperationControllerSimulationTest {
 
     /**
      * Presence (reported by the session of the screens, P39.8, spec § 19 of its branch): the relay closes the link of
-     * a phone whose heartbeat stopped (75 s, evaluated every 5 s); the others must show it offline within a bounded
-     * time, and online again when it is back, without waiting for another change of the operation.
+     * a phone whose heartbeat stopped (5 min in an operation since P39.15, evaluated every 5 s); the others must show it
+     * offline within a bounded time, and online again when it is back, without waiting for another change of the
+     * operation.
      */
     @Test
     fun `a phone cut off shows offline on the others within a bounded time, then online again`() {
@@ -443,20 +445,28 @@ class OperationControllerSimulationTest {
         }
         val cId = assertNotNull(c.view.self)
         assertTrue(cId in a.view.online && cId in b.view.online, "C online on A and B")
+        // One heartbeat a minute (P39.15) keeps the link: no phone goes offline between two of them.
+        w.runFor(STEADY_MS)
+        assertTrue(cId in a.view.online && cId in b.view.online, "C still online on A and B after 4 min")
         c.net.up = false
         w.runFor(PRESENCE_BOUND_MS)
         assertFalse(cId in a.view.online, "C cut off for ${PRESENCE_BOUND_MS / 1000} s: offline on A")
         assertFalse(cId in b.view.online, "C cut off for ${PRESENCE_BOUND_MS / 1000} s: offline on B")
         assertFalse(a.view.members.first { it.id == cId }.online)
         c.net.up = true
-        w.runFor(60_000)
+        w.runFor(BACK_BOUND_MS)
         assertTrue(cId in a.view.online, "C back: online on A")
         assertTrue(a.view.members.first { it.id == cId }.online)
         assertTrue(problems.none { !it.expected }, "bugs reported: $problems")
     }
 
     companion object {
-        /** 75 s without a heartbeat, a heartbeat every 15 s, an evaluation every 5 s, and the delays of the network. */
-        const val PRESENCE_BOUND_MS = 100_000L
+        /** 5 min without a heartbeat (P39.15), an evaluation every 5 s, and the delays of the network. */
+        val PRESENCE_BOUND_MS = RelayPresence.OPERATION.closeAfterMs + 25_000L
+
+        /** The next heartbeat (one a minute in an operation), an evaluation every 5 s, and the delays of the network. */
+        val BACK_BOUND_MS = RelayPresence.OPERATION.heartbeatS * 1_000L + 25_000L
+
+        const val STEADY_MS = 240_000L
     }
 }

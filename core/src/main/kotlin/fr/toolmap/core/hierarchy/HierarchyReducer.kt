@@ -365,6 +365,11 @@ object HierarchyReducer {
                 if (state.name == change.name) return no(Rejection.NO_CHANGE)
                 yes(state.copy(name = change.name))
             }
+
+            is Change.SetPositionInterval -> {
+                if (state.positionIntervalS == change.seconds) return no(Rejection.NO_CHANGE)
+                yes(state.copy(positionIntervalS = change.seconds))
+            }
         }
     }
 
@@ -492,7 +497,7 @@ object HierarchyReducer {
                 null
             }
 
-            Change.Dissolve, is Change.RenameEnsemble -> {
+            Change.Dissolve, is Change.RenameEnsemble, is Change.SetPositionInterval -> {
                 null
             }
         }
@@ -552,7 +557,9 @@ object HierarchyReducer {
                 null
             }
 
-            is Change.CreateGroup, is Change.TransferCreator, Change.Dissolve, is Change.RenameEnsemble -> {
+            is Change.CreateGroup, is Change.TransferCreator, Change.Dissolve, is Change.RenameEnsemble,
+            is Change.SetPositionInterval,
+            -> {
                 null
             }
         }

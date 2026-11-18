@@ -94,6 +94,9 @@ enum class Operation(
 
     /** Giving the ensemble itself a new name ([Change.RenameEnsemble]). */
     RENAME_ENSEMBLE(19),
+
+    /** Setting the rhythm of the positions of the whole ensemble ([Change.SetPositionInterval]). */
+    SET_POSITION_INTERVAL(20),
     ;
 
     companion object {
@@ -218,11 +221,16 @@ class RightsTable private constructor(
          * The answers of 2026-11-16 (names): the creator and the administrators rename any member, themselves and
          * the ensemble, and answer the requests of a new name; every other member, the leaders and who waits
          * included, only asks for its own.
+         * The answer of 2026-11-18 (F3 A, spec § 10 octies): the rhythm of the positions is set by the creator, the
+         * administrators, the leader of the ensemble and so its deputy; the first right of that leader, outside the
+         * hierarchy (R5 unchanged). The leaders of the groups, their deputies and the members only read it.
          */
         val DEFAULT: RightsTable =
-            (ADMINISTRATION + CREATION)
+            (ADMINISTRATION + CREATION + Operation.SET_POSITION_INTERVAL)
                 .fold(NONE) { table, op -> table.with(op, Role.CREATOR, Reach.ANYONE) }
                 .let { ADMINISTRATION.fold(it) { table, op -> table.with(op, Role.ADMIN, Reach.ANYONE) } }
+                .with(Operation.SET_POSITION_INTERVAL, Role.ADMIN, Reach.ANYONE)
+                .with(Operation.SET_POSITION_INTERVAL, Role.ENSEMBLE_LEADER, Reach.ANYONE)
                 .with(Operation.REMOVE_MEMBER, Role.MEMBER, Reach.SELF)
                 .with(Operation.REQUEST_NAME, Role.MEMBER, Reach.SELF)
     }

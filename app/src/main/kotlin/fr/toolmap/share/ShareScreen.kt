@@ -76,6 +76,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
@@ -85,6 +86,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -1243,14 +1245,19 @@ private fun FoldCard(
     }
 }
 
+/**
+ * The slider of a value with its presets and its pill (P23.3); also the one of the operation (P39.15), which writes
+ * [stepLabels] under its steps, the one of the value in bold. « Entre amis » passes none: its slider has no labels.
+ */
 @Composable
-private fun PresetSlider(
+internal fun PresetSlider(
     label: String,
     presets: List<Int>,
     value: Int,
     format: @Composable (Int) -> String,
     onChange: (Int) -> Unit,
     onType: () -> Unit,
+    stepLabels: List<String>? = null,
 ) {
     // A typed value between two presets puts the slider on the nearest; its pill keeps the exact value (P23.3).
     val index = presets.indices.minBy { kotlin.math.abs(presets[it].toLong() - value) }
@@ -1276,6 +1283,50 @@ private fun PresetSlider(
             valueRange = 0f..presets.lastIndex.toFloat(),
             steps = presets.size - 2,
         )
+        if (stepLabels != null) {
+            // The step of the value: where the slider was moved, else the one of a value that is a preset.
+            val bold = if (moved != index) moved else index.takeIf { presets[it] == value }
+            StepLabels(stepLabels, bold)
+        }
+    }
+}
+
+/**
+ * [labels] under the steps of a [Slider], each centred on its step (the track starts and ends half a thumb in), the
+ * first and the last kept inside the width; [bold] in the colour of the text, the others lighter.
+ */
+@Composable
+private fun StepLabels(
+    labels: List<String>,
+    bold: Int?,
+) {
+    val colors = MaterialTheme.colorScheme
+    Layout(
+        content = {
+            labels.forEachIndexed { i, text ->
+                Text(
+                    text,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (i == bold) FontWeight.SemiBold else null,
+                    color = if (i == bold) colors.onSurface else colors.onSurfaceVariant,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
+        val inset = SLIDER_THUMB_WIDTH.roundToPx() / 2
+        val span = (width - 2 * inset).coerceAtLeast(0)
+        val last = (labels.size - 1).coerceAtLeast(1)
+        layout(width, placeables.maxOfOrNull { it.height } ?: 0) {
+            placeables.forEachIndexed { i, p ->
+                val centre = inset + span * i / last
+                p.placeRelative((centre - p.width / 2).coerceIn(0, (width - p.width).coerceAtLeast(0)), 0)
+            }
+        }
     }
 }
 
@@ -1536,3 +1587,6 @@ private val QR_SIZE = 192.dp
 private const val MAX_DRAFT = 200
 
 private const val CLOCK_REFRESH_MS = 15_000L
+
+/** The thumb of a Material 3 slider (its handle): the track starts and ends half of it in. */
+private val SLIDER_THUMB_WIDTH = 4.dp

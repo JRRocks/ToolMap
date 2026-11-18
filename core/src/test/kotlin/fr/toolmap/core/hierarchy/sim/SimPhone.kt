@@ -234,7 +234,8 @@ class SimPhone(
         val g = OperationNode.genesis(keys, operationName, myName, server, random)
         joined = true
         ownCard = myName
-        startNode(OperationNode(keys, g.replica, g.ring, g.names, g.objects, g.link, this, ::clock, random))
+        val every = world.summaryEveryMs
+        startNode(OperationNode(keys, g.replica, g.ring, g.names, g.objects, g.link, this, ::clock, random, every))
     }
 
     /** This phone asks to come in with [invite], under the name of [myName]. */
@@ -256,6 +257,7 @@ class SimPhone(
                 this,
                 ::clock,
                 random,
+                world.summaryEveryMs,
             )
         startNode(node)
     }
@@ -297,7 +299,8 @@ class SimPhone(
         val link = OperationLinkState.decode(parts.link)
         log = MessageLog(parts.ensembleId).also { HierarchySnapshot.restoreMessages(it, parts.messages) }
         world.purgeOld(this)
-        startNode(OperationNode(keys, replica, ring, names, objects, link, this, ::clock, random))
+        val every = world.summaryEveryMs
+        startNode(OperationNode(keys, replica, ring, names, objects, link, this, ::clock, random, every))
     }
 
     fun networkOn() {

@@ -6,6 +6,7 @@ import fr.toolmap.core.p2p.MeshLink
 import fr.toolmap.core.p2p.PairingPayload
 import fr.toolmap.core.p2p.RelayConfig
 import fr.toolmap.core.p2p.RelayPaths
+import fr.toolmap.core.p2p.RelayPresence
 import fr.toolmap.core.p2p.RelayTransport
 import fr.toolmap.core.p2p.RelayTransportFactory
 import fr.toolmap.core.p2p.ServerState
@@ -186,8 +187,9 @@ internal class VirtualTime {
 
 /**
  * The coordination server for whole controllers (P39.10), with the rules of the real one as the simulation of `:core`
- * plays them (`FirebaseRelay`, `firebase/database.rules.json`, spec § 17): one room per name; heartbeats every 15 s;
- * a link opens for a member whose heartbeat is 40 s old at most and closes after 75 s; positions in the last-value slot
+ * plays them (`FirebaseRelay`, `firebase/database.rules.json`, spec § 17): one room per name; heartbeats, and the delays
+ * to open and close a link, of the mode the transport is made for (`RelayPresence`: every 15 s, 40 s and 75 s for
+ * « Entre amis », every minute, 160 s and 300 s for an operation); positions in the last-value slot
  * of 300 bytes; control frames of 4 500 bytes at most, kept until their writer deletes them 120 s after, dropped at
  * arrival after 150 s; a new stream gets the room as it is; closing while connected deletes the member's node.
  */
@@ -238,7 +240,14 @@ internal class ControllerServer(
             config: RelayConfig,
             groupId: ByteArray,
             listener: LinkListener,
-        ): RelayTransport = Member(RelayPaths.room(groupId), listener, this).also { members += it }
+        ): RelayTransport = create(config, groupId, listener, RelayPresence.SHARE)
+
+        override fun create(
+            config: RelayConfig,
+            groupId: ByteArray,
+            listener: LinkListener,
+            presence: RelayPresence,
+        ): RelayTransport = Member(RelayPaths.room(groupId), listener, this, presence).also { members += it }
 
         /** The process dies: its transports stop at once, without deleting anything on the server. */
         fun kill() {
@@ -251,6 +260,7 @@ internal class ControllerServer(
         private val roomName: String,
         private val listener: LinkListener,
         private val net: PhoneNet,
+        private val presence: RelayPresence,
     ) : RelayTransport {
         override var identity: TransportIdentity? = null
         override var onState: ((ServerState) -> Unit)? = null
@@ -302,7 +312,7 @@ internal class ControllerServer(
                 onState?.invoke(state)
             }
             if (seconds % 5 == 0L) evaluate()
-            if (connected && seconds % 15 == 0L) beat()
+            if (connected && seconds % presence.heartbeatS == 0L) beat()
             if (connected && seconds % 60 == 0L) {
                 val mine = room.control[id]
                 while (mine != null && mine.isNotEmpty() && time.now - mine.first().at > 120_000L) mine.removeFirst()
@@ -353,8 +363,8 @@ internal class ControllerServer(
             for (p in peers.values) {
                 val age = now - p.lastBeat
                 if (p.link == null) {
-                    if (age <= 40_000L && p.lastBeat > p.droppedAt) opened += p
-                } else if (age > 75_000L) {
+                    if (age <= presence.openWithinMs && p.lastBeat > p.droppedAt) opened += p
+                } else if (age > presence.closeAfterMs) {
                     p.link = null
                     p.droppedAt = now
                     listener.onLinkClosed(p.id)
@@ -514,4 +524,11 @@ internal class ControllerServer(
         groupId: ByteArray,
         listener: LinkListener,
     ): RelayTransport = PhoneNet().create(config, groupId, listener)
+
+    override fun create(
+        config: RelayConfig,
+        groupId: ByteArray,
+        listener: LinkListener,
+        presence: RelayPresence,
+    ): RelayTransport = PhoneNet().create(config, groupId, listener, presence)
 }

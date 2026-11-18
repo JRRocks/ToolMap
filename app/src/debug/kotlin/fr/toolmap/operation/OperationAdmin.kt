@@ -666,6 +666,10 @@ fun AdminSheet(
                     SuccessorSheet(session, facts)
                 }
 
+                is OpSheet.Frequency -> {
+                    FrequencySheet(session, facts, sheet)
+                }
+
                 OpSheet.Invite, OpSheet.Transfer -> {}
             }
         }

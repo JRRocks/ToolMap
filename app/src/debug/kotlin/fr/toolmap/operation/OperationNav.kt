@@ -85,6 +85,15 @@ sealed interface OpSheet {
 
     /** « Renommer l'opération » (`tour5/02-operation`). */
     data object RenameOperation : OpSheet
+
+    /**
+     * « Réglages d'envoi » of the operation (P39.15, F2 B modifié); [draft] and [typing] open it on a value and its
+     * window, for the captures of the CI.
+     */
+    data class Frequency(
+        val draft: Int? = null,
+        val typing: Boolean = false,
+    ) : OpSheet
 }
 
 /** A question in a window. */
