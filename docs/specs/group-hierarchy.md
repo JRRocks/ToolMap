@@ -822,6 +822,33 @@ Précisions affichées à l'utilisateur sur sa page de choix : R1 A, la trace ne
 
 **Conséquence** : toutes les maquettes sont validées (P39.5 terminé le 2026-11-15). Pour coder, le dessin le plus récent de chaque écran fait foi : `tour4/`, puis `tour3/`, puis `tour2/`. U1 à U10 ne changent que les écrans ; seuls R1 et R2 changent le transport (session P39.9).
 
+## 10 octies. Taille et rythme d'une opération (2026-11-18)
+
+L'utilisateur a demandé le 2026-11-18 ce qu'il faudrait pour qu'une opération accueille plus de 30 personnes, si la limite vient du serveur ou du téléphone, et si une position envoyée toutes les minutes, voire toutes les 10 minutes, allégerait le téléphone. La session principale a répondu, puis posé deux questions (recommandation en premier) :
+
+1. Combien de personnes viser dans une opération ? a) 60 personnes et 12 groupes ; b) 100 ou plus (lots de clés découpés, plan payant de Firebase) ; c) rester à 30 jusqu'aux essais sur le terrain.
+2. Quel rythme dans une opération ? a) une position par minute par défaut, réglable par le chef de l'opération de 30 s à 10 min, le signal de présence une fois par minute, le résumé toutes les 5 minutes ; b) une position toutes les 10 minutes, le reste comme aujourd'hui ; c) comme « Entre amis » (une position toutes les 30 s, la présence toutes les 15 s).
+
+Réponses, mot pour mot :
+
+```text
+1, aucun pour le moment, la question de capacité était pour de la curiosité.
+2, a. Réglages communs pour tout le monde prédéfini par le chef d'opération/ admins.
+```
+
+**Lecture** :
+
+- **Taille** : rien ne change ; la limite reste 30 membres et 6 groupes (R19, `HierarchyLimits`). Pour mémoire, dans l'ordre, ce qui bloquerait au-delà : le plan gratuit de Firebase (100 connexions simultanées pour toute la base, 10 Go téléchargés par mois, `docs/specs/firebase-relay.md` § 7 ; le volume croît comme le carré du nombre de membres, puisque chaque téléphone lit toute la salle), puis le lot de clés, qui ne tient dans une trame du serveur que jusqu'à 69 lecteurs (§ 9). Le téléphone n'est pas la limite : à 30 membres, 16 Ko de trames, 58 vérifications et 48 ms de calcul par minute (simulation sur la JVM, § 21 ; pas une mesure sur un téléphone).
+- **Rythme (2 a)**, dans une opération seulement (« Entre amis » ne change pas) :
+  - un seul rythme de position pour toute l'opération, le même pour tout le monde, réglé à l'avance par le chef de l'opération et les administrateurs ; un membre ne règle pas le sien ;
+  - une position par minute par défaut (aujourd'hui toutes les 15 s, sans réglage : `OperationSession.POSITION_EVERY_MS`), réglable de 30 s à 10 min ;
+  - le signal de présence passe de 15 s à 1 min, le résumé de 1 min à 5 min ; les délais qui en dépendent suivent (un téléphone disparu se voit au bout de quelques minutes au lieu d'environ une) ;
+  - les alertes partent toujours tout de suite ;
+  - estimation des échanges par téléphone, extrapolée de la mesure de deux téléphones du § 23 et non mesurée sur un téléphone : environ −65 % avec une position par minute, −85 % toutes les 10 minutes ; à 10 minutes, une position peut avoir environ 800 m de retard à pied.
+- **Qui règle** : « chef d'opération/ admins ». Lecture à confirmer par l'utilisateur : le créateur, les administrateurs, le chef de l'opération et son adjoint (un adjoint a les droits de son chef, R8). Ce serait le premier droit du chef de l'opération, qui n'en a aucun sur la hiérarchie (R5) ; le rythme n'en fait pas partie.
+- **Avant tout code d'écran** : aperçu à valider, où le rythme se règle et se lit, sous quelle forme, ce que voit un membre (`docs/previews/p39-groupes/tour6/`).
+- **Pour la session qui codera** (P39.15) : un réglage de l'opération signé, partagé par tous les téléphones et soumis aux droits (moteur, format et stockage compatibles) ; le service qui envoie la position écran éteint (L4 et M8 du P39.14) envoie à ce rythme ; la présence (`FirebaseRelay.HEARTBEAT_S` et les délais d'ouverture et de fermeture qui en dépendent) et le résumé (`OperationNode.SUMMARY_EVERY_MS`) changent pour le mode « Opération » seulement.
+
 ## 11. Fichiers et tests
 
 | Fichier (`core/src/main/kotlin/fr/toolmap/core/hierarchy/`) | Contenu |
