@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P39.15 · minutes qui se touchent</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap');
+:root{--pg-on:#122027;--pg-on2:#506169;--petrol:#163A4A;--teal:#14918C}
+*{box-sizing:border-box}
+body{font-family:Roboto,system-ui,sans-serif;margin:0;background:#DDE5E8;color:var(--pg-on);-webkit-font-smoothing:antialiased}
+#root{width:660px;margin:0 auto}
+.intro,section{width:660px;background:#fff;padding:18px 14px 20px;margin:0 0 14px}
+h1{font-size:22px;line-height:28px;font-weight:500;margin:0 0 8px;color:var(--petrol)}
+h2{font-size:18px;line-height:24px;font-weight:500;margin:0 0 6px;color:var(--petrol)}
+p{font-size:14.5px;line-height:21px;color:var(--pg-on2);margin:6px 0}
+p b{color:var(--pg-on);font-weight:500}
+.grid{display:grid;grid-template-columns:308px 308px;gap:18px 16px;justify-content:center;margin-top:10px}
+figure{margin:0}
+.tag{display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:13px;font-size:13.5px;font-weight:500;margin-bottom:8px;white-space:nowrap}
+.tag.cur{background:#E2ECEF;color:#163A4A}.tag.reco{background:#163A4A;color:#fff}.tag.new{background:#14918C;color:#fff}
+.frame{width:308px;height:150px;overflow:hidden;border:1px solid #9FB1B8;border-radius:12px;background:#F7F9FA;position:relative}
+.frame img{display:block;width:308px;height:auto}
+.scr{position:absolute;left:0;top:0;transform-origin:0 0;background:#F7F9FA;height:170px}
+.row{position:absolute;left:24px;right:24px;top:22px;display:flex;justify-content:space-between;align-items:center;color:#233037}
+.pill{height:30px;padding:0 12px;border:1.5px solid #14918C;border-radius:15px;color:#14918C;font-weight:600;display:flex;align-items:center;gap:6px}
+.sl{position:absolute;left:24px;top:62px;height:44px}
+.tr{position:absolute;top:14px;height:16px}
+.dot{position:absolute;top:20px;width:4px;height:4px;border-radius:2px;margin-left:-2px}
+.th{position:absolute;top:0;width:4px;height:44px;margin-left:-2px;border-radius:2px;background:#163A4A}
+.labs{position:absolute;left:24px;top:110px;height:20px}
+.lab{position:absolute;top:0;letter-spacing:.4px;white-space:nowrap;color:#506169}
+.lab.b{color:#122027;font-weight:600}
+.edge{position:absolute;top:56px;height:80px;width:0;border-left:1px dashed #C2185B}
+figcaption{font-size:13.5px;line-height:19px;color:var(--pg-on2);margin-top:8px}
+figcaption b{color:var(--pg-on);font-weight:500}
+.note{margin-top:14px;padding:12px 14px;border-radius:14px;background:#D3EEEC;color:#0B5B57;font-size:14.5px;line-height:21px}
+.note b{color:#06302E;font-weight:500}
+.small{font-size:12.5px;line-height:17px;margin-top:10px}
+</style></head><body><div id="root">
+<div class="intro">
+<h1>Curseur de la fréquence : quand deux minutes se touchent</h1>
+<p>Sur la capture de la CI (0.4.262, téléphone de 320 dp), on lisait « 1 mi2 » et « 19 min ». <b>Première cause, corrigée sans rien changer à l'aperçu validé</b> : les minutes n'étaient pas sous leurs crans.</p>
+<p><b>Reste un cas que l'aperçu validé ne montre pas</b> (il est dessiné sur 360 dp, texte normal) : même sous leurs crans, sur ce téléphone de 320 dp, « 9 » et « 10 min » <span id="g320">…</span> ; sur un écran de 360 dp, ils ne sont qu'à <span id="g360">…</span> dp l'un de l'autre, et se chevauchent dès que le texte est agrandi dans Android (Réglages ▸ Affichage ▸ Taille de la police). Que faire quand deux minutes se touchent ?</p>
+</div>
+<section>
+<h2>Ce qui est corrigé</h2>
+<div class="grid">
+<figure><span class="tag cur">0.4.262 · capture de la CI</span><div class="frame"><img src="ci-320dp.png" alt=""></div>
+<figcaption>« 1 mi2 » et « 19 min » : les minutes n'étaient pas sous leurs crans.</figcaption></figure>
+<figure><span class="tag new">Sous les crans · 320 dp</span><div class="frame" id="fixed"></div>
+<figcaption>Chaque minute sous son cran, comme l'aperçu validé. « 9 » colle encore à « 10 min ».</figcaption></figure>
+</div>
+</section>
+<section>
+<h2>Quand deux minutes se touchent · à choisir</h2>
+<p>Le téléphone de 320 dp de la CI, texte normal ; puis A sur un écran de 360 dp au texte agrandi.</p>
+<div class="grid">
+<figure><span class="tag reco">A (recommandée)</span><div class="frame" id="A"></div>
+<figcaption><b>« 1 min » et « 10 min » se centrent sous leur cran</b> quand ils touchent leur voisin, et débordent un peu dans la marge de la feuille (trait rose : bord du curseur). Tout reste écrit, à la taille choisie.</figcaption></figure>
+<figure><span class="tag new">B</span><div class="frame" id="B"></div>
+<figcaption><b>Le chiffre qui toucherait « 1 min » ou « 10 min » ne s'écrit pas</b> (ici le 9 ; s'il est en gras, la pastille dit la valeur).</figcaption></figure>
+<figure><span class="tag new">C</span><div class="frame" id="C"></div>
+<figcaption><b>Les minutes en plus petit</b>, juste assez pour qu'elles tiennent (ici <span id="csize">…</span> au lieu de 12), le reste du texte à la taille choisie.</figcaption></figure>
+<figure><span class="tag reco">A · 360 dp, texte × 1,3</span><div class="frame" id="A360"></div>
+<figcaption id="a360cap">Même règle avec le texte agrandi : tout reste écrit, à la taille choisie.</figcaption></figure>
+</div>
+<div class="note"><b>Pourquoi A.</b> Rien ne disparaît, et les minutes gardent la taille de texte choisie dans Android. Sur 320 dp, A suffit sans rien cacher jusqu'à un texte × <span id="amax">…</span> ; au-delà, en dernier recours, un chiffre qui toucherait encore son voisin ne s'écrirait pas (comme B).</div>
+<p class="small">Largeurs des libellés mesurées sur la capture de l'émulateur de la CI (« 10 min » : 40 dp en texte normal) ; crans à 10 dp des bouts du curseur, comme sur cette capture.</p>
+</section>
+</div>
+<script>
+const LABELS=['1 min','2','3','4','5 min','6','7','8','9','10 min'];
+const LAST=9,INSET=10,OVER=4,GAP=4,BOLD=1,DEVICE_10MIN=40;
+let CAL=1;
+function widths(size){const s=document.createElement('span');s.className='lab';s.style.fontSize=size+'px';s.style.visibility='hidden';document.body.appendChild(s);
+ const w=LABELS.map((t,i)=>{s.textContent=t;s.style.fontWeight=i===BOLD?600:400;return s.getBoundingClientRect().width});s.remove();return w}
+function geo(W){const span=W-2*INSET;return i=>INSET+span*i/LAST}
+function place(W,w){const c=geo(W);return w.map((wi,i)=>Math.min(Math.max(c(i)-wi/2,-OVER),W-wi+OVER))}
+const touch=(x,w,a,b)=>x[a]+w[a]+GAP>x[b];
+function layout(kind,W,size,last=true){const c=geo(W);let w=widths(size*CAL),x=place(W,w),shown=LABELS.map(()=>true);
+ if(kind==='A'){if(touch(x,w,0,1))x[0]=c(0)-w[0]/2;if(touch(x,w,LAST-1,LAST))x[LAST]=c(LAST)-w[LAST]/2;if(last&&touch(x,w,0,1))shown[1]=false;if(last&&touch(x,w,LAST-1,LAST))shown[LAST-1]=false}
+ if(kind==='B'){if(touch(x,w,0,1))shown[1]=false;if(touch(x,w,LAST-1,LAST))shown[LAST-1]=false}
+ if(kind==='C'){for(;size>6;size-=.5){w=widths(size*CAL);x=place(W,w);let ok=true;for(let i=0;i<LAST;i++)if(touch(x,w,i,i+1))ok=false;if(ok)break}}
+ return {x,w,shown,size}}
+function clear(kind,W,size){const l=layout(kind,W,size,false);for(let i=0;i<LAST;i++)if(l.shown[i]&&l.shown[i+1]&&touch(l.x,l.w,i,i+1))return false;return true}
+function draw(id,kind,dp,k,edges){
+ const W=dp-48,c=geo(W),l=layout(kind,W,12*k),f=document.getElementById(id);
+ const s=document.createElement('div');s.className='scr';s.style.width=dp+'px';s.style.transform=`scale(${308/dp})`;
+ const thumb=c(1);
+ s.innerHTML=`<div class="row" style="font-size:${16*k}px"><span>Fréquence d'envoi</span><span class="pill" style="font-size:${14*k}px">2 min ✎</span></div>`+
+  `<div class="sl" style="width:${W}px"><div class="tr" style="left:2px;width:${thumb-6-2}px;background:#163A4A;border-radius:8px 2px 2px 8px"></div>`+
+  `<div class="tr" style="left:${thumb+6}px;width:${W-2-thumb-6}px;background:#D3EEEC;border-radius:2px 8px 8px 2px"></div>`+
+  LABELS.map((_,i)=>i===1?'':`<div class="dot" style="left:${c(i)}px;background:${i<1?'#D3EEEC':'#163A4A'}"></div>`).join('')+
+  `<div class="th" style="left:${thumb}px"></div></div>`+
+  `<div class="labs" style="width:${W}px">`+LABELS.map((t,i)=>l.shown[i]?`<span class="lab${i===BOLD?' b':''}" style="font-size:${l.size*CAL}px;left:${l.x[i]}px">${t}</span>`:'').join('')+`</div>`+
+  (edges?`<div class="edge" style="left:24px"></div><div class="edge" style="left:${24+W}px"></div>`:'');
+ f.appendChild(s);return l}
+function from(kind,dp){let k=1;for(;k<=2;k+=.05){if(!clear(kind,dp-48,12*k))break}return k}
+const fr=n=>(Math.round(n*100)/100).toString().replace('.',',');
+document.fonts.ready.then(()=>{
+ CAL=DEVICE_10MIN/widths(12)[LAST];
+ draw('fixed','',320,1,true);
+ draw('A','A',320,1,true);
+ draw('B','B',320,1,false);
+ const lc=draw('C','C',320,1,false);
+ const la=draw('A360','A',360,1.3,true);
+ if(!la.shown[LAST-1]||!la.shown[1])document.getElementById('a360cap').textContent='Même règle ; ici, même centré, « 10 min » toucherait encore « 9 » : en dernier recours, le 9 ne s\x27écrit pas.';
+ document.getElementById('csize').textContent=fr(lc.size);
+ const gap=dp=>{const W=dp-48,l=layout('',W,12);return Math.round((l.x[LAST]-l.x[LAST-1]-l.w[LAST-1])*2)/2};
+ const g3=gap(320);document.getElementById('g320').textContent=g3<0?`se chevauchent encore (${fr(-g3)} dp)`:`ne sont qu'à ${fr(g3)} dp l'un de l'autre`;document.getElementById('g360').textContent=fr(gap(360));
+ document.getElementById('amax').textContent=fr(Math.floor((from('A',320)-.05)*20)/20);
+});
+</script>
+</body></html>
