@@ -849,6 +849,18 @@ Réponses, mot pour mot :
 - **Avant tout code d'écran** : aperçu à valider, où le rythme se règle et se lit, sous quelle forme, ce que voit un membre (`docs/previews/p39-groupes/tour6/`).
 - **Pour la session qui codera** (P39.15) : un réglage de l'opération signé, partagé par tous les téléphones et soumis aux droits (moteur, format et stockage compatibles) ; le service qui envoie la position écran éteint (L4 et M8 du P39.14) envoie à ce rythme ; la présence (`FirebaseRelay.HEARTBEAT_S` et les délais d'ouverture et de fermeture qui en dépendent) et le résumé (`OperationNode.SUMMARY_EVERY_MS`) changent pour le mode « Opération » seulement.
 
+**Choix du tour 6 (2026-11-18)**, sur les aperçus `docs/previews/p39-groupes/tour6/` (questions F1 à F3), mot pour mot :
+
+```text
+F1 A
+F2 B, 1 à 10min pour le slide et sans limite pour le "2min" touché
+F3 A
+```
+
+- **F1 A** : une ligne « Fréquence d'envoi » sous « Partager ma position », sur l'écran de l'opération de chacun : une flèche pour qui peut la changer ; pour les autres, un cadenas et « Réglée par le chef de l'opération ». « Nouvelle opération » ne change pas : une minute dès la création.
+- **F2 B, modifié par l'utilisateur** : le réglage d'« Entre amis » (feuille « Réglages d'envoi », curseur et valeur à toucher). Le curseur va de 1 à 10 min ; la valeur touchée (« 2 min ») ouvre la fenêtre où taper une valeur sans les bornes du curseur. Lecture : avec les seules bornes de la fenêtre d'« Entre amis », 1 s à 24 h (`ShareCadence.MIN_INTERVAL_S`, `ShareCadence.MAX_INTERVAL_S`). Ce choix remplace « réglable de 30 s à 10 min » de la réponse 2 a ci-dessus. Aperçu de F2 B modifié à valider avant le code (`tour6/img/05-q2-B-modifie.png`).
+- **F3 A** : le créateur, les administrateurs, le chef de l'opération et son adjoint changent le rythme ; les chefs de groupe, leurs adjoints et les membres le lisent. La lecture « Qui règle » ci-dessus est confirmée : c'est le premier droit du chef de l'opération, hors de la hiérarchie (R5 inchangé).
+
 ## 11. Fichiers et tests
 
 | Fichier (`core/src/main/kotlin/fr/toolmap/core/hierarchy/`) | Contenu |

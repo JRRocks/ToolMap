@@ -52,5 +52,22 @@ Images : 04-q3.
 | 03-q2-A-C | F2 A et C sur le téléphone de Membre 1, « Toutes les 2 min » choisi. |
 | 03-q2-B | F2 B : la feuille « Réglages d'envoi », puis la fenêtre pour taper la valeur. |
 | 04-q3 | F3 : qui change le rythme avec A et avec B ; l'écran de Membre 2, chef de l'opération, avec A (flèche) et avec B (cadenas). |
+| 05-q2-B-modifie | F2 B modifié : la feuille « Réglages d'envoi », curseur de 1 à 10 min sur 2 min ; puis la fenêtre d'« Entre amis » (1 s à 24 h), « 45 » tapé en secondes, « OK » actif. |
+| 05-q2-B-modifie-2 | F2 B modifié après « OK » : la pastille « 45 s », le curseur sur 1 min ; la règle d'une valeur tapée hors des crans. |
+| 05-q2-B-modifie-3 | Valeurs courtes, question 2 a : « 20 » tapé en secondes ; sous s / min / h, l'avertissement « Moins de 30 s : plus de batterie pour tout le monde, et le serveur gratuit peut atteindre sa limite du mois. » ; « OK » reste actif. |
 
 Non dessiné : l'écran de qui attend un groupe, et ce que voient les autres au moment où le rythme change.
+
+## Choix du 2026-11-18
+
+Réponse de l'utilisateur relayée par la session principale, mot pour mot :
+
+> F1 A / F2 B, 1 à 10min pour le slide et sans limite pour le "2min" touché / F3 A
+
+- **F1 A** : la ligne « Fréquence d'envoi » sous « Partager ma position », sur l'écran de l'opération de chacun (image 02-q1-A).
+- **F2 B modifié, à valider** (images 05-q2-B-modifie et 05-q2-B-modifie-2 ; 03-q2-B reste l'aperçu de départ) :
+  - la plage « de 30 s à 10 min » du début devient : de 1 à 10 min au curseur, de 1 s à 24 h en tapant la valeur ;
+  - le curseur a un cran par minute ; les chiffres sous les crans sont un ajout (le curseur d'« Entre amis » n'en a pas) ;
+  - toucher la valeur ouvre la fenêtre d'« Entre amis », sans borne propre à l'opération et sans son champ « Déplacement minimal » (l'opération n'en a pas) ; l'avertissement « Moins de 5 s : plus de batterie, et plus d'envois au serveur. » apparaît de 1 à 4 s ;
+  - une valeur tapée hors des crans (45 s) : la pastille la garde, le curseur se met sur le cran le plus proche (1 min), comme dans « Entre amis » ; déplacer le curseur remplace la valeur par celle du cran.
+- **F3 A** : le créateur, les administrateurs, le chef de l'opération et son adjoint changent le rythme ; les autres le lisent sous le cadenas « Réglée par le chef de l'opération ».

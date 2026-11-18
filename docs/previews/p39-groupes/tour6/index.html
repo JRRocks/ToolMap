@@ -2323,12 +2323,50 @@ SH('04-q3', '4', 'Qui change le rythme · F3', "Un adjoint a les droits de son c
   ph('A (recommandé) · Membre 2', 'reco', mode('A', () => opFreq(2, 'edit')), 'A : Membre 2, chef de l\'opération, change le rythme depuis sa ligne, comme le créateur et les administrateurs.'),
   ph('B · Membre 2', 'new', mode('A', () => opFreq(2, 'lock', { who: LOCK_ADMINS })), 'B : il le lit, comme les membres ; sous le cadenas, « Réglée par les administrateurs ».')));
 
-const QF = (n, title, choices, imgs) => `<li><b>F${n}. ${title}</b><br>${choices}${imgs ? `<br><span style="font-size:13px">Images : ${imgs}</span>` : ''}</li>`;
+/* ---------- 5 · The choice of 2026-11-18: F2 B changed (slider from 1 to 10 min, typed value without the operation's
+ * own bound). A typed value off the notches shows as « Entre amis » shows it (PresetSlider, P23.3): the slider on the
+ * nearest notch (the first one on a tie), the pill with the exact value. ---------- */
+/** The notches under the slider, one per minute; « min » written at 1, 5 and 10; `bold` the notch of the value. The
+ * two end labels stay within 4 px of the track, so that a window over the sheet hides them whole. */
+function minuteLabels(w, bold) {
+  const inset = 8, x = (i) => inset + (i * (w - 2 * inset)) / 9;
+  const pos = (i) => (i === 0 ? 'left:-4px' : i === 9 ? 'right:-4px' : `left:${x(i)}px;transform:translateX(-50%)`);
+  const one = (m, i) => `<div style="position:absolute;${pos(i)};top:0;font-size:12px;line-height:16px;white-space:nowrap;color:${i === bold ? t.on : t.on2};${i === bold ? 'font-weight:600;' : ''}">${m}${m === 1 || m === 5 || m === 10 ? ' min' : ''}</div>`;
+  return `<div style="position:relative;height:18px;margin-top:2px">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(one).join('')}</div>`;
+}
+/** The sheet « Réglages d'envoi » of F2 B changed: the pill, a slider on ten notches (1 to 10 min). */
+function freqSheetBm(pill, idx, bold) {
+  return sheet(sheetTitle("Réglages d'envoi") + `<div style="padding:8px 24px 0">${presetRow("Fréquence d'envoi", pill, 10, idx, 312)}${minuteLabels(312, bold)}</div>` + `<div style="padding:12px 24px 0">${freqNote()}</div>` + freqButtons());
+}
+/** The window of « Entre amis » (ValueDialog) with its own limits only, 1 s to 24 h: `v` (« 45 ») typed, then the unit
+ * s; `warn`, a warning drawn where « Entre amis » puts share_interval_warn (WarningBox: under the units, 8 dp below,
+ * tertiary container, 12 dp corners, 10 × 7 dp padding, small text). */
+function typeWindowFree(v, warn) {
+  const caret = `<span style="display:inline-block;width:2px;height:20px;margin-left:1px;background:${t.pri};vertical-align:-4px"></span>`;
+  const box = warn ? `<div style="margin-top:8px;padding:7px 10px;border-radius:12px;background:${t.terC};color:${t.onTerC};font-size:12px;line-height:16px">${warn}</div>` : '';
+  const fieldHtml = `<div style="position:relative;height:56px;border:2px solid ${t.pri};border-radius:12px;display:flex;align-items:center;padding:0 14px;font-size:16px;color:${t.on}">${v || '45'}${caret}<div style="position:absolute;left:10px;top:-9px;padding:0 4px;font-size:12px;line-height:16px;color:${t.pri};background:${t.panel}">Fréquence d'envoi</div></div>`;
+  const support = `<div style="padding:4px 16px 0;font-size:12px;line-height:16px;color:${t.on2}">1 s à 24 h</div>`;
+  return dialog("Réglages d'envoi", fieldHtml + support + segmented(['s', 'min', 'h'], 0, { m: '12px 0 0', noCheck: true }) + box, [tbtn('Annuler'), tbtn('OK')], { top: 244 });
+}
+chapter(5, 'Votre choix du 18 novembre · F2 B modifié', `« F1 A / F2 B, 1 à 10min pour le slide et sans limite pour le "2min" touché / F3 A ». F1 A et F3 A sont dessinés plus haut (02-q1-A, 04-q3) ; F2 B modifié reste à valider.`);
+SH('05-q2-B-modifie', '5', 'F2 B modifié : le curseur, puis la valeur touchée', "Téléphone de Membre 1, créateur, qui a touché « Fréquence d'envoi » (F1 A). Le curseur va de 1 à 10 min ; la valeur touchée s'écrit sans autre limite que celles d'« Entre amis ».", duo(
+  ph('F2 B modifié · la feuille', 'reco', mode('A', () => opFreq(1, 'edit', { main: { over: freqSheetBm('2 min', 1, 1) } })), "Un cran par minute, de 1 à 10 min ; ici 2 min. Les chiffres sous les crans sont un ajout : le curseur d'« Entre amis » n'en a pas."),
+  ph('F2 B modifié · « 2 min » touché', 'reco', mode('A', () => opFreq(1, 'edit', { main: { over: freqSheetBm('2 min', 1, 1) + typeWindowFree() } })), "La fenêtre d'« Entre amis » avec ses limites, 1 s à 24 h, sans son champ « Déplacement minimal » (l'opération n'en a pas). « 45 » tapé, puis « s » : « OK » est actif. L'avertissement « Moins de 5 s : plus de batterie, et plus d'envois au serveur. » n'apparaît que de 1 à 4 s.")));
+SH('05-q2-B-modifie-2', '5', 'F2 B modifié : après « OK »', "La même feuille, la fenêtre fermée par « OK » avec 45 s. Rien n'est encore appliqué : l'écran derrière dit toujours « Toutes les minutes ».", duo(
+  ph('F2 B modifié · après « OK »', 'reco', mode('A', () => opFreq(1, 'edit', { main: { over: freqSheetBm('45 s', 0, -1) } })), "La pastille garde « 45 s » ; le curseur se met sur le cran le plus proche, 1 min, tout à gauche. « Appliquer » donne 45 s à toute l'opération."),
+  txt(`<h3>Une valeur tapée hors des crans</h3><p>C'est la règle d'« Entre amis » : le curseur va sur le cran le plus proche, la pastille garde la valeur exacte.</p><p>45 s ou 1 min 20 s : sur 1 min. 1 min 30 s, à égale distance de 1 et de 2 min : sur 1 min. 2 h : sur 10 min.</p><p>Toucher le curseur sans le déplacer garde la valeur tapée ; le déplacer la remplace par celle du cran.</p>`)));
+const WARN30 = 'Moins de 30 s : plus de batterie pour tout le monde, et le serveur gratuit peut atteindre sa limite du mois.';
+SH('05-q2-B-modifie-3', '5', 'Valeurs courtes · question 2 a', "Téléphone de Membre 1, créateur, dans la fenêtre ouverte en touchant « 2 min » : « 20 » tapé, puis « s ».", duo(
+  ph('Question 2 a · 20 s tapé', 'new', mode('A', () => opFreq(1, 'edit', { main: { over: freqSheetBm('2 min', 1, 1) + typeWindowFree('20', WARN30) } })), "Sous s / min / h, là où « Entre amis » met son avertissement : « " + WARN30 + " » « OK » reste actif."),
+  txt(`<h3>Un avertissement, pas un refus</h3><p>Dans une opération, l'avertissement apparaît sous 30 s ; dans « Entre amis », seulement sous 5 s.</p><p>Rien n'est refusé : « OK » reste actif, et la valeur tapée est gardée.</p>`)));
+
+const QF =(n, title, choices, imgs) => `<li><b>F${n}. ${title}</b><br>${choices}${imgs ? `<br><span style="font-size:13px">Images : ${imgs}</span>` : ''}</li>`;
 OUT.push(`<div class="intro" id="choix"><h1>Les questions du tour 6</h1><p>La recommandation est toujours le choix A. Le détail et les raisons sont dans questions.md.</p><ul class="qs">` +
   QF(1, 'Où le rythme se règle et se lit', "A une ligne sur l'écran de l'opération, que tout le monde voit · B la même chose, plus un choix à la création · C seulement dans « Administrer » et le menu ⋮ du chef", '02-q1-A, 02-q1-B, 02-q1-C') +
   QF(2, 'Comment choisir la valeur', "A cinq choix · B le réglage d'« Entre amis » (curseur, et la valeur à taper) · C un curseur à cinq crans", '03-q2-A-C, 03-q2-B') +
   QF(3, 'Qui règle le rythme', "A le créateur, les administrateurs, le chef de l'opération et son adjoint · B le créateur et les administrateurs", '04-q3') +
-  `</ul><p>Sans question : la présence part une fois par minute, le résumé toutes les 5 minutes ; les alertes partent toujours tout de suite ; « Entre amis » ne change pas.</p></div>`);
+  `</ul><p>Sans question : la présence part une fois par minute, le résumé toutes les 5 minutes ; les alertes partent toujours tout de suite ; « Entre amis » ne change pas.</p>` +
+  `<p><b>Votre choix du 18 novembre</b> : F1 A, F2 B modifié (partie 5, à valider), F3 A.</p></div>`);
 
 /* The switches that are on take the primary colour of the app, as on the captures of the CI (the kit of the earlier
  * rounds drew them in the accent colour). */
