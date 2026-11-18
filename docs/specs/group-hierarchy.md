@@ -861,6 +861,16 @@ F3 A
 - **F2 B, modifié par l'utilisateur** : le réglage d'« Entre amis » (feuille « Réglages d'envoi », curseur et valeur à toucher). Le curseur va de 1 à 10 min ; la valeur touchée (« 2 min ») ouvre la fenêtre où taper une valeur sans les bornes du curseur. Lecture : avec les seules bornes de la fenêtre d'« Entre amis », 1 s à 24 h (`ShareCadence.MIN_INTERVAL_S`, `ShareCadence.MAX_INTERVAL_S`). Ce choix remplace « réglable de 30 s à 10 min » de la réponse 2 a ci-dessus. Aperçu de F2 B modifié à valider avant le code (`tour6/img/05-q2-B-modifie.png`).
 - **F3 A** : le créateur, les administrateurs, le chef de l'opération et son adjoint changent le rythme ; les chefs de groupe, leurs adjoints et les membres le lisent. La lecture « Qui règle » ci-dessus est confirmée : c'est le premier droit du chef de l'opération, hors de la hiérarchie (R5 inchangé).
 
+**Validation du 2026-11-18**, sur les images `tour6/img/05-q2-B-modifie.png`, `05-q2-B-modifie-2.png` et `05-q2-B-modifie-3.png`, mot pour mot :
+
+```text
+1 a, 2 a
+```
+
+- **1 a : F2 B modifié est validé tel que dessiné.** La feuille « Réglages d'envoi » de l'opération : un curseur de 1 à 10 min, un cran par minute, les minutes écrites sous les crans ; la valeur à toucher (« 2 min ») ouvre la fenêtre d'« Entre amis », 1 s à 24 h, sans « Déplacement minimal ». Une valeur tapée hors des crans (45 s) reste exacte dans la pastille ; le curseur se met sur le cran le plus proche, comme dans « Entre amis » (à égalité, le plus bas), et seul un curseur déplacé remplace la valeur.
+- **2 a : aucune borne propre à l'opération, mais un avertissement de 1 à 29 s.** Dans la fenêtre de l'opération, sous s / min / h : « Moins de 30 s : plus de batterie pour tout le monde, et le serveur gratuit peut atteindre sa limite du mois. » ; « OK » reste actif. Ce seuil et ce texte sont propres à l'opération : « Entre amis » garde les siens (`WARN_BELOW_S`, 5 s, « Moins de 5 s : plus de batterie, et plus d'envois au serveur. »). Lecture : dans l'opération, un seul avertissement, celui-ci, qui couvre aussi 1 à 4 s. Raison donnée à l'utilisateur : trente téléphones à 1 s useraient en une journée environ les 10 Go par mois du forfait gratuit (estimation d'après `firebase-relay.md` § 7), sur le serveur commun à toutes les opérations et à « Entre amis ».
+- **L'aperçu de P39.15 est validé** : F1 A (`02-q1-A`), F2 B modifié (`05-q2-B-modifie`, `-2`, `-3`), F3 A (`04-q3`). Le code d'écran peut commencer.
+
 ## 11. Fichiers et tests
 
 | Fichier (`core/src/main/kotlin/fr/toolmap/core/hierarchy/`) | Contenu |

@@ -1,6 +1,6 @@
 # P39.15 — Opération : questions du tour 6 (rythme d'envoi des positions)
 
-**Aperçus à valider** : rien n'est codé tant que vous n'avez pas répondu.
+**Aperçus validés le 2026-11-18** (« Validation du 2026-11-18 », en bas) : P39.15 peut être codé.
 
 Votre choix du 2026-11-18, mot pour mot : « 2, a. Réglages communs pour tout le monde prédéfini par le chef d'opération/ admins. » Lecture (`docs/specs/group-hierarchy.md` § 10 octies) : dans une opération, un seul rythme d'envoi des positions, le même pour tout le monde, une minute par défaut, de 30 s à 10 min ; un membre ne règle pas le sien. « Entre amis » ne change pas.
 
@@ -71,3 +71,13 @@ Réponse de l'utilisateur relayée par la session principale, mot pour mot :
   - toucher la valeur ouvre la fenêtre d'« Entre amis », sans borne propre à l'opération et sans son champ « Déplacement minimal » (l'opération n'en a pas) ; l'avertissement « Moins de 5 s : plus de batterie, et plus d'envois au serveur. » apparaît de 1 à 4 s ;
   - une valeur tapée hors des crans (45 s) : la pastille la garde, le curseur se met sur le cran le plus proche (1 min), comme dans « Entre amis » ; déplacer le curseur remplace la valeur par celle du cran.
 - **F3 A** : le créateur, les administrateurs, le chef de l'opération et son adjoint changent le rythme ; les autres le lisent sous le cadenas « Réglée par le chef de l'opération ».
+
+## Validation du 2026-11-18
+
+Réponse de l'utilisateur relayée par la session principale, mot pour mot :
+
+> 1 a, 2 a
+
+- **1 a** : F2 B modifié est validé tel que dessiné (images 05-q2-B-modifie et 05-q2-B-modifie-2).
+- **2 a** : aucune borne propre à l'opération ; de 1 à 29 s, l'avertissement de l'image 05-q2-B-modifie-3, « OK » actif. Dans l'opération, il remplace celui d'« Entre amis » (« Moins de 5 s… »), qui ne change pas dans « Entre amis ».
+- Aperçu validé : F1 A (02-q1-A), F2 B modifié (05-q2-B-modifie, -2, -3), F3 A (04-q3).
