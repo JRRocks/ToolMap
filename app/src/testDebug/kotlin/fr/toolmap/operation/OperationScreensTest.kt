@@ -25,6 +25,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import java.time.Duration
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -197,7 +199,7 @@ class OperationScreensTest {
     }
 
     @Test
-    fun `the rhythm of the positions shows to all, opens to who may change it, and warns under 30 s`() {
+    fun `the rhythm of the positions shows to all, opens to who may change it, warns under 30 s, a change is told`() {
         val session = session()
         rule.setContent {
             ToolMapTheme {
@@ -234,17 +236,25 @@ class OperationScreensTest {
         session.show(1)
         session.show(1, OperationNav(sheet = OpSheet.Frequency(draft = 30, typing = true)))
         absent("Moins de 30 s")
-        // « Appliquer » with 45 s: the line of every phone says so.
+        // « Appliquer » with 45 s: the line of every phone says so, and a message at its bottom (F4 B, `06-f4` B).
         session.setPositionInterval(45)
         var waited = 0
-        while (session.demoSeat(7)?.view?.value?.hierarchy?.positionIntervalS != 45 && waited < DEMO_WAIT_MS) {
-            shadowOf(Looper.getMainLooper()).idle()
+        while (session.noticesOf(7).none { it is Notice.RhythmChanged } && waited < DEMO_WAIT_MS) {
+            // The clock of the main thread moves too: a message is drawn from the view once it has settled (1.2 s).
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(POLL_MS))
             Thread.sleep(POLL_MS)
             waited += POLL_MS.toInt()
         }
+        assertEquals(45, session.demoSeat(7)?.view?.value?.hierarchy?.positionIntervalS)
+        assertTrue(session.noticesOf(7).contains(Notice.RhythmChanged(45)))
+        // The message stays 4 s: the clock of the test is held, or waiting for the screen to settle would run them out.
+        rule.mainClock.autoAdvance = false
         session.show(7)
+        rule.mainClock.advanceTimeBy(MESSAGE_SHOWN_MS)
         seen("Toutes les 45 s")
         seen(locked)
+        seen("Fréquence d'envoi : toutes les 45 s, pour toute l'opération.")
+        rule.mainClock.autoAdvance = true
         session.show(1)
         seen("Toutes les 45 s")
     }
@@ -252,5 +262,6 @@ class OperationScreensTest {
     private companion object {
         const val DEMO_WAIT_MS = 120_000
         const val POLL_MS = 100L
+        const val MESSAGE_SHOWN_MS = 1_000L
     }
 }

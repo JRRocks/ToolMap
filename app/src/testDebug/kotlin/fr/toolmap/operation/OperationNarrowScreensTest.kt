@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -15,7 +16,10 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onChildren
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import fr.toolmap.core.hierarchy.HierarchyState
 import fr.toolmap.core.hierarchy.Post
@@ -24,6 +28,7 @@ import fr.toolmap.data.hierarchy.OperationController
 import fr.toolmap.data.hierarchy.OperationStorage
 import fr.toolmap.operation.demo.DemoKeyVault
 import fr.toolmap.record.LocationSource
+import fr.toolmap.share.STEP_LABELS_TAG
 import fr.toolmap.ui.Formats
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.ToolMapTheme
@@ -38,6 +43,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -179,6 +185,29 @@ class OperationNarrowScreensTest {
                 1 to OpSheet.Frequency(draft = 20, typing = true),
             )
         for ((n, sheet) in sheets) session.at("sheet $sheet ($n)", n, OperationNav(sheet = sheet))
+        // The minutes under the notches of the rhythm do not run into one another (« 1 mi2 », « 19 min » on the
+        // emulator of the CI in 0.4.262, when they were not placed under the notches): at 320 dp only some are
+        // written, « 1 min » and « 10 min » always, at least 4 dp apart (F8, `tour6/img/11-f8-b-pousse`).
+        session.viewAs(1)
+        session.nav.value = OperationNav(sheet = OpSheet.Frequency(draft = 120))
+        shadowOf(Looper.getMainLooper()).idle()
+        rule.waitForIdle()
+        val written =
+            rule
+                .onNodeWithTag(STEP_LABELS_TAG, useUnmergedTree = true)
+                .onChildren()
+                .fetchSemanticsNodes()
+                .filter { it.layoutInfo.isPlaced }
+                .sortedBy { it.boundsInRoot.left }
+        val texts = written.map { it.config[SemanticsProperties.Text].joinToString() }
+        assertEquals("1 min", texts.first(), "written: $texts")
+        assertEquals("10 min", texts.last(), "written: $texts")
+        assertTrue(texts.size < 10, "not every minute fits at 320 dp: $texts")
+        val gap = with(rule.density) { 4.dp.toPx() }
+        written.map { it.boundsInRoot }.zipWithNext().forEach { (a, b) ->
+            assertTrue(a.right + gap <= b.left + 1f, "labels 4 dp apart: $texts, $a, $b")
+        }
+        session.nav.value = OperationNav()
         // The windows.
         val dialogs =
             listOf(

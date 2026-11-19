@@ -79,6 +79,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -1292,8 +1293,11 @@ internal fun PresetSlider(
 }
 
 /**
- * [labels] under the steps of a [Slider], each centred on its step (the track starts and ends half a thumb in), the
- * first and the last kept inside the width; [bold] in the colour of the text, the others lighter.
+ * [labels] under the steps of a [Slider], each centred on its notch, the first and the last kept within
+ * [STEP_LABEL_OVERHANG] of the width (`05-q2-B-modifie`); [bold] in the colour of the text, the others lighter. Where
+ * they do not all fit [STEP_LABEL_GAP] apart (a narrow screen, a large text), only some are written (F8,
+ * `tour6/img/11-f8-b-pousse`, [StepLabelChoice]); a [bold] one left out leaves nothing in bold: the pill gives the
+ * value.
  */
 @Composable
 private fun StepLabels(
@@ -1314,18 +1318,17 @@ private fun StepLabels(
                 )
             }
         },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().testTag(STEP_LABELS_TAG),
     ) { measurables, constraints ->
         val width = constraints.maxWidth
         val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
-        val inset = SLIDER_THUMB_WIDTH.roundToPx() / 2
-        val span = (width - 2 * inset).coerceAtLeast(0)
-        val last = (labels.size - 1).coerceAtLeast(1)
+        val widths = placeables.map { it.width.toFloat() }
+        val inset = SLIDER_TICK_INSET.toPx()
+        val overhang = STEP_LABEL_OVERHANG.toPx()
+        val x = StepLabelChoice.place(width.toFloat(), widths, inset, overhang)
+        val shown = StepLabelChoice.shown(width.toFloat(), widths, inset, overhang, STEP_LABEL_GAP.toPx())
         layout(width, placeables.maxOfOrNull { it.height } ?: 0) {
-            placeables.forEachIndexed { i, p ->
-                val centre = inset + span * i / last
-                p.placeRelative((centre - p.width / 2).coerceIn(0, (width - p.width).coerceAtLeast(0)), 0)
-            }
+            placeables.forEachIndexed { i, p -> if (shown[i]) p.placeRelative(x[i].roundToInt(), 0) }
         }
     }
 }
@@ -1588,5 +1591,17 @@ private const val MAX_DRAFT = 200
 
 private const val CLOCK_REFRESH_MS = 15_000L
 
-/** The thumb of a Material 3 slider (its handle): the track starts and ends half of it in. */
-private val SLIDER_THUMB_WIDTH = 4.dp
+/**
+ * The first and the last notch of a Material 3 slider stand half its thumb (4 dp) and half its track (16 dp) in from
+ * its ends, and the thumb stops on them: seen on the emulator of the CI (0.4.262, 320 dp).
+ */
+private val SLIDER_TICK_INSET = 10.dp
+
+/** How far the first and the last label under the steps may stand outside the slider, as in the maquette. */
+private val STEP_LABEL_OVERHANG = 4.dp
+
+/** The least space between two labels written under the steps (F8, `tour6/etroit/b-plus.html`). */
+private val STEP_LABEL_GAP = 4.dp
+
+/** The labels under the steps of a [PresetSlider], for the tests. */
+internal const val STEP_LABELS_TAG = "stepLabels"

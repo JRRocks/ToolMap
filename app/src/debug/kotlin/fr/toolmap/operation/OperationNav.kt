@@ -255,6 +255,14 @@ sealed interface Notice {
         val name: String,
         val accepted: Boolean,
     ) : Notice
+
+    /**
+     * A message at the bottom of the screen of every phone of the operation, its author included (P39.15, F4 B,
+     * `tour6/img/06-f4-changement` B): « Fréquence d'envoi : toutes les 45 s, pour toute l'opération. ».
+     */
+    data class RhythmChanged(
+        val seconds: Int,
+    ) : Notice
 }
 
 /**
@@ -347,6 +355,11 @@ object Notices {
         val newName = after.members.firstOrNull { it.id == me }?.name
         if (!answered && formerName != null && newName != null && newName != formerName) {
             out += Notice.RenamedByAdmin(newName)
+        }
+        // The rhythm of the positions (P39.15, F4 B): every phone that waits or is placed is told, its author too.
+        val inNow = after.phase == OperationPhase.WAITING || after.phase == OperationPhase.PLACED
+        if (inNow && now.positionIntervalS != was.positionIntervalS) {
+            out += Notice.RhythmChanged(now.positionIntervalS)
         }
         return out
     }

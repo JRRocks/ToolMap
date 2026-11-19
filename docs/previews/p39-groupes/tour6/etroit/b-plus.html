@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P39.15 · F8 B poussé plus loin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap');
+:root{--pg-on:#122027;--pg-on2:#506169;--petrol:#163A4A;--teal:#14918C}
+*{box-sizing:border-box}
+body{font-family:Roboto,system-ui,sans-serif;margin:0;background:#DDE5E8;color:var(--pg-on);-webkit-font-smoothing:antialiased}
+#root{width:660px;margin:0 auto}
+.intro,section{width:660px;background:#fff;padding:18px 14px 20px;margin:0 0 14px}
+h1{font-size:24px;line-height:30px;font-weight:500;margin:0 0 8px;color:var(--petrol)}
+h2{font-size:18px;line-height:24px;font-weight:500;margin:0 0 6px;color:var(--petrol)}
+p{font-size:14.5px;line-height:21px;color:var(--pg-on2);margin:6px 0}
+p b{color:var(--pg-on);font-weight:500}
+ul{margin:6px 0 0;padding-left:20px}
+li{font-size:14.5px;line-height:21px;color:var(--pg-on2);margin:3px 0}
+li b{color:var(--pg-on);font-weight:500}
+.grid{display:grid;grid-template-columns:308px 308px;gap:18px 16px;justify-content:center;margin-top:10px}
+figure{margin:0}
+.tag{display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:13px;font-size:13.5px;font-weight:500;margin-bottom:8px;white-space:nowrap}
+.tag.cur{background:#E2ECEF;color:#163A4A}.tag.reco{background:#163A4A;color:#fff}.tag.new{background:#0E7C78;color:#fff}
+.frame{width:308px;height:150px;overflow:hidden;border:1px solid #9FB1B8;border-radius:12px;background:#F7F9FA;position:relative}
+.scr{position:absolute;left:0;top:0;transform-origin:0 0;background:#F7F9FA;height:170px}
+.row{position:absolute;left:24px;right:24px;top:22px;display:flex;justify-content:space-between;align-items:center;color:#233037}
+.pill{height:30px;padding:0 12px;border:1.5px solid #14918C;border-radius:15px;color:#14918C;font-weight:600;display:flex;align-items:center;gap:6px}
+.sl{position:absolute;left:24px;top:62px;height:44px}
+.tr{position:absolute;top:14px;height:16px}
+.dot{position:absolute;top:20px;width:4px;height:4px;border-radius:2px;margin-left:-2px}
+.th{position:absolute;top:0;width:4px;height:44px;margin-left:-2px;border-radius:2px;background:#163A4A}
+.labs{position:absolute;left:24px;top:110px;height:20px}
+.lab{position:absolute;top:0;letter-spacing:.4px;white-space:nowrap;color:#506169}
+.lab.b{color:#122027;font-weight:600}
+figcaption{font-size:13.5px;line-height:19px;color:var(--pg-on2);margin-top:8px}
+figcaption b{color:var(--pg-on);font-weight:500}
+.note{margin-top:14px;padding:12px 14px;border-radius:14px;background:#D3EEEC;color:#0B5B57;font-size:14.5px;line-height:21px}
+.note b{color:#06302E;font-weight:500}
+.small{font-size:12.5px;line-height:17px;margin-top:10px}
+</style></head><body><div id="root">
+<div class="intro">
+<h1>Curseur de la fréquence : F8 B poussé plus loin</h1>
+<p>Ta réponse du 2026-11-19, mot pour mot : « F8 b pousse plus loin, en divisant le nombre de chiffre montrer, cela gardera une, 2fois moins voir 3fois moins selon l'espace nécessaire pour bien afficher "1min/10min" », puis : « Point chichiteux pour le 320dp centralize en affichant 5 aulieu de 4; 7. Cas rare, donc pas important »</p>
+<p><b>Ce que je propose d'en faire :</b></p>
+<ul>
+<li><b>« 1 min » et « 10 min » s'écrivent toujours.</b></li>
+<li><b>Entre les deux, toutes les minutes, sinon une sur deux (3, 5 min, 7), sinon « 5 min » seule, au milieu.</b> Le téléphone prend la première qui laisse au moins 4 dp entre deux minutes, selon la largeur de son écran et la taille du texte choisie dans Android.</li>
+<li><b>Quand la minute choisie n'est pas écrite, la pastille la donne</b> (ici « 2 min »).</li>
+</ul>
+</div>
+<section>
+<h2>Avant et après</h2>
+<div class="grid">
+<figure><span class="tag cur">Aperçu validé · 360 dp, texte normal</span><div class="frame" id="f1"></div>
+<figcaption id="c1">…</figcaption></figure>
+<figure><span class="tag reco">Proposé · 360 dp, texte normal</span><div class="frame" id="f2"></div>
+<figcaption id="c2">…</figcaption></figure>
+<figure><span class="tag new">Proposé · 411 dp, texte normal</span><div class="frame" id="f3"></div>
+<figcaption id="c3">…</figcaption></figure>
+<figure><span class="tag new">Proposé · 320 dp, texte × 2</span><div class="frame" id="f4"></div>
+<figcaption id="c4">…</figcaption></figure>
+</div>
+<div class="note"><b>Par rapport à B tel que dessiné :</b> B retirait seulement le chiffre qui touchait (le 9) ; ici, les minutes écrites restent espacées régulièrement.</div>
+<p class="small" id="s1">…</p>
+<p class="small">Largeurs des libellés mesurées sur la capture de l'émulateur de la CI (« 10 min » : 40 dp en texte normal) ; crans à 10 dp des bouts du curseur, comme sur cette capture. Le curseur est sur 2 min dans chaque cadre.</p>
+</section>
+</div>
+<script>
+const LABELS=['1 min','2','3','4','5 min','6','7','8','9','10 min'];
+const LAST=9,MID=4,INSET=10,OVER=4,GAP=4,BOLD=1,DEVICE_10MIN=40,STEPS=[1,2,'mid','ends'];
+let CAL=1;
+function widths(size){const s=document.createElement('span');s.className='lab';s.style.fontSize=size+'px';s.style.visibility='hidden';document.body.appendChild(s);
+ const w=LABELS.map((t,i)=>{s.textContent=t;s.style.fontWeight=i===BOLD?600:400;return s.getBoundingClientRect().width});s.remove();return w}
+function geo(W){const span=W-2*INSET;return i=>INSET+span*i/LAST}
+function place(W,w){const c=geo(W);return w.map((wi,i)=>Math.min(Math.max(c(i)-wi/2,-OVER),W-wi+OVER))}
+const touch=(x,w,a,b)=>x[a]+w[a]+GAP>x[b];
+// « 1 min » and « 10 min » always; between them every step-th minute (a minute closer than one step to « 10 min » is
+// left out), else « 5 min » alone in the middle, else nothing.
+const shownFor=step=>LABELS.map((_,i)=>i===0||i===LAST||(step==='mid'?i===MID:step==='ends'?false:(i%step===0&&LAST-i>=step)));
+function clearOf(x,w,shown){let prev=-1;for(let i=0;i<=LAST;i++){if(!shown[i])continue;if(prev>=0&&touch(x,w,prev,i))return false;prev=i}return true}
+function layout(kind,W,size){const w=widths(size*CAL),x=place(W,w);let shown=LABELS.map(()=>true),step=1;
+ if(kind==='S'){for(const s of STEPS){step=s;shown=shownFor(s);if(clearOf(x,w,shown))break}}
+ return {x,w,shown,size,step}}
+function draw(id,kind,dp,k,bare){
+ const W=dp-48,c=geo(W),l=layout(kind,W,12*k),f=document.getElementById(id);
+ const s=document.createElement('div');s.className='scr';s.style.width=dp+'px';s.style.transform=`scale(${308/dp})`;
+ if(bare)s.style.top='-36px';
+ const thumb=c(BOLD);
+ s.innerHTML=(bare?'':`<div class="row" style="font-size:${16*k}px"><span>Fréquence d'envoi</span><span class="pill" style="font-size:${14*k}px">2 min ✎</span></div>`)+
+  `<div class="sl" style="width:${W}px"><div class="tr" style="left:2px;width:${thumb-6-2}px;background:#163A4A;border-radius:8px 2px 2px 8px"></div>`+
+  `<div class="tr" style="left:${thumb+6}px;width:${W-2-thumb-6}px;background:#D3EEEC;border-radius:2px 8px 8px 2px"></div>`+
+  LABELS.map((_,i)=>i===BOLD?'':`<div class="dot" style="left:${c(i)}px;background:${i<BOLD?'#D3EEEC':'#163A4A'}"></div>`).join('')+
+  `<div class="th" style="left:${thumb}px"></div></div>`+
+  `<div class="labs" style="width:${W}px">`+LABELS.map((t,i)=>l.shown[i]?`<span class="lab${i===BOLD?' b':''}" style="font-size:${l.size*CAL}px;left:${l.x[i]}px">${t}</span>`:'').join('')+`</div>`;
+ f.appendChild(s);return l}
+const fr=n=>(Math.round(n*10)/10).toString().replace('.',',');
+const NAME={1:'Toutes les minutes',2:'Une minute sur deux',mid:'« 5 min » seule au milieu',ends:'Seulement « 1 min » et « 10 min »'};
+const nb=t=>t.replace(/ /g,' ');
+const list=l=>LABELS.filter((_,i)=>l.shown[i]).map(nb).join(', ');
+const stepAt=(dp,k)=>layout('S',dp-48,12*k).step;
+document.fonts.ready.then(()=>{
+ CAL=DEVICE_10MIN/widths(12)[LAST];
+ const v=draw('f1','',360,1,false);
+ const gap=Math.round((v.x[LAST]-v.x[LAST-1]-v.w[LAST-1])*10)/10;
+ document.getElementById('c1').innerHTML=nb(`Toutes les minutes ; « 9 » n'est qu'à ${fr(gap)} dp de « 10 min ».`).replace('Toutes les minutes ; ','Toutes les minutes ; ').replace(' n\'est qu\'à ',' n\'est qu\'à ');
+ const a=draw('f2','S',360,1,false);
+ document.getElementById('c2').innerHTML=`<b>${NAME[a.step]}</b> : ${list(a)}.`+(a.shown[BOLD]?'':` Le 2 choisi n'est pas écrit : la pastille dit « 2 min ».`);
+ const b=draw('f3','S',411,1,false);
+ document.getElementById('c3').innerHTML=`<b>${NAME[b.step]}</b>`+(b.step===1?` : la place suffit, comme l'aperçu validé.`:` : ${list(b)}.`);
+ const c=draw('f4','S',320,2,true);
+ document.getElementById('c4').innerHTML=`<b>${NAME[c.step]}</b> : ${list(c)}. Le curseur seul : le plus grand texte d'Android, sur le plus petit écran.`;
+ const at=[320,360,384,411].map(dp=>({dp,s:stepAt(dp,1)}));
+ const by=s=>at.filter(e=>e.s===s).map(e=>e.dp+' dp');
+ const parts=STEPS.filter(s=>by(s).length).map(s=>`${NAME[s].toLowerCase()} sur ${by(s).join(', ')}`);
+ const worst=[stepAt(320,2),stepAt(360,2)].sort((p,q)=>STEPS.indexOf(q)-STEPS.indexOf(p))[0];
+ document.getElementById('s1').textContent=`Texte normal : ${parts.join(' ; ')}. Avec le plus grand texte (× 2), au pire ${NAME[worst].toLowerCase()}.`+(worst!=='ends'?` Si « 5 min » touchait encore « 1 min » ou « 10 min », seules ces deux-là s'écriraient.`:'');
+});
+</script>
+</body></html>

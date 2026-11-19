@@ -3,12 +3,16 @@ package fr.toolmap.operation
 import fr.toolmap.core.hierarchy.Change
 import fr.toolmap.core.hierarchy.HiddenName
 import fr.toolmap.core.hierarchy.HierarchyReplica
+import fr.toolmap.core.hierarchy.HierarchyRules
 import fr.toolmap.core.hierarchy.HierarchyState
 import fr.toolmap.core.hierarchy.IssueResult
 import fr.toolmap.core.hierarchy.Names
 import fr.toolmap.core.hierarchy.OpAuth
+import fr.toolmap.core.hierarchy.Operation
 import fr.toolmap.core.hierarchy.PhoneKeys
 import fr.toolmap.core.hierarchy.Post
+import fr.toolmap.core.hierarchy.RightsTable
+import fr.toolmap.core.hierarchy.Role
 import fr.toolmap.core.hierarchy.memberId
 import fr.toolmap.core.p2p.PeerState
 import fr.toolmap.core.p2p.ServerState
@@ -31,7 +35,9 @@ import kotlin.test.assertTrue
  */
 class OperationModelsTest {
     /** The operation of the maquettes, with the keys of its 22 phones; [view] reads it from the place of one of them. */
-    private class Vallon {
+    private class Vallon(
+        rules: HierarchyRules = HierarchyRules.DEFAULT,
+    ) {
         val keys: Map<Int, PhoneKeys> = (1..22).associateWith { OpAuth.memoryKeys() }
         val id: Map<Int, Long> = keys.mapValues { it.value.memberId }
         private val names = HashMap<HiddenName, String>()
@@ -40,7 +46,7 @@ class OperationModelsTest {
         fun hide(name: String): HiddenName = Names.hide(name).also { names[it.hidden] = name }.hidden
 
         val replica: HierarchyReplica =
-            HierarchyReplica.create(keys.getValue(1), hide("Membre 1"), hide("Exercice Vallon"), NONCE)
+            HierarchyReplica.create(keys.getValue(1), hide("Membre 1"), hide("Exercice Vallon"), NONCE, rules)
 
         fun must(change: Change) {
             val result = replica.issue(change)
@@ -369,6 +375,48 @@ class OperationModelsTest {
             "accepted, and not also « renamed by an administrator »",
         )
         assertEquals(emptyList(), Notices.between(w.view(4, again), w.view(4, accepted)), "its chief is told nothing")
+    }
+
+    @Test
+    fun `a new rhythm is told to every phone of the operation, its author and who waits included`() {
+        val w = Vallon()
+        // F4 B (`tour6/img/06-f4-changement` B): « Fréquence d'envoi : toutes les 45 s, pour toute l'opération. ».
+        val before = (1..22).associateWith { w.view(it) }
+        val faster = w.by(1, Change.SetPositionInterval(45))
+        for (n in listOf(1, 2, 7, 21)) {
+            assertEquals(
+                listOf<Notice>(Notice.RhythmChanged(45)),
+                Notices.between(before.getValue(n), w.view(n, faster)),
+            )
+        }
+        assertEquals(OperationPhase.WAITING, w.view(21).phase, "Membre 21 waits")
+        // Back to a minute: said too; a change of nothing else is not.
+        val back = w.by(5, Change.SetPositionInterval(HierarchyState.DEFAULT_POSITION_INTERVAL_S))
+        assertEquals(listOf<Notice>(Notice.RhythmChanged(60)), Notices.between(w.view(7, faster), w.view(7, back)))
+        val renamed = w.by(5, Change.RenameMember(w.id.getValue(11), w.hide("Éclaireur 11")))
+        assertEquals(emptyList(), Notices.between(w.view(7, back), w.view(7, renamed)))
+    }
+
+    @Test
+    fun `an operation whose rules give the rhythm to nobody locks it for everyone, its creator included`() {
+        // F6 A (`tour6/img/08-f6-ancienne-operation` A): the rules of an operation created before 0.4.262.
+        val old =
+            listOf(Role.CREATOR, Role.ADMIN, Role.ENSEMBLE_LEADER).fold(RightsTable.DEFAULT) { table, role ->
+                table.with(Operation.SET_POSITION_INTERVAL, role)
+            }
+        val w = Vallon(HierarchyRules(rights = old))
+        for (n in listOf(1, 5, 2, 3, 7)) {
+            val f = facts(w, n)
+            assertFalse(f.mayChangeRhythm, "Membre $n")
+            assertTrue(f.rhythmFixed, "Membre $n")
+            assertEquals(HierarchyState.DEFAULT_POSITION_INTERVAL_S, f.positionIntervalS)
+        }
+        // Today's rules: set by the chief of the operation, not fixed.
+        val now = Vallon()
+        assertTrue(facts(now, 1).mayChangeRhythm)
+        assertFalse(facts(now, 1).rhythmFixed)
+        assertFalse(facts(now, 7).mayChangeRhythm)
+        assertFalse(facts(now, 7).rhythmFixed)
     }
 
     @Test

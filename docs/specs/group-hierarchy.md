@@ -871,6 +871,31 @@ F3 A
 - **2 a : aucune borne propre à l'opération, mais un avertissement de 1 à 29 s.** Dans la fenêtre de l'opération, sous s / min / h : « Moins de 30 s : plus de batterie pour tout le monde, et le serveur gratuit peut atteindre sa limite du mois. » ; « OK » reste actif. Ce seuil et ce texte sont propres à l'opération : « Entre amis » garde les siens (`WARN_BELOW_S`, 5 s, « Moins de 5 s : plus de batterie, et plus d'envois au serveur. »). Lecture : dans l'opération, un seul avertissement, celui-ci, qui couvre aussi 1 à 4 s. Raison donnée à l'utilisateur : trente téléphones à 1 s useraient en une journée environ les 10 Go par mois du forfait gratuit (estimation d'après `firebase-relay.md` § 7), sur le serveur commun à toutes les opérations et à « Entre amis ».
 - **L'aperçu de P39.15 est validé** : F1 A (`02-q1-A`), F2 B modifié (`05-q2-B-modifie`, `-2`, `-3`), F3 A (`04-q3`). Le code d'écran peut commencer.
 
+**Réponses du 2026-11-19** sur les états que les images validées ne montraient pas (`tour6/etats/index.html`, `tour6/img/06-f4-changement.png` à `10-minutes-qui-se-touchent.png`, questions F4 à F8), mot pour mot :
+
+```text
+F4 b
+F5 b (u1 a)
+F6 a
+F7 a
+F8 b pousse plus loin, en divisant le nombre de chiffre montrer, cela gardera une, 2fois moins voir 3fois moins selon l'espace nécessaire pour bien afficher "1min/10min"
+```
+
+- **F4 B** : quand le rythme change, la ligne change et un message s'affiche en bas de l'écran de chaque téléphone de l'opération, son auteur et qui attend un groupe compris, comme pour un nom accepté : « Fréquence d'envoi : toutes les 45 s, pour toute l'opération. » (« toutes les minutes » pour une minute). Le code faisait A (la ligne seule) : changé dans 0.4.265.
+- **F5 B (U1 A)** : l'écran de qui attend un groupe ne change pas (il envoie déjà sa position aux administrateurs, au rythme de l'opération) ; c'est ce que fait le code.
+- **F6 A** : une opération dont les règles ne donnent ce réglage à personne (créée avant 0.4.262) montre à tout le monde, créateur compris, un cadenas et « Fixée à la création de l'opération » ; une minute reste. Le code faisait B (« Réglée par le chef de l'opération ») : changé dans 0.4.265.
+- **F7 A** : l'ordre des lignes sous « Partager ma position », avec un nom demandé, reste celui du code ; l'interrupteur et le crayon ne changent pas.
+- **F8 B, poussé plus loin par l'utilisateur** : sur un écran étroit, n'écrire sous le curseur qu'une partie des minutes, selon la place, pour que « 1 min » et « 10 min » s'affichent bien. Redessiné par la session principale (`tour6/etroit/b-plus.html`, `tour6/img/11-f8-b-pousse.png`).
+
+**Validation de F8 du 2026-11-19**, mots de l'utilisateur, mot pour mot, après le premier aperçu puis sur l'aperçu redessiné :
+
+```text
+Point chichiteux pour le 320dp centralize en affichant 5 aulieu de 4; 7. Cas rare, donc pas important
+Oui, code F8
+```
+
+- **La règle de F8** : « 1 min » et « 10 min » s'écrivent toujours ; entre les deux, le téléphone prend le premier de ces paliers qui laisse au moins 4 dp entre deux libellés écrits, mesuré avec la largeur réelle du curseur et la taille du texte choisie dans Android : toutes les minutes ; une sur deux (1 min, 3, 5 min, 7, 10 min : une minute à moins d'un pas de « 10 min » ne s'écrit pas) ; « 5 min » seule au milieu ; en dernier recours 1 min et 10 min seules. Chaque libellé écrit reste sous son cran, les bouts peuvent déborder de 4 dp. Si la minute choisie n'est pas écrite, rien n'est en gras : la pastille donne la valeur. En texte normal : une sur deux à 320 et 360 dp, toutes à partir de 384 dp ; à 320 dp avec le texte × 2 : 1 min, 5 min, 10 min. « Entre amis » reste sans libellés. Codé dans 0.4.265 avec F4 B, F6 A et la correction « sous les crans ».
+
 ## 11. Fichiers et tests
 
 | Fichier (`core/src/main/kotlin/fr/toolmap/core/hierarchy/`) | Contenu |
@@ -2223,7 +2248,8 @@ N16 1 (tour 6, 2026-11-16) : le champ reste vide quand aucun nom n'est réglé, 
 - **Feuille « Réglages d'envoi »** (F2 B modifié, `05-q2-B-modifie`, `-2`, `-3`) : le curseur d'« Entre amis » (`PresetSlider`) de 1 à 10 min, un cran par minute, les minutes sous les crans (« 1 min », « 2 », … « 5 min », … « 10 min »), celle de la valeur en gras ; la pastille ouvre la fenêtre d'« Entre amis » (`ValueDialog`, 1 s à 24 h, sans « Déplacement minimal ») ; de 1 à 29 s, l'avertissement de l'opération (« Moins de 30 s : plus de batterie pour tout le monde, et le serveur gratuit peut atteindre sa limite du mois. »), « OK » actif. Une valeur hors des crans reste exacte dans la pastille, le curseur va au cran le plus proche (à égalité, le plus bas) ; seul un curseur déplacé remplace la valeur. « Appliquer » applique (rien si la valeur n'a pas changé), « Annuler » ferme.
 - **« Entre amis »** : son curseur n'a pas d'étiquettes (paramètre facultatif, absent), sa fenêtre garde son avertissement sous 5 s.
 - **États que les images validées ne montraient pas** (questions F4 à F7, `tour6/etats/index.html`, `tour6/img/06-…` à `09-…`, envoyées le 2026-11-18, réponse attendue) : ce que voient les autres quand le rythme change, l'écran de qui attend, une opération créée avant, l'ordre des lignes avec un nom demandé. Le code fait pour l'instant le plus simple : seule la ligne change (F4 A), rien sur l'écran d'attente (F5 B), dans une opération créée avant le texte des membres et un cadenas pour tous (F6 B), « Nom demandé » puis « Fréquence d'envoi » (F7 A).
-- Captures de la CI (`OperationScenes`) : `tour6-02-q1-A`, `tour6-02-q1-A-membre`, `tour6-05-q2-B-modifie`, `-fenetre`, `-2`, `-3`, et `tour6-02-q1-A-45-s-membre` (après « Appliquer » à 45 s, parmi les scènes qui changent la démonstration).
+- Captures de la CI (`OperationScenes`) : `tour6-02-q1-A`, `tour6-02-q1-A-membre`, `tour6-05-q2-B-modifie`, `-fenetre`, `-2`, `-3`, et `tour6-06-f4-B-45-s-membre` (après « Appliquer » à 45 s, parmi les scènes qui changent la démonstration : la ligne et le message de F4 B ; jusqu'à 0.4.263, `tour6-02-q1-A-45-s-membre`, la ligne seule).
+- **Depuis 0.4.265 (réponses du 2026-11-19, § 10 octies)** : F4 B, le message en bas de l'écran de chaque téléphone quand le rythme change (`Notice.RhythmChanged`, tiré de deux vues comme les autres messages, `Notices.between`) ; F6 A, le cadenas et « Fixée à la création de l'opération » pour tout le monde quand les règles ne donnent le droit 20 à aucun rôle (`OperationFacts.rhythmFixed`) ; les minutes placées sous leurs crans. F8 (validé le 2026-11-19, `tour6/img/11-f8-b-pousse`) : sous le curseur, « 1 min » et « 10 min » toujours, et entre les deux toutes les minutes, sinon une sur deux, sinon « 5 min » seule, selon la place (`StepLabelChoice`, au moins 4 dp entre deux libellés).
 
 ### Versions mélangées
 

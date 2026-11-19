@@ -81,3 +81,36 @@ Réponse de l'utilisateur relayée par la session principale, mot pour mot :
 - **1 a** : F2 B modifié est validé tel que dessiné (images 05-q2-B-modifie et 05-q2-B-modifie-2).
 - **2 a** : aucune borne propre à l'opération ; de 1 à 29 s, l'avertissement de l'image 05-q2-B-modifie-3, « OK » actif. Dans l'opération, il remplace celui d'« Entre amis » (« Moins de 5 s… »), qui ne change pas dans « Entre amis ».
 - Aperçu validé : F1 A (02-q1-A), F2 B modifié (05-q2-B-modifie, -2, -3), F3 A (04-q3).
+
+## Réponses du 2026-11-19
+
+Réponse de l'utilisateur relayée par la session principale, mot pour mot :
+
+> F4 b
+> F5 b (u1 a)
+> F6 a
+> F7 a
+> F8 b pousse plus loin, en divisant le nombre de chiffre montrer, cela gardera une, 2fois moins voir 3fois moins selon l'espace nécessaire pour bien afficher "1min/10min"
+
+- **F4 B** (image 06-f4-changement) : la ligne change, et un message s'affiche en bas de l'écran de chaque téléphone de l'opération, son auteur et qui attend un groupe compris : « Fréquence d'envoi : toutes les 45 s, pour toute l'opération. » (« toutes les minutes » pour une minute). Codé dans 0.4.265.
+- **F5 B (U1 A)** (image 07-f5-attente) : l'écran d'attente validé ne change pas ; c'est déjà ce que fait le code.
+- **F6 A** (image 08-f6-ancienne-operation) : dans une opération dont les règles ne donnent ce réglage à personne (créée avant 0.4.262), un cadenas pour tout le monde, créateur compris, et « Fixée à la création de l'opération » ; une minute reste. Codé dans 0.4.265.
+- **F7 A** (image 09-f7-nom-demande) : l'ordre des lignes sous « Partager ma position » reste celui du code (l'interrupteur et le crayon ne changent pas).
+- **F8 B poussé plus loin** (image 10-minutes-qui-se-touchent) : B modifié par l'utilisateur ; n'écrire qu'une minute sur deux, voire moins, selon la place, pour que « 1 min » et « 10 min » s'affichent bien. Redessiné par la session principale (`etroit/b-plus.html`, image 11-f8-b-pousse), puis validé (ci-dessous).
+- Dans le même build que F4, F6 et F8 : la correction « sous les crans » (chaque minute écrite sous son cran, comme dans 05-q2-B-modifie).
+
+## Validation de F8 du 2026-11-19
+
+Mots de l'utilisateur relayés par la session principale, mot pour mot, après le premier aperçu de F8 :
+
+> Point chichiteux pour le 320dp centralize en affichant 5 aulieu de 4; 7. Cas rare, donc pas important
+
+puis sur l'aperçu redessiné (`etroit/b-plus.html`, image 11-f8-b-pousse) :
+
+> Oui, code F8
+
+- « 1 min » et « 10 min » s'écrivent toujours. Entre les deux, le téléphone prend le premier de ces paliers qui laisse au moins 4 dp entre deux libellés écrits, mesuré avec la largeur réelle du curseur et la taille du texte choisie dans Android : toutes les minutes ; une sur deux (1 min, 3, 5 min, 7, 10 min : une minute à moins d'un pas de « 10 min » ne s'écrit pas) ; « 5 min » seule au milieu ; en dernier recours, 1 min et 10 min seules.
+- Chaque libellé écrit reste sous son cran ; les bouts peuvent déborder de 4 dp.
+- Si la minute choisie n'est pas écrite, rien n'est en gras sous le curseur : la pastille donne la valeur.
+- En texte normal : une sur deux à 320 et 360 dp, toutes à partir de 384 dp ; à 320 dp avec le texte × 2 : 1 min, 5 min, 10 min. « Entre amis » reste sans libellés.
+- Aperçu validé : F4 B (06-f4-changement), F6 A (08-f6-ancienne-operation), F8 (11-f8-b-pousse, `etroit/b-plus.html`). Codé dans la même livraison de P39.15.

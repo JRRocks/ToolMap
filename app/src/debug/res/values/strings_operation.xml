@@ -359,4 +359,8 @@
   <string name="op_freq_box">**Pour tout le monde dans l\'opération.** Plus espacé : moins de batterie et de données, des positions moins fraîches. Les alertes partent toujours tout de suite.</string>
   <string name="op_freq_warn">Moins de 30 s : plus de batterie pour tout le monde, et le serveur gratuit peut atteindre sa limite du mois.</string>
   <string name="op_freq_apply">Appliquer</string>
+  <!-- F4 B (tour6/img/06-f4-changement) and F6 A (tour6/img/08-f6-ancienne-operation), validated on 2026-11-19. -->
+  <string name="op_freq_changed">Fréquence d\'envoi : toutes les %1$s, pour toute l\'opération.</string>
+  <string name="op_freq_changed_minute">Fréquence d\'envoi : toutes les minutes, pour toute l\'opération.</string>
+  <string name="op_freq_fixed">Fixée à la création de l\'opération</string>
 </resources>

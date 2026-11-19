@@ -80,6 +80,7 @@ import fr.toolmap.share.ShareIcons
 import fr.toolmap.share.serverStateLabel
 import fr.toolmap.ui.GroupBlock
 import fr.toolmap.ui.ToolMapTopBar
+import fr.toolmap.ui.durationText
 import fr.toolmap.ui.screenInsets
 import fr.toolmap.ui.theme.toolMap
 
@@ -104,7 +105,7 @@ fun OperationRoot(
     val message =
         extras.notices.firstOrNull {
             it is Notice.NewCreator || it is Notice.NewGroupChief || it is Notice.NewOperationChief ||
-                it is Notice.RenamedByAdmin || it is Notice.NameAccepted
+                it is Notice.RenamedByAdmin || it is Notice.NameAccepted || it is Notice.RhythmChanged
         }
     LaunchedEffect(message) {
         val shown = message ?: return@LaunchedEffect
@@ -133,6 +134,14 @@ fun OperationRoot(
 
                 is Notice.NameAccepted -> {
                     resources.getString(R.string.op_name_accepted, shown.name)
+                }
+
+                is Notice.RhythmChanged -> {
+                    if (shown.seconds == HierarchyState.DEFAULT_POSITION_INTERVAL_S) {
+                        resources.getString(R.string.op_freq_changed_minute)
+                    } else {
+                        resources.getString(R.string.op_freq_changed, durationText(shown.seconds))
+                    }
                 }
 
                 else -> {

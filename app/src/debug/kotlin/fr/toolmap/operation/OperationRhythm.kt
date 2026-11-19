@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import fr.toolmap.R
 import fr.toolmap.core.hierarchy.Change
 import fr.toolmap.core.hierarchy.HierarchyState
+import fr.toolmap.core.hierarchy.Operation
+import fr.toolmap.core.hierarchy.Role
 import fr.toolmap.core.settings.ValueEntry
 import fr.toolmap.download.DownloadIcons
 import fr.toolmap.draw.RouteIcons
@@ -53,6 +55,16 @@ val OperationFacts.mayChangeRhythm: Boolean
         return may(Change.SetPositionInterval(other))
     }
 
+/**
+ * The rules of the operation give the rhythm to nobody (F6 A, `tour6/img/08-f6-ancienne-operation` A): an operation
+ * created before 0.4.262, whose table has no cell for it. Nobody may change it, its creator neither: a minute stays.
+ */
+val OperationFacts.rhythmFixed: Boolean
+    get() {
+        val rights = state?.rules?.rights ?: return false
+        return Role.entries.all { rights.reach(Operation.SET_POSITION_INTERVAL, it).isEmpty() }
+    }
+
 /** « Toutes les minutes », « Toutes les 45 s » (F1 A). */
 @Composable
 fun rhythmText(seconds: Int): String =
@@ -65,7 +77,8 @@ fun rhythmText(seconds: Int): String =
 /**
  * « Fréquence d'envoi · Toutes les minutes » under « Partager ma position » (F1 A, `tour6/img/02-q1-A`): an arrow to
  * who may change it, which opens « Réglages d'envoi »; to the others a lock and « Réglée par le chef de l'opération »,
- * and nothing opens.
+ * and nothing opens. In an operation whose rules give it to nobody, a lock to everyone, its creator included, and
+ * « Fixée à la création de l'opération » (F6 A).
  */
 @Composable
 fun FrequencyLine(
@@ -89,7 +102,8 @@ fun FrequencyLine(
             Text(stringResource(R.string.share_interval), style = MaterialTheme.typography.bodyLarge)
             Text(rhythmText(facts.positionIntervalS), style = MaterialTheme.typography.bodySmall, color = grey)
             if (!may) {
-                Text(stringResource(R.string.op_freq_locked), style = MaterialTheme.typography.bodySmall, color = grey)
+                val why = if (facts.rhythmFixed) R.string.op_freq_fixed else R.string.op_freq_locked
+                Text(stringResource(why), style = MaterialTheme.typography.bodySmall, color = grey)
             }
         }
         if (may) {

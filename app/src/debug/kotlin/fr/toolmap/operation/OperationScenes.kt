@@ -338,10 +338,12 @@ object OperationScenes {
             Scene("tour5-03-doublon-B-groupe", changes = true) {
                 at(5) { s -> page(OpPage.Admin, OpPage.GroupPage(s.groupOf("Nord") ?: 0L)) }
             },
-            // « Appliquer » with 45 s on the phone of the creator (now Membre 5): what Membre 7 reads.
-            Scene("tour6-02-q1-A-45-s-membre", changes = true) {
+            // « Appliquer » with 45 s on the phone of the creator (now Membre 5): what Membre 7 reads, its line and the
+            // message at its bottom (F4 B, `tour6/img/06-f4-changement` B).
+            Scene("tour6-06-f4-B-45-s-membre", changes = true) {
+                forgetNotices(7)
                 demoSeat(5)?.change(Change.SetPositionInterval(45))
-                waitFor { demoSeat(7)?.view?.value?.hierarchy?.positionIntervalS == 45 } && at(7)
+                waitFor { noticesOf(7).any { it is Notice.RhythmChanged } } && at(7)
             },
             Scene("tour2-08-dissolution-autres", changes = true) {
                 forgetNotices(7)
