@@ -125,6 +125,7 @@ import fr.toolmap.ui.Formats
 import fr.toolmap.ui.LocalAppSettings
 import fr.toolmap.ui.LocalFormats
 import fr.toolmap.ui.theme.ToolMapTheme
+import fr.toolmap.update.ShareAppScreen
 import fr.toolmap.update.UpdateController
 import fr.toolmap.wizard.SourceWizardScreen
 import fr.toolmap.wizard.SourceWizardViewModel
@@ -154,6 +155,9 @@ private enum class Screen {
     ABOUT,
     MULTI_ZOOM,
     SHARE_FAVORITES,
+
+    /** « Partager l'app » (P40.1). */
+    SHARE_APP,
 
     /** « Nouvelle opération » (P39.8): debug build type only ([BuildConfig.OPERATION_MODE]). */
     OPERATION_NEW,
@@ -457,6 +461,7 @@ class MainActivity : ComponentActivity() {
                                         settingsViewModel.openList()
                                         open(Screen.SETTINGS)
                                     },
+                                    onOpenShareApp = { open(Screen.SHARE_APP) },
                                     onOpenAbout = { section ->
                                         helpSection = section
                                         open(Screen.ABOUT)
@@ -578,6 +583,10 @@ class MainActivity : ComponentActivity() {
 
                                         Screen.ABOUT -> {
                                             AboutScreen(onBack = ::back, section = helpSection)
+                                        }
+
+                                        Screen.SHARE_APP -> {
+                                            ShareAppScreen(onBack = ::back)
                                         }
 
                                         Screen.DIAGNOSTICS -> {

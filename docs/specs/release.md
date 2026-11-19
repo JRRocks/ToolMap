@@ -60,6 +60,18 @@ Décision de l'utilisateur : « toute release se fait en APK native, les debug s
 - `scripts/drive-mirror.ps1` archive les APK des releases (`ToolMap.<version>.apk`) ; l'artefact de debug n'est plus jamais archivé.
 - Ce que l'APK de release n'a pas, par rapport à l'APK de debug : les outils d'essai (`DEV_TOOLS` : diagnostic des tuiles dans « Plus », journal d'événements agrandi et copié dans logcat, version d'essai de la mise à jour), les lignes `ToolMapPerf`, la mesure du moteur par `dumpsys`.
 
+### Depuis le 2026-11-19 : le lien fixe de « Partager l'app » (ADR-137)
+
+Demande de l'utilisateur du 2026-11-19 (P40.1, `docs/previews/partager-app/questions.md`, réponse 2 a). La page « Partager l'app » montre, en QR code et en texte, un lien qui ne change jamais :
+
+`https://github.com/JRRocks/ToolMap/releases/latest/download/ToolMap.apk`
+
+- GitHub l'envoie au fichier `ToolMap.apk` de la release marquée « Latest ». L'étape « Publish the Android release » de `ci.yml` joint donc à chaque release `android-<version>` **une copie de son APK de release nommée `ToolMap.apk`** (mêmes octets que `ToolMap-release-<version>.apk`).
+- La mise à jour de l'application (`GitHubReleases.latestApk`, §7) et `scripts/drive-mirror.ps1` ne lisent que les noms avec version (`ToolMap-<type>-<version>.apk`) : la copie ne compte pas pour eux.
+- Première copie jointe à la main le 2026-11-19 par la session principale : `android-0.4.235` (82 378 366 octets, mêmes octets que `ToolMap-release-0.4.235.apk`) ; le lien fixe répond en HTTP 200.
+- Sur une branche de conception privée (`.conception-privee`, ADR-124), rien n'est publié : l'étape n'agit qu'une fois le travail fusionné dans `main`.
+- **Limite** : une release publiée depuis une autre branche publique avant cette fusion, avec le code d'avant, n'aurait pas la copie ; tant qu'elle est « Latest », le lien fixe ne mène à rien (erreur 404), jusqu'à la release suivante publiée avec ce code (ou une copie jointe à la main).
+
 ### Release de debug (retirée le 2026-11-10, ADR-121)
 
 Les fichiers d'une release GitHub ne comptent pas dans le quota d'artefacts. Donc, à chaque push **sur `main`**, l'étape « Publish the debug APK » crée une **pré-release** `debug-<sha7>` (commit exact, titre « ToolMap debug <version> (<sha7>) ») qui porte l'APK sous son nom `ToolMap-debug-<version>.apk`. Seule la plus récente est gardée : les anciennes pré-releases `debug-*` et leurs étiquettes sont supprimées. Le lien de téléchargement direct est :

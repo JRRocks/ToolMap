@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Partager l'app — aperçu</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --shell: #133442; --panel: #13222A; --surface: #0C1A20; --high: #1A2F38; --tile: #1E2F38;
+    --on: #DDE7EA; --onv: #A9BAC1; --div: #2C4049; --primary: #7FD6D1; --on-shell-v: #B4C7CF;
+  }
+  body { margin: 0; background: #F2F5F6; font-family: Roboto, "Segoe UI", Arial, sans-serif; }
+  section { width: 412px; margin: 0 auto 28px; }
+  .cap { height: 64px; box-sizing: border-box; padding: 9px 4px 0; color: #122027; font-size: 15px; font-weight: 500; line-height: 1.3; }
+  .cap small { display: block; font-size: 12.5px; font-weight: 400; color: #506169; }
+  .screen { width: 412px; height: 892px; position: relative; overflow: hidden; background: var(--surface); color: var(--on); }
+  .map { position: absolute; inset: 0; background: url(carte.svg) center / cover no-repeat; }
+  svg.ic { width: 24px; height: 24px; fill: var(--on); flex: none; }
+
+  .chip { position: absolute; left: 13px; height: 37px; padding: 0 14px 0 10px; border-radius: 16px; background: rgba(19, 34, 42, .93);
+          display: flex; align-items: center; gap: 10px; font-size: 17px; color: var(--on); }
+  .chip svg.ic { width: 22px; height: 22px; fill: var(--primary); }
+  .scalebar { display: inline-block; width: 46px; height: 6px; border: 2px solid var(--on); border-top: 0; }
+
+  .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 94px; background: var(--shell); display: flex; }
+  .it { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 15px; color: #fff; }
+  .it svg.ic { width: 26px; height: 26px; fill: #fff; }
+  .it > svg.ic { margin: 4px 0; }
+  .pill { width: 60px; height: 34px; border-radius: 17px; background: var(--primary); display: flex; align-items: center; justify-content: center; }
+  .pill svg.ic { fill: #0C1A20; }
+
+  .panel { position: absolute; left: 13px; right: 13px; bottom: 104px; background: var(--panel); border-radius: 20px; overflow: hidden;
+           box-shadow: 0 4px 18px rgba(0, 0, 0, .35); }
+  .pband { height: 59px; background: var(--shell); display: flex; align-items: center; gap: 14px; padding: 0 6px 0 17px; }
+  .pband svg.ic { width: 28px; height: 28px; fill: #fff; }
+  .pt { font-size: 21px; color: #fff; line-height: 1.15; }
+  .ps { font-size: 15px; color: var(--on-shell-v); }
+  .help { margin-left: auto; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
+  .help svg.ic { fill: #fff; width: 27px; height: 27px; }
+  .row { display: flex; align-items: center; min-height: 64px; padding: 0 16px 0 20px; gap: 26px; box-sizing: border-box; }
+  .row.sub { min-height: 70px; }
+  .row.short { min-height: 56px; }
+  .row .txt { flex: 1; }
+  .row .t { font-size: 18px; color: var(--on); }
+  .row .s { font-size: 14.5px; color: var(--onv); margin-top: 2px; }
+  .row svg.trail { fill: var(--onv); }
+  .row svg.dim { fill: var(--onv); }
+  .new { outline: 2px dashed #F0B784; outline-offset: -4px; border-radius: 10px; }
+  hr { border: 0; border-top: 1px solid var(--div); margin: 4px 0; }
+  .sw { width: 52px; height: 32px; border-radius: 16px; box-sizing: border-box; position: relative; flex: none; }
+  .sw.on { background: #5CC9C2; }
+  .sw.on::after { content: ""; position: absolute; right: 4px; top: 4px; width: 24px; height: 24px; border-radius: 50%; background: #003734; }
+  .sw.off { border: 2px solid #8FA3AB; background: #213842; }
+  .sw.off::after { content: ""; position: absolute; left: 6px; top: 6px; width: 16px; height: 16px; border-radius: 50%; background: #8FA3AB; }
+  .tiles { border-top: 1px solid var(--div); display: flex; gap: 9px; padding: 10px 13px 12px; }
+  .tile { flex: 1; height: 83px; background: var(--tile); border-radius: 14px; display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 8px; font-size: 15px; color: var(--on); }
+  .tile svg.ic { width: 26px; height: 26px; }
+
+  .hint { margin: 0 0 16px; font-size: 16px; line-height: 1.35; color: var(--onv); text-align: center; }
+  .qrbox { background: #fff; border-radius: 20px; overflow: hidden; flex: none; }
+  .qrbox svg { width: 100%; height: 100%; display: block; }
+  .link { width: 100%; box-sizing: border-box; background: var(--high); border-radius: 16px; display: flex; align-items: center; gap: 10px;
+          padding: 10px 8px 10px 16px; }
+  .link span { flex: 1; font-size: 15px; line-height: 1.38; color: var(--primary); overflow-wrap: anywhere; }
+  .link .sh { flex: none; width: 44px; height: 44px; border-radius: 50%; background: #1E4D5E; display: flex; align-items: center; justify-content: center; }
+  .link .sh svg.ic { width: 22px; height: 22px; fill: #CDEBF3; }
+
+  .topbar { height: 64px; background: var(--shell); display: flex; align-items: center; gap: 28px; padding: 0 16px; color: #fff; font-size: 22px; }
+  .topbar svg.ic { fill: #fff; }
+  .pagebody { padding: 30px 24px; display: flex; flex-direction: column; align-items: center; }
+  .pagebody .hint { margin-bottom: 22px; }
+  .qrbox.big { width: 320px; height: 320px; }
+  .pagebody .link { margin-top: 26px; }
+
+  .pbody { padding: 16px; display: flex; flex-direction: column; align-items: center; }
+  .qrbox.mid { width: 256px; height: 256px; }
+  .pbody .link { margin-top: 16px; }
+
+  .scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, .58); }
+  .dialog { position: absolute; left: 41px; right: 41px; top: 50%; transform: translateY(-50%); background: var(--high); border-radius: 28px;
+            padding: 24px 24px 14px; display: flex; flex-direction: column; align-items: center; }
+  .dt { align-self: stretch; font-size: 24px; color: var(--on); margin-bottom: 12px; }
+  .qrbox.dlg { width: 250px; height: 250px; }
+  .dialog .link { background: #213842; margin-top: 16px; }
+  .dbtn { align-self: flex-end; margin-top: 10px; padding: 10px 12px; color: var(--primary); font-size: 15px; font-weight: 500; }
+</style>
+</head>
+<body>
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-mountain" viewBox="0 0 24 24"><path d="M2,20L9,8L13,14L16,10L22,20Z"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></symbol>
+  <symbol id="i-exit" viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12.34 2.02C6.59 1.82 2 6.42 2 12c0 5.52 4.48 10 10 10 3.71 0 6.93-2.02 8.66-5.02-7.51-.25-12.09-8.43-8.32-14.96z"/></symbol>
+  <symbol id="i-full" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></symbol>
+  <symbol id="i-ruler" viewBox="0 0 24 24"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 10H3V8h2v4h2V8h2v4h2V8h2v4h2V8h2v4h2V8h2v8z"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
+</svg>
+
+<!-- The QR code of the link of answer 2 a (zxing 3.5.4, the app's encoder, level H, 49 modules), the app's icon in the middle. -->
+<template id="qr">
+  <svg viewBox="-4 -4 57 57" xmlns="http://www.w3.org/2000/svg">
+    <rect x="-4" y="-4" width="57" height="57" fill="#fff"/>
+    <path shape-rendering="crispEdges" fill="#000" d="M0 0h7v1h-7zM9 0h1v1h-1zM13 0h2v1h-2zM16 0h1v1h-1zM18 0h4v1h-4zM23 0h4v1h-4zM30 0h2v1h-2zM34 0h1v1h-1zM37 0h1v1h-1zM40 0h1v1h-1zM42 0h7v1h-7zM0 1h1v1h-1zM6 1h1v1h-1zM8 1h1v1h-1zM10 1h1v1h-1zM15 1h4v1h-4zM20 1h1v1h-1zM23 1h5v1h-5zM29 1h2v1h-2zM34 1h1v1h-1zM38 1h3v1h-3zM42 1h1v1h-1zM48 1h1v1h-1zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM8 2h2v1h-2zM12 2h4v1h-4zM19 2h1v1h-1zM21 2h6v1h-6zM28 2h1v1h-1zM37 2h1v1h-1zM39 2h2v1h-2zM42 2h1v1h-1zM44 2h3v1h-3zM48 2h1v1h-1zM0 3h1v1h-1zM2 3h3v1h-3zM6 3h1v1h-1zM8 3h4v1h-4zM13 3h1v1h-1zM15 3h1v1h-1zM17 3h3v1h-3zM24 3h1v1h-1zM26 3h2v1h-2zM32 3h1v1h-1zM35 3h1v1h-1zM39 3h1v1h-1zM42 3h1v1h-1zM44 3h3v1h-3zM48 3h1v1h-1zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM8 4h1v1h-1zM11 4h3v1h-3zM17 4h1v1h-1zM19 4h2v1h-2zM22 4h5v1h-5zM29 4h2v1h-2zM32 4h1v1h-1zM34 4h1v1h-1zM36 4h1v1h-1zM42 4h1v1h-1zM44 4h3v1h-3zM48 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM8 5h2v1h-2zM11 5h3v1h-3zM15 5h1v1h-1zM19 5h1v1h-1zM22 5h1v1h-1zM26 5h1v1h-1zM28 5h5v1h-5zM34 5h1v1h-1zM36 5h1v1h-1zM38 5h1v1h-1zM42 5h1v1h-1zM48 5h1v1h-1zM0 6h7v1h-7zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h1v1h-1zM24 6h1v1h-1zM26 6h1v1h-1zM28 6h1v1h-1zM30 6h1v1h-1zM32 6h1v1h-1zM34 6h1v1h-1zM36 6h1v1h-1zM38 6h1v1h-1zM40 6h1v1h-1zM42 6h7v1h-7zM9 7h1v1h-1zM11 7h1v1h-1zM15 7h1v1h-1zM17 7h1v1h-1zM19 7h4v1h-4zM26 7h1v1h-1zM28 7h3v1h-3zM33 7h1v1h-1zM37 7h1v1h-1zM2 8h1v1h-1zM5 8h8v1h-8zM14 8h3v1h-3zM18 8h1v1h-1zM21 8h6v1h-6zM30 8h1v1h-1zM32 8h3v1h-3zM38 8h1v1h-1zM40 8h2v1h-2zM43 8h5v1h-5zM1 9h2v1h-2zM4 9h2v1h-2zM7 9h1v1h-1zM11 9h1v1h-1zM14 9h3v1h-3zM18 9h1v1h-1zM23 9h1v1h-1zM25 9h1v1h-1zM27 9h2v1h-2zM30 9h4v1h-4zM36 9h2v1h-2zM39 9h1v1h-1zM41 9h1v1h-1zM45 9h4v1h-4zM0 10h1v1h-1zM3 10h1v1h-1zM5 10h2v1h-2zM11 10h2v1h-2zM14 10h1v1h-1zM18 10h1v1h-1zM22 10h1v1h-1zM26 10h1v1h-1zM28 10h1v1h-1zM31 10h3v1h-3zM39 10h1v1h-1zM41 10h1v1h-1zM45 10h2v1h-2zM48 10h1v1h-1zM0 11h1v1h-1zM4 11h1v1h-1zM7 11h2v1h-2zM11 11h1v1h-1zM13 11h1v1h-1zM15 11h1v1h-1zM19 11h4v1h-4zM25 11h1v1h-1zM27 11h1v1h-1zM30 11h3v1h-3zM36 11h3v1h-3zM40 11h2v1h-2zM45 11h1v1h-1zM47 11h1v1h-1zM0 12h1v1h-1zM4 12h1v1h-1zM6 12h1v1h-1zM8 12h2v1h-2zM13 12h2v1h-2zM16 12h1v1h-1zM22 12h1v1h-1zM26 12h2v1h-2zM29 12h1v1h-1zM31 12h2v1h-2zM34 12h1v1h-1zM36 12h1v1h-1zM39 12h1v1h-1zM41 12h2v1h-2zM44 12h2v1h-2zM48 12h1v1h-1zM0 13h1v1h-1zM4 13h1v1h-1zM7 13h2v1h-2zM10 13h3v1h-3zM16 13h1v1h-1zM20 13h2v1h-2zM23 13h1v1h-1zM26 13h2v1h-2zM32 13h2v1h-2zM35 13h1v1h-1zM37 13h1v1h-1zM46 13h1v1h-1zM48 13h1v1h-1zM0 14h1v1h-1zM2 14h2v1h-2zM6 14h1v1h-1zM8 14h2v1h-2zM14 14h1v1h-1zM18 14h1v1h-1zM23 14h2v1h-2zM26 14h2v1h-2zM29 14h2v1h-2zM32 14h1v1h-1zM37 14h1v1h-1zM39 14h1v1h-1zM41 14h1v1h-1zM48 14h1v1h-1zM0 15h1v1h-1zM2 15h1v1h-1zM4 15h2v1h-2zM7 15h4v1h-4zM12 15h3v1h-3zM16 15h2v1h-2zM20 15h2v1h-2zM26 15h1v1h-1zM29 15h4v1h-4zM36 15h1v1h-1zM40 15h3v1h-3zM44 15h1v1h-1zM2 16h2v1h-2zM6 16h1v1h-1zM10 16h1v1h-1zM13 16h1v1h-1zM15 16h2v1h-2zM19 16h2v1h-2zM22 16h1v1h-1zM25 16h2v1h-2zM28 16h4v1h-4zM34 16h1v1h-1zM36 16h1v1h-1zM38 16h4v1h-4zM44 16h3v1h-3zM48 16h1v1h-1zM1 17h2v1h-2zM4 17h2v1h-2zM7 17h2v1h-2zM11 17h1v1h-1zM20 17h4v1h-4zM25 17h2v1h-2zM31 17h1v1h-1zM35 17h2v1h-2zM39 17h6v1h-6zM46 17h1v1h-1zM48 17h1v1h-1zM1 18h1v1h-1zM4 18h1v1h-1zM6 18h1v1h-1zM9 18h1v1h-1zM11 18h1v1h-1zM13 18h1v1h-1zM15 18h2v1h-2zM21 18h2v1h-2zM26 18h1v1h-1zM31 18h2v1h-2zM34 18h1v1h-1zM38 18h2v1h-2zM41 18h2v1h-2zM45 18h4v1h-4zM1 19h4v1h-4zM9 19h1v1h-1zM12 19h3v1h-3zM16 19h1v1h-1zM20 19h1v1h-1zM22 19h5v1h-5zM30 19h4v1h-4zM36 19h5v1h-5zM43 19h3v1h-3zM48 19h1v1h-1zM0 20h3v1h-3zM4 20h3v1h-3zM9 20h1v1h-1zM11 20h1v1h-1zM15 20h1v1h-1zM17 20h3v1h-3zM21 20h3v1h-3zM25 20h1v1h-1zM27 20h1v1h-1zM29 20h2v1h-2zM33 20h2v1h-2zM36 20h1v1h-1zM39 20h1v1h-1zM41 20h2v1h-2zM44 20h1v1h-1zM47 20h2v1h-2zM2 21h1v1h-1zM8 21h1v1h-1zM10 21h1v1h-1zM12 21h2v1h-2zM16 21h1v1h-1zM18 21h4v1h-4zM23 21h2v1h-2zM26 21h2v1h-2zM29 21h5v1h-5zM35 21h1v1h-1zM39 21h1v1h-1zM41 21h1v1h-1zM45 21h2v1h-2zM48 21h1v1h-1zM1 22h2v1h-2zM4 22h6v1h-6zM12 22h1v1h-1zM14 22h1v1h-1zM16 22h1v1h-1zM20 22h1v1h-1zM22 22h5v1h-5zM28 22h2v1h-2zM33 22h1v1h-1zM36 22h2v1h-2zM39 22h7v1h-7zM48 22h1v1h-1zM1 23h1v1h-1zM3 23h2v1h-2zM8 23h3v1h-3zM12 23h2v1h-2zM16 23h2v1h-2zM19 23h1v1h-1zM21 23h2v1h-2zM26 23h1v1h-1zM29 23h2v1h-2zM34 23h1v1h-1zM36 23h1v1h-1zM40 23h1v1h-1zM44 23h2v1h-2zM47 23h2v1h-2zM0 24h3v1h-3zM4 24h1v1h-1zM6 24h1v1h-1zM8 24h1v1h-1zM14 24h1v1h-1zM16 24h1v1h-1zM20 24h1v1h-1zM22 24h1v1h-1zM24 24h1v1h-1zM26 24h1v1h-1zM28 24h2v1h-2zM36 24h2v1h-2zM40 24h1v1h-1zM42 24h1v1h-1zM44 24h2v1h-2zM48 24h1v1h-1zM1 25h2v1h-2zM4 25h1v1h-1zM8 25h2v1h-2zM12 25h1v1h-1zM14 25h3v1h-3zM22 25h1v1h-1zM26 25h1v1h-1zM28 25h1v1h-1zM32 25h2v1h-2zM35 25h3v1h-3zM40 25h1v1h-1zM44 25h3v1h-3zM48 25h1v1h-1zM0 26h2v1h-2zM4 26h6v1h-6zM11 26h1v1h-1zM14 26h1v1h-1zM16 26h3v1h-3zM21 26h7v1h-7zM29 26h1v1h-1zM38 26h7v1h-7zM48 26h1v1h-1zM0 27h2v1h-2zM4 27h1v1h-1zM9 27h1v1h-1zM11 27h3v1h-3zM16 27h4v1h-4zM22 27h1v1h-1zM25 27h1v1h-1zM28 27h1v1h-1zM31 27h3v1h-3zM36 27h8v1h-8zM45 27h1v1h-1zM0 28h1v1h-1zM4 28h1v1h-1zM6 28h1v1h-1zM8 28h1v1h-1zM10 28h2v1h-2zM13 28h4v1h-4zM22 28h2v1h-2zM26 28h3v1h-3zM32 28h1v1h-1zM34 28h1v1h-1zM36 28h1v1h-1zM39 28h2v1h-2zM44 28h2v1h-2zM47 28h2v1h-2zM0 29h1v1h-1zM2 29h1v1h-1zM5 29h1v1h-1zM8 29h1v1h-1zM11 29h1v1h-1zM14 29h2v1h-2zM17 29h1v1h-1zM20 29h8v1h-8zM30 29h2v1h-2zM33 29h1v1h-1zM35 29h3v1h-3zM40 29h2v1h-2zM48 29h1v1h-1zM1 30h1v1h-1zM6 30h4v1h-4zM12 30h2v1h-2zM18 30h16v1h-16zM36 30h1v1h-1zM39 30h1v1h-1zM41 30h2v1h-2zM44 30h1v1h-1zM48 30h1v1h-1zM0 31h1v1h-1zM2 31h2v1h-2zM5 31h1v1h-1zM7 31h1v1h-1zM9 31h6v1h-6zM16 31h1v1h-1zM18 31h1v1h-1zM23 31h2v1h-2zM26 31h3v1h-3zM30 31h2v1h-2zM33 31h3v1h-3zM39 31h2v1h-2zM42 31h1v1h-1zM48 31h1v1h-1zM0 32h1v1h-1zM3 32h2v1h-2zM6 32h1v1h-1zM8 32h3v1h-3zM13 32h4v1h-4zM18 32h3v1h-3zM22 32h1v1h-1zM24 32h3v1h-3zM31 32h2v1h-2zM35 32h2v1h-2zM39 32h1v1h-1zM43 32h1v1h-1zM45 32h1v1h-1zM0 33h3v1h-3zM7 33h1v1h-1zM9 33h1v1h-1zM11 33h1v1h-1zM13 33h1v1h-1zM15 33h2v1h-2zM18 33h2v1h-2zM21 33h1v1h-1zM25 33h1v1h-1zM30 33h2v1h-2zM33 33h1v1h-1zM35 33h1v1h-1zM37 33h1v1h-1zM41 33h1v1h-1zM43 33h1v1h-1zM45 33h2v1h-2zM48 33h1v1h-1zM2 34h3v1h-3zM6 34h1v1h-1zM8 34h1v1h-1zM12 34h3v1h-3zM17 34h2v1h-2zM20 34h1v1h-1zM23 34h1v1h-1zM28 34h5v1h-5zM35 34h2v1h-2zM39 34h2v1h-2zM42 34h1v1h-1zM44 34h1v1h-1zM48 34h1v1h-1zM0 35h2v1h-2zM3 35h1v1h-1zM7 35h3v1h-3zM11 35h1v1h-1zM13 35h3v1h-3zM18 35h1v1h-1zM21 35h2v1h-2zM25 35h2v1h-2zM32 35h1v1h-1zM37 35h2v1h-2zM40 35h1v1h-1zM42 35h1v1h-1zM45 35h1v1h-1zM47 35h2v1h-2zM0 36h2v1h-2zM4 36h1v1h-1zM6 36h1v1h-1zM8 36h1v1h-1zM12 36h1v1h-1zM14 36h1v1h-1zM16 36h2v1h-2zM20 36h2v1h-2zM23 36h7v1h-7zM32 36h3v1h-3zM36 36h1v1h-1zM39 36h1v1h-1zM41 36h3v1h-3zM45 36h1v1h-1zM47 36h2v1h-2zM0 37h2v1h-2zM7 37h2v1h-2zM10 37h1v1h-1zM12 37h1v1h-1zM15 37h2v1h-2zM18 37h1v1h-1zM20 37h1v1h-1zM22 37h2v1h-2zM30 37h1v1h-1zM32 37h1v1h-1zM37 37h1v1h-1zM39 37h3v1h-3zM43 37h1v1h-1zM45 37h3v1h-3zM1 38h1v1h-1zM5 38h3v1h-3zM9 38h2v1h-2zM12 38h1v1h-1zM14 38h2v1h-2zM19 38h2v1h-2zM22 38h1v1h-1zM24 38h3v1h-3zM28 38h2v1h-2zM33 38h1v1h-1zM37 38h1v1h-1zM42 38h1v1h-1zM45 38h1v1h-1zM48 38h1v1h-1zM1 39h3v1h-3zM7 39h1v1h-1zM11 39h1v1h-1zM13 39h3v1h-3zM17 39h4v1h-4zM29 39h1v1h-1zM32 39h3v1h-3zM36 39h4v1h-4zM41 39h8v1h-8zM0 40h3v1h-3zM6 40h4v1h-4zM14 40h2v1h-2zM17 40h1v1h-1zM20 40h8v1h-8zM32 40h2v1h-2zM35 40h3v1h-3zM39 40h8v1h-8zM8 41h2v1h-2zM12 41h1v1h-1zM14 41h1v1h-1zM16 41h1v1h-1zM19 41h2v1h-2zM22 41h1v1h-1zM26 41h1v1h-1zM29 41h1v1h-1zM31 41h4v1h-4zM37 41h4v1h-4zM44 41h2v1h-2zM48 41h1v1h-1zM0 42h7v1h-7zM8 42h1v1h-1zM10 42h3v1h-3zM16 42h1v1h-1zM20 42h3v1h-3zM24 42h1v1h-1zM26 42h2v1h-2zM29 42h1v1h-1zM32 42h3v1h-3zM36 42h3v1h-3zM40 42h1v1h-1zM42 42h1v1h-1zM44 42h3v1h-3zM48 42h1v1h-1zM0 43h1v1h-1zM6 43h1v1h-1zM8 43h2v1h-2zM11 43h2v1h-2zM15 43h3v1h-3zM19 43h1v1h-1zM22 43h1v1h-1zM26 43h1v1h-1zM29 43h1v1h-1zM31 43h2v1h-2zM34 43h1v1h-1zM36 43h3v1h-3zM40 43h1v1h-1zM44 43h2v1h-2zM47 43h1v1h-1zM0 44h1v1h-1zM2 44h3v1h-3zM6 44h1v1h-1zM9 44h1v1h-1zM12 44h1v1h-1zM14 44h1v1h-1zM16 44h1v1h-1zM18 44h2v1h-2zM22 44h5v1h-5zM30 44h1v1h-1zM32 44h3v1h-3zM36 44h1v1h-1zM39 44h6v1h-6zM48 44h1v1h-1zM0 45h1v1h-1zM2 45h3v1h-3zM6 45h1v1h-1zM9 45h1v1h-1zM13 45h2v1h-2zM17 45h1v1h-1zM19 45h1v1h-1zM22 45h5v1h-5zM28 45h1v1h-1zM30 45h2v1h-2zM33 45h1v1h-1zM36 45h2v1h-2zM39 45h1v1h-1zM41 45h2v1h-2zM44 45h1v1h-1zM0 46h1v1h-1zM2 46h3v1h-3zM6 46h1v1h-1zM8 46h1v1h-1zM10 46h2v1h-2zM13 46h1v1h-1zM16 46h1v1h-1zM18 46h3v1h-3zM24 46h1v1h-1zM27 46h1v1h-1zM30 46h3v1h-3zM35 46h3v1h-3zM39 46h2v1h-2zM44 46h1v1h-1zM48 46h1v1h-1zM0 47h1v1h-1zM6 47h1v1h-1zM9 47h1v1h-1zM11 47h7v1h-7zM19 47h1v1h-1zM22 47h1v1h-1zM26 47h1v1h-1zM29 47h2v1h-2zM32 47h1v1h-1zM36 47h1v1h-1zM39 47h1v1h-1zM41 47h1v1h-1zM43 47h3v1h-3zM0 48h7v1h-7zM9 48h1v1h-1zM12 48h1v1h-1zM15 48h1v1h-1zM17 48h2v1h-2zM23 48h1v1h-1zM25 48h8v1h-8zM36 48h2v1h-2zM39 48h2v1h-2zM42 48h1v1h-1zM45 48h1v1h-1zM48 48h1v1h-1z"/>
+    <rect x="18" y="18" width="13" height="13" rx="2.6" fill="#fff"/>
+    <g transform="translate(15.5 15.5) scale(.1666667)">
+      <rect x="21" y="21" width="66" height="66" rx="16" fill="#F2F5F6" stroke="#C9D6DC" stroke-width="1.6"/>
+      <path d="M30,66 L54,78 L78,66" fill="none" stroke="#9DB0B7" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M30,55 L54,67 L78,55" fill="none" stroke="#163A4A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M54,32 L78,44 L54,56 L30,44 Z" fill="#14918C" stroke="#14918C" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M40.5,46 L48,40 L52.5,43 L58,37.5 L67.5,44.5" fill="none" stroke="#F2F5F6" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </svg>
+</template>
+
+<template id="chips">
+  <div class="chip" style="top:48px"><svg class="ic"><use href="#i-pin"/></svg>45.12345, 6.12345</div>
+  <div class="chip" style="top:93px"><svg class="ic"><use href="#i-map"/></svg>1:50,000 <span class="scalebar"></span> 500 m</div>
+</template>
+
+<template id="bar">
+  <nav class="bar">
+    <div class="it"><span class="pill"><svg class="ic"><use href="#i-mountain"/></svg></span>Menu</div>
+    <div class="it"><svg class="ic"><use href="#i-map"/></svg>Cartes</div>
+    <div class="it"><svg class="ic"><use href="#i-flag"/></svg>Traces</div>
+    <div class="it"><svg class="ic"><use href="#i-target"/></svg>Position</div>
+  </nav>
+</template>
+
+<template id="link">
+  <div class="link"><span>https://github.com/<wbr>JRRocks/<wbr>ToolMap/<wbr>releases/<wbr>latest/<wbr>download/<wbr>ToolMap.apk</span><div class="sh"><svg class="ic"><use href="#i-share"/></svg></div></div>
+</template>
+
+<!-- The main menu; data-row says what stands between « Plus » and the divider. -->
+<template id="menu">
+  <div class="panel">
+    <div class="pband"><svg class="ic"><use href="#i-mountain"/></svg><div><div class="pt">ToolMap</div><div class="ps">Version 0.4.253</div></div><span class="help"><svg class="ic"><use href="#i-help"/></svg></span></div>
+    <div class="row sub"><svg class="ic"><use href="#i-more"/></svg><div class="txt"><div class="t">Plus</div><div class="s">Nouveautés, signaler une erreur</div></div><svg class="ic trail"><use href="#i-down"/></svg></div>
+    <div class="slot"></div>
+    <hr>
+    <div class="row"><svg class="ic"><use href="#i-gear"/></svg><div class="txt"><div class="t">Réglages…</div></div><svg class="ic trail"><use href="#i-right"/></svg></div>
+    <div class="row"><svg class="ic"><use href="#i-dash"/></svg><div class="txt"><div class="t">Informations à l'écran</div><div class="s">Position, échelle, GPS</div></div><span class="sw on"></span></div>
+    <div class="row"><svg class="ic"><use href="#i-moon"/></svg><div class="txt"><div class="t">Mode nuit</div><div class="s">Assombrit la carte à 60 %</div></div><span class="sw off"></span></div>
+    <div class="tiles">
+      <div class="tile"><svg class="ic"><use href="#i-full"/></svg>Masquer</div>
+      <div class="tile"><svg class="ic"><use href="#i-lock"/></svg>Verrouiller</div>
+      <div class="tile"><svg class="ic"><use href="#i-print"/></svg>Imprimer</div>
+      <div class="tile"><svg class="ic"><use href="#i-ruler"/></svg>Mesurer</div>
+    </div>
+  </div>
+</template>
+
+<template id="row-exit">
+  <div class="row short"><svg class="ic dim"><use href="#i-exit"/></svg><div class="txt"><div class="t">Quitter</div></div></div>
+</template>
+<template id="row-share">
+  <div class="row short new"><svg class="ic"><use href="#i-share"/></svg><div class="txt"><div class="t">Partager l'app</div></div><svg class="ic trail"><use href="#i-right"/></svg></div>
+</template>
+<template id="row-share-dialog">
+  <div class="row short"><svg class="ic"><use href="#i-share"/></svg><div class="txt"><div class="t">Partager l'app</div></div></div>
+</template>
+
+<section id="actuel">
+  <div class="cap">Actuel · ta version 0.4.253<small>« Quitter » ferme ToolMap (le bouton Retour de la carte aussi).</small></div>
+  <div class="screen"><div class="map"></div><div data-use="chips"></div><div data-use="menu" data-row="row-exit"></div><div data-use="bar"></div></div>
+</section>
+
+<section id="menu">
+  <div class="cap">Proposé · le menu<small>« Partager l'app » prend la place de « Quitter » (cadre orange : ce qui change).</small></div>
+  <div class="screen"><div class="map"></div><div data-use="chips"></div><div data-use="menu" data-row="row-share"></div><div data-use="bar"></div></div>
+</section>
+
+<section id="a">
+  <div class="cap">1 A (conseillé) · une page entière, comme « Réglages… »<small>Le QR le plus grand ; ← revient au menu. Lien de la réponse 2 a.</small></div>
+  <div class="screen">
+    <div class="topbar"><svg class="ic"><use href="#i-back"/></svg><span>Partager l'app</span></div>
+    <div class="pagebody">
+      <p class="hint">À scanner avec l'appareil photo<br>de l'autre téléphone</p>
+      <div class="qrbox big" data-use="qr"></div>
+      <div data-use="link" style="width:100%"></div>
+    </div>
+  </div>
+</section>
+
+<section id="b">
+  <div class="cap">1 B · un panneau sur la carte, à la place du menu<small>← revient au menu. Lien de la réponse 2 a.</small></div>
+  <div class="screen"><div class="map"></div><div data-use="chips"></div>
+    <div class="panel">
+      <div class="pband"><svg class="ic"><use href="#i-back"/></svg><div class="pt">Partager l'app</div></div>
+      <div class="pbody">
+        <p class="hint">À scanner avec l'appareil photo<br>de l'autre téléphone</p>
+        <div class="qrbox mid" data-use="qr"></div>
+        <div data-use="link" style="width:100%"></div>
+      </div>
+    </div>
+    <div data-use="bar"></div>
+  </div>
+</section>
+
+<section id="c">
+  <div class="cap">1 C · une fenêtre au milieu de l'écran<small>« Fermer » revient au menu ; la ligne du menu n'a pas de flèche. Lien de la réponse 2 a.</small></div>
+  <div class="screen"><div class="map"></div><div data-use="chips"></div><div data-use="menu" data-row="row-share-dialog"></div><div data-use="bar"></div>
+    <div class="scrim"></div>
+    <div class="dialog">
+      <div class="dt">Partager l'app</div>
+      <p class="hint">À scanner avec l'appareil photo<br>de l'autre téléphone</p>
+      <div class="qrbox dlg" data-use="qr"></div>
+      <div data-use="link" style="width:100%"></div>
+      <div class="dbtn">Fermer</div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Fill the placeholders from the templates, then keep only the section named by the hash (one image per section).
+  document.querySelectorAll("[data-use]").forEach((slot) => {
+    const node = document.getElementById(slot.dataset.use).content.cloneNode(true);
+    const row = slot.dataset.row;
+    if (row) node.querySelector(".slot").replaceWith(document.getElementById(row).content.cloneNode(true));
+    if (slot.classList.contains("qrbox")) slot.appendChild(node);
+    else slot.replaceWith(node);
+  });
+  const only = location.hash.slice(1);
+  if (only) document.querySelectorAll("section").forEach((s) => { if (s.id !== only) s.remove(); else s.style.margin = "0"; });
+</script>
+</body>
+</html>

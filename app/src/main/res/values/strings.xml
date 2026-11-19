@@ -1929,7 +1929,11 @@
   <string name="settings_confirm_exit">Confirmer la sortie</string>
   <string name="settings_exit_title">Quitter ToolMap ?</string>
   <string name="settings_exit_confirm">Quitter</string>
-  <string name="menu_exit">Quitter</string>
+  <!-- « Partager l'app » (P40.1, ADR-137), docs/previews/partager-app/ validated on 2026-11-19. -->
+  <string name="menu_share_app">Partager l\'app</string>
+  <string name="share_app_hint">À scanner avec l\'appareil photo\nde l\'autre téléphone</string>
+  <string name="share_app_message">ToolMap pour Android : %1$s</string>
+  <string name="share_app_send">Envoyer le lien</string>
 
   <string name="settings_map_resolution">Résolution d\'affichage de la carte</string>
   <string name="settings_map_resolution_hint">Taille d\'affichage de la carte à l\'écran.</string>

@@ -33,15 +33,21 @@ class QrMatrix(
 
 /** QR codes through ZXing, without Google Play Services. */
 object QrCodes {
-    /** Encodes [text] with level M error correction; alphanumeric text uses the dense alphanumeric mode. */
-    fun encode(text: String): QrMatrix {
+    /**
+     * Encodes [text] with [level] error correction (M for the codes of the share; H, which survives a logo over the
+     * middle, for « Partager l'app »); alphanumeric text uses the dense alphanumeric mode.
+     */
+    fun encode(
+        text: String,
+        level: ErrorCorrectionLevel = ErrorCorrectionLevel.M,
+    ): QrMatrix {
         val m =
             QRCodeWriter().encode(
                 text,
                 BarcodeFormat.QR_CODE,
                 0,
                 0,
-                mapOf(EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M, EncodeHintType.MARGIN to 0),
+                mapOf(EncodeHintType.ERROR_CORRECTION to level, EncodeHintType.MARGIN to 0),
             )
         val dark = BooleanArray(m.width * m.height) { m[it % m.width, it / m.width] }
         return QrMatrix(m.width, dark)

@@ -26,7 +26,8 @@ import kotlin.test.assertTrue
 
 /**
  * The main menu does not repeat the settings: « Réglages… » leads to them (P11.11). Since P29.2 (« Portée ») the four
- * tiles are its fixed foot, « Plus » unfolds in place (no page of its own) and « Quitter » is at the top, far from the
+ * tiles are its fixed foot, « Plus » unfolds in place (no page of its own) and « Partager l'app » (« Quitter » until
+ * P40.1) is at the top, far from the
  * thumb. The block of the maps shown left the menu on 2026-10-28: the Maps item of the bar shows them.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -63,13 +64,13 @@ class MainMenuPanelTest {
     }
 
     @Test
-    fun `the tiles stay at the foot while the rows scroll, Quitter comes before Reglages`() {
+    fun `the tiles stay at the foot while the rows scroll, Partager l'app comes before Reglages`() {
         setContent(maxHeight = 360)
         // The rows scroll in a panel too short for them; the foot does not.
         rule.onNodeWithText("Mesurer").assertExists()
         val top = { text: String -> rule.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top }
-        assertTrue(top("Quitter") < top("Réglages…"))
-        assertTrue(top("Plus") < top("Quitter"))
+        assertTrue(top("Partager l'app") < top("Réglages…"))
+        assertTrue(top("Plus") < top("Partager l'app"))
         assertTrue(top("Masquer") > top("Réglages…"))
     }
 
@@ -110,10 +111,11 @@ class MainMenuPanelTest {
     }
 
     @Test
-    fun `Quitter is in the menu and runs the exit command`() {
+    fun `Partager l'app took the place of Quitter and opens its page`() {
         setContent()
-        rule.onNodeWithText("Quitter").performScrollTo().performClick()
-        assertEquals(listOf(MenuAction.EXIT), actions)
+        rule.onAllNodesWithText("Quitter").assertCountEquals(0)
+        rule.onNodeWithText("Partager l'app").performScrollTo().performClick()
+        assertEquals(listOf(MenuAction.SHARE_APP), actions)
     }
 
     @Test

@@ -1974,3 +1974,22 @@
   - Un téléphone disparu se voit hors ligne au bout de 5 à 6 minutes au lieu d'environ une ; un téléphone revenu, à son signal suivant (une minute au plus).
   - Le service qui enverra la position écran éteint (P39.14, L4 et M8) suivra le même rythme.
 - **Alternatives rejetées** : un rythme par membre (la réponse 2 a veut un réglage commun) ; un réglage hors du journal, par message (non signé, sans ordre commun) ; les bornes de 30 s à 10 min de la réponse 2 a (remplacées par F2 B modifié : celles de la fenêtre d'« Entre amis ») ; un plancher propre à l'opération (2 a : un avertissement sous 30 s, pas un refus).
+
+## ADR-137 — « Partager l'app » : un lien fixe vers la dernière release, et une copie `ToolMap.apk` jointe à chaque release
+
+- **Date / statut** : 2026-11-19 — Accepté (P40.1). Demande de l'utilisateur du 2026-11-19 et validation « Tout en a » (`docs/previews/partager-app/questions.md`, images `02-menu` et `03-A-page`). Complète ADR-121 (toute release porte l'APK de release) et ADR-099 (les deux dernières versions gardées) ; ADR-053 (Retour sur la carte ferme l'écran) inchangé.
+- **Contexte** : l'utilisateur veut, à la place de « Quitter » dans le menu, un bouton « Partager l'app » qui montre le lien de téléchargement direct de la dernière version, en QR code (logo de ToolMap au centre) et en texte, avec un bouton de partage vers les messageries. Le lien d'une version (`releases/download/android-<version>/ToolMap-release-<version>.apk`) demande du réseau pour être trouvé et ne marche plus dès que deux versions plus récentes sont publiées (ADR-099).
+- **Décision** :
+  1. **Un lien fixe** (réponse 2 a), constante `GitHubReleases.LATEST_APK_LINK` de `:core` : `https://github.com/JRRocks/ToolMap/releases/latest/download/ToolMap.apk`. GitHub l'envoie au fichier `ToolMap.apk` de la release marquée « Latest ». Aucun réseau pour l'afficher ; le QR code ne se périme jamais.
+  2. **La CI joint à chaque release `android-<version>` une copie de son APK de release nommée `ToolMap.apk`** (étape « Publish the Android release » de `ci.yml`, mêmes octets). La mise à jour de l'application (`GitHubReleases.latestApk`) et `scripts/drive-mirror.ps1` ne lisent que les noms avec version : la copie ne compte pas pour eux (test `AppUpdateTest`).
+  3. **La page** (réponse 1 a) : une page entière comme « Réglages… », barre « ← Partager l'app » (← et Retour reviennent au menu), « À scanner avec l'appareil photo de l'autre téléphone », le QR code (320 dp au plus, niveau de correction **H**, l'icône du lanceur sur un carré blanc de 13 modules sur 49 au centre), le lien dans un cadre, coupé seulement après ses « / », et un bouton rond de partage.
+  4. **Le partage** (réponse 3 a) : la feuille de partage d'Android (`ACTION_SEND`, `text/plain`, sélecteur), texte « ToolMap pour Android : » suivi du lien.
+  5. `QrCodes.encode` prend le niveau de correction en paramètre, M par défaut : les QR codes du partage de position ne changent pas.
+  6. « Quitter » quitte le menu (`MenuAction.EXIT`, `menu_exit` retirés). Le bouton Retour de la carte ferme toujours l'application, avec la fenêtre « Quitter ToolMap ? » quand le réglage la demande (`ExitDialog`, inchangé).
+- **Conséquences** :
+  - Le lien mène à la dernière version **publiée** (APK de release), pas à la version que porte le téléphone qui le montre (un APK de debug, par exemple).
+  - Première copie jointe à la main le 2026-11-19 à `android-0.4.235` (la plus récente), pour que le lien marche tout de suite ; HTTP 200 vérifié.
+  - Sur la branche de conception privée (`.conception-privee`, ADR-124), rien n'est publié : la copie automatique n'agit qu'à la fusion dans `main`.
+  - **Limite** : une release publiée depuis une autre branche publique avant cette fusion, avec le code d'avant, n'aurait pas la copie ; tant qu'elle est « Latest », le lien fixe tombe (404) jusqu'à la release suivante publiée avec ce code, ou une copie jointe à la main.
+  - Fermer l'application depuis le menu n'est plus possible : seul le bouton Retour de la carte le fait (ou le système).
+- **Alternatives rejetées** : le lien de la version (réponse 2 b : réseau nécessaire, lien périmé après deux versions) ; un panneau sur la carte ou une fenêtre (réponses 1 b et 1 c : QR code plus petit) ; le lien seul dans le message (réponse 3 b).

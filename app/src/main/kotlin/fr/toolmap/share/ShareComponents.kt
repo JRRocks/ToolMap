@@ -38,17 +38,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import fr.toolmap.R
 import fr.toolmap.core.p2p.MemberLook
 import fr.toolmap.core.p2p.MemberPalette
@@ -68,18 +75,26 @@ import fr.toolmap.ui.theme.AlertDialog
 import fr.toolmap.ui.theme.DropdownMenu
 import fr.toolmap.ui.theme.TextButton
 
-/** A QR code on a white square with its quiet zone (4 modules), which scanners need to find it. */
+/**
+ * A QR code on a white square with its quiet zone (4 modules), which scanners need to find it. With [logo] (« Partager
+ * l'app », P40.1, `docs/previews/partager-app/img/03-A-page.png`), it is encoded at level H and the icon of the
+ * launcher sits in its middle, on a white rounded square of [QR_LOGO_MODULES] modules ([qrLogoRange]).
+ */
 @Composable
 fun QrImage(
     text: String,
     modifier: Modifier = Modifier,
+    logo: Boolean = false,
 ) {
+    val level = if (logo) ErrorCorrectionLevel.H else ErrorCorrectionLevel.M
     // The text is a code of the app, sized for a QR code: failing to encode it is a bug.
-    val matrix: QrMatrix? = remember(text) { catchReported("share.qr.encode") { QrCodes.encode(text) }.getOrNull() }
+    val matrix: QrMatrix? =
+        remember(text, level) { catchReported("share.qr.encode") { QrCodes.encode(text, level) }.getOrNull() }
     if (matrix == null) {
         Text(stringResource(R.string.share_qr_failed), color = MaterialTheme.colorScheme.error, modifier = modifier)
         return
     }
+    val icon = if (logo) rememberVectorPainter(ImageVector.vectorResource(R.drawable.ic_launcher_foreground)) else null
     Canvas(modifier = modifier.aspectRatio(1f).background(Color.White)) {
         val modules = matrix.size + 2 * QUIET_ZONE_MODULES
         val cell = size.minDimension / modules
@@ -95,8 +110,44 @@ fun QrImage(
                 }
             }
         }
+        if (icon != null) {
+            // The white square over the middle modules, then the launcher icon as on the home screen: its 66 dp safe
+            // zone as a rounded paper tile (11 modules), its foreground drawn at the same scale (108 units).
+            val start = (qrLogoRange(matrix.size).first + QUIET_ZONE_MODULES) * cell
+            val side = QR_LOGO_MODULES * cell
+            drawRoundRect(
+                Color.White,
+                topLeft = Offset(start, start),
+                size = Size(side, side),
+                cornerRadius = CornerRadius(LOGO_CORNER_MODULES * cell),
+            )
+            val unit = cell / ICON_UNITS_PER_MODULE
+            val centre = (QUIET_ZONE_MODULES + matrix.size / 2f) * cell
+            val tile = ICON_SAFE_UNITS * unit
+            val tileCorner = CornerRadius(ICON_CORNER_UNITS * unit)
+            val tileOrigin = Offset(centre - tile / 2, centre - tile / 2)
+            drawRoundRect(LAUNCHER_PAPER, topLeft = tileOrigin, size = Size(tile, tile), cornerRadius = tileCorner)
+            drawRoundRect(
+                LOGO_RIM,
+                topLeft = tileOrigin,
+                size = Size(tile, tile),
+                cornerRadius = tileCorner,
+                style = Stroke(ICON_RIM_UNITS * unit),
+            )
+            val full = ICON_UNITS * unit
+            translate(centre - full / 2, centre - full / 2) { with(icon) { draw(Size(full, full)) } }
+        }
     }
 }
+
+/** The modules (rows and columns) of a QR code of [size] modules that the logo of [QrImage] covers. */
+internal fun qrLogoRange(size: Int): IntRange {
+    val first = (size - QR_LOGO_MODULES) / 2
+    return first until first + QR_LOGO_MODULES
+}
+
+/** The side of the white square of the logo, in modules: 13 of the 49 of the link of « Partager l'app ». */
+internal const val QR_LOGO_MODULES = 13
 
 /**
  * A member as the others see it, like a game token: its silhouette (or its initials) in its colour on a contrasting
@@ -389,6 +440,18 @@ fun ShareHud(
 
 private const val QUIET_ZONE_MODULES = 4
 private const val SEAM = 0.4f
+private const val LOGO_CORNER_MODULES = 2.6f
+
+/** The launcher icon (108 units), drawn 6 units to a module: its 66-unit safe zone covers 11 modules. */
+private const val ICON_UNITS = 108f
+private const val ICON_UNITS_PER_MODULE = 6f
+private const val ICON_SAFE_UNITS = 66f
+private const val ICON_CORNER_UNITS = 16f
+private const val ICON_RIM_UNITS = 1.6f
+
+/** The paper of the launcher icon (`ic_launcher_background`) and the thin rim around it on the white square. */
+private val LAUNCHER_PAPER = Color(0xFFF2F5F6)
+private val LOGO_RIM = Color(0xFFC9D6DC)
 private val BADGE_SIZE = 36.dp
 private const val ICON_SHARE = 0.6f
 private const val RING_SHARE = 0.08f

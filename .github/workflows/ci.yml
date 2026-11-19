@@ -217,7 +217,12 @@ jobs:
           fi
           latest=false
           [ "$(printf '%s\n' "$newest" | head -n 1)" = "$tag" ] && latest=true
-          gh release create "$tag" "$apk" --target "$GITHUB_SHA" --latest="$latest" \
+          # « Partager l'app » shows the fixed link releases/latest/download/ToolMap.apk (P40.1, ADR-137): every release
+          # also carries a copy of its APK under that name. The update of the app and the Drive read only the versioned
+          # name (ToolMap-<type>-<version>.apk), never this copy.
+          copy="$RUNNER_TEMP/ToolMap.apk"
+          cp "$apk" "$copy"
+          gh release create "$tag" "$apk" "$copy" --target "$GITHUB_SHA" --latest="$latest" \
             --title "ToolMap Android $version" \
             --notes "APK de release $version compilé par la CI depuis le commit ${GITHUB_SHA} (branche ${GITHUB_REF_NAME}), signé avec la clé de publication de ToolMap, contrôlé sur émulateur. Seules les deux dernières versions sont gardées ici, avec la version passerelle 0.4.231 ; toutes sont archivées sur le Drive."
           # android-0.4.231 is the bridge (ADR-122), never deleted: it also carries its release APK under the name

@@ -269,6 +269,8 @@ fun MapScreen(
     onOpenShare: () -> Unit,
     measure: MeasureViewModel,
     onOpenSettings: () -> Unit,
+    /** « Partager l'app » (P40.1): the page of the link and QR code of the newest release. */
+    onOpenShareApp: () -> Unit,
     /** The help page, at the section of the panel whose « ? » was touched (`null`: the main menu, at the top). */
     onOpenAbout: (HelpSection?) -> Unit,
     onOpenSearch: () -> Unit,
@@ -388,6 +390,8 @@ fun MapScreen(
     // The « Croquis » space (P28.6), which takes the place of the tracks panel, its back arrow returning to it.
     var showSketches by remember { mutableStateOf(false) }
     var pointMenu by remember { mutableStateOf(false) }
+    // « Partager l'app » comes back to the main menu (P40.1, `docs/previews/partager-app/`, « ← revient au menu »).
+    var menuOnReturn by rememberSaveable { mutableStateOf(false) }
     // The menus and panels that lead to a full screen are closed behind it, as when the map was rebuilt on return.
     LaunchedEffect(covered) {
         if (covered) {
@@ -396,6 +400,9 @@ fun MapScreen(
             showTracks = false
             showSketches = false
             pointMenu = false
+        } else if (menuOnReturn) {
+            menuOnReturn = false
+            showMenu = true
         }
     }
     // « Masquer les commandes » and « Verrouiller l'écran » of the main menu (P11.6), kept across a rotation.
@@ -1114,9 +1121,8 @@ fun MapScreen(
     LaunchedEffect(pointMenuAllowed) {
         if (!pointMenuAllowed) pointMenu = false
     }
-    // Something that goes on in the background when the screen is left: a recording, a share, an alert (ADR-053).
+    // A recording goes on in the background when the screen is left (ADR-053): the exit dialog names it.
     val recordingOn = recordingUi.phase != RecorderState.IDLE
-    val runningInBackground = recordingOn || shareUi.sharing || alertUi.active
     var exitAsked by remember { mutableStateOf(false) }
     // « Nouveautés » (the text, once read) and « Signaler une erreur » (asked, then built off the main thread) (P16.3).
     var whatsNew by remember { mutableStateOf<String?>(null) }
@@ -1140,8 +1146,9 @@ fun MapScreen(
                 updatesShown = true
             }
 
-            MenuAction.EXIT -> {
-                if (runningInBackground) exitAsked = true else (context as? Activity)?.finish()
+            MenuAction.SHARE_APP -> {
+                menuOnReturn = true
+                onOpenShareApp()
             }
 
             MenuAction.HIDE -> {

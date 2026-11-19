@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 412 892" width="412" height="892">
+  <!-- Generic, invented topographic background for the previews (no real place). -->
+  <rect width="412" height="892" fill="#E5ECCB"/>
+  <g fill="#CFE2A3" opacity=".9">
+    <path d="M-10 120 C60 90 120 150 180 130 S300 60 420 110 L420 260 C340 300 260 240 200 280 S60 330 -10 290Z"/>
+    <path d="M-10 520 C80 480 150 560 230 530 S360 470 420 520 L420 700 C330 730 250 660 170 700 S40 760 -10 720Z"/>
+  </g>
+  <g fill="none" stroke="#CDAE82" stroke-width="1" opacity=".75">
+    <path d="M-10 60 C80 30 160 90 250 70 S380 20 420 40"/>
+    <path d="M-10 90 C70 70 170 120 250 100 S370 60 420 75"/>
+    <path d="M-10 170 C90 140 150 210 240 185 S360 140 420 160"/>
+    <path d="M-10 205 C80 185 160 240 240 222 S370 180 420 200"/>
+    <path d="M-10 330 C60 300 150 370 230 340 S350 290 420 320"/>
+    <path d="M-10 365 C70 345 140 400 230 378 S360 330 420 355"/>
+    <path d="M-10 440 C90 410 170 470 260 445 S370 400 420 420"/>
+    <path d="M-10 600 C80 570 160 630 250 605 S370 560 420 580"/>
+    <path d="M-10 640 C70 620 170 670 250 648 S370 600 420 625"/>
+    <path d="M-10 790 C90 760 160 820 250 795 S370 750 420 770"/>
+    <path d="M-10 830 C80 810 170 860 250 838 S370 790 420 815"/>
+  </g>
+  <path d="M60 -10 C90 120 40 230 110 330 S180 520 140 640 S190 820 170 900" fill="none" stroke="#7DB3E0" stroke-width="3"/>
+  <path d="M-10 470 C100 455 180 500 260 470 S360 410 420 430" fill="none" stroke="#fff" stroke-width="7"/>
+  <path d="M-10 470 C100 455 180 500 260 470 S360 410 420 430" fill="none" stroke="#F0C24B" stroke-width="4"/>
+  <path d="M300 -10 C330 80 360 150 340 240 S380 400 350 470" fill="none" stroke="#4A43D6" stroke-width="3"/>
+</svg>

@@ -53,6 +53,13 @@ object GitHubReleases {
     /** The releases of the public repository, newest first; ten are plenty (the CI keeps one debug, two Android). */
     const val API_URL = "https://api.github.com/repos/JRRocks/ToolMap/releases?per_page=10"
 
+    /**
+     * The link of « Partager l'app » (P40.1, ADR-137): GitHub sends it to the `ToolMap.apk` of the newest release, a
+     * copy of its `ToolMap-release-<version>.apk` that the CI adds to every release `android-<version>`. It never goes
+     * stale and needs no network to be shown. [latestApk] does not read that copy: it has no version in its name.
+     */
+    const val LATEST_APK_LINK = "https://github.com/JRRocks/ToolMap/releases/latest/download/ToolMap.apk"
+
     private val APK_NAME = Regex("""ToolMap-(?:release|debug)-(\d+(?:\.\d+)+)\.apk""")
     private val json = Json { ignoreUnknownKeys = true }
 

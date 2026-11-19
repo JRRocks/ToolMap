@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,9 +68,10 @@ import fr.toolmap.ui.theme.toolMap
  * tracks and waypoints, position), zoom buttons at the bottom right, and a panel that opens above the bar. Since P29.2
  * (« Portée », docs/previews/design-02-menu.html, variant B) the panel rises from the bar: the four tiles of the
  * frequent commands are its fixed foot, next to the thumb; above them come the night mode, the information on screen
- * and « Réglages… »; at the top, far from the finger, the folded « Plus » row and « Quitter » (ADR-075). The settings
- * are not repeated in it: « Réglages… » is the way to them (P11.11, ADR-039). The block of the maps shown left it on
- * 2026-10-28 (`docs/previews/menu-sans-cartes.html`): the Maps item of the bar opens the same panel.
+ * and « Réglages… »; at the top, far from the finger, the folded « Plus » row and « Partager l'app » (ADR-075; it took
+ * the place of « Quitter » on 2026-11-19, P40.1). The settings are not repeated in it: « Réglages… » is the way to
+ * them (P11.11, ADR-039). The block of the maps shown left it on 2026-10-28 (`docs/previews/menu-sans-cartes.html`):
+ * the Maps item of the bar opens the same panel.
  */
 
 /** Commands of the main menu; the screen runs them and closes the menu. */
@@ -78,7 +80,9 @@ enum class MenuAction {
     LOCK,
     PRINT,
     SETTINGS,
-    EXIT,
+
+    /** « Partager l'app » (P40.1), where « Quitter » was. */
+    SHARE_APP,
     ABOUT,
     SEARCH,
     SKETCH,
@@ -171,14 +175,15 @@ fun MainMenuPanel(
                 }
             }
         }
-        // Leaving is the least used command, and the one not to touch by mistake: at the top, far from the thumb.
+        // « Partager l'app » took the place of « Quitter » (P40.1, docs/previews/partager-app/img/02-menu.png,
+        // validated on 2026-11-19): it opens a page, hence the chevron. Back on the map still leaves the app.
         MenuRow(
-            stringResource(R.string.menu_exit),
-            icon = SettingsIcons.ExitToApp,
-            iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+            stringResource(R.string.menu_share_app),
+            icon = Icons.Filled.Share,
             minHeight = SHORT_ROW,
+            trailing = { PanelChevron() },
         ) {
-            onAction(MenuAction.EXIT)
+            onAction(MenuAction.SHARE_APP)
         }
         HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
         MenuRow(
@@ -519,7 +524,7 @@ fun MapZoomButtons(
 /** The height of the items of the bottom bar, the system bar under it not counted. */
 private val NAV_HEIGHT = 76.dp
 
-/** The rows of a single line (« Quitter », « Plus » unfolded), and the tiles of the menu's foot. */
+/** The rows of a single line (« Partager l'app », « Plus » unfolded), and the tiles of the menu's foot. */
 private val SHORT_ROW = 48.dp
 private val FOOT_TILE = 76.dp
 

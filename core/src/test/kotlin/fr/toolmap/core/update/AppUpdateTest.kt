@@ -60,6 +60,24 @@ class AppUpdateTest {
     }
 
     @Test
+    fun `the copy ToolMap apk of a release is not read as a version`() {
+        // ADR-137: every release android-<version> also carries ToolMap.apk, the target of the fixed link.
+        val body =
+            """
+            [
+              {"tag_name":"android-0.4.270","draft":false,"assets":[{"name":"ToolMap.apk","browser_download_url":"https://x/latest.apk","size":45000000},{"name":"ToolMap-release-0.4.270.apk","browser_download_url":"https://x/270.apk","size":45000000}]}
+            ]
+            """.trimIndent()
+        val apk = GitHubReleases.latestApk(body)!!
+        assertEquals("0.4.270", apk.version.toString())
+        assertEquals("https://x/270.apk", apk.url)
+        assertEquals(
+            "https://github.com/JRRocks/ToolMap/releases/latest/download/ToolMap.apk",
+            GitHubReleases.LATEST_APK_LINK,
+        )
+    }
+
+    @Test
     fun `drafts, other tags and other files are left out`() {
         val body =
             """
