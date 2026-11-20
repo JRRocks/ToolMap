@@ -111,22 +111,27 @@ class DemoWorld private constructor(
             val ids = HashMap<Int, Long>()
             ids[1] = creator.view.value.self ?: return failed("self", progress)
 
-            // Lets in Membre [numbers] with the invitation, in the order of their numbers.
+            // Lets in Membre [numbers] with the invitation, in the order of their numbers: one at a time, each seen
+            // as a member by every phone let in before the next one asks (P39.17, 2026-11-20: the nineteen let in at
+            // once were what was left of the peak of the heap, 181 MB of the 192 MB of the emulator once in three).
             suspend fun letIn(numbers: IntRange): Boolean {
                 for (n in numbers) {
                     if (seats.getValue(n).join(link, "Membre $n") != StartResult.STARTED) return false
-                }
 
-                val wanted = numbers.count()
-
-                fun named() = creator.view.value.joinRequests.count { it.name != null }
-                val asked = until({ "join requests ${named()}/$wanted" }, progress) { named() == wanted }
-                if (!asked) return false
-                for (request in creator.view.value.joinRequests) {
-                    val n = request.name?.removePrefix("Membre ")?.toIntOrNull() ?: continue
-                    ids[n] = request.member
+                    fun request() = creator.view.value.joinRequests.firstOrNull { it.name == "Membre $n" }
+                    if (!until({ "join request $n" }, progress) { request() != null }) return false
+                    val member = request()?.member ?: return false
+                    ids[n] = member
+                    if (creator.admit(member) != null) return false
+                    val seen =
+                        until({ "admitted $n" }, progress) {
+                            (1..n).all { m ->
+                                seats.getValue(m).view.value.hierarchy?.members?.containsKey(member) ==
+                                    true
+                            }
+                        }
+                    if (!seen) return false
                 }
-                for (n in numbers) if (creator.admit(ids[n] ?: return false) != null) return false
                 return true
             }
             progress("joining")
@@ -165,11 +170,26 @@ class DemoWorld private constructor(
                     Triple(groups.getValue("Sud"), Post.DEPUTY, 10),
                     Triple(groups.getValue("Est"), Post.LEADER, 14),
                 )
+            // As the groups: one post, one administrator at a time, seen by all before the next (P39.17, 2026-11-20:
+            // with the summaries answered by their addressee only, the posts given at once were what was left of the
+            // peak of the heap, 165 MB of the 192 MB of the emulator once in three).
             for ((unit, post, n) in posts) {
-                val refused = creator.setPost(unit, post, ids.getValue(n))
+                val member = ids.getValue(n)
+                val refused = creator.setPost(unit, post, member)
                 if (refused != null) return failed("post $n", progress)
+                val seen =
+                    until({ "post $n" }, progress) {
+                        everyone { (if (post == Post.LEADER) it.leaderOf(unit) else it.deputyOf(unit)) == member }
+                    }
+                if (!seen) return failed("post $n seen", progress)
             }
-            for (n in listOf(5, 9)) if (creator.addAdmin(ids.getValue(n)) != null) return failed("admin $n", progress)
+            for (n in listOf(5, 9)) {
+                val member = ids.getValue(n)
+                if (creator.addAdmin(member) != null) return failed("admin $n", progress)
+                if (!until({ "admin $n" }, progress) { everyone { member in it.admins } }) {
+                    return failed("admin $n seen", progress)
+                }
+            }
             // The two who wait come once the administrators are named: their names are sealed for them too (an
             // administrator named after an arrival does not learn its name, P39.7).
             progress("waiting")

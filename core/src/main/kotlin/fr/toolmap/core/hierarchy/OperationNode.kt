@@ -185,6 +185,11 @@ class OperationNode(
         @Synchronized get() = drops.toMap()
     private val drops = HashMap<String, Int>()
 
+    /** Summaries heard that were meant for another phone, left to it (P39.17): not a refusal, so not in [dropped]. */
+    @get:Synchronized
+    var heardForOthers = 0L
+        private set
+
     private enum class Duty { KEY, RESEND, ROSTER, RENEW, NAMES }
 
     private class Scheduled(
@@ -266,7 +271,7 @@ class OperationNode(
     ) {
         if (peer == self || ending != null) return
         links[peer] = link
-        sendTo(link, FrameGenre.SUMMARY, ourSummary().encode())
+        sendTo(link, FrameGenre.SUMMARY, ourSummary(to = peer).encode())
         if (!isMember) sendJoin()
         flushOutbox()
     }
@@ -381,6 +386,14 @@ class OperationNode(
     ) {
         val theirs = OperationSummary.decode(frame.body)
         if (theirs.summary.ensembleId != ensembleId) return drop("summary.ensemble")
+        // Meant for another phone (P39.17, ADR-138): the room carries it to everyone, the one it is meant for answers.
+        // Answered by every phone that heard it, one arrival in a room of 22 pushed 7 360 frames to each phone, 1 037
+        // with this rule alone (`OperationArrivalCostTest`; run « CI » n° 243). What the answer carries is still taken
+        // by all.
+        if (theirs.to != 0L && theirs.to != self) {
+            heardForOthers++
+            return
+        }
         val to = links[peer] ?: links[frame.sender]
         val missing = replica.missingFor(theirs.summary)
         for (body in opsBodies(missing)) sendTo(to, FrameGenre.OPS, body)
@@ -464,7 +477,14 @@ class OperationNode(
 
                         ShareRefusal.NO_KEY -> {
                             drop("share.no_key")
-                            if (isMember) pull(frame.sender)
+                            // Behind only if it reads that channel: who may not read it (a member waiting for its
+                            // place) has no key to ask for. Its asking, answered with more it could not open, was
+                            // half of the 240 frames a minute each phone of a room of 22 received for good once one
+                            // member waited (P39.17, ADR-138; the other half: [ourSummary]).
+                            val channel = result.channel
+                            if (isMember && channel != null && state.readersOf(channel).any { it.id == self }) {
+                                pull(frame.sender)
+                            }
                         }
 
                         else -> {
@@ -1173,7 +1193,7 @@ class OperationNode(
         }
         pullLater -= peer
         pulledAt[peer] = now
-        sendTo(links[peer], FrameGenre.SUMMARY, ourSummary().encode())
+        sendTo(links[peer], FrameGenre.SUMMARY, ourSummary(to = peer).encode())
     }
 
     private fun askNewerKey() {
@@ -1220,20 +1240,33 @@ class OperationNode(
         while (epochs.size > OperationLinkState.KEPT_EPOCHS) epochs.remove(epochs.firstKey())
     }
 
-    private fun ourSummary(): OperationSummary {
+    /** What this phone holds, for the one phone [to] (0: for the whole room). */
+    private fun ourSummary(to: Long = 0L): OperationSummary {
         val state = state
         val read = if (self in state.members) state.channelsReadBy(self) else emptyList()
         val digests = read.take(OperationSummary.MAX_CHANNELS).associateWith { objects.digest(it) }
         val missing =
             when {
-                state.hasAccess(self) -> names.missing(state).size
+                // Not the names of who waits in a lane this phone does not read: none would ever come (Q10, Q11), and
+                // every phone of the room answered each summary of the room with its roster, for good (P39.17, ADR-138:
+                // 120 frames a minute to each phone of a room of 22 with one member waiting).
+                state.hasAccess(self) -> {
+                    val closed =
+                        state.waiting().filter { w -> state.readersOf(Channel.waiting(w.id)).none { it.id == self } }
+                    val unreadable = closed.flatMapTo(HashSet()) { state.namesOf(it.id) }
+                    names.missing(state).count { it !in unreadable }
+                }
 
                 // Who waits counts only what it may know: the ensemble's name, its own ones.
-                state.isWaiting(self) -> names.missingOf(state.namesFor(self)).size
+                state.isWaiting(self) -> {
+                    names.missingOf(state.namesFor(self)).size
+                }
 
-                else -> 0
+                else -> {
+                    0
+                }
             }
-        return OperationSummary(replica.summary(), keysDigest(state), missing, digests)
+        return OperationSummary(replica.summary(), keysDigest(state), missing, digests, to)
     }
 
     private fun keysDigest(state: HierarchyState): Long {

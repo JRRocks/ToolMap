@@ -283,18 +283,24 @@ object OperationFrames {
  * for the readers of now ([keysDigest]), the fingerprint of the objects of each channel it reads ([objects],
  * [SharedObjects.digest]) and how many names it lacks ([namesMissing]). The fingerprints say nothing of what they
  * stand for: they travel under the invitation key only.
+ *
+ * [to] is the one phone it is meant for (a link that opens, a pull), or 0 for the whole room (the summary of every
+ * few minutes, a newer key asked for): the room carries everything to everyone, and only that phone answers (P39.17,
+ * ADR-138). It is written last and only when it is not 0, so a summary for the whole room reads as before P39.17.
  */
 class OperationSummary(
     val summary: Summary,
     val keysDigest: Long,
     val namesMissing: Int,
     val objects: Map<Channel, Long>,
+    val to: Long = 0L,
 ) {
     fun encode(): ByteArray {
         val ops = HierarchyWire.encodeSummary(summary)
         val w = ByteWriter().u16(ops.size).bytes(ops).u64(keysDigest).u16(namesMissing.coerceIn(0, 0xFFFF))
         w.u16(objects.size)
         for ((channel, digest) in objects) OperationWire.writeChannel(w, channel).u64(digest)
+        if (to != 0L) w.u64(to)
         return w.toByteArray()
     }
 
@@ -314,8 +320,12 @@ class OperationSummary(
                 val channel = OperationWire.readChannel(r)
                 if (objects.put(channel, r.u64()) != null) throw WireException("channel twice")
             }
+            val addressed = r.remaining != 0
+            val to = if (addressed) r.u64() else 0L
             if (r.remaining != 0) throw WireException("trailing data")
-            return OperationSummary(summary, keys, names, objects)
+            // Written only when it is not 0: one way to write each summary.
+            if (addressed && to == 0L) throw WireException("addressed to nobody")
+            return OperationSummary(summary, keys, names, objects, to)
         }
     }
 }

@@ -1,5 +1,6 @@
 package fr.toolmap.core.hierarchy.sim
 
+import fr.toolmap.core.hierarchy.FrameGenre
 import fr.toolmap.core.hierarchy.OperationFrames
 import fr.toolmap.core.hierarchy.OperationNode
 import fr.toolmap.core.p2p.MeshLink
@@ -106,6 +107,9 @@ abstract class Participant(
     var bytesWritten = 0L
     var framesReceived = 0L
     var bytesReceived = 0L
+
+    /** Frames received, by genre (control frames and positions alike). */
+    val receivedByGenre = HashMap<FrameGenre, Long>()
 
     /** The app runs: its clock of seconds goes, its relay evaluates who is present. */
     abstract val running: Boolean
@@ -564,6 +568,7 @@ class World(
         stats.pushedBytes += f.bytes.size
         r.framesReceived++
         r.bytesReceived += f.bytes.size
+        FrameGenre.of(f.bytes[1].toInt() and 0xFF)?.let { r.receivedByGenre.merge(it, 1L, Long::plus) }
         r.captured(f.writer, f.bytes)
         if (r.listensOnly || !r.running) return
         if (r.peers[f.writer]?.open != true) {

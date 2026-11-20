@@ -150,6 +150,7 @@ internal fun fuzzCorpus(): List<ByteArray> {
     corpus += HierarchyWire.encodeSummary(replica.summary())
     corpus += HierarchyWire.encodeState(state)
     corpus += OperationSummary(replica.summary(), 7L, 1, mapOf(Channel.ENSEMBLE to 9L)).encode()
+    corpus += OperationSummary(replica.summary(), 7L, 1, mapOf(Channel.ENSEMBLE to 9L), to = b.memberId).encode()
     corpus += request.encode()
     corpus += grant.encode()
     corpus += link.encode()

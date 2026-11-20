@@ -1348,7 +1348,7 @@ Pour la session principale et pour la session qui codera les écrans (session 11
 | Genre | Corps |
 |---|---|
 | 1 opérations | `HierarchyWire.encodeOps`, coupé pour tenir dans une trame |
-| 2 résumé | `longueur (2) | résumé du moteur | empreinte des lots de clés (8) | noms manquants (2) | n (2) × (voie (1), portée (8), empreinte des objets (8))` |
+| 2 résumé | `longueur (2) | résumé du moteur | empreinte des lots de clés (8) | noms manquants (2) | n (2) × (voie (1), portée (8), empreinte des objets (8)) | destinataire (8), seulement s'il n'est pas 0` (destinataire depuis P39.17, § 26) |
 | 3 lot de clés | `HierarchyWire.encodeKeyBatch` |
 | 4 partage | la trame de `ShareSeal` |
 | 5 demande d'entrée | `opération (8) | clés publiques (130) | empreinte du nom (32) | heure (4) | clé éphémère (65) | n (1) × (destinataire (8), longueur (1), carte scellée) | signature (64)` |
@@ -1479,7 +1479,7 @@ Pour la session principale et pour la session qui codera les écrans (session 11
 
 ### Limites connues
 
-- Sur le serveur, chaque téléphone présent répond au résumé d'un autre : des doublons sans effet sur l'état (à réduire par un délai de rang si besoin).
+- Sur le serveur, chaque téléphone présent répond au résumé d'un autre : des doublons sans effet sur l'état (à réduire par un délai de rang si besoin). *Corrigé le 2026-11-20 (P39.17, § 26)* : le résumé porte son destinataire, seul ce téléphone répond.
 - Un téléphone resté sur une ancienne clé d'invitation n'est remis à jour que par un membre qui détient l'annonce de la nouvelle ; un arrivant qui n'a eu que la clé de son invitation ne peut pas la redonner (il ne connaît pas l'annonce).
 - Une demande d'entrée faite avec une invitation antérieure au dernier renouvellement est écartée sans réponse : l'écran de l'invité doit dire, au bout d'un moment, qu'il faut une invitation récente.
 - Les limites des §§ 6.4, 8.6, 15 et 16 restent.
@@ -2272,3 +2272,61 @@ Mesuré par `OperationCostTest` (`./gradlew :core:test --tests '*OperationCostTe
 - **Par position**, rien ne change : une signature, une vérification par téléphone qui l'entend ; 2,5 ms (5 membres) à 15,4 ms (30 membres) de calcul dans les automates de toute la salle par position envoyée et entendue.
 - Le test court (`five members for ten minutes, the rhythm of P39_15 against the one of before`, dans `./gradlew check`) vérifie que les échanges par téléphone baissent d'au moins la moitié ; la longue série écrit le tableau ci-dessus.
 - **Ce qui n'est pas mesuré** : un vrai téléphone (batterie, radio, écran éteint), le vrai serveur (P39.12 le fait pour deux téléphones), le réseau mobile.
+
+## 26. Seul le destinataire d'un résumé y répond, et personne ne réclame ce qu'il ne peut pas lire (P39.17, 2026-11-20)
+
+Session 125 (poste Windows), branche `conception/groupes-hierarchiques` ; ADR-138. Trouvé en cherchant pourquoi le run « CI » n° 243 était rouge pendant P39.16 : la démonstration de l'APK de debug (22 téléphones simulés dans un seul processus) remplissait le tas de l'émulateur de la CI (192 Mo), comme au run n° 232. Rien de visible ne change ; le partage « Entre amis » n'est pas touché (aucun fichier de `:p2p`, de `core/…/p2p/` ni de `app/…/share/`).
+
+**Ce qui se passait.** Sur le serveur, tout ce qu'un téléphone écrit arrive à toute la salle. Un résumé envoyé à un seul téléphone (à l'ouverture d'un lien, ou pour lui demander ce qui manque, `pull`) était donc entendu par tous, et chacun y répondait, lui aussi à toute la salle : les opérations qui manquaient, tous ses lots de clés si les empreintes différaient, les objets, les noms. Pour une seule arrivée, chaque téléphone présent envoyait son résumé au nouveau, chacun était repris par les 21 autres, et chaque réponse faisait naître d'autres demandes.
+
+**La règle.** Le résumé porte son destinataire (§ 17, format « 2 résumé » : 8 octets de plus, écrits seulement s'il n'est pas 0) :
+
+| Résumé | Destinataire |
+|---|---|
+| à l'ouverture d'un lien (`linkOpened`) | le téléphone de l'autre bout |
+| demande de ce qui manque (`pull`) | le téléphone à qui l'on demande |
+| toutes les 5 minutes (`SUMMARY_EVERY_MS`) | toute la salle (0) |
+| demande d'une clé d'invitation plus récente | toute la salle (0) |
+
+Un téléphone qui entend un résumé destiné à un autre n'y répond pas du tout (ni opérations, ni lots de clés, ni objets, ni noms, ni demande en retour ; compté dans `OperationNode.heardForOthers`, ce n'est pas un refus). **Ce que porte la réponse reste pris par tous** : les opérations, lots de clés et partages qui passent dans la salle sont lus par chaque téléphone comme avant. C'est sans risque (chaque trame est vérifiée comme si elle lui était destinée, un doublon est reconnu) et utile (un téléphone en retard sur les mêmes opérations les a sans les demander). Les autres genres ne changent pas : la demande d'entrée est scellée pour le créateur et les administrateurs, la clé d'invitation pour chaque destinataire.
+
+**Deux autres causes, trouvées en mesurant.** Elles vont dans le même sens et ne touchent ni à ce qu'on voit ni à qui lit quoi :
+
+- **Ne pas réclamer une clé qu'on ne doit pas avoir.** Un partage qu'un téléphone ne peut pas ouvrir faute de clé (`share.no_key`) ne lui fait demander ce qui manque à son auteur (`pull`) que s'il lit le canal de ce partage dans son état du moment (`OpenResult.Refused` donne le canal). Un membre en attente de sa place ne lit pas les canaux des groupes : il demandait, et la réponse lui renvoyait ce qu'il ne pouvait toujours pas ouvrir, toutes les 25 s environ. L'ordre des refus du § 8 (« le téléphone détient la clé nommée (sinon `NO_KEY`) ; il lit encore ce canal (`NOT_A_READER`) ») ne change pas : seule la réaction du téléphone change.
+- **Ne pas compter comme manquants les noms qu'on ne peut pas lire.** Le nombre de noms manquants du résumé ne compte plus, pour un membre qui a l'accès, les noms de ceux qui attendent dans une voie qu'il ne lit pas (Q10, Q11) : ils ne lui viendront jamais, et chaque téléphone de la salle répondait à chaque résumé de la salle par sa liste de noms. Le créateur et les administrateurs, qui lisent ces voies, les comptent comme avant.
+
+**Mesure** (`OperationArrivalCostTest`, `:core`, dans `./gradlew check` ; JVM du poste, salle simulée calme, graine 22 000) : une opération de 21 membres en quatre groupes (chefs, adjoints, deux administrateurs, une position envoyée par chacun), puis un 22e téléphone demande à entrer et est admis ; compté de la demande à une minute après l'admission. Puis cinq minutes de salle calme, le nouveau attendant sa place.
+
+| Trames reçues par téléphone déjà présent | Avant P39.17 | Règle du destinataire seule | P39.17 |
+|---|---|---|---|
+| en tout (moyenne ; plus petit et plus grand) | 7 360 (7 311 à 7 403) | 1 037 (989 à 1 042) | 872 (827 à 878) |
+| opérations | 3 401 | 162 | 241 |
+| lots de clés | 2 769 | 438 | 480 |
+| partages | 879 | 140 | 5 |
+| résumés | 287 | 273 | 122 |
+| demandes d'entrée | 24 | 24 | 24 |
+| reçues par le nouveau | 7 347 | 756 | 720 |
+| écritures de contrôle sur le serveur, pour la salle | 7 708 | 1 071 | 904 |
+| ensuite, par minute, un membre en attente (au plus) | 240 | 240 | 4,2 |
+
+Une vraie opération de 22 membres reçoit donc le même flot que la démonstration, téléphone par téléphone : avant P39.17, plus de 7 000 trames par téléphone pour une arrivée, puis 240 par minute sans fin tant qu'un membre attend sa place. La démonstration le subissait 22 fois dans un seul processus. Le test garde l'arrivée sous 1 200 trames et la salle calme sous 20 par minute.
+
+Mesure ponctuelle, même salle juste après l'arrivée (le nouveau en attente), une minute après chaque changement, par téléphone (test jetable, non gardé) : placer un membre 3 420 → 185 ; donner un poste 722 → 37 ; nommer un administrateur 4 142 → 373 ; créer un groupe 1 230 → 69 ; rien 238 → 6.
+
+Ce qui reste arrive surtout quand le nouveau ouvre ses liens, avant même son admission (environ 620 des 872 trames dans les trois premières secondes) : d'après le code, il envoie un résumé à chacun, et chacun lui répond par ce qui lui manque (tout le journal, ses lots de clés), que toute la salle entend. À revoir si la mesure sur téléphone le demande.
+
+**La démonstration de l'APK de debug** (`DemoWorld`) fait entrer ses téléphones, donne les postes et nomme les administrateurs un à un, chacun vu de tous avant le suivant (comme les groupes depuis le run n° 232). Pic du tas sur un émulateur du poste réglé comme celui de la CI (2 Go, `dalvik.vm.heapgrowthlimit` 192m), le plus haut des « X Mo / Y Mo » des ramasse-miettes, et durée de la construction :
+
+| APK | Pics du tas (Mo) | Durée (s) |
+|---|---|---|
+| 0.4.271, avant P39.17 | 192, 192, 192 | 273, 109, 72 |
+| règle du destinataire seule | 165, 103, 145 | 71, 39, 38 |
+| et les postes un à un | 181, 154, 80 | 16, 14, 16 |
+| et les arrivées une à une | 190, 93, 66 | 38, 47, 44 |
+| P39.17 entier | 146, 95, 130 ; puis 124, 113, 111, 112 | 19 à 22 |
+
+**Un téléphone admis avec une invitation plus ancienne que la clé du moment** : s'il reçoit la clé du moment avant les opérations qui permettent de la vérifier (son annonceur, son donneur), il la refuse, comme avant. Il la reçoit de nouveau au résumé suivant de la salle (5 minutes au plus) : avant P39.17, toute la salle répondant à tout, on lui parlait sous l'ancienne clé assez longtemps pour qu'elle lui soit redonnée en quelques secondes. Garder la clé refusée pour la vérifier à l'arrivée des opérations a été essayé et écarté : dans `MaliciousMemberTest` (« known limit… »), le second téléphone du membre retiré avait alors la clé du moment avant d'apprendre le retrait, et la donnait au membre retiré. Le test attend maintenant ce résumé, et vérifie en plus que le membre retiré n'a pas la clé du moment.
+
+**Versions mélangées.** Un téléphone d'avant P39.17 lit les résumés pour toute la salle. Il refuse en revanche un résumé destiné à un seul (« trailing data », signalé comme attendu), donc il ne répond plus aux demandes d'un téléphone à jour. Ce dernier se rattrape alors par les autres téléphones à jour, par ce qui passe dans la salle et par les résumés de toutes les 5 minutes. Un téléphone à jour lit tout résumé d'avant comme destiné à toute la salle et y répond comme avant. Tous les téléphones d'un essai prennent la même version.
+
+**Ce qui n'est pas mesuré** : un vrai téléphone, le vrai serveur avec plus de deux téléphones, le réseau mobile.

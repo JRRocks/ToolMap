@@ -363,18 +363,26 @@ class OperationControllerSimulationTest {
         val away = inside.firstOrNull { it !== ref && it.view.self != state.creator }
         val creator = inside.firstOrNull { it.view.self == state.creator } ?: return
         away?.net?.up = false
+        // Who asks to come in and was never let in learns the end, keeps nothing and no trace (spec § 20, point 4); the
+        // members keep one. Seed 2 leaves one asking since P39.17: its steps follow what the phones see.
+        val asking = w.phones.filter { it.started && !it.ended && it.view.self !in state.members }.toSet()
         // A cut shows at the phone's next second: before that, a frame on its way still reaches it.
         w.runFor(5_000)
         runBlocking { creator.controller.dissolve() }
         w.runFor(60_000)
-        val keepers =
+        val dissolved =
             w.phones.filter {
                 it.started && it.view.phase == OperationPhase.ENDED &&
                     it.view.ending == Ending.DISSOLVED
             }
+        val keepers = dissolved.filter { it !in asking }
         for (p in keepers) {
             w.check(p.controller.ids().isEmpty()) { "${p.label}: dissolved and still stored" }
             w.check(runBlocking { p.controller.traces() }.size == 1) { "${p.label}: dissolved without a trace" }
+        }
+        for (p in dissolved.filter { it in asking }) {
+            w.check(p.controller.ids().isEmpty()) { "${p.label}: asked to come in, dissolved and still stored" }
+            w.check(runBlocking { p.controller.traces() }.isEmpty()) { "${p.label}: never let in, keeps a trace" }
         }
         if (away != null) {
             w.runFor(3 * 3_600_000L)

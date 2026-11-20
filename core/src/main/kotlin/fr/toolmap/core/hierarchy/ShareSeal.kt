@@ -61,8 +61,10 @@ sealed interface OpenResult {
         val share: Share,
     ) : OpenResult
 
+    /** [channel]: the one the share was sealed for, given with [ShareRefusal.NO_KEY] (P39.17); `null` otherwise. */
     class Refused(
         val reason: ShareRefusal,
+        val channel: Channel? = null,
     ) : OpenResult
 }
 
@@ -141,7 +143,8 @@ object ShareSeal {
         ) {
             return no(ShareRefusal.WRONG_ENSEMBLE)
         }
-        val key = ring.find(header.channel, header.keyId) ?: return no(ShareRefusal.NO_KEY)
+        val key =
+            ring.find(header.channel, header.keyId) ?: return OpenResult.Refused(ShareRefusal.NO_KEY, header.channel)
         if (state.readersOf(header.channel).none { it.id == ring.self }) return no(ShareRefusal.NOT_A_READER)
         val clear = frame.copyOf(HierarchyWire.SHARE_HEADER_BYTES)
         val nonce = frame.copyOfRange(HierarchyWire.SHARE_HEADER_BYTES, sealedAt)

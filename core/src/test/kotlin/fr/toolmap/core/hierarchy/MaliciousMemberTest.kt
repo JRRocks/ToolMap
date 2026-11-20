@@ -219,8 +219,14 @@ class MaliciousMemberTest {
             r.settle()
             r.now += OperationNode.ANSWER_EVERY_MS
             r.settle()
+            // Handed the key of now before it held the operations that let it check it (refused), it is handed it
+            // again at the next summary of the room: until P39.17, every phone answering every summary kept the room
+            // speaking to it under the older key, and it was asked again within seconds (ADR-138).
+            r.now += OperationNode.SUMMARY_EVERY_MS
+            r.settle()
             assertEquals(s.a.n.epoch, second.n.epoch, "it is a member: it got the invitation key of now")
             assertFalse(second.state.isWaiting(second.id))
+            assertTrue(b.n.epoch < s.a.n.epoch, "the removed one is not handed the key of now by its second phone")
         }
 
     @Test
