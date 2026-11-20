@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P39 — Opération : aperçus, tour 7</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+:root{--pg-bg:#ffffff;--pg-on:#122027;--pg-on2:#506169;--pg-line:#D5DEE2;--petrol:#163A4A;--teal:#14918C}
+*{box-sizing:border-box}
+body{font-family:Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#DDE5E8;color:var(--pg-on);-webkit-font-smoothing:antialiased}
+#p39-root{width:660px;margin:0 auto}
+.intro,section.shot{width:660px;background:var(--pg-bg);padding:18px 14px 20px;margin:0 0 14px}
+.intro h1{font-size:22px;line-height:28px;font-weight:500;margin:0 0 8px;color:var(--petrol)}
+.intro p,.intro li{font-size:14.5px;line-height:21px;color:var(--pg-on2);margin:6px 0}
+.intro ul{margin:4px 0;padding-left:20px}
+.intro b{color:var(--pg-on);font-weight:500}
+section.shot>header{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+.num{flex:none;min-width:40px;height:40px;padding:0 6px;border-radius:20px;background:var(--petrol);color:#fff;font-size:19px;font-weight:500;display:flex;align-items:center;justify-content:center}
+section.shot h2{font-size:20px;line-height:26px;font-weight:500;margin:0;color:var(--petrol)}
+section.shot header p{font-size:14.5px;line-height:21px;color:var(--pg-on2);margin:4px 0 0}
+section.shot header p b,.txt b,.note b,figcaption b{color:var(--pg-on);font-weight:500}
+.duo{display:flex;gap:16px;align-items:flex-start;justify-content:center;margin-top:6px}
+.duo+.duo{margin-top:18px}
+.phc{margin:0;width:300px;flex:none}
+.tag{display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:13px;font-size:13.5px;font-weight:500;margin-bottom:8px;white-space:nowrap}
+.tag.cur{background:#E2ECEF;color:#163A4A}
+.tag.reco{background:#163A4A;color:#fff}
+.tag.new{background:#14918C;color:#fff}
+.ph{width:300px;height:667px;overflow:hidden;border-radius:22px;border:1px solid #9FB1B8;position:relative;background:#000}
+.scr{position:absolute;left:0;top:0;width:1080px;height:2400px;transform-origin:0 0}
+.scr>div{position:absolute;left:0;width:1080px;background-repeat:no-repeat;background-size:1080px 2400px}
+.phc figcaption{font-size:13.5px;line-height:19px;color:var(--pg-on2);margin-top:8px}
+.kind{display:block;font-size:12px;line-height:16px;color:#5F6E74;margin-top:4px}
+.txt{flex:1;min-width:0;font-size:14.5px;line-height:21px;color:var(--pg-on2);padding-top:34px}
+.txt p{margin:0 0 10px}
+.note{margin-top:16px;padding:12px 14px;border-radius:14px;background:#F2F5F6;font-size:14.5px;line-height:21px;color:var(--pg-on2)}
+.note.reco{background:#D3EEEC;color:#0B5B57}.note.reco b{color:#06302E}
+.fname{font-size:12px;line-height:16px;color:#5F6E74;margin-top:12px;text-align:right}
+body.one .intro,body.one section.shot{display:none}
+body.one section.shot.on{display:block;margin:0}
+body.one{background:#fff}
+@media (max-width:680px){#p39-root{zoom:calc(100vw / 660px)}}
+</style>
+</head>
+<body>
+<div id="p39-root">
+
+<div class="intro">
+  <h1>Rejoindre une opération sans nom réglé : le clavier (question k1)</h1>
+  <p>Votre choix du 2026-11-20, mot pour mot : «&nbsp;A, fenêtre au-dessus&nbsp;». La question : «&nbsp;Pour le clavier qui cache «&nbsp;Rejoindre&nbsp;», je dessine laquelle ?&nbsp;» (A : la fenêtre monte au-dessus du clavier ; B : on garde le clavier tel quel ; C : pas de curseur à l'ouverture).</p>
+  <p><b>Ce qu'on voit sur l'émulateur</b> (APK de debug 0.4.265, téléphone sans nom réglé, opération inventée «&nbsp;Exercice Vallon&nbsp;») : la fenêtre monte déjà au-dessus du clavier. Elle y tient à 411 dp et à 360 dp de large. Elle n'y tient plus à 320 dp (la largeur de l'émulateur de la CI) ni avec un grand texte : son bas, «&nbsp;Annuler&nbsp;» et «&nbsp;Rejoindre&nbsp;», passe alors sous le clavier.</p>
+  <p><b>Proposé A</b> : quand la place manque, le haut et le bas de la fenêtre restent en place et son milieu défile ; le champ reste visible. Partout où la fenêtre tient déjà, rien ne change.</p>
+  <ul>
+    <li>1 · Aujourd'hui (captures)</li>
+    <li>2 · Proposé A, clavier ouvert</li>
+    <li>3 · Proposé A, clavier fermé</li>
+    <li>4 · Le cas étroit : 320 dp et le plus grand texte d'Android</li>
+  </ul>
+  <p>«&nbsp;Capture&nbsp;» : copie d'écran de l'émulateur. «&nbsp;Capture retouchée&nbsp;» : morceaux de ces captures assemblés, sans rien redessiner, pour montrer la fenêtre posée au-dessus du clavier.</p>
+</div>
+
+<section class="shot" id="01-actuel">
+  <header><div class="num">1</div><div>
+    <h2>Aujourd'hui : sur un écran étroit, le clavier cache «&nbsp;Annuler&nbsp;» et «&nbsp;Rejoindre&nbsp;»</h2>
+    <p>Téléphone sans nom réglé : le champ «&nbsp;Votre nom&nbsp;» est vide, le curseur dedans, et le clavier s'ouvre tout seul. La fenêtre monte au-dessus du clavier, mais elle est plus haute que la place qui reste.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Actuel · 320 dp</span><div class="ph" data-ph="cap:320-clavier"></div>
+      <figcaption>«&nbsp;Annuler&nbsp;» et «&nbsp;Rejoindre&nbsp;» sont sous le clavier : il faut le fermer pour les toucher.<span class="kind">Capture de l'émulateur, 0.4.265</span></figcaption></figure>
+    <figure class="phc"><span class="tag cur">Actuel · 360 dp</span><div class="ph" data-ph="cap:360-clavier"></div>
+      <figcaption>À 360 dp, la fenêtre tient tout juste : les boutons se voient. À 411 dp aussi, avec de la marge.<span class="kind">Capture de l'émulateur, 0.4.265</span></figcaption></figure>
+  </div>
+  <div class="fname">01-actuel.png</div>
+</section>
+
+<section class="shot" id="02-A-clavier-ouvert">
+  <header><div class="num">2</div><div>
+    <h2>Proposé A : la fenêtre tient au-dessus du clavier</h2>
+    <p>Quand la place manque, l'icône et le titre restent en haut, «&nbsp;Annuler&nbsp;» et «&nbsp;Rejoindre&nbsp;» en bas, juste au-dessus du clavier. Le milieu (nom de l'opération, champ, aide, texte) défile ; le champ reste visible.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Actuel · 320 dp</span><div class="ph" data-ph="cap:320-clavier"></div>
+      <figcaption>Les boutons sont sous le clavier.<span class="kind">Capture de l'émulateur, 0.4.265</span></figcaption></figure>
+    <figure class="phc"><span class="tag reco">Proposé A (recommandée)</span><div class="ph" data-ph="a320"></div>
+      <figcaption>Les boutons sont au-dessus du clavier. Le texte «&nbsp;Vous arrivez…&nbsp;» se lit en faisant glisser le milieu.<span class="kind">Capture retouchée : le bas de la même fenêtre posé au-dessus du clavier</span></figcaption></figure>
+  </div>
+  <div class="note reco">À 360 et 411 dp, A ne change rien : la fenêtre y tient déjà au-dessus du clavier (image 1).</div>
+  <div class="fname">02-A-clavier-ouvert.png</div>
+</section>
+
+<section class="shot" id="03-A-clavier-ferme">
+  <header><div class="num">3</div><div>
+    <h2>Proposé A : quand le clavier se ferme</h2>
+    <p>La fenêtre reprend sa hauteur et redevient celle de l'aperçu validé 05-entree-sans-nom : rien ne défile, tout se lit.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag reco">Proposé A · clavier ouvert</span><div class="ph" data-ph="a320"></div>
+      <figcaption>Le milieu défile, les boutons restent au-dessus du clavier.<span class="kind">Capture retouchée</span></figcaption></figure>
+    <figure class="phc"><span class="tag reco">Proposé A · clavier fermé</span><div class="ph" data-ph="cap:320-sans-clavier"></div>
+      <figcaption>Toute la fenêtre, centrée, comme aujourd'hui une fois le clavier fermé.<span class="kind">Capture de l'émulateur, 0.4.265 (A ne la change pas)</span></figcaption></figure>
+  </div>
+  <div class="fname">03-A-clavier-ferme.png</div>
+</section>
+
+<section class="shot" id="04-etroit-texte-max">
+  <header><div class="num">4</div><div>
+    <h2>Le cas étroit : 320 dp et le plus grand texte d'Android</h2>
+    <p>Texte d'Android à 200 %. Clavier ouvert, il ne reste qu'une bande entre le titre et les boutons : le champ y remonte pour rester visible, et le haut de «&nbsp;Exercice Vallon&nbsp;» passe sous le titre.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Actuel · 320 dp, texte 200 %</span><div class="ph" data-ph="cap:320-x2-clavier"></div>
+      <figcaption>L'aide et les boutons sont sous le clavier.<span class="kind">Capture de l'émulateur, 0.4.265</span></figcaption></figure>
+    <figure class="phc"><span class="tag reco">Proposé A (recommandée)</span><div class="ph" data-ph="a320x2"></div>
+      <figcaption>Le champ et les boutons se voient ; l'aide et le texte se lisent en faisant glisser le milieu.<span class="kind">Capture retouchée : morceaux de la même fenêtre</span></figcaption></figure>
+  </div>
+  <div class="duo">
+    <figure class="phc"><span class="tag reco">Proposé A · clavier fermé</span><div class="ph" data-ph="cap:320-x2-sans-clavier"></div>
+      <figcaption>Le même début qu'aujourd'hui.<span class="kind">Capture de l'émulateur, 0.4.265</span></figcaption></figure>
+    <div class="txt">
+      <p>Clavier fermé, la fenêtre prend tout l'écran.</p>
+      <p><b>Aujourd'hui</b>, le texte «&nbsp;Vous arrivez «&nbsp;en attente&nbsp;»…&nbsp;» y est coupé après «&nbsp;en&nbsp;» : la suite ne se lit pas du tout, même sans clavier.</p>
+      <p><b>Avec A</b>, le même début s'affiche, et la suite se lit en faisant glisser le milieu.</p>
+      <p>Une variante où le titre défile aussi (seuls les boutons restent en place) donne ici la même image à quelques pixels près : pas de choix à faire.</p>
+    </div>
+  </div>
+  <div class="fname">04-etroit-texte-max.png</div>
+</section>
+
+</div>
+<script>
+(function () {
+  // A phone: the layers of 1080 × 2400 captures, [file, top in the file, height, top on the screen].
+  const LAYERS = {
+    // 320 dp: the top of the window with the keyboard open, its bottom (buttons) taken from the same window without
+    // the keyboard and set right above the keyboard, which starts at 1432 px.
+    a320: [['320-clavier', 0, 1108, 0], ['320-sans-clavier', 1677, 324, 1108], ['320-clavier', 1432, 968, 1432]],
+    // 320 dp, text 200 %: icon and title kept, the middle moved up 49 px so the whole field shows, then the buttons.
+    a320x2: [['320-x2-clavier', 0, 675, 0], ['320-x2-clavier', 724, 415, 675],
+      ['320-x2-sans-clavier', 1977, 342, 1090], ['320-x2-clavier', 1432, 968, 1432]],
+  };
+  document.querySelectorAll('[data-ph]').forEach((ph) => {
+    const key = ph.dataset.ph;
+    const layers = key.startsWith('cap:') ? [[key.slice(4), 0, 2400, 0]] : LAYERS[key];
+    const scr = document.createElement('div');
+    scr.className = 'scr';
+    scr.style.transform = 'scale(' + (300 / 1080) + ')';
+    layers.forEach(([file, from, height, to], i) => {
+      const d = document.createElement('div');
+      d.style.top = to + 'px';
+      // A few rows more under each piece but the last, covered by the next: no seam once scaled down.
+      d.style.height = (height + (i < layers.length - 1 ? 4 : 0)) + 'px';
+      d.style.backgroundImage = "url('captures/" + file + ".png')";
+      d.style.backgroundPosition = '0 -' + from + 'px';
+      scr.appendChild(d);
+    });
+    ph.appendChild(scr);
+  });
+  // « #s=<id> » shows that band alone, for its image; « #h » writes the height of each band.
+  const m = /s=([\w-]+)/.exec(location.hash);
+  if (m) { document.body.classList.add('one'); document.getElementById(m[1]).classList.add('on'); }
+  if (/\bh\b/.test(location.hash)) {
+    const pre = document.createElement('pre');
+    pre.id = 'heights';
+    pre.textContent = [...document.querySelectorAll('section.shot')]
+      .map((s) => s.id + ' ' + Math.ceil(s.getBoundingClientRect().height)).join('\n');
+    document.body.appendChild(pre);
+  }
+})();
+</script>
+</body>
+</html>

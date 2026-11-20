@@ -10,14 +10,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onChildren
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
@@ -305,9 +309,52 @@ class OperationNarrowScreensTest {
         assertTrue(cut.isEmpty(), "texts cut at 320 dp:\n" + cut.distinct().joinToString("\n"))
     }
 
+    /**
+     * The room the keyboard leaves on a phone 320 dp wide, the text of Android at 200 % (k1 A,
+     * `tour7/img/04-etroit-texte-max`): the buttons stay in the window, the middle scrolls with the whole field in
+     * sight, and the text under it is read by scrolling instead of being cut.
+     */
+    @Test
+    @Config(qualifiers = "w320dp-h400dp", fontScale = 2f)
+    fun `above the keyboard with the largest text, the buttons stay and the middle scrolls`() {
+        val session = session(demo = false)
+        rule.mainClock.autoAdvance = false
+        rule.setContent {
+            ToolMapTheme {
+                CompositionLocalProvider(LocalFormats provides Formats()) {
+                    Box(Modifier.fillMaxSize()) { ShareWindows(session, setName = { "" }) }
+                }
+            }
+        }
+        session.join.value = JoinQuestion("code-1", "Exercice Vallon")
+        rule.mainClock.advanceTimeBy(SETTLE_MS)
+        shadowOf(Looper.getMainLooper()).idle()
+        rule.waitForIdle()
+        rule.onNode(hasText("Annuler") and hasClickAction()).assertIsDisplayed()
+        rule.onNode(hasText("Rejoindre") and hasClickAction()).assertIsDisplayed()
+        val middle = rule.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange))
+        val range = middle.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange]
+        assertTrue(range.maxValue() > 0f, "the middle scrolls at this size")
+        val room = middle.fetchSemanticsNode().boundsInRoot
+        val field = rule.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot
+        val inSight = field.top >= room.top - 1f && field.bottom <= room.bottom + 1f
+        assertTrue(inSight, "the whole field in sight: $field in $room")
+        // Scrolled to the end (by hand: `performScrollTo` waits for a scroll that only moves with the clock), the end
+        // of « Vous arrivez « en attente »… » is in sight.
+        middle.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, range.maxValue()) }
+        rule.mainClock.advanceTimeBy(SCROLL_MS)
+        val end = rule.onNodeWithText("Vous arrivez", substring = true).fetchSemanticsNode().boundsInRoot
+        val scrolled = middle.fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            end.bottom <= scrolled.bottom + 1f && end.bottom > scrolled.top,
+            "the end of the text: $end in $scrolled",
+        )
+    }
+
     private companion object {
         const val DEMO_WAIT_MS = 120_000
         const val POLL_MS = 100L
         const val SETTLE_MS = 200L
+        const val SCROLL_MS = 1_000L
     }
 }

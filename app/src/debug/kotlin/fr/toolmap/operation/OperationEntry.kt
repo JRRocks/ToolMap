@@ -1,5 +1,6 @@
 package fr.toolmap.operation
 
+import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,14 +9,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -41,20 +46,27 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.hierarchy.Names
@@ -63,6 +75,7 @@ import fr.toolmap.ui.GroupBlock
 import fr.toolmap.ui.ToolMapTopBar
 import fr.toolmap.ui.screenInsets
 import fr.toolmap.ui.theme.toolMap
+import kotlinx.coroutines.launch
 
 /** The card « Opération » under the buttons that join (`tour2/01-entree-A`). */
 @Composable
@@ -496,6 +509,8 @@ fun ShareWindows(
  * « Rejoindre l'opération ? » with « Votre nom » filled with the name set in the app (`tour3/04-entree-nom`, `-etats`);
  * empty, the cursor in it and a grey help when none is set, red only once a name written is erased (N16 A,
  * `tour5/05-entree-sans-nom`, `-ecrit`). « Rejoindre » waits for a name.
+ * The window stays above the keyboard (k1 A, `tour7/img/02-A-clavier-ouvert`, `04-etroit-texte-max`): when it does not
+ * fit there, the icon, the title and the buttons keep their place and the middle scrolls, the whole field in sight.
  */
 @Composable
 private fun JoinWindow(
@@ -509,13 +524,25 @@ private fun JoinWindow(
     // Nothing is wrong yet while the field shows that no name is set (N16 A): red once a name written is erased.
     val error = missing && (question.name != null || preset.isNotEmpty())
     val focus = remember { FocusRequester() }
+    val fieldInSight = remember { BringIntoViewRequester() }
+    var typing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val room = roomOnScreen()
     if (preset.isEmpty()) LaunchedEffect(question.invitation) { focus.requestFocus() }
     AlertDialog(
         onDismissRequest = session::cancelJoin,
+        modifier = Modifier.heightIn(max = room),
         icon = { Icon(OperationIcons.AccountTree, contentDescription = null) },
         title = { Text(stringResource(R.string.op_join_title), textAlign = TextAlign.Center) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            ShrinkAboveKeyboard()
+            Column(
+                Modifier
+                    // The keyboard opening shrinks the middle: the field goes back in sight.
+                    .onSizeChanged { if (typing) scope.launch { fieldInSight.bringIntoView() } }
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 Text(
                     question.operationName,
                     style = MaterialTheme.typography.titleMedium,
@@ -548,7 +575,15 @@ private fun JoinWindow(
                                     { Icon(OperationIcons.Edit, contentDescription = null) }
                                 }
                             },
-                        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focus)
+                                .bringIntoViewRequester(fieldInSight)
+                                .onFocusChanged {
+                                    typing = it.isFocused
+                                    if (typing) scope.launch { fieldInSight.bringIntoView() }
+                                },
                     )
                     val colors = MaterialTheme.colorScheme
                     Text(
@@ -575,6 +610,40 @@ private fun JoinWindow(
         dismissButton = { TextButton(onClick = session::cancelJoin) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
+
+/**
+ * The window of the dialog it is drawn in shrinks to the room left above the keyboard, instead of sliding up and
+ * leaving its bottom under it (k1 A).
+ */
+@Composable
+private fun ShrinkAboveKeyboard() {
+    val view = LocalView.current
+    SideEffect {
+        val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        val mode = window.attributes.softInputMode
+        val wanted = (mode and WindowManager.LayoutParams.SOFT_INPUT_MASK_STATE) or ADJUST_RESIZE
+        if (mode != wanted) window.setSoftInputMode(wanted)
+    }
+}
+
+/**
+ * The height left on the screen between the status bar and the keyboard (or the navigation bar), read from the screen
+ * a dialog is opened from (k1 A). A dialog is measured by Compose with the whole screen in mind, keyboard or not, and
+ * its own window learns late, or not at all, that the keyboard took the bottom: held to this height, a dialog with a
+ * scrolling middle keeps its buttons in sight.
+ */
+@Composable
+private fun roomOnScreen(): Dp {
+    val screen = LocalView.current.rootView.height
+    val density = LocalDensity.current
+    val bars = WindowInsets.safeDrawing
+    val room = screen - bars.getTop(density) - bars.getBottom(density)
+    return if (screen > 0 && room > 0) with(density) { room.toDp() } else Dp.Unspecified
+}
+
+/** Deprecated for the windows drawn behind the system bars; a dialog window still fits them, and is resized. */
+@Suppress("DEPRECATION")
+private const val ADJUST_RESIZE = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
 
 /** The small grey caption over a block. */
 @Composable
