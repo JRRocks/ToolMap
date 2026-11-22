@@ -370,6 +370,12 @@ object HierarchyReducer {
                 if (state.positionIntervalS == change.seconds) return no(Rejection.NO_CHANGE)
                 yes(state.copy(positionIntervalS = change.seconds))
             }
+
+            is Change.SetGroupColor -> {
+                val group = state.groups[change.group] ?: return no(Rejection.NO_SUCH_GROUP)
+                if (group.rgb == change.rgb) return no(Rejection.NO_CHANGE)
+                yes(state.copy(groups = state.groups + (group.id to group.copy(rgb = change.rgb))))
+            }
         }
     }
 
@@ -493,7 +499,9 @@ object HierarchyReducer {
                 change.member
             }
 
-            is Change.CreateEnsemble, is Change.CreateGroup, is Change.RenameGroup, is Change.DeleteGroup -> {
+            is Change.CreateEnsemble, is Change.CreateGroup, is Change.RenameGroup, is Change.DeleteGroup,
+            is Change.SetGroupColor,
+            -> {
                 null
             }
 
@@ -509,6 +517,10 @@ object HierarchyReducer {
     ): Long? =
         when (change) {
             is Change.RenameGroup -> {
+                change.group
+            }
+
+            is Change.SetGroupColor -> {
                 change.group
             }
 

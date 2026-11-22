@@ -362,7 +362,8 @@ class HierarchyReplica(
             get() =
                 this !is Change.RenameGroup && this !is Change.CreateGroup && this !is Change.RenameMember &&
                     this !is Change.RequestName && this !is Change.WithdrawName && this !is Change.AnswerName &&
-                    this !is Change.RenameEnsemble && this !is Change.SetPositionInterval
+                    this !is Change.RenameEnsemble && this !is Change.SetPositionInterval &&
+                    this !is Change.SetGroupColor
 
         private val BY_AUTHOR: Comparator<Map.Entry<Long, *>> =
             Comparator { a, b -> java.lang.Long.compareUnsigned(a.key, b.key) }

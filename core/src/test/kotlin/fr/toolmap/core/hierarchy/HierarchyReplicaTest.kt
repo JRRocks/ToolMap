@@ -688,7 +688,7 @@ class HierarchyReplicaTest {
         val group = state.groups.keys.takeIf { known }?.randomOrNull(random) ?: groupPool.random(random)
         val unit = if (random.nextInt(3) == 0) ROOT else group
         val post = if (random.nextBoolean()) Post.LEADER else Post.DEPUTY
-        return when (random.nextInt(47)) {
+        return when (random.nextInt(49)) {
             0, 1, 2, 3 -> {
                 admit(memberPool.random(random), "Membre ${random.nextInt(4)}")
             }
@@ -780,6 +780,11 @@ class HierarchyReplicaTest {
             // The rhythm of the positions (2026-11-18).
             46 -> {
                 Change.SetPositionInterval(intArrayOf(15, 60, 300, 3_600)[random.nextInt(4)])
+            }
+
+            // The colour of a group (P39.14).
+            47, 48 -> {
+                Change.SetGroupColor(group, random.nextInt(Group.MAX_RGB + 1))
             }
 
             else -> {
@@ -918,6 +923,7 @@ class HierarchyReplicaTest {
                 Change.AnswerName::class,
                 Change.RenameEnsemble::class,
                 Change.SetPositionInterval::class,
+                Change.SetGroupColor::class,
             )
         assertEquals(expected, seen.toSet(), "kinds of change applied")
         assertTrue(dissolved > 0, "some runs end dissolved")

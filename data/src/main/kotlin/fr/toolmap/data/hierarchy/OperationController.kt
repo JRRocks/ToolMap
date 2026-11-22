@@ -87,6 +87,8 @@ data class GroupView(
     val leader: Long?,
     val deputy: Long?,
     val members: List<Long>,
+    /** Its colour `0xRRGGBB` chosen by an administrator (P39.14, L1); `null`: the one of its place in the order. */
+    val rgb: Int? = null,
 )
 
 /** A phone that asks to come in, as the creator and the administrators see it. */
@@ -342,6 +344,14 @@ class OperationController(
                 saveDue = true
                 executor.execute { if (running === this) save() }
             }
+        }
+
+        /**
+         * Written now, on this thread, before the change goes out (M3, spec § 21 case D); the next [onChanged] writes
+         * what the change made follow (keys, names) as before. Called by the node, which only runs on [executor].
+         */
+        override fun beforeSend() {
+            if (running === this && ended == null) save()
         }
 
         override fun onPosition(
@@ -756,6 +766,12 @@ class OperationController(
             }.rejection()
         }
 
+    /** Gives [group] the colour [rgb] (`0xRRGGBB`) on every phone: who may rename the group may colour it (P39.14, L1). */
+    suspend fun setGroupColor(
+        group: Long,
+        rgb: Int,
+    ): Rejection? = change(Change.SetGroupColor(group, rgb))
+
     /**
      * Gives [member] the name [name] at once (the creator and the administrators, for anyone and for themselves:
      * 2026-11-16); a request of that member nobody answered goes. [Rejection.MALFORMED] for a name the format
@@ -1032,6 +1048,7 @@ class OperationController(
                     state.membersOf(g.id).map {
                         it.id
                     },
+                    g.rgb,
                 )
             }
         val read = if (self in state.members) state.channelsReadBy(self).toSet() else emptySet()

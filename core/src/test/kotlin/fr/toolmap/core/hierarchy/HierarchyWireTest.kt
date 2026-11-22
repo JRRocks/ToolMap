@@ -54,6 +54,7 @@ class HierarchyWireTest {
             Change.AnswerName(C, hidden("Charlie 3"), accept = true),
             Change.RenameEnsemble(hidden("Sortie d'hiver")),
             Change.SetPositionInterval(HierarchyState.MAX_POSITION_INTERVAL_S),
+            Change.SetGroupColor(G1, 0x14918C),
         )
     private val ops = changes.mapIndexed { i, change -> signedOp(0x1234_5678_9ABC_DEF0, A, i + 1, 10L + i, change) }
 
@@ -76,7 +77,7 @@ class HierarchyWireTest {
 
     @Test
     fun `every change survives the format, with its proof`() {
-        assertEquals(20, changes.map { it::class }.toSet().size, "one sample per kind of change")
+        assertEquals(21, changes.map { it::class }.toSet().size, "one sample per kind of change")
         for (op in ops) {
             val bytes = HierarchyWire.encodeOp(op)
             assertEquals(HierarchyWire.Kind.OP, HierarchyWire.kindOf(bytes))

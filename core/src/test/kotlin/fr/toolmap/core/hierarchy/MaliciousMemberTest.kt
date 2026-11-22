@@ -74,6 +74,8 @@ class MaliciousMemberTest {
                     Change.AnswerName(s.l.id, Names.hide("Léa ter").hidden, accept = true),
                     // The rhythm of the positions (2026-11-18) is not a member's.
                     Change.SetPositionInterval(5),
+                    // Nor the colour of a group (P39.14), which is the administrators'.
+                    Change.SetGroupColor(s.nord, 0xD32F2F),
                 )
             val ops = attacks.map { r.forgeAndSend(m, it) }
             for (p in honest) {

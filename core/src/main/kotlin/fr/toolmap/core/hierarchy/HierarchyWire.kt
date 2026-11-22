@@ -53,6 +53,9 @@ object HierarchyWire {
 
     /** The state carries a rhythm of the positions other than [HierarchyState.DEFAULT_POSITION_INTERVAL_S]. */
     private const val POSITION_INTERVAL = 2
+
+    /** The state carries the colour of at least one group (P39.14, L1). */
+    private const val GROUP_COLORS = 4
     private const val DEPUTY_SUCCEEDS = 1
 
     enum class Kind(
@@ -136,7 +139,11 @@ object HierarchyWire {
         val w = header(Kind.STATE).u64(state.ensembleId)
         name(w, requireNotNull(state.name) { "no state to write before the ensemble exists" })
         val ownInterval = state.positionIntervalS != HierarchyState.DEFAULT_POSITION_INTERVAL_S
-        w.u8((if (state.dissolved) DISSOLVED else 0) or (if (ownInterval) POSITION_INTERVAL else 0))
+        val colored = state.groups.entries.filter { it.value.rgb != null }.sortedWith(BY_KEY)
+        w.u8(
+            (if (state.dissolved) DISSOLVED else 0) or (if (ownInterval) POSITION_INTERVAL else 0) or
+                (if (colored.isNotEmpty()) GROUP_COLORS else 0),
+        )
         // The rhythm of the positions (2026-11-18), only when it is not the minute: a state that has the minute is
         // written as before, and a block written before reads as a state that has it.
         if (ownInterval) w.i32(state.positionIntervalS)
@@ -151,6 +158,12 @@ object HierarchyWire {
         w.u16(state.groups.size)
         for ((id, group) in state.groups.entries.sortedWith(BY_KEY)) {
             name(w.u64(id).u64(group.parent), group.name).u64(group.leader ?: 0L).u64(group.deputy ?: 0L)
+        }
+        // The colours of the groups (2026-11-22), only when one has its own: a state without them is written as before,
+        // and a block written before reads as a state without them.
+        if (colored.isNotEmpty()) {
+            w.u16(colored.size)
+            for ((id, group) in colored) w.u64(id).i32(requireNotNull(group.rgb))
         }
         w.u16(state.deletedGroups.size)
         for (id in state.deletedGroups.sortedWith(UNSIGNED)) w.u64(id)
@@ -172,7 +185,9 @@ object HierarchyWire {
         val ensemble = r.u64()
         val name = readName(r)
         val flags = r.u8()
-        if (flags and (DISSOLVED or POSITION_INTERVAL).inv() != 0) throw WireException("unknown state flag")
+        if (flags and (DISSOLVED or POSITION_INTERVAL or GROUP_COLORS).inv() != 0) {
+            throw WireException("unknown state flag")
+        }
         val interval = if (flags and POSITION_INTERVAL != 0) r.i32() else HierarchyState.DEFAULT_POSITION_INTERVAL_S
         // Written only when it is not the minute: the minute written is not the one form of a state.
         if (flags and POSITION_INTERVAL != 0 && interval == HierarchyState.DEFAULT_POSITION_INTERVAL_S) {
@@ -207,6 +222,18 @@ object HierarchyWire {
             val groupName = readName(r)
             val group = Group(id, parent, groupName, r.u64().takeIf { it != 0L }, r.u64().takeIf { it != 0L })
             if (groups.put(id, group) != null) throw WireException("bad group")
+        }
+        if (flags and GROUP_COLORS != 0) {
+            val colorCount = r.u16()
+            // Written only when there is one: none written is not the one form of a state.
+            if (colorCount !in 1..groups.size) throw WireException("bad number of group colours")
+            repeat(colorCount) {
+                val id = r.u64()
+                val group = groups[id] ?: throw WireException("colour of a group that does not exist")
+                val rgb = r.i32()
+                if (group.rgb != null || rgb !in 0..Group.MAX_RGB) throw WireException("bad group colour")
+                groups[id] = group.copy(rgb = rgb)
+            }
         }
         val deleted = LinkedHashSet<Long>()
         repeat(r.u16()) { if (!deleted.add(r.u64())) throw WireException("bad deleted group") }
@@ -345,6 +372,7 @@ object HierarchyWire {
             is Change.AnswerName -> name(w.u8(ANSWER_NAME).u64(c.member), c.name).u8(if (c.accept) 1 else 0)
             is Change.RenameEnsemble -> name(w.u8(RENAME_ENSEMBLE), c.name)
             is Change.SetPositionInterval -> w.u8(SET_POSITION_INTERVAL).i32(c.seconds)
+            is Change.SetGroupColor -> w.u8(SET_GROUP_COLOR).u64(c.group).i32(c.rgb)
         }
         return w.toByteArray()
     }
@@ -493,6 +521,12 @@ object HierarchyWire {
             SET_POSITION_INTERVAL -> {
                 // Read whatever it is: a value out of the window is refused as malformed, as every phone does.
                 Change.SetPositionInterval(r.i32())
+            }
+
+            SET_GROUP_COLOR -> {
+                // Read whatever it is: a colour out of 24 bits is refused as malformed, as every phone does.
+                val group = r.u64()
+                Change.SetGroupColor(group, r.i32())
             }
 
             else -> {
@@ -663,4 +697,7 @@ object HierarchyWire {
 
     // 2026-11-18, the rhythm of the positions (same version: a block written before carries none).
     private const val SET_POSITION_INTERVAL = 20
+
+    // 2026-11-22, the colour of a group (P39.14, L1; same version: a block written before carries none).
+    private const val SET_GROUP_COLOR = 21
 }

@@ -221,6 +221,20 @@ sealed interface Change {
         override val operation get() = Operation.SET_POSITION_INTERVAL
     }
 
+    /**
+     * The colour of [group] on every phone, [rgb] as `0xRRGGBB` (the user's answer L1 of 2026-11-16, spec § 19): one
+     * chosen by an administrator instead of the one the screens give in the order of the groups. Checked against the
+     * line of [Operation.RENAME_GROUP] (who may rename a group may colour it): an ensemble created before the colour
+     * existed (0.4.276) has that line, so its groups can be coloured too. Not hidden, like the rhythm: a colour names
+     * nobody.
+     */
+    data class SetGroupColor(
+        val group: Long,
+        val rgb: Int,
+    ) : Change {
+        override val operation get() = Operation.RENAME_GROUP
+    }
+
     companion object {
         internal fun operationOf(
             unit: Long,
@@ -322,6 +336,10 @@ fun Change.isMalformed(): Boolean =
 
         is Change.SetPositionInterval -> {
             seconds !in HierarchyState.MIN_POSITION_INTERVAL_S..HierarchyState.MAX_POSITION_INTERVAL_S
+        }
+
+        is Change.SetGroupColor -> {
+            group == 0L || rgb !in 0..Group.MAX_RGB
         }
     }
 

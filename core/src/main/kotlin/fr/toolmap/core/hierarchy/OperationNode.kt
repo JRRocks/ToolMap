@@ -71,6 +71,15 @@ interface OperationListener {
 
     /** The operation is over for this phone: everything it held of it is forgotten; wipe the storage. */
     fun onEnded(ending: OperationEnding) {}
+
+    /**
+     * A change this phone just wrote, or a new invitation key it just drew, is about to go out: write everything down
+     * now, before returning (the user's answer M3 of 2026-11-16, spec § 21 case D). The one call that may block,
+     * a few milliseconds: a change sent before it is on the disk, the app killed in between, came back after a restart
+     * as a second change under the same number, and one of the two was lost on every phone. Not called for a change
+     * that ends the operation for this phone (dissolution, its own departure): nothing of it is kept anyway.
+     */
+    fun beforeSend() {}
 }
 
 /** A frame refused for a reason that is not an exception: what [Problems.expected] is given. */
@@ -137,6 +146,14 @@ class OperationNode(
      */
     private val pullLater = LinkedHashSet<Long>()
     private val answeredAt = HashMap<Long, Pair<Long, Int>>()
+
+    /**
+     * When this phone last answered a summary of each phone, and the most recent one heard from it since, not answered
+     * yet (M7): after a reconnection the server hands over two minutes of a phone's summaries in one go; the first
+     * is answered at once, then one every [ANSWER_LATEST_EVERY_MS] at most, the latest.
+     */
+    private val summaryAnsweredAt = HashMap<Long, Long>()
+    private val summaryLater = LinkedHashMap<Long, Heard>()
     private val grantedAt = HashMap<Long, Long>()
     private val offeredAt = HashMap<Int, Long>()
     private val resendSeenAt = HashMap<Channel, Long>()
@@ -196,6 +213,13 @@ class OperationNode(
         val dueAt: Long,
         val scheduledAt: Long,
         val epoch: Int = 0,
+    )
+
+    /** A summary heard and put off ([summaryLater]): what it says, the frame it came in, the link it came by. */
+    private class Heard(
+        val summary: OperationSummary,
+        val frame: OpenedFrame,
+        val peer: Long,
     )
 
     private class Pending(
@@ -293,6 +317,11 @@ class OperationNode(
         }
         if (!isMember && now - lastJoinAt >= JOIN_EVERY_MS) sendJoin()
         for (peer in pullLater.toList()) if (peer in links) pull(peer) else pullLater -= peer
+        for ((sender, heard) in summaryLater.entries.toList()) {
+            if (now - (summaryAnsweredAt[sender] ?: Long.MIN_VALUE / 2) < ANSWER_LATEST_EVERY_MS) continue
+            summaryLater.remove(sender)
+            answer(heard.summary, heard.frame, heard.peer)
+        }
         if (links.isNotEmpty() && now - lastSummaryAt >= summaryEveryMs) {
             lastSummaryAt = now
             broadcast(FrameGenre.SUMMARY, ourSummary().encode())
@@ -394,6 +423,23 @@ class OperationNode(
             heardForOthers++
             return
         }
+        // One answer every two seconds at most to the summaries of one phone, to the latest (the user's answer M7 of
+        // 2026-11-16, spec § 23): what the others were missing two seconds ago, the latest summary says too.
+        if (clock() - (summaryAnsweredAt[frame.sender] ?: Long.MIN_VALUE / 2) < ANSWER_LATEST_EVERY_MS) {
+            summaryLater[frame.sender] = Heard(theirs, frame, peer)
+            return
+        }
+        summaryLater.remove(frame.sender)
+        answer(theirs, frame, peer)
+    }
+
+    /** Answers [theirs], a summary of [frame]'s sender meant for this phone or for the whole room. */
+    private fun answer(
+        theirs: OperationSummary,
+        frame: OpenedFrame,
+        peer: Long,
+    ) {
+        summaryAnsweredAt[frame.sender] = clock()
         val to = links[peer] ?: links[frame.sender]
         val missing = replica.missingFor(theirs.summary)
         for (body in opsBodies(missing)) sendTo(to, FrameGenre.OPS, body)
@@ -650,6 +696,8 @@ class OperationNode(
         if (ending != null) return IssueResult.Refused(Rejection.DISSOLVED)
         val result = replica.issue(change)
         if (result is IssueResult.Issued) {
+            val after = state
+            if (!after.dissolved && self in after.members) listener.beforeSend()
             broadcast(FrameGenre.OPS, HierarchyWire.encodeOps(listOf(result.op)))
             afterChange()
         }
@@ -804,9 +852,11 @@ class OperationNode(
         val key = ByteArray(OperationInvite.KEY_BYTES).also(random::nextBytes)
         val announcement = InviteKeys.announce(keys, ensembleId, old.epoch + 1, key)
         val grant = InviteKeys.grant(keys, announcement, key, state.members.values.filter { it.id != self })
+        adopt(EpochKey(key, announcement))
+        // Written down before it goes (M3): a key handed out and then lost here would leave this phone behind its own.
+        listener.beforeSend()
         // Under the old key, so that the members still on it open the envelope; only members unwrap the key.
         broadcast(FrameGenre.INVITE_KEY, grant.encode(), epoch = old.epoch)
-        adopt(EpochKey(key, announcement))
         listener.onChanged()
         return true
     }
@@ -925,6 +975,7 @@ class OperationNode(
         joins.clear()
         duties.clear()
         outbox.clear()
+        summaryLater.clear()
         listener.onEnded(over)
     }
 
@@ -1374,6 +1425,9 @@ class OperationNode(
         const val SUMMARY_EVERY_MS = 300_000L
         const val PULL_EVERY_MS = 2_000L
         const val ANSWER_EVERY_MS = 5_000L
+
+        /** Between two answers to the summaries of one phone (M7). */
+        const val ANSWER_LATEST_EVERY_MS = 2_000L
         const val GRANT_EVERY_MS = 10_000L
         const val OUTBOX_MAX_AGE_MS = 3_600_000L
         const val TEXT_MAX_AGE_MS = 6 * 3_600_000L

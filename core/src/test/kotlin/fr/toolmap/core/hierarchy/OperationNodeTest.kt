@@ -154,6 +154,9 @@ class OperationNodeTest {
         val alerts = ArrayList<Triple<Long, Channel, OperationText>>()
         var ended: OperationEnding? = null
 
+        /** Called when the node asks for everything to be written down before a change goes out (M3). */
+        var onBeforeSend: (() -> Unit)? = null
+
         val n: OperationNode get() = node!!
         val state: HierarchyState get() = n.state
 
@@ -183,6 +186,10 @@ class OperationNodeTest {
 
         override fun onEnded(ending: OperationEnding) {
             ended = ending
+        }
+
+        override fun beforeSend() {
+            onBeforeSend?.invoke()
         }
 
         fun must(change: Change) {
@@ -620,5 +627,87 @@ class OperationNodeTest {
             )
         val linkBack = OperationLinkState.decode(link.encode())
         assertEquals(link.encode().toList(), linkBack.encode().toList())
+    }
+
+    @Test
+    fun `a change and a new invitation key are written down before they go out (M3)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val seen = ArrayList<Int>()
+        a.onBeforeSend = { seen += room.written.size }
+        val before = room.written.size
+        a.must(Change.CreateGroup(0x55L, Names.hide("Nord").hidden))
+        assertEquals(listOf(before), seen, "written down once, before the operation went out")
+        assertTrue(room.written.size > before, "then sent")
+        seen.clear()
+        val renewing = room.written.size
+        assertTrue(a.n.renewInvitation())
+        assertEquals(listOf(renewing), seen, "the new key too, before its grant goes out")
+        assertTrue(room.written.size > renewing)
+        // A change that ends the operation for this phone is not: nothing of it is kept.
+        val left = ArrayList<Int>()
+        b.onBeforeSend = { left += room.written.size }
+        b.must(Change.RemoveMember(b.id))
+        assertTrue(left.isEmpty(), "its own departure")
+        assertEquals(OperationEnding.OUT, b.ended)
+    }
+
+    @Test
+    fun `a burst of summaries of one phone is answered at once, then once more, the latest (M7)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val g = a.newGroup("Groupe")
+        repeat(12) { a.must(Change.SetGroupColor(g, 0x101010 * (it + 1))) }
+        room.settle()
+        val ensemble = a.n.ensembleId
+        val epoch = a.n.epoch
+        assertEquals(epoch, b.n.epoch)
+        val key = OperationFrames.frameKey(assertNotNull(a.n.inviteKey(epoch)), ensemble, epoch)
+
+        fun opened(
+            from: Long,
+            since: Int,
+        ) = room.written.drop(since).filter {
+            it.first == from
+        }.mapNotNull { OperationFrames.open(key, ensemble, it.second) }
+
+        // A summary B wrote, then two minutes of its summaries handed over in one go by the server, as after a
+        // reconnection (P39.12, § 23): each says B holds one more of A's operations.
+        val real = OperationSummary.decode(opened(b.id, 0).last { it.genre == FrameGenre.SUMMARY }.body)
+        val authored = a.n.replica.summary().counts.getValue(a.id)
+        assertTrue(authored > 11, "$authored operations of A")
+        val burst =
+            (1..10).map { k ->
+                val counts = real.summary.counts + (a.id to k)
+                val body =
+                    OperationSummary(
+                        Summary(ensemble, counts, 0L),
+                        real.keysDigest,
+                        0,
+                        real.objects,
+                        a.id,
+                    ).encode()
+                OperationFrames.seal(key, ensemble, epoch, FrameGenre.SUMMARY, b.id, body)
+            }
+
+        fun opsOfA(since: Int) =
+            opened(a.id, since).filter { it.genre == FrameGenre.OPS }.flatMap { HierarchyWire.decodeOps(it.body) }
+
+        val mark = room.written.size
+        for (frame in burst) a.n.receive(b.id, frame)
+        val first = opsOfA(mark)
+        assertEquals((2..authored).toList(), first.filter { it.author == a.id }.map { it.seq }, "the first, at once")
+        val later = room.written.size
+        room.now += 1_000
+        a.n.tick()
+        assertTrue(opsOfA(later).isEmpty(), "nothing more within two seconds")
+        room.now += 1_000
+        a.n.tick()
+        assertEquals((11..authored).toList(), opsOfA(later).filter { it.author == a.id }.map { it.seq }, "the latest")
+        room.now += 5_000
+        a.n.tick()
+        assertEquals(authored - 10, opsOfA(later).size, "then nothing: the other eight were never answered")
     }
 }

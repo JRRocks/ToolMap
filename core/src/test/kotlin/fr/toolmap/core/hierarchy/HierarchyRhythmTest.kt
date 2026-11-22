@@ -177,9 +177,9 @@ class HierarchyRhythmTest {
         for (seconds in listOf(60, 0, 86_401)) {
             assertFailsWith<WireException>("$seconds") { HierarchyWire.decodeState(withRhythm(seconds)) }
         }
-        // A flag this version does not know.
+        // A flag this version does not know (4 is the colours of the groups since P39.14).
         assertFailsWith<WireException> {
-            HierarchyWire.decodeState(minute.copyOf().also { it[FLAGS_AT] = (it[FLAGS_AT].toInt() or 4).toByte() })
+            HierarchyWire.decodeState(minute.copyOf().also { it[FLAGS_AT] = (it[FLAGS_AT].toInt() or 8).toByte() })
         }
     }
 

@@ -20,6 +20,20 @@
 
 ---
 
+## 2026-11-22 — Session 126 — [P39.14.1] Opération : la couleur d'un groupe dans le moteur, chaque changement enregistré avant de partir, une réponse toutes les 2 s
+- **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié). Copies au départ : GitHub `conception/groupes-hierarchiques` 0.4.276 (e2b13ea), Drive 0.4.276, local 0.4.276 (même commit, `emulator-check/` non suivi) ; référence : GitHub et local, à égalité.
+- **Objectif** : première livraison de P39.14 (réponses de l'utilisateur du 2026-11-16), sans effet visible : L1 dans le moteur, M3, M7 ; découpage de P39.14 écrit dans le plan (P39.14.1 à P39.14.5) ; aperçus du tour 8 (L1, L4 et M8, L5, M4) préparés en parallèle pour la session principale.
+- **Réalisé** :
+  - `.gitignore` : `/emulator-check/` (sortie locale de `smoke.sh` : des journaux de test, jamais dans ce dépôt public).
+  - **L1** : `Change.SetGroupColor(group, rgb)` (code 21), même droit que renommer le groupe, `Group.rgb`, état écrit avec le drapeau 4 seulement si un groupe a une couleur ; contrôleur : `setGroupColor`, `GroupView.rgb`. L'écran ne la montre pas encore (aperçu L1).
+  - **M3** : `OperationListener.beforeSend()` avant l'envoi d'un changement écrit ici ou d'une nouvelle clé d'invitation ; le contrôleur enregistre tout sur son fil.
+  - **M7** : premier résumé d'un téléphone répondu aussitôt, puis un seul toutes les 2 s, le plus récent (`summaryLater`, `ANSWER_LATEST_EVERY_MS`). Ce qu'il reste de M7 : rien dans le moteur (P39.17 avait fait la règle du destinataire, ADR-138) ; la mesure sur le vrai serveur au prochain run « Opération, bout en bout ».
+- **Décisions (ADR)** : ADR-139. Spec : `docs/specs/group-hierarchy.md` § 27 (nouveau).
+- **Tests / vérifications** :
+  - Nouveau `HierarchyGroupColorTest` (`:core`, 6 tests : accord entre téléphones, droits, valeurs refusées, groupe supprimé, opération de la 0.4.276 relue et colorable, une seule forme de l'état). `OperationNodeTest` : « a change and a new invitation key are written down before they go out (M3) », « a burst of summaries of one phone is answered at once, then once more, the latest (M7) » (dix résumés d'un coup : deux réponses ; avec le moteur d'avant, dix). Listes de changements des tests du format, du fuzzing, des attaques et des parcours au hasard complétées du changement 21.
+  - `./gradlew :core:test :data:testDebugUnitTest :app:compileDebugKotlin --continue` : un échec, « the random runs go through every kind of change » (le changement 21 jamais tiré dans les graines 101 à 120) ; tirage élargi, vert ensuite.
+  - `./gradlew spotlessApply` seul, puis `./gradlew check assembleDebug` : BUILD SUCCESSFUL (7 min 3 s), `ToolMap-debug-0.4.277.apk` (moteur natif absent de ce build : pas de Rust sur ce poste) ; `CI=true ./gradlew help` : vert.
+
 ## 2026-11-20 — Session 125 (suite) — [P39.17] Opération : une arrivée n'inonde plus la salle, seul le destinataire d'un résumé y répond
 - **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), commit `[P39.17]` 23dff2b après le commit `[P39.16]` 1b587a0 du journal du run n° 243. Builds locaux de l'essai, jamais poussés : 0.4.272 (règle du destinataire), 0.4.273 (et les postes un à un), 0.4.274 (et les arrivées une à une), 0.4.275 (et les deux autres causes), 0.4.276 (tests corrigés, commentaires, documentation : même protocole que 0.4.275) ; ces numéros avaient servi aux essais défaits de l'entrée précédente, en local seulement, aucun n'a été livré. Copies : celles de l'entrée précédente (GitHub a2d6e91, 0.4.271 ; Drive 0.4.265) ; référence : le local.
 - **Objectif** : qu'une arrivée dans une salle de 22 n'inonde plus les téléphones, cause du run « CI » n° 243 rouge, avec la règle donnée par la session principale (« CI 243 : choix b. Tu corriges le protocole ici, comme une tâche à part ») : un téléphone ne répond plus à un résumé ni à une demande adressés à un autre téléphone.

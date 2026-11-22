@@ -44,7 +44,17 @@ data class Group(
     val name: HiddenName,
     val leader: Long? = null,
     val deputy: Long? = null,
-)
+    /**
+     * Its colour, `0xRRGGBB`, once an administrator chose one ([Change.SetGroupColor]); `null` until then: the
+     * screens give it the colour of its place in the order of the groups, as before the colour existed.
+     */
+    val rgb: Int? = null,
+) {
+    companion object {
+        /** The largest colour: 24 bits of red, green and blue, no transparency. */
+        const val MAX_RGB = 0xFFFFFF
+    }
+}
 
 /**
  * The hierarchy at one moment: the ensemble, its groups, its members and who holds which post. Immutable; a change
@@ -530,6 +540,7 @@ data class HierarchyState(
             if (group.leader != null && members[group.leader]?.group != id) return "group leader out of its group"
             if (group.deputy != null && members[group.deputy]?.group != id) return "group deputy out of its group"
             if (group.leader != null && group.leader == group.deputy) return "group leader who is its own deputy"
+            if (group.rgb != null && group.rgb !in 0..Group.MAX_RGB) return "group colour out of range"
         }
         for ((id, requested) in nameRequests) {
             if (id !in members || !requested.valid) return "bad request of a name"
