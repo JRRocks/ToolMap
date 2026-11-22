@@ -48,9 +48,17 @@ class OperationNodeTest {
 
         fun present(): List<Phone> = phones.filter { it.online && it.node != null && it.node?.ending == null }
 
+        /** Phones cut off from the others, together (a second room): what they write reaches only each other. */
+        val apart = HashSet<Phone>()
+
+        private fun together(
+            a: Phone,
+            b: Phone,
+        ) = (a in apart) == (b in apart)
+
         fun link(phone: Phone) {
             for (other in present()) {
-                if (other === phone) continue
+                if (other === phone || !together(other, phone)) continue
                 other.node!!.linkOpened(phone.id, linkTo(other, phone))
                 phone.node!!.linkOpened(other.id, linkTo(phone, other))
             }
@@ -71,12 +79,60 @@ class OperationNodeTest {
                     // One write reaches the whole room: the frame is delivered once to each phone present.
                     if (written.lastOrNull()?.second === frame) return true
                     written += from.id to frame
-                    for (other in present()) if (other !== from) queue.addLast(Triple(from, other, frame))
+                    deliver(from, frame)
                     return true
                 }
 
                 override fun close() = Unit
             }
+
+        /** [frame] written by [from] (or in its name), to every phone that hears it. */
+        fun deliver(
+            from: Phone,
+            frame: ByteArray,
+        ) {
+            for (other in present()) {
+                if (other !== from &&
+                    together(from, other)
+                ) {
+                    queue.addLast(Triple(from, other, frame))
+                }
+            }
+        }
+
+        /** [frame] written in [from]'s name by the test: what a phone of an older version, or an attacker, sends. */
+        fun inject(
+            from: Phone,
+            frame: ByteArray,
+        ) {
+            written += from.id to frame
+            deliver(from, frame)
+        }
+
+        /** [cut] leave the room together: they hear each other, nobody else. */
+        fun split(vararg cut: Phone) {
+            for (p in cut) {
+                for (o in present()) {
+                    if (o in cut) continue
+                    o.node!!.linkClosed(p.id)
+                    p.node!!.linkClosed(o.id)
+                }
+            }
+            apart += cut
+        }
+
+        /** The phones apart come back to the room. */
+        fun mend() {
+            val back = apart.toList()
+            apart.clear()
+            for (p in back) {
+                for (o in present()) {
+                    if (o in back) continue
+                    o.node!!.linkOpened(p.id, linkTo(o, p))
+                    p.node!!.linkOpened(o.id, linkTo(p, o))
+                }
+            }
+        }
 
         /** Delivers, ticks and moves the clock until nothing is left to say. */
         fun settle(rounds: Int = 200) {
@@ -109,8 +165,10 @@ class OperationNodeTest {
         fun joiner(
             name: String,
             invite: OperationInvite,
+            cutOff: Boolean = false,
         ): Phone {
             val phone = Phone(name)
+            if (cutOff) apart += phone
             val replica = HierarchyReplica(invite.ensembleId, phone.id, phone.keys)
             val node =
                 OperationNode(
@@ -709,5 +767,224 @@ class OperationNodeTest {
         room.now += 5_000
         a.n.tick()
         assertEquals(authored - 10, opsOfA(later).size, "then nothing: the other eight were never answered")
+    }
+
+    // ---- P39.14.2: M6, M2, M1, M5 (the user's answers of 2026-11-16, ADR-140) ------------------------------------
+
+    @Test
+    fun `only the creator renews the invitation key, at once, or when it is back (M6)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val c = room.letIn(a, "Chloé")
+        val d = room.letIn(a, "David")
+        a.must(Change.AddAdmin(b.id))
+        room.settle()
+        assertFalse(b.n.renewInvitation(), "an administrator no longer renews it")
+        assertEquals(1, b.n.epoch)
+        // The creator away, a member leaves: nobody renews it in its stead.
+        room.goOffline(a)
+        d.must(Change.RemoveMember(d.id))
+        room.settle()
+        assertEquals(OperationEnding.OUT, d.ended)
+        for (p in listOf(b, c)) assertEquals(1, p.n.epoch, "$p: still the key D held")
+        // Back, the creator learns the departure and renews it, once.
+        room.comeBack(a)
+        room.settle()
+        for (p in listOf(a, b, c)) assertEquals(2, p.n.epoch, "$p")
+        assertTrue(a.n.inviteKey(2).contentEquals(b.n.inviteKey(2)))
+        assertTrue(a.n.inviteKey(2).contentEquals(c.n.inviteKey(2)))
+        assertNull(d.n.inviteKey(2), "D does not hold the key of now")
+    }
+
+    @Test
+    fun `two keys of one epoch, one from a phone of an older version, still end on one key (ADR-132)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val c = room.letIn(a, "Chloé")
+        a.must(Change.AddAdmin(b.id))
+        a.must(Change.AssignMember(c.id, a.newGroup("Nord")))
+        room.settle()
+        // B renews as a phone of 0.4.276 would, in the same moment as the creator.
+        val key = ByteArray(OperationInvite.KEY_BYTES).also(random::nextBytes)
+        val announcement = InviteKeys.announce(b.keys, a.n.ensembleId, 2, key)
+        val grant = InviteKeys.grant(b.keys, announcement, key, b.state.members.values.filter { it.id != b.id })
+        assertTrue(a.n.renewInvitation())
+        val creators = a.n.linkState().epochs.last().announcement.keyId
+        val frameKey = OperationFrames.frameKey(assertNotNull(b.n.inviteKey(1)), a.n.ensembleId, 1)
+        room.inject(
+            b,
+            OperationFrames.seal(
+                frameKey,
+                a.n.ensembleId,
+                1,
+                FrameGenre.INVITE_KEY,
+                b.id,
+                grant.encode(),
+                false,
+                random,
+            ),
+        )
+        room.settle()
+        val ids =
+            listOf(a, b, c).map { p ->
+                assertEquals(2, p.n.epoch, "$p")
+                InviteKeys.keyId(a.n.ensembleId, 2, assertNotNull(p.n.inviteKey(2)))
+            }
+        assertEquals(1, ids.toSet().size, "one key of epoch 2 everywhere")
+        val smaller =
+            if (java.lang.Long.compareUnsigned(announcement.keyId, creators) <
+                0
+            ) {
+                announcement.keyId
+            } else {
+                creators
+            }
+        assertEquals(smaller, ids.first(), "the one with the smaller identifier")
+        assertEquals(ShareOutcome.SENT, a.n.sendMessage(Channel.ENSEMBLE, "une seule clé"))
+        room.settle()
+        for (p in listOf(b, c)) assertTrue(p.messages.any { it.third == "une seule clé" }, "$p hears the creator")
+    }
+
+    @Test
+    fun `a member away for many renewals comes back by itself (M2, case B)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val c = room.letIn(a, "Chloé")
+        val g = a.newGroup("Nord")
+        for (p in listOf(b, c)) a.must(Change.AssignMember(p.id, g))
+        room.settle()
+        room.goOffline(c)
+        // Six members come and go while C is away: six renewals (four keys were kept until P39.14).
+        repeat(6) { i ->
+            val passer = room.letIn(a, "Passant $i")
+            passer.must(Change.RemoveMember(passer.id))
+            room.settle()
+        }
+        assertEquals(7, a.n.epoch)
+        assertEquals(1, c.n.epoch)
+        room.comeBack(c)
+        room.settle()
+        assertEquals(a.n.epoch, c.n.epoch, "C holds the key of now")
+        assertEquals(a.n.replica.summary(), c.n.replica.summary(), "and what it missed")
+        assertEquals(ShareOutcome.SENT, c.n.sendMessage(Channel.unit(g), "de retour"))
+        assertEquals(ShareOutcome.SENT, b.n.sendMessage(Channel.unit(g), "bienvenue"))
+        room.settle()
+        assertTrue(b.messages.any { it.third == "de retour" }, "B hears C")
+        assertTrue(c.messages.any { it.third == "bienvenue" }, "C hears B")
+    }
+
+    @Test
+    fun `a member away while the operation was handed over takes the key of the new creator (M2, case C)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val c = room.letIn(a, "Chloé")
+        a.must(Change.AddAdmin(b.id))
+        room.settle()
+        room.goOffline(c)
+        // A hands over to B and leaves; B, creator in an epoch C does not hold, renews the invitation.
+        a.must(Change.TransferCreator(b.id))
+        a.must(Change.RemoveMember(a.id))
+        room.settle()
+        assertEquals(2, b.n.epoch)
+        assertEquals(b.id, b.n.linkState().epochs.last().announcement.announcer)
+        room.comeBack(c)
+        room.settle()
+        assertEquals(b.id, c.state.creator, "C learnt the handing over, under the key it held")
+        assertEquals(2, c.n.epoch, "then took the key B announced")
+        assertTrue(b.n.inviteKey(2).contentEquals(c.n.inviteKey(2)))
+        assertTrue(problems.none { it.where == "operation.grant.refused" }, "never refused: $problems")
+    }
+
+    @Test
+    fun `a member taken out while it was away is told so under the key it holds, and nothing else (M1, case A)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val x = room.letIn(a, "Xavier")
+        a.must(Change.AddAdmin(x.id))
+        room.settle()
+        room.goOffline(x)
+        val g = a.newGroup("Sud")
+        a.must(Change.RemoveMember(x.id))
+        room.settle()
+        assertEquals(2, a.n.epoch)
+        room.comeBack(x)
+        room.settle()
+        assertEquals(OperationEnding.OUT, x.ended, "X learns it was taken out")
+        assertTrue(g !in x.state.groups, "and nothing of what happened meanwhile")
+        assertEquals(1, x.n.epoch)
+        for (p in listOf(a, b)) assertTrue(x.id !in p.state.members && p.ended == null, "$p")
+    }
+
+    @Test
+    fun `who was let in by an administrator taken out before learns it too (M1, case A)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val x = room.letIn(a, "Xavier")
+        a.must(Change.AddAdmin(x.id))
+        room.settle()
+        // X is cut off; A takes it out, and the invitation is renewed without it.
+        room.split(x)
+        a.must(Change.RemoveMember(x.id))
+        room.settle()
+        assertEquals(2, a.n.epoch)
+        // Not knowing it, X makes groups and lets I in with its invitation of epoch 1, both cut off from the room.
+        x.newGroup("Est")
+        x.newGroup("Ouest")
+        val invite = assertNotNull(OperationInviteCodec.parseOrNull(OperationInviteCodec.toLink(x.n.invitation()!!)))
+        val i = room.joiner("Iris", invite, cutOff = true)
+        room.settle()
+        assertTrue(x.n.admit(i.id) is IssueResult.Issued)
+        room.settle()
+        assertTrue(i.id in i.state.members, "I believes it is in")
+        room.mend()
+        room.settle()
+        assertEquals(OperationEnding.OUT, x.ended, "X learns it was taken out")
+        assertEquals(OperationEnding.OUT, i.ended, "I learns that whoever let it in was out before")
+        for (p in listOf(a, b)) {
+            assertTrue(i.id !in p.state.members && x.id !in p.state.members, "$p")
+            assertNull(p.ended, "$p")
+        }
+    }
+
+    @Test
+    fun `the key of now handed to a phone gone makes the creator renew it once more (M5, case G)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val c = room.letIn(a, "Chloé")
+        val d = room.letIn(a, "David")
+        room.settle()
+        val gone = a.state.members.getValue(d.id)
+        d.must(Change.RemoveMember(d.id))
+        room.settle()
+        assertEquals(2, a.n.epoch)
+        // B, as a phone that had not learnt the departure yet, hands D the key of now under the key D holds.
+        val now = b.n.linkState().epochs.last()
+        val grant = InviteKeys.grant(b.keys, now.announcement, now.key, listOf(gone))
+        val frameKey = OperationFrames.frameKey(assertNotNull(b.n.inviteKey(1)), a.n.ensembleId, 1)
+        val frame =
+            OperationFrames.seal(
+                frameKey,
+                a.n.ensembleId,
+                1,
+                FrameGenre.INVITE_KEY,
+                b.id,
+                grant.encode(),
+                false,
+                random,
+            )
+        room.inject(b, frame)
+        room.settle()
+        for (p in listOf(a, b, c)) assertEquals(3, p.n.epoch, "$p: renewed once more, without D")
+        // Played again: the key of epoch 2 is no longer the one of now, nothing more.
+        room.inject(b, frame)
+        room.settle()
+        assertEquals(3, a.n.epoch)
     }
 }

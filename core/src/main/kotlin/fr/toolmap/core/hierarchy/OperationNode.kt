@@ -155,6 +155,12 @@ class OperationNode(
     private val summaryAnsweredAt = HashMap<Long, Long>()
     private val summaryLater = LinkedHashMap<Long, Heard>()
     private val grantedAt = HashMap<Long, Long>()
+
+    /** When this phone last told each phone gone from the operation why it is out ([tellWhyOut], M1). */
+    private val toldOutAt = HashMap<Long, Long>()
+
+    /** When the creator last renewed the invitation because the key of now reached a phone gone (M5). */
+    private var renewedAgainAt = Long.MIN_VALUE / 2
     private val offeredAt = HashMap<Int, Long>()
     private val resendSeenAt = HashMap<Channel, Long>()
 
@@ -207,12 +213,11 @@ class OperationNode(
     var heardForOthers = 0L
         private set
 
-    private enum class Duty { KEY, RESEND, ROSTER, RENEW, NAMES }
+    private enum class Duty { KEY, RESEND, ROSTER, NAMES }
 
     private class Scheduled(
         val dueAt: Long,
         val scheduledAt: Long,
-        val epoch: Int = 0,
     )
 
     /** A summary heard and put off ([summaryLater]): what it says, the frame it came in, the link it came by. */
@@ -344,7 +349,7 @@ class OperationNode(
         if (ending != null) return
         val epoch = OperationFrames.epochOf(bytes) ?: return drop("frame.format")
         if (epochs[epoch] == null) {
-            if (epoch > this.epoch) askNewerKey()
+            if (epoch > this.epoch) askNewerKey(OperationFrames.senderOf(bytes) ?: 0L)
             return drop("frame.epoch")
         }
         val frame = OperationFrames.open(frameKey(epoch), ensembleId, bytes)
@@ -355,16 +360,24 @@ class OperationNode(
             return drop("frame.sealed")
         }
         if (frame.sender == self) return
-        if (epoch < this.epoch) {
-            // A phone still on an older invitation key: a member gets the one of now; nothing new is let in that way.
-            // Not to a phone that keeps a trace: the operation is over for it, it speaks only to say so.
-            if (frame.sender in state.members && frame.genre != FrameGenre.DISSOLUTION) grantTo(frame.sender, epoch)
+        var stray = false
+        if (epoch < this.epoch && frame.genre != FrameGenre.DISSOLUTION) {
+            // A phone still on an older invitation key (not one that keeps a trace: the operation is over for it, it
+            // speaks only to say so). A member gets the one of now; its summary first gets what it missed, under its
+            // own key ([answerBehind], M2). A phone gone from the operation is told why, and nothing else (M1).
+            // Nothing new is let in that way.
+            if (frame.sender in state.members) {
+                if (frame.genre != FrameGenre.SUMMARY) grantTo(frame.sender, epoch)
+            } else {
+                tellWhyOut(frame.sender, epoch)
+                stray = true
+            }
             if (frame.genre == FrameGenre.JOIN) return drop("join.old_key")
         }
         try {
             when (frame.genre) {
                 FrameGenre.OPS -> onOps(frame)
-                FrameGenre.SUMMARY -> onSummary(frame, peer)
+                FrameGenre.SUMMARY -> if (stray) heardFromStray(frame) else onSummary(frame, peer)
                 FrameGenre.KEYS -> onKeys(frame)
                 FrameGenre.SHARE -> onShare(frame)
                 FrameGenre.JOIN -> onJoin(frame)
@@ -381,8 +394,13 @@ class OperationNode(
     private fun onOps(frame: OpenedFrame) {
         var changed = false
         var held = false
+        var out = false
+        var heldOut = false
         for (op in HierarchyWire.decodeOps(frame.body)) {
+            val outing = takesThisPhoneOut(op)
             val result = replica.add(op)
+            if (outing && result == AddResult.ADDED) out = true
+            if (outing && result == AddResult.HELD) heldOut = true
             when (result) {
                 AddResult.ADDED, AddResult.CONFLICT_REPLACED -> {
                     changed = true
@@ -404,6 +422,13 @@ class OperationNode(
             if (result == AddResult.CONFLICT_REPLACED || result == AddResult.CONFLICT_KEPT) {
                 Problems.expected("operation.ops.conflict", FrameRefused(result.name))
             }
+        }
+        // Taken out, or let in by a phone taken out before it did, told so ahead of what happened between (M1). Let
+        // in that way, its admission no longer counts: no signing key of its own then, [afterChange] would not end it.
+        if (heldOut) return finish(OperationEnding.OUT)
+        val state = state
+        if (out && !state.dissolved && self !in state.members && replica.signingKeyOf(self) == null) {
+            return finish(OperationEnding.OUT)
         }
         if (held) pull(frame.sender)
         if (changed) afterChange()
@@ -440,6 +465,7 @@ class OperationNode(
         peer: Long,
     ) {
         summaryAnsweredAt[frame.sender] = clock()
+        if (frame.epoch < epoch) return answerBehind(theirs, frame, peer)
         val to = links[peer] ?: links[frame.sender]
         val missing = replica.missingFor(theirs.summary)
         for (body in opsBodies(missing)) sendTo(to, FrameGenre.OPS, body)
@@ -478,6 +504,105 @@ class OperationNode(
             // of yet; the names follow the operations, once, from the first reader of its lane linked.
             tellNamesLater(state, Channel.waiting(frame.sender), renamedOnly = false)
         }
+    }
+
+    /**
+     * A member still on an older invitation key, away while it was renewed (the user's answer M2 of 2026-11-16, ADR-140):
+     * the operations it missed go under the key it holds, then the key of now, in that order, so that it knows who
+     * announced it (named creator or administrator while it was away, case C). What else it lacks (key batches, names,
+     * objects) it asks for once it holds the key of now ([onGrant]).
+     */
+    private fun answerBehind(
+        theirs: OperationSummary,
+        frame: OpenedFrame,
+        peer: Long,
+    ) {
+        val to = links[peer] ?: links[frame.sender]
+        for (body in opsBodies(replica.missingFor(theirs.summary))) sendTo(to, FrameGenre.OPS, body, frame.epoch)
+        grantTo(frame.sender, frame.epoch)
+    }
+
+    /**
+     * The summary of a phone that is no longer in the operation, or never was, under an older invitation key: nothing
+     * of now is told to it. When it holds operations this phone lacks (the admission of the phone that wrote, by an
+     * administrator taken out meanwhile, M1), they are asked for under its key, so that it can be told why it is out.
+     */
+    private fun heardFromStray(frame: OpenedFrame) {
+        val theirs = OperationSummary.decode(frame.body)
+        if (theirs.summary.ensembleId != ensembleId) return drop("summary.ensemble")
+        if (theirs.to != 0L && theirs.to != self) return
+        if (self in state.members && isBehind(replica.summary(), theirs.summary)) pull(frame.sender, frame.epoch)
+        drop("summary.stray")
+    }
+
+    /**
+     * A phone gone from the operation still speaks under an older invitation key: taken out while it was away (case A,
+     * the user's answer M1 of 2026-11-16), or let in by an administrator taken out before it did. It is sent, under its
+     * key, the operation that took it (or that administrator) out, and nothing else; its app ends the operation then
+     * ([takesThisPhoneOut]). Once every [GRANT_EVERY_MS] at most, by every member that hears it.
+     */
+    private fun tellWhyOut(
+        phone: Long,
+        theirEpoch: Int,
+    ) {
+        if (self !in state.members) return
+        val now = clock()
+        if (now - (toldOutAt[phone] ?: Long.MIN_VALUE / 2) < GRANT_EVERY_MS) return
+        val notice = removalNoticeFor(phone) ?: return
+        if (toldOutAt.size >= MAX_JOINS) toldOutAt.clear()
+        toldOutAt[phone] = now
+        broadcast(FrameGenre.OPS, HierarchyWire.encodeOps(listOf(notice)), epoch = theirEpoch)
+    }
+
+    /** The operation that took [phone] out, or that took out, before it did, the phone that let [phone] in. */
+    private fun removalNoticeFor(phone: Long): Op? {
+        val history = replica.history()
+
+        fun removalOf(member: Long): Op? =
+            history.lastOrNull { e ->
+                e.rejection == null && (e.op.change as? Change.RemoveMember)?.member == member
+            }?.op
+        if (replica.signingKeyOf(phone) != null) return removalOf(phone)
+        val admission = history.lastOrNull { (it.op.change as? Change.AdmitMember)?.member == phone }?.op ?: return null
+        return removalOf(admission.author)?.takeIf { Op.ORDER.compare(it, admission) < 0 }
+    }
+
+    /**
+     * Whether [op] takes this phone out, read in what this phone holds before it, even when it arrives ahead of the
+     * operations between ([AddResult.HELD]; M1): the removal of this phone after it was let in, or the removal, before
+     * it let this phone in, of the phone that did; made by a phone that may make it.
+     */
+    private fun takesThisPhoneOut(op: Op): Boolean {
+        val change = op.change as? Change.RemoveMember ?: return false
+        val state = state
+        if (self !in state.members || HierarchyReducer.check(state, op.author, change) != null) return false
+        val admission =
+            replica.history().lastOrNull { e ->
+                e.rejection == null && (e.op.change as? Change.AdmitMember)?.member == self
+            }?.op ?: return false
+        return when (change.member) {
+            self -> Op.ORDER.compare(admission, op) < 0
+            admission.author -> Op.ORDER.compare(op, admission) < 0
+            else -> false
+        }
+    }
+
+    /**
+     * The invitation key of now handed to a phone gone from the operation, by a phone that had not learnt the
+     * departure yet (case G, the user's answer M5 of 2026-11-16): the creator renews the invitation once more, one
+     * epoch up (since M6 the creator alone renews it, ADR-140). Once every [RENEW_AGAIN_EVERY_MS] at most: the phone
+     * that does it learns the departure meanwhile.
+     */
+    private fun renewIfHandedToGone(grant: InviteGrant) {
+        val state = state
+        if (self != state.creator || grant.announcement.epoch != epoch) return
+        if (grant.wraps.none { it.recipient !in state.members && replica.signingKeyOf(it.recipient) != null }) return
+        val granter = state.members[grant.granter] ?: return
+        if (!InviteKeys.signedBy(grant, granter)) return
+        val now = clock()
+        if (now - renewedAgainAt < RENEW_AGAIN_EVERY_MS) return
+        renewedAgainAt = now
+        renewInvitation()
     }
 
     private fun onKeys(frame: OpenedFrame) {
@@ -636,12 +761,17 @@ class OperationNode(
         val grant = InviteKeys.decode(frame.body)
         val epoch = grant.announcement.epoch
         val known = epochs[epoch]
-        if (known != null && InviteKeys.keyId(ensembleId, epoch, known.key) == grant.announcement.keyId) return
+        if (known != null && InviteKeys.keyId(ensembleId, epoch, known.key) == grant.announcement.keyId) {
+            return renewIfHandedToGone(grant)
+        }
         val (verdict, key) = InviteKeys.open(grant, state, keys)
         when (verdict) {
             GrantVerdict.ACCEPTED -> {
                 if (known == null) {
                     adopt(EpochKey(requireNotNull(key), grant.announcement))
+                    // Handed to this phone alone: it was behind ([grantTo], M2). What it missed that the operations do
+                    // not carry (key batches, names, objects) is asked for at once, under the key of now.
+                    if (grant.wraps.size == 1 && epoch == this.epoch) pull(frame.sender)
                 } else {
                     // Two keys of one epoch: two phones renewed at once (P39.10). The one with the smaller identifier
                     // wins, the same on every phone, as for two content keys (§ 8.3); the other side learns it.
@@ -844,10 +974,13 @@ class OperationNode(
         return share(previous.kind, ref.channel, SharedRecords.encode(record))
     }
 
-    /** A new invitation key: the phones that hold the old one only no longer read what follows. */
+    /**
+     * A new invitation key: the phones that hold the old one only no longer read what follows. The creator's only
+     * (M6, ADR-140): the administrators no longer renew it in its stead; `false` on any other phone.
+     */
     @Synchronized
     fun renewInvitation(): Boolean {
-        if (!mayInvite() || ending != null) return false
+        if (ending != null || self != state.creator || self !in state.members) return false
         val old = epochs.lastEntry().value
         val key = ByteArray(OperationInvite.KEY_BYTES).also(random::nextBytes)
         val announcement = InviteKeys.announce(keys, ensembleId, old.epoch + 1, key)
@@ -945,15 +1078,12 @@ class OperationNode(
                     schedule(Duty.ROSTER, channel, rank(state.keyIssuers(Channel.ENSEMBLE)))
                 }
             }
+            // After every departure the creator renews the invitation, at once, and nobody else: one key per epoch
+            // (the user's answer M6 of 2026-11-16, ADR-140). Away, it learns the departure when it is back, and renews
+            // then. At once, in this very call: a duty in memory was lost when the app stopped before its next second
+            // (P39.10); the new key is written down with the departure ([renewInvitation], M3).
             val gone = before.members.keys - state.members.keys
-            if (gone.isNotEmpty() && mayInvite()) {
-                val order = listOfNotNull(state.creator) + state.admins.sortedWith(UNSIGNED)
-                val delay = rank(order)
-                schedule(Duty.RENEW, null, delay, epoch + 1)
-                // The first one renews at once: a duty in memory is lost when the app stops before its next second,
-                // and nothing would renew it after a restart (P39.10).
-                if (delay == 0L) tickDuty(Duty.RENEW, null)
-            }
+            if (gone.isNotEmpty() && self == state.creator) renewInvitation()
             alert?.let { (a, channel) ->
                 val now = state.alertChannel(self)
                 if (now != null && now != channel) {
@@ -1013,10 +1143,6 @@ class OperationNode(
 
             Duty.ROSTER -> {
                 shareRoster()
-            }
-
-            Duty.RENEW -> {
-                if (epoch < scheduled.epoch) renewInvitation()
             }
 
             Duty.NAMES -> {
@@ -1206,13 +1332,12 @@ class OperationNode(
         duty: Duty,
         channel: Channel?,
         delay: Long?,
-        epoch: Int = 0,
     ) {
         if (delay == null) return
         val now = clock()
         val known = duties[duty to channel]
         if (known != null && known.dueAt <= now + delay) return
-        duties[duty to channel] = Scheduled(now + delay, now, epoch)
+        duties[duty to channel] = Scheduled(now + delay, now)
     }
 
     /**
@@ -1236,7 +1361,10 @@ class OperationNode(
         broadcast(FrameGenre.JOIN, request.encode())
     }
 
-    private fun pull(peer: Long) {
+    private fun pull(
+        peer: Long,
+        epoch: Int = this.epoch,
+    ) {
         val now = clock()
         if (now - (pulledAt[peer] ?: Long.MIN_VALUE / 2) < PULL_EVERY_MS) {
             pullLater += peer
@@ -1244,14 +1372,19 @@ class OperationNode(
         }
         pullLater -= peer
         pulledAt[peer] = now
-        sendTo(links[peer], FrameGenre.SUMMARY, ourSummary(to = peer).encode())
+        sendTo(links[peer], FrameGenre.SUMMARY, ourSummary(to = peer).encode(), epoch)
     }
 
-    private fun askNewerKey() {
+    /**
+     * A frame sealed with a newer invitation key than any this phone holds: away while it was renewed. Its summary goes
+     * to the phone that wrote that frame, which holds the key of now: that phone alone answers (P39.17), with what this
+     * one missed, under the key it holds, then the key of now (M2). It was the whole room until P39.14.
+     */
+    private fun askNewerKey(from: Long) {
         val now = clock()
         if (now - askedNewerKeyAt < PULL_EVERY_MS) return
         askedNewerKeyAt = now
-        broadcast(FrameGenre.SUMMARY, ourSummary().encode())
+        broadcast(FrameGenre.SUMMARY, ourSummary(to = from).encode())
     }
 
     private fun grantTo(
@@ -1368,9 +1501,10 @@ class OperationNode(
         link: MeshLink?,
         genre: FrameGenre,
         body: ByteArray,
+        epoch: Int = this.epoch,
     ) {
         if (link == null) return
-        if (link.isBroadcastMedium) return broadcast(genre, body)
+        if (link.isBroadcastMedium) return broadcast(genre, body, epoch = epoch)
         link.send(OperationFrames.seal(frameKey(epoch), ensembleId, epoch, genre, self, body, false, random), false)
     }
 
@@ -1429,6 +1563,9 @@ class OperationNode(
         /** Between two answers to the summaries of one phone (M7). */
         const val ANSWER_LATEST_EVERY_MS = 2_000L
         const val GRANT_EVERY_MS = 10_000L
+
+        /** Between two renewals of the invitation made because the key of now reached a phone gone (M5). */
+        const val RENEW_AGAIN_EVERY_MS = 60_000L
         const val OUTBOX_MAX_AGE_MS = 3_600_000L
         const val TEXT_MAX_AGE_MS = 6 * 3_600_000L
         const val MAX_OUTBOX = 64

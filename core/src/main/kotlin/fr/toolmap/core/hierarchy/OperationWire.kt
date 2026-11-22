@@ -244,6 +244,12 @@ object OperationFrames {
         return if (epoch in 1..Int.MAX_VALUE) epoch.toInt() else null
     }
 
+    /** The phone [frame] says wrote it, read in the clear part; `null` when it is not an envelope of this format. */
+    fun senderOf(frame: ByteArray): Long? {
+        if (epochOf(frame) == null) return null
+        return ByteReader(frame.copyOfRange(6, 14)).u64()
+    }
+
     /**
      * The envelope opened with [frameKey]; `null` when it is not one, or when the key does not open it (another epoch,
      * another operation, changed on the way): said to whoever debugs by [Aead.open].
@@ -597,6 +603,13 @@ object InviteKeys {
         return GrantVerdict.ACCEPTED
     }
 
+    /** Whether [grant] is signed by [granter], its granter. */
+    fun signedBy(
+        grant: InviteGrant,
+        granter: Member,
+    ): Boolean =
+        grant.granter == granter.id && P256.verify(granter.keys.signing, GRANT_TAG + grant.body(), grant.signature)
+
     /** [grant] checked in [state], and its key for the phone that holds [keys] when it is one of the recipients. */
     fun open(
         grant: InviteGrant,
@@ -734,7 +747,12 @@ class OperationLinkState(
 
     companion object {
         private const val VERSION = 1
-        const val KEPT_EPOCHS = 4
+
+        /**
+         * The invitation keys a phone keeps, the most recent ones (4 until P39.14): a member away while the key was
+         * renewed up to 31 times still opens and is opened (the user's answer M2 of 2026-11-16, ADR-140).
+         */
+        const val KEPT_EPOCHS = 32
 
         fun decode(bytes: ByteArray): OperationLinkState {
             val r = ByteReader(bytes)

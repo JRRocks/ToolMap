@@ -20,6 +20,22 @@
 
 ---
 
+## 2026-11-22 — Session 126 (suite) — [P39.14.2] Opération : seul le créateur change la clé d'invitation, un membre absent revient de lui-même, un retiré hors réseau apprend son retrait
+- **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.1]` ec57ba2 (0.4.277). Copies : celles de l'entrée précédente ; référence : le local.
+- **Objectif** : deuxième livraison de P39.14, sans effet visible : M6, M5, M2 et M1 (réponses de l'utilisateur du 2026-11-16, spec § 21).
+- **Réalisé** :
+  - **M6** : après chaque départ, le créateur seul change la clé d'invitation, aussitôt ; les administrateurs ne la changent plus (tâche `RENEW` retirée, `renewInvitation` refusé hors du créateur) ; le créateur absent, elle change à son retour. La règle d'ADR-132 reste en filet de sécurité.
+  - **M5**, réconcilié avec M6 : le créateur qui voit passer la clé du moment remise à un téléphone parti la change une fois de plus (une fois par minute au plus).
+  - **M2** : 32 clés d'invitation gardées (4 avant) ; au résumé d'un membre sous une ancienne clé, les opérations qu'il a manquées sous cette clé, puis la clé du moment ; la clé reçue pour lui seul, il demande le reste aussitôt. Le résumé d'un téléphone qui voit une clé plus récente va au seul téléphone qui l'a écrite (lu en clair dans l'enveloppe), plus à toute la salle.
+  - **M1** : un téléphone qui n'est plus membre et parle sous une ancienne clé reçoit l'opération qui l'a retiré, et rien d'autre ; ses invités de la copie morte, celle qui a retiré leur administrateur (demandée au besoin, sous la même clé, au téléphone qui a leur admission). Ils finissent l'opération, même si les opérations d'entre-temps leur manquent.
+  - Une opération créée par la 0.4.276 se lit comme avant (formats inchangés).
+- **Décisions (ADR)** : ADR-140 (remplace en partie ADR-132 : le relais des administrateurs). Spec : `docs/specs/group-hierarchy.md` § 27, « Livraison 2 ».
+- **Tests / vérifications** :
+  - `OperationNodeTest` (salle simulée, coupée en deux par `split` et `mend`) : sept tests nouveaux (M6 ; deux clés d'une époque venues d'une version d'avant, ADR-132 ; M2 cas B, six renouvellements ; M2 cas C, passage de main ; M1 cas A, le retiré ; M1 cas A, son invité ; M5 cas G). Premier passage : un test faux (un membre en attente ne lit pas les messages de toute l'opération : placé dans un groupe), vert ensuite.
+  - Trois tests existants rouges au premier passage, tous par M1 : `MaliciousMemberTest` « …signs its way back in… » (le retiré restait dans une opération muette : il finit l'opération maintenant, rien ne le fait entrer ; attente changée) et « known limit… antedates… » (le retiré, prévenu à son retour, oublie le nom de l'opération : l'invitation du second téléphone est prise avant son retour) ; `DissolutionTraceTest` « a member taken out keeps no trace… » (un lot qui porte le retrait puis la dissolution finissait « retiré » au lieu de « dissoute » : corrigé dans le moteur, la fin est laissée à l'automate quand le téléphone garde sa clé de signature). Simulateur : `closing:invite-key` ne vaut que quand le créateur est là (M6).
+  - `./gradlew :core:test --tests 'fr.toolmap.core.hierarchy.*'` : vert (245 tests, 3 sautés), simulations du jeu fixe comprises.
+  - `./gradlew spotlessApply` seul, puis `./gradlew check assembleDebug` : BUILD SUCCESSFUL (7 min 7 s), `ToolMap-debug-0.4.278.apk` (moteur natif absent : pas de Rust sur ce poste) ; `CI=true ./gradlew help` : vert.
+
 ## 2026-11-22 — Session 126 — [P39.14.1] Opération : la couleur d'un groupe dans le moteur, chaque changement enregistré avant de partir, une réponse toutes les 2 s
 - **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié). Copies au départ : GitHub `conception/groupes-hierarchiques` 0.4.276 (e2b13ea), Drive 0.4.276, local 0.4.276 (même commit, `emulator-check/` non suivi) ; référence : GitHub et local, à égalité.
 - **Objectif** : première livraison de P39.14 (réponses de l'utilisateur du 2026-11-16), sans effet visible : L1 dans le moteur, M3, M7 ; découpage de P39.14 écrit dans le plan (P39.14.1 à P39.14.5) ; aperçus du tour 8 (L1, L4 et M8, L5, M4) préparés en parallèle pour la session principale.

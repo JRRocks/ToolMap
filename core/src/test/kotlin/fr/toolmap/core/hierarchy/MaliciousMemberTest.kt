@@ -159,14 +159,15 @@ class MaliciousMemberTest {
             }
             assertEquals(before, honest.map(::stateBytes))
             assertTrue(s.a.n.dropped.getOrDefault("join.old_key", 0) >= 1)
-            // It never got the new invitation key: it reads nothing of what follows, and never learns it is out.
+            // It never got the new invitation key: it reads nothing of what follows. Since P39.14 (M1) it is told, under
+            // its old key, the operation that took it out, and nothing else: its app ends the operation.
             assertEquals(1, m.n.epoch)
             val mark = r.written.size
             assertEquals(ShareOutcome.SENT, s.a.n.sendMessage(Channel.ENSEMBLE, "sans Marc"))
             r.settle()
             assertTrue(m.messages.none { it.third == "sans Marc" })
             assertTrue(r.openedSince(mark, m).none { it.genre == FrameGenre.SHARE })
-            assertNull(m.ended, "it stays in an operation that no longer answers it")
+            assertEquals(OperationEnding.OUT, m.ended, "told it was taken out (M1)")
         }
 
     /**
@@ -199,14 +200,8 @@ class MaliciousMemberTest {
             assertTrue(place.clock < removal.clock, "dated before the removal")
             b.n.replica.add(admit)
             b.n.replica.add(place)
-            r.comeBack(b)
-            b.sendOps(admit, place)
-            r.settle()
-            for (p in listOf(s.a, s.l, s.o)) {
-                assertNull(p.rejectionOf(admit), "$p applies the antedated admission (the limit of § 6.4)")
-                assertEquals(s.nord, p.state.members[second.id]?.group, "$p")
-            }
-            // Its second phone joins with the room, the key of epoch 1 and the name the removed one kept.
+            // Its second phone will join with the room, the key of epoch 1 and the name the removed one kept (taken
+            // before it comes back: told then that it is out, M1, its app forgets the name).
             val invite =
                 OperationInvite(
                     r.now / 1000,
@@ -217,6 +212,13 @@ class MaliciousMemberTest {
                     assertNotNull(b.n.names.ensembleCard(b.state)),
                     r.server,
                 )
+            r.comeBack(b)
+            b.sendOps(admit, place)
+            r.settle()
+            for (p in listOf(s.a, s.l, s.o)) {
+                assertNull(p.rejectionOf(admit), "$p applies the antedated admission (the limit of § 6.4)")
+                assertEquals(s.nord, p.state.members[second.id]?.group, "$p")
+            }
             r.joiner("Second", invite, second)
             r.settle()
             r.now += OperationNode.ANSWER_EVERY_MS

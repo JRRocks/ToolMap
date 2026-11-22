@@ -629,9 +629,10 @@ object SimChecks {
             }
         }
         val ref = s.firstOrNull() ?: return
-        val inviter = s.any { it.id == state.creator || it.id in state.admins }
+        // Only the creator renews the invitation (M6, ADR-140): while it is away, the one who left keeps the key of now.
+        val creator = s.any { it.id == state.creator }
         val key = ref.n.inviteKey(ref.n.epoch) ?: return
-        if (!inviter) return
+        if (!creator) return
         for ((id, _) in sim.departedAt) {
             val p = sim.byId[id] ?: continue
             if (id in state.members) continue

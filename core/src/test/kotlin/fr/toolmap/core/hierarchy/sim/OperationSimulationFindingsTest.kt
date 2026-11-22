@@ -106,9 +106,11 @@ class OperationSimulationFindingsTest {
     }
 
     /**
-     * When a member leaves, the creator renews the invitation key at once and an administrator 1.5 s later if it
-     * has seen nothing come meanwhile: on a network slower than that, both renew, and two keys of one epoch go round.
-     * Whatever happens then, the phones still in the operation must end up on one key, and hear each other.
+     * When a member left, the creator renewed the invitation key at once and an administrator 1.5 s later if it had
+     * seen nothing come meanwhile: on a network slower than that, both renewed, and two keys of one epoch went round
+     * (P39.10). Since M6 (ADR-140) the creator alone renews it; on the same slow network, the phones still in the
+     * operation must end up on one key, and hear each other. Two keys of one epoch, from a phone of an older version,
+     * are still settled (ADR-132): `OperationNodeTest`, « two keys of one epoch… ».
      */
     @Test
     fun `two renewals of the invitation key at once still leave one operation`() {
