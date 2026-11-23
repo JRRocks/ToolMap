@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -87,9 +89,12 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -588,8 +593,9 @@ internal fun MainPage(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 8.dp),
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        JoinButton(MenuIcons.QrCodeScanner, stringResource(R.string.share_scan), onScan)
+                    // L5 (tour 8, A): "Scanner / un code" on two lines only when it does not fit, both buttons as tall.
+                    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        JoinButton(MenuIcons.QrCodeScanner, stringResource(R.string.share_scan), onScan, wrap = true)
                         JoinButton(MenuIcons.Link, stringResource(R.string.share_paste), onPaste)
                     }
                 }
@@ -1188,15 +1194,36 @@ private fun RowScope.JoinButton(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
+    wrap: Boolean = false,
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp),
         contentPadding = PaddingValues(horizontal = 10.dp),
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
-        Text(label, maxLines = 1)
+        if (wrap) OneOrTwoLines(label) else Text(label, maxLines = 1)
+    }
+}
+
+/**
+ * [label] on one line when it fits, else cut after its first word, the lines centred and the block as wide as its
+ * longest line, so that the icon before it stays close (L5, `tour8/img/11-L5-A-B.png` A: « Scanner / un code »).
+ */
+@Composable
+private fun OneOrTwoLines(label: String) {
+    Layout(
+        content = {
+            Text(label, maxLines = 1, softWrap = false)
+            Text(label.replaceFirst(' ', '\n'), maxLines = 2, textAlign = TextAlign.Center)
+        },
+        modifier = Modifier.clearAndSetSemantics { text = AnnotatedString(label) },
+    ) { measurables, constraints ->
+        val free = constraints.copy(minWidth = 0)
+        val one = measurables[0].measure(free.copy(maxWidth = Constraints.Infinity))
+        val shown = if (one.width <= constraints.maxWidth) one else measurables[1].measure(free)
+        layout(shown.width, shown.height) { shown.place(0, 0) }
     }
 }
 

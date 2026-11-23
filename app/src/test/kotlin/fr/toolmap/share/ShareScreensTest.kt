@@ -78,7 +78,7 @@ class ShareScreensTest {
         rule.onNodeWithText("Ce que les autres voient").performClick()
         rule.onNodeWithText("Créer un groupe et inviter").performClick()
         rule.onNodeWithText("Rejoindre un groupe").assertExists()
-        rule.onNodeWithText("Scanner un code").performClick()
+        rule.onNodeWithText("Scanner un code").performClick()
         rule.onNodeWithText("Coller un lien").performClick()
         assertEquals(listOf("profile", "invite", "scan", "paste"), calls)
         rule.onAllNodesWithText("Envoyer une alerte au groupe").assertCountEquals(0)
@@ -117,7 +117,7 @@ class ShareScreensTest {
         main(inGroup = true)
         rule.onNodeWithText("Envoyer une alerte au groupe").performClick()
         rule.onNodeWithContentDescription("Plus d'options du partage").performClick()
-        listOf("Scanner un code", "Coller un lien", "Réglages du partage", "Aide").forEach {
+        listOf("Scanner un code", "Coller un lien", "Réglages du partage", "Aide").forEach {
             rule.onNodeWithText(it).assertExists()
         }
         rule.onNodeWithText("Quitter le groupe").performClick()
