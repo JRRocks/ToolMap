@@ -758,6 +758,15 @@ class OperationSession
             }
         }
 
+        /**
+         * ToolMap comes on screen (P39.14.8): [OperationService] is asked again while a position is to go. Android
+         * refuses it while the app is out of sight (placed in the background, the screen off), and nothing else asks
+         * it again: once the app is out of sight again, the position stops going.
+         */
+        fun onAppShown() {
+            if (notice.value != null) OperationService.start(context)
+        }
+
         /** [OperationService] in the foreground as soon as this phone's position goes to the operation (L4). */
         private fun keepInForeground() {
             scope.launch {

@@ -1,5 +1,8 @@
 package fr.toolmap.operation
 
+import android.os.Handler
+import android.os.Looper
+import android.os.Process
 import android.util.Log
 import fr.toolmap.core.hierarchy.Change
 import fr.toolmap.core.hierarchy.Post
@@ -424,6 +427,7 @@ object OperationScenes {
     private const val SLIDING = 0.45f
     private const val MINUTE_S = 60
     private const val SETTLE_MS = 900L
+    private const val TRIAL_NAME = "Essai"
     private const val WAIT_MS = 30_000L
     private const val POLL_MS = 100L
 
@@ -492,8 +496,71 @@ object OperationScenes {
                 }
             }
 
+            // A trial by hand on an emulator, the app in the background (P39.14.8): which phone the app is, its
+            // placement by the creator, and what follows (the phase, the notice of the service), in logcat.
+            "view" -> {
+                val number = args.getOrNull(at + 2)?.toIntOrNull()
+                if (number == null || session.demoSeat(number) == null) {
+                    writer.println("$DUMP_ARGUMENT no such member")
+                } else {
+                    session.viewAs(number)
+                    writer.println("$DUMP_ARGUMENT view $number phase=${session.view.value.phase}")
+                }
+            }
+
+            "place" -> {
+                val number = args.getOrNull(at + 2)?.toIntOrNull()
+                val member = number?.let { session.member(it) }
+                val group = args.getOrNull(at + 3)?.let { session.groupOf(it) }
+                if (member == null || group == null) {
+                    writer.println("$DUMP_ARGUMENT place <member> <group>")
+                } else {
+                    writer.println("$DUMP_ARGUMENT place $number started")
+                    session.run {
+                        session.demoSeat(1)?.place(member, group)
+                        val placed = waitFor { session.demoSeat(number)?.view?.value?.phase == OperationPhase.PLACED }
+                        delay(SETTLE_MS)
+                        Log.i(
+                            OperationSession.LOG_TAG,
+                            "$DUMP_ARGUMENT placed $number $placed notice=${session.notice.value}",
+                        )
+                    }
+                }
+            }
+
+            // A real operation, created on this phone (the creator is placed at once), and the end of the process as
+            // Android ends it for memory: what a sticky service does when it comes back by itself (P39.14.8).
+            "create" -> {
+                val name = args.getOrNull(at + 2)
+                if (name == null) {
+                    writer.println("$DUMP_ARGUMENT create <operation>")
+                } else {
+                    session.editCreate { it.copy(name = name) }
+                    session.create(TRIAL_NAME) {
+                        Log.i(OperationSession.LOG_TAG, "$DUMP_ARGUMENT created $name notice=${session.notice.value}")
+                    }
+                    writer.println("$DUMP_ARGUMENT create $name started")
+                }
+            }
+
+            "die" -> {
+                writer.println("$DUMP_ARGUMENT die")
+                writer.flush()
+                Handler(Looper.getMainLooper()).postDelayed({ Process.killProcess(Process.myPid()) }, SETTLE_MS)
+            }
+
+            "state" -> {
+                writer.println(
+                    "$DUMP_ARGUMENT state phase=${session.view.value.phase} sharing=${session.sharing.value} " +
+                        "notice=${session.notice.value}",
+                )
+            }
+
             else -> {
-                writer.println("$DUMP_ARGUMENT commands: demo, list, show <scene>")
+                writer.println(
+                    "$DUMP_ARGUMENT commands: demo, list, show <scene>, view <n>, place <n> <group>, " +
+                        "create <operation>, die, state",
+                )
             }
         }
         return true

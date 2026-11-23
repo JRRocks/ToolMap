@@ -900,6 +900,12 @@ class MainActivity : ComponentActivity() {
         if (BuildConfig.DEV_TOOLS && args != null) operation?.dump(args, writer)
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Back on screen: what Android refused out of sight is asked again (the service of an operation, P39.14.8).
+        operation?.onAppShown()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

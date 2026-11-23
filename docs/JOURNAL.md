@@ -20,6 +20,25 @@
 
 ---
 
+## 2026-11-24 — Session 126 (suite) — [P39.14.8] Opération : le service de la position est redemandé quand ToolMap revient à l'écran
+- **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.7]` 58484cc (liste des essais sur téléphone).
+- **Objectif** : P39.14.8, correctif de L4 (livrée en 0.4.285), sans effet visible (demande de la session principale du 2026-11-24) : un membre placé pendant que ToolMap est en arrière-plan ou l'écran éteint voyait Android refuser le service de sa position, qui n'était plus redemandé ; il l'est désormais dès que ToolMap revient à l'écran, et la position continue de partir une fois l'application de nouveau en arrière-plan.
+- **Réalisé** :
+  - Défaut confirmé sur l'émulateur avant tout code (voir « Tests / vérifications ») : `startForegroundService` refusé en arrière-plan (`operation.service.start_refused`, `Problems.expected`), puis rien à la réouverture.
+  - `OperationFeature.onAppShown`, appelé par `MainActivity.onStart` ; `OperationSession.onAppShown` redemande `OperationService` tant que la notification de l'opération a une ligne (`notice`). Un service déjà au premier plan reçoit la demande sans effet (même notification).
+  - Debug seulement : commandes `view <n>`, `place <n> <groupe>`, `create <opération>`, `die` et `state` de `… operation-screens` (essai à la main, application en arrière-plan, fin du processus comme Android la fait faute de mémoire).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - Avant la correction (APK local 0.4.287, émulateur temporaire du poste, API 36, démarré pour l'essai) : démonstration, Membre 21 qui attend sa place, ToolMap en arrière-plan depuis 45 s (processus non gelé), puis placé dans « Nord » : `ForegroundServiceStartNotAllowedException` (`operation.service.start_refused`). ToolMap rouvert : phase PLACED, ligne de notification attendue, mais `OperationService` absent (aucun démarrage) et pas de notification. De nouveau en arrière-plan 40 s : la demande de position de ToolMap marquée « inactive » par le système, la position ne part plus.
+  - `OperationNotificationTest` (« a service refused out of sight is asked again once ToolMap is on screen, not with no notice ») : rouge sans la correction (`onAppShown` vide : rien de demandé), vert avec.
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` : vert, 0.4.289.
+  - Après la correction (APK local 0.4.289, même émulateur, même déroulé) : refus en arrière-plan identique ; ToolMap rouvert : `OperationService` au premier plan, type `location`, notification « Position partagée · Exercice Vallon » ; de nouveau en arrière-plan 40 s : processus au premier plan de service, demande de position active (plus « inactive »), notification toujours là (capture du volet des notifications).
+  - Redémarrage par Android (service collant) : opération réelle créée sur l'émulateur en mode avion (rien n'est parti au serveur), service au premier plan, ToolMap en arrière-plan 30 s, puis fin du processus comme Android la fait faute de mémoire (`die`, signal 9). Android relance le service 1 s plus tard (« Scheduling restart of crashed service ») ; l'opération se rouvre, le service repasse au premier plan type `location` sans refus, demande de position active, notification présente. Sur l'émulateur, pas de refus au redémarrage.
+  - `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` (même émulateur, ToolMap désinstallé d'abord) : OK, sans plantage ni ANR, 101 écrans du mode « Opération ».
+- **Non vérifié** : sur un téléphone (`docs/RECETTE.md`, R11) : placé écran éteint puis ToolMap rouvert, position qui part ensuite écran éteint. Le redémarrage par Android dépend du fabricant et de la version d'Android (certains ne relancent pas un service après la fin du processus, ou le refusent sans exemption d'économie de batterie) : seul un téléphone le dit.
+- **Problèmes / dette technique** : vu au passage sur l'émulateur (deux fois) : en arrière-plan et sans service au premier plan, ToolMap se croit hors réseau à l'instant du placement (`offline=true`), puis de nouveau relié une fois rouvert ; sans le service, la position ne partait donc de toute façon pas.
+- **Prochaine étape recommandée** : la réponse de l'utilisateur sur la règle S (P39.14.7), puis l'essai sur téléphone (R1 à R6, R11).
+
 ## 2026-11-23 — Session 126 (suite) — [P39.14.5] Opération : le départ d'un téléphone est gardé jusqu'à ce qu'un autre l'ait reçu
 - **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.5]` ee4a083 (journal de L4).
 - **Objectif** : P39.14.5, livraison de M4 A (aperçus `docs/previews/p39-groupes/tour8/img/14-M4-A.png` et `16-M4-fin.png`, validés le 2026-11-23) : « Quitter l'opération » hors réseau ne perd plus le départ ; le téléphone attend qu'un autre l'ait reçu, une semaine au plus, sur la carte « En train de partir… » et dans la notification, puis le dit.

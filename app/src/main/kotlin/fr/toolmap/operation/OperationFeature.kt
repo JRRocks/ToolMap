@@ -40,6 +40,12 @@ interface OperationFeature {
     @Composable
     fun AppDialogs()
 
+    /**
+     * ToolMap comes on screen ([fr.toolmap.MainActivity.onStart]): what Android refused while it was out of sight is
+     * asked again (the service of the operation, P39.14.8).
+     */
+    fun onAppShown()
+
     /** The screen of the operation open on this phone. */
     @Composable
     fun OperationScreen(onBack: () -> Unit)

@@ -152,6 +152,31 @@ class OperationNotificationTest {
         idle()
     }
 
+    @Test
+    fun `a service refused out of sight is asked again once ToolMap is on screen, not with no notice`() {
+        val session = demoSession()
+        session.setSharing(true)
+        session.viewAs(7)
+        idle()
+        assertNotNull(session.notice.value, "a placed phone shares its position")
+        // What the session asked once placed, which Android refuses while the app is out of sight (start_refused).
+        generateSequence { shadowOf(context).nextStartedService }.toList()
+        session.onAppShown()
+        assertEquals(
+            OperationService::class.java.name,
+            shadowOf(context).nextStartedService?.component?.className,
+            "asked again as soon as ToolMap is on screen",
+        )
+        session.setSharing(false)
+        idle()
+        generateSequence { shadowOf(context).nextStartedService }.toList()
+        session.onAppShown()
+        assertNull(shadowOf(context).nextStartedService, "no position to go: nothing is asked")
+        session.setSharing(true)
+        session.stopDemo()
+        idle()
+    }
+
     private companion object {
         const val DEMO_WAIT_MS = 60_000
         const val POLL_MS = 50L

@@ -43,6 +43,8 @@ class DebugOperationFeature
         @Composable
         override fun AppDialogs() = AppWindows(session)
 
+        override fun onAppShown() = session.onAppShown()
+
         @Composable
         override fun OperationScreen(onBack: () -> Unit) = OperationRoot(session, onBack)
 

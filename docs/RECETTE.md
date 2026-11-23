@@ -18,6 +18,7 @@ La liste unique de ce que seul l'utilisateur peut vérifier, sur son téléphone
 | R8 | 0.4.265 | Dans une opération nouvelle, le chef de l'opération (ou un administrateur) change la « Fréquence d'envoi », par exemple à 45 s. | Sur un second téléphone de l'opération : le message « Fréquence d'envoi : toutes les 45 s, pour toute l'opération. » en bas de l'écran. | à essayer |
 | R9 | 0.4.276 | Opération à trois téléphones ou plus : un nouveau membre entre pendant que les autres partagent leur position. | Aucun téléphone ne rame ni ne chauffe ; les positions continuent d'arriver. | à essayer |
 | R10 | 0.4.263 | Menu ▸ « Partager l'app » : un autre téléphone scanne le code avec son appareil photo ; puis le bouton rond envoie le lien par une messagerie. | L'autre téléphone ouvre le lien et télécharge ToolMap. Le message reçu commence par « ToolMap pour Android : », suivi du lien. | à essayer |
+| R11 | 0.4.289 | Opération : il attend sa place, puis éteint l'écran sans fermer ToolMap ; pendant ce temps, le créateur ou un administrateur le place dans un groupe. Plus tard, il rallume l'écran et revient sur ToolMap, puis éteint de nouveau l'écran et marche dix minutes. | Dès qu'il revient sur ToolMap : la ligne « Position partagée · … » dans les notifications. Ensuite, sur un second téléphone de l'opération, sa position avance pendant que son écran est éteint. | à essayer |
 
 ## Pas encore repris ici
 
