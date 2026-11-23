@@ -1,0 +1,24 @@
+# Essais sur téléphone
+
+La liste unique de ce que seul l'utilisateur peut vérifier, sur son téléphone : réseau réel, écran éteint, deux téléphones ensemble, appareil photo, clavier du téléphone. Tout ce qu'un test ou l'émulateur peut montrer est déjà vérifié avant d'arriver ici.
+
+- **Règle** (demande de la session principale, 2026-11-23, skill `recette-telephone`) : tout point « non vérifié sur téléphone » entre ici au moment où il est écrit (journal ou plan), et la ligne du plan y renvoie par son numéro (R…).
+- **États** : `à essayer` ; `bon` (date) ; `défaut` (date, et ce que l'utilisateur en a dit, mot pour mot).
+- **Avant un essai** : sur chaque téléphone, installer le même APK, le plus récent du dossier Drive « APK debug » (`ToolMap-debug-<version>.apk`, par-dessus la version d'avant, sans désinstaller). Un téléphone resté sur une version plus ancienne ne parle plus aux autres. Pour le mode « Opération », créer une **nouvelle** opération : une opération créée par une version plus ancienne n'a pas les réglages récents.
+
+| N° | Depuis la version | Ce qu'il fait | Ce qu'il doit voir | État |
+|---|---|---|---|---|
+| R1 | 0.4.285 | Opération : placé dans un groupe, « Partager ma position » allumé, il éteint l'écran et marche dix minutes avec le réseau mobile (pas le Wi-Fi). | Sur un second téléphone de l'opération, sa position avance pendant que son écran est éteint. Sur son téléphone, dans les notifications : « Position partagée · » suivi du nom de l'opération, avec « Arrêter le partage ». La batterie ne baisse pas plus vite qu'avec « Entre amis ». | à essayer |
+| R2 | 0.4.285 | Opération ouverte et position partagée, il met le téléphone en mode avion deux minutes, puis coupe le mode avion. | Pendant le mode avion : « Hors réseau : envoi dès son retour » sous la ligne de la notification. Après : cette ligne disparaît, et sa position revient sur le second téléphone dans la minute. | à essayer |
+| R3 | 0.4.284 | Administrateur, il change la couleur d'un groupe (page du groupe ▸ « Modifier le groupe », une autre pastille). | Sur un second téléphone de l'opération : le groupe prend la nouvelle couleur, et le message « Le groupe … a changé de couleur : … » paraît en bas de l'écran. | à essayer |
+| R4 | 0.4.286 | Simple membre, il passe en mode avion, quitte l'opération (« Quitter l'opération »), ferme ToolMap, puis coupe le mode avion sans rouvrir ToolMap. | Après « Quitter » : l'écran « En train de partir… » et, dans les notifications, « Départ de « … » en cours ». Au retour du réseau, sans rouvrir ToolMap : cette notification s'en va toute seule, et le second téléphone ne le compte plus dans l'opération. En rouvrant ToolMap : plus d'opération. | à essayer |
+| R5 | 0.4.286 | Créateur, sans réseau, il transmet son rôle à un administrateur et quitte (« Transmettre à … et quitter »), puis retrouve le réseau. | La même attente que R4 (« En train de partir… »). Au retour du réseau, sur les autres téléphones : il a quitté l'opération, et l'administrateur choisi en est maintenant le créateur. | à essayer |
+| R6 | 0.4.281 | « Partage de position », sans groupe : il regarde les boutons « Scanner un code » et « Coller un lien », avec le texte du téléphone au plus grand (réglage d'Android). | « Scanner un code » entier, sur une ou deux lignes, les deux boutons de la même hauteur. | à essayer |
+| R7 | 0.4.276 | Il rejoint une opération par un code, puis, sur la fenêtre « Rejoindre l'opération ? », touche le champ du nom (clavier du téléphone). | « Annuler » et « Rejoindre » restent visibles juste au-dessus du clavier, le champ se voit en entier, et le texte du milieu défile au doigt. | à essayer |
+| R8 | 0.4.265 | Dans une opération nouvelle, le chef de l'opération (ou un administrateur) change la « Fréquence d'envoi », par exemple à 45 s. | Sur un second téléphone de l'opération : le message « Fréquence d'envoi : toutes les 45 s, pour toute l'opération. » en bas de l'écran. | à essayer |
+| R9 | 0.4.276 | Opération à trois téléphones ou plus : un nouveau membre entre pendant que les autres partagent leur position. | Aucun téléphone ne rame ni ne chauffe ; les positions continuent d'arriver. | à essayer |
+| R10 | 0.4.263 | Menu ▸ « Partager l'app » : un autre téléphone scanne le code avec son appareil photo ; puis le bouton rond envoie le lien par une messagerie. | L'autre téléphone ouvre le lien et télécharge ToolMap. Le message reçu commence par « ToolMap pour Android : », suivi du lien. | à essayer |
+
+## Pas encore repris ici
+
+Les 56 lignes 🔄 « à voir sur téléphone » de P1 à P16 du plan (`docs/PLAN.md`) attendent l'utilisateur depuis octobre 2026. Elles ne sont pas encore récrites en points de cette liste.

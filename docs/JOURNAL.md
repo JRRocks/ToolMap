@@ -40,6 +40,10 @@
 - **Non vérifié** : le renvoi du départ application fermée et écran éteint (service `specialUse`) : sur un téléphone ; le cas du créateur qui passe la main puis attend (même chemin, pas de capture à part).
 - **Problèmes / dette technique** : aucun.
 - **Prochaine étape recommandée** : P39.14.7 (règle S), puis l'essai sur téléphone de P39.14.5 (écran éteint, réseau réel).
+- **Suite (même session, 2026-11-23)** :
+  - P39.14.7 (règle S) bloqué ⛔ avant tout code : le choix a ne peut pas s'appliquer tel quel (ni les croquis ni les opérations ne portent d'heure ; détail : spec § 27, « Réponses du tour 8 », ligne datée). Question reposée à l'utilisateur par la session principale, trois façons de faire.
+  - Liste unique des essais sur téléphone, `docs/RECETTE.md` (demande de la session principale, skill `recette-telephone`) : R1 à R10. Les « Non vérifié » de L4 (R1, R2) et de M4 (R4, R5) y sont ; les lignes P39.14.5, P39.15, P39.16, P39.17 et P40.1 du plan y renvoient. Les 56 lignes « à voir sur téléphone » de P1 à P16 n'y sont pas encore reprises.
+  - Question de la session principale sur un membre placé pendant que ToolMap est en arrière-plan : réponse remise à la session principale, sans code. Vu en lisant : le service de l'opération n'est demandé qu'au moment où la position commence à partir ; refusé par Android en arrière-plan, il n'est plus redemandé à la réouverture (défaut probable, à confirmer sur émulateur).
 
 ## 2026-11-23 — Session 126 (suite) — [P39.14.5] Opération : la position partagée se voit dans la notification, et part dès le retour du réseau
 - **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.5]` a432f56 (L1).
