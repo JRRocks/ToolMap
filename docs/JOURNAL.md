@@ -20,6 +20,25 @@
 
 ---
 
+## 2026-11-23 — Session 126 (suite) — [P39.14.5] Opération : le départ d'un téléphone est gardé jusqu'à ce qu'un autre l'ait reçu
+- **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.5]` ee4a083 (journal de L4).
+- **Objectif** : P39.14.5, livraison de M4 A (aperçus `docs/previews/p39-groupes/tour8/img/14-M4-A.png` et `16-M4-fin.png`, validés le 2026-11-23) : « Quitter l'opération » hors réseau ne perd plus le départ ; le téléphone attend qu'un autre l'ait reçu, une semaine au plus, sur la carte « En train de partir… » et dans la notification, puis le dit.
+- **Réalisé** :
+  - Moteur (`OperationNode`, `HierarchyReplica.ownDeparture`, `OperationLinkState.leftAtMs`) : départ en attente (`leaving`), reçu (`OperationEnding.LEFT`) par le résumé ou les opérations d'un autre téléphone, abandonné au bout de 7 jours (`LEFT_UNHEARD`) ; un membre qui reçoit le départ, ou le résumé d'un téléphone resté sur une clé plus ancienne, lui répond sous cette clé. Rien de nouveau dans le format, sinon `leftAtMs` facultatif en fin de l'état du lien : une opération de 0.4.276 se lit toujours.
+  - Contrôleur et stockage : phase `LEAVING`, `leavingUntilMs`, fins `Ending.LEFT` et `LEFT_UNHEARD` ; une opération en départ rouverte reste en départ.
+  - Écrans : `LeavingPage` (la carte seule, pas de menu), la ligne de notification sans bouton (service au premier plan, type `specialUse` sur Android 14+), le message « Votre départ … est reçu » (écran du partage, seulement à l'instant), la fenêtre « Départ non reçu » (`OperationFeature.AppDialogs`, sur n'importe quel écran ; gardée dans les préférences).
+  - Démonstration : `DemoWorld.cutOff` / `reconnect` ; quatre scènes `tour8-14-…` et `tour8-16-…` (Membre 16).
+  - Spec § 27, « Livraison 8 » ; ADR-144.
+- **Décisions (ADR)** : ADR-144.
+- **Tests / vérifications** :
+  - `OperationNodeTest` : un départ hors réseau reste en attente, repart, et le téléphone finit en `LEFT` dès qu'un autre l'a reçu ; une semaine sans réponse donne `LEFT_UNHEARD` ; les tests de départ existants (M3 compris) attendent désormais `LEFT`. `DissolutionTraceTest`, `OperationControllerTest` (rouvert après un redémarrage, puis un membre part) : `LEFT`. `OperationNotificationTest` : la ligne « Départ de … en cours » et le jour « Au plus tard » ; dans la démonstration, Membre 16 coupé du réseau part, attend sur la carte et dans la notification, puis, relié de nouveau, voit son départ reçu, et la notification s'en va.
+  - Simulation (`SimChecks.afterCalm`, longue série) : la graine 0x50ac001c divergeait (le téléphone parti, resté sur l'ancienne clé, n'était jamais acquitté ; le renouvellement d'un autre expirait) ; corrigé par la réponse sous la clé de celui qui part ou qui est en retard (ADR-144, point 2). 256 tests de `fr.toolmap.core.hierarchy` verts ; tests `fr.toolmap.data.hierarchy.*` et `fr.toolmap.operation.*` verts.
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` : vert, 0.4.286.
+  - `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` (émulateur temporaire du poste, démarré pour l'essai) : OK, 101 écrans du mode « Opération ». `tour8-14-M4-A-en-train-de-partir` et `tour8-14-M4-A-notification` conformes à l'aperçu 14 (A) ; `tour8-16-M4-depart-recu` et `tour8-16-M4-depart-non-recu` conformes à l'aperçu 16 (le jour « Au plus tard » est calculé : lundi 30 novembre sur la capture, dimanche 29 sur l'aperçu). Comparaison côte à côte remise à la session maîtresse.
+- **Non vérifié** : le renvoi du départ application fermée et écran éteint (service `specialUse`) : sur un téléphone ; le cas du créateur qui passe la main puis attend (même chemin, pas de capture à part).
+- **Problèmes / dette technique** : aucun.
+- **Prochaine étape recommandée** : P39.14.7 (règle S), puis l'essai sur téléphone de P39.14.5 (écran éteint, réseau réel).
+
 ## 2026-11-23 — Session 126 (suite) — [P39.14.5] Opération : la position partagée se voit dans la notification, et part dès le retour du réseau
 - **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.5]` a432f56 (L1).
 - **Objectif** : P39.14.5, livraison de L4 A et L4 bis a (aperçus `docs/previews/p39-groupes/tour8/img/07-L4-A-B.png` et `09-L4-sans-reseau.png`, validés le 2026-11-23) : la ligne « Position partagée · Exercice Vallon » dans la notification de ToolMap tant que la position part, application ouverte ou non, et « Hors réseau : envoi dès son retour » sous elle quand le réseau manque.
@@ -32,6 +51,7 @@
   - `OperationNotificationTest` : le texte de la ligne, avec et sans « Hors réseau » ; la ligne suit l'interrupteur d'un téléphone placé et le réseau, et le service est demandé dès que la position part. `OperationControllerTest` : le réseau est dit, dans l'ordre, à la connexion au serveur de l'opération en cours, et rien n'échoue sans opération.
   - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` : vert, 0.4.285.
   - `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` (émulateur API 37 du poste, démarré pour l'essai) : OK, 97 écrans du mode « Opération ». `tour8-07-L4-A-notification` et `tour8-09-L4-bis-a-hors-reseau` (mode avion) conformes aux aperçus 07 (A) et 09 (a), comparaison côte à côte remise à la session maîtresse.
+  - Run « CI » n° 253 (ee4a083) : vert, contrôle sur émulateur compris ; « Opération, bout en bout » n° 11 : vert. APK de debug de ce run copié dans le dossier Drive « APK debug » : `ToolMap-debug-0.4.285.apk`, SHA-256 `a96f6f8e…2a4f677`, même certificat que 0.4.284 (`85334c0a…a6a0d3a4`).
 - **Non vérifié** : le renvoi de la dernière position au retour du réseau (la démonstration n'a pas de serveur ; couvert par les tests) ; écran éteint, réseau réel et batterie : sur un téléphone.
 - **Problèmes / dette technique** : un téléphone qui attend sa place envoie aussi sa position, sans ligne dans la notification (l'aperçu ne montre que le téléphone placé).
 - **Prochaine étape recommandée** : P39.14.5, M4 (le départ gardé jusqu'à sa réception, la carte « En train de partir… »), qui s'appuie sur ce service pour renvoyer le départ application fermée.
@@ -49,6 +69,7 @@
   - `OperationModelsTest` : la règle des couleurs (sans choix, comme avant ; un choix ne déplace aucun autre groupe ; un même choix fait deux fois ; une couleur hors palette) ; Ouest passé au rose par un administrateur : seul Ouest change, un 5e groupe serait violet, le message va au créateur, à un membre, à un membre d'Ouest et à qui attend ; rien pour un autre changement.
   - `./gradlew spotlessApply` puis `./gradlew check assembleDebug` : vert (0.4.284 ; un premier build 0.4.283 a fait échouer le contrôle sur émulateur : « the scene tour8-05-L1-bis-a-couleur-changee could not be shown », Ouest étant déjà supprimé par une scène d'avant ; la scène passe en tête des scènes qui changent la démonstration).
   - Émulateur temporaire du poste : `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` → OK (95 écrans du mode « Opération »). Captures comparées aux aperçus validés : `tour8-02-L1-A-nouveau-groupe` et `…-modifier-le-groupe` (image 02 : titre « Modifier le groupe », aide, huit pastilles, la couleur du groupe cochée, celles des autres pâles), `tour8-03-L1-A-page-du-groupe` et `…-nouvelle-operation` (image 03), `tour8-05-L1-bis-a-couleur-changee` (image 05 : jeton d'Ouest rose, « Le groupe Ouest a changé de couleur : rose. » en bas de l'écran de Membre 7) : conformes.
+  - Run « CI » n° 252 (a432f56) : vert, contrôle sur émulateur compris. APK de debug de ce run copié dans le dossier Drive « APK debug » : `ToolMap-debug-0.4.284.apk`, SHA-256 `46dd43ab…743519d`, même certificat que 0.4.282 (`85334c0a…a6a0d3a4`).
 - **Problèmes / dette technique** : aucun.
 - **Prochaine étape recommandée** : P39.14.5, L4 et L4 bis / M8 (le service écran éteint de l'opération et sa notification) ; puis M4, qui s'appuie sur ce service pour renvoyer le départ application fermée.
 

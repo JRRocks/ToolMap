@@ -16,6 +16,7 @@ import fr.toolmap.core.p2p.PairingCodec
 import fr.toolmap.core.p2p.PeerFix
 import fr.toolmap.core.problem.Problems
 import fr.toolmap.core.record.Fix
+import fr.toolmap.data.hierarchy.Ending
 import fr.toolmap.data.hierarchy.OperationController
 import fr.toolmap.data.hierarchy.OperationPhase
 import fr.toolmap.data.hierarchy.OperationStorage
@@ -68,6 +69,12 @@ data class Extras(
     val waitingAgain: Boolean = false,
     /** The name this phone asked to come in with (shown while it is not let in yet). */
     val selfName: String? = null,
+)
+
+/** The departure of a phone got by another one ([OperationSession.departureReceived], M4 A): its operation, and when. */
+data class Departure(
+    val operation: String,
+    val atMs: Long,
 )
 
 /** Why an invitation was not taken. */
@@ -155,12 +162,30 @@ class OperationSession
         val restored = MutableStateFlow(false)
 
         /**
+         * « Votre départ de « … » est reçu : tout est effacé de ce téléphone. » (M4 A, image 16): the departure of the
+         * phone the screens show was got by another phone; said once, on the screen of the sharing, if it was just now.
+         */
+        val departureReceived = MutableStateFlow<Departure?>(null)
+
+        /**
+         * « Départ non reçu » (M4 A, image 16): no phone got the departure of this phone within a week, everything was
+         * wiped all the same; kept on this phone until « OK », the app closed meanwhile.
+         */
+        val departureUnheard = MutableStateFlow(prefs.getString(KEY_UNHEARD, null))
+
+        /**
          * What the notification says while this phone's position goes to the operation (P39.14, L4 A, image 07; L4
-         * bis a, image 09); `null` while none goes. [OperationService] stays in the foreground as long as it is not.
+         * bis a, image 09), or while this phone left and waits for another one to get its departure (M4 A, image 14);
+         * `null` otherwise. [OperationService] stays in the foreground as long as it is not.
          */
         val notice: StateFlow<OperationNotice?> =
             combine(view, sharing, offline) { v, on, off ->
-                OperationNotice(v.operationName.orEmpty(), off).takeIf { v.phase == OperationPhase.PLACED && on }
+                val name = v.operationName.orEmpty()
+                when {
+                    v.phase == OperationPhase.LEAVING -> OperationNotice(name, false, v.leavingUntilMs ?: 0L)
+                    v.phase == OperationPhase.PLACED && on -> OperationNotice(name, off)
+                    else -> null
+                }
             }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, null)
 
         init {
@@ -179,6 +204,7 @@ class OperationSession
             watchFull()
             watchNetwork()
             keepInForeground()
+            followDepartures()
         }
 
         // ---- entry -------------------------------------------------------------------------------------------------
@@ -741,6 +767,64 @@ class OperationSession
             }
         }
 
+        /**
+         * What became of the departure of this phone (M4 A): got by another phone, or given up after a week. The phone
+         * of the app always, its operation remembered on this phone from the moment it left (the app may stop before
+         * the end); the phone of the demonstration the screens show too (the captures).
+         */
+        private fun followDepartures() {
+            scope.launch { followDeparture(real, remember = true) }
+            scope.launch { seat.collectLatest { c -> if (c !== real) followDeparture(c, remember = false) } }
+        }
+
+        private suspend fun followDeparture(
+            c: OperationController,
+            remember: Boolean,
+        ) {
+            var leaving = if (remember) prefs.getString(KEY_LEAVING, null) else null
+            c.view.collect { v ->
+                when (v.phase) {
+                    OperationPhase.LEAVING -> {
+                        val name = v.operationName.orEmpty()
+                        if (name != leaving) {
+                            leaving = name
+                            if (remember) prefs.edit().putString(KEY_LEAVING, name).apply()
+                        }
+                    }
+
+                    OperationPhase.ENDED -> {
+                        val name = leaving ?: return@collect
+                        leaving = null
+                        if (remember) prefs.edit().remove(KEY_LEAVING).apply()
+                        when (v.ending) {
+                            Ending.LEFT -> {
+                                departureReceived.value = Departure(name, System.currentTimeMillis())
+                            }
+
+                            Ending.LEFT_UNHEARD -> {
+                                departureUnheard.value = name
+                                if (remember) prefs.edit().putString(KEY_UNHEARD, name).apply()
+                            }
+
+                            else -> {
+                                Unit
+                            }
+                        }
+                    }
+
+                    else -> {
+                        Unit
+                    }
+                }
+            }
+        }
+
+        /** « OK » of « Départ non reçu ». */
+        fun closeDepartureUnheard() {
+            departureUnheard.value = null
+            prefs.edit().remove(KEY_UNHEARD).apply()
+        }
+
         /** The 31st who asks to come into a full operation is told so, and its request is given up. */
         private fun watchFull() {
             scope.launch {
@@ -873,7 +957,10 @@ class OperationSession
             private const val SECOND_MS = 1_000L
             private const val DEFAULT_NAME = "ToolMap"
             const val LOG_TAG = "ToolMapOperation"
-            private val IN_OPERATION = setOf(OperationPhase.ASKING, OperationPhase.WAITING, OperationPhase.PLACED)
+            private const val KEY_LEAVING = "leaving"
+            private const val KEY_UNHEARD = "departure_unheard"
+            private val IN_OPERATION =
+                setOf(OperationPhase.ASKING, OperationPhase.WAITING, OperationPhase.PLACED, OperationPhase.LEAVING)
 
             private fun Fix.toPeerFix(): PeerFix =
                 PeerFix(

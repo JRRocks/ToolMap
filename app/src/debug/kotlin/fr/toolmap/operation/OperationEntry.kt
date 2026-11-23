@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -455,6 +458,7 @@ fun ShareWindows(
     val demoFailed by session.demoFailed.collectAsStateWithLifecycle()
     val extras by session.extras.collectAsStateWithLifecycle()
     question?.let { JoinWindow(session, it, setName) }
+    DepartureReceived(session)
     problem?.let { p ->
         val text =
             when (p) {
@@ -537,6 +541,48 @@ fun ShareWindows(
         }
 
         else -> {}
+    }
+}
+
+/**
+ * « Votre départ de « Exercice Vallon » est reçu : tout est effacé de ce téléphone. » at the bottom of the screen of the
+ * sharing (P39.14.5, M4 A, `tour8/img/16`), a few seconds; only when it was just now: the app closed then, the line of
+ * the notification going was all.
+ */
+@Composable
+private fun DepartureReceived(session: OperationSession) {
+    val received by session.departureReceived.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    val text = received?.let { stringResource(R.string.op_left_received, it.operation) }
+    LaunchedEffect(received) {
+        val shown = received ?: return@LaunchedEffect
+        if (text != null && System.currentTimeMillis() - shown.atMs < RECEIVED_SHOWN_MS) snackbar.showSnackbar(text)
+        session.departureReceived.compareAndSet(shown, null)
+    }
+    Box(Modifier.fillMaxSize().navigationBarsPadding(), contentAlignment = Alignment.BottomCenter) {
+        SnackbarHost(snackbar)
+    }
+}
+
+/** A departure got longer ago than that is not said any more (the app was closed then). */
+private const val RECEIVED_SHOWN_MS = 10_000L
+
+/**
+ * « Départ non reçu » (P39.14.5, M4 A, `tour8/img/16`), over whatever screen ToolMap opens on: no phone of the
+ * operation got the departure of this phone within a week, everything was wiped all the same. « OK » closes it.
+ */
+@Composable
+fun AppWindows(session: OperationSession) {
+    val unheard by session.departureUnheard.collectAsStateWithLifecycle()
+    unheard?.let { name ->
+        AlertDialog(
+            onDismissRequest = session::closeDepartureUnheard,
+            title = { Text(stringResource(R.string.op_left_unheard_title)) },
+            text = { Text(stringResource(R.string.op_left_unheard_text, name)) },
+            confirmButton = {
+                TextButton(onClick = session::closeDepartureUnheard) { Text(stringResource(R.string.action_ok)) }
+            },
+        )
     }
 }
 

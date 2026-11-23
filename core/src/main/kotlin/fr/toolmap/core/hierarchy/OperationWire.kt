@@ -802,8 +802,9 @@ class EpochKey(
 
 /**
  * What a phone keeps of how it reaches the others in an operation, beside what the engine holds: the room and the
- * server, the invitation keys of the last epochs, the card of the name of the operation its invitation carried, and,
- * while it is not let in, the card of its own name. Sealed on the disk with the rest of the operation.
+ * server, the invitation keys of the last epochs, the card of the name of the operation its invitation carried, while
+ * it is not let in, the card of its own name, and, once it left by itself, since when it waits for another phone to get
+ * its departure (P39.14.5, M4 A). Sealed on the disk with the rest of the operation.
  */
 class OperationLinkState(
     val ensembleId: Long,
@@ -812,6 +813,8 @@ class OperationLinkState(
     val epochs: List<EpochKey>,
     val inviteCard: NameCard?,
     val ownCard: NameCard?,
+    /** Written only when there is one: a link state written before P39.14.5 reads the same. */
+    val leftAtMs: Long? = null,
 ) {
     fun encode(): ByteArray {
         val w = ByteWriter().u8(VERSION).u64(ensembleId).bytes(room)
@@ -827,6 +830,7 @@ class OperationLinkState(
         for (card in listOf(inviteCard, ownCard)) {
             if (card == null) w.u8(0) else OperationWire.writeCard(w.u8(1), card)
         }
+        leftAtMs?.let { w.u64(it) }
         return w.toByteArray()
     }
 
@@ -867,8 +871,9 @@ class OperationLinkState(
                         else -> throw WireException("bad card flag")
                     }
                 }
+            val leftAt = if (r.remaining == 0) null else r.u64()
             if (r.remaining != 0) throw WireException("trailing data")
-            return OperationLinkState(ensemble, room, server, epochs, cards[0], cards[1])
+            return OperationLinkState(ensemble, room, server, epochs, cards[0], cards[1], leftAt)
         }
     }
 }

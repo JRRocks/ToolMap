@@ -36,6 +36,10 @@ interface OperationFeature {
     @Composable
     fun ShareDialogs(setName: () -> String)
 
+    /** The windows of this mode over any screen of ToolMap (« Départ non reçu », P39.14.5, M4 A). */
+    @Composable
+    fun AppDialogs()
+
     /** The screen of the operation open on this phone. */
     @Composable
     fun OperationScreen(onBack: () -> Unit)

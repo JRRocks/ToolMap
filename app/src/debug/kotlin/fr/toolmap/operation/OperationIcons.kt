@@ -54,6 +54,31 @@ object OperationIcons {
         )
     }
 
+    /** « hourglass_top »: this phone left and waits for its departure to be got (P39.14.5, M4 A, `tour8/img/14`). */
+    val HourglassTop: ImageVector by lazy {
+        icon("HourglassTop", "M6 2l.01 6L10 12l-3.99 4.01L6 22h12v-6l-4-4 4-3.99V2H6zm10 14.5V20H8v-3.5l4-4 4 4z")
+    }
+
+    /** « event »: the day the departure is given up at the latest (M4 A). */
+    val Event: ImageVector by lazy {
+        icon(
+            "Event",
+            "M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5" +
+                "c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z",
+        )
+    }
+
+    /** « location_off »: the position of this phone no longer goes (M4 A). */
+    val LocationOff: ImageVector by lazy {
+        icon(
+            "LocationOff",
+            "M12 6.5c1.38 0 2.5 1.12 2.5 2.5 0 .74-.33 1.39-.83 1.85l3.63 3.63c.98-1.86 1.7-3.8 1.7-5.48" +
+                " 0-3.87-3.13-7-7-7-1.98 0-3.76.83-5.04 2.15l3.19 3.19c.46-.52 1.11-.84 1.85-.84zm4.37 9.6" +
+                "l-4.63-4.63-.11-.11L3.27 3 2 4.27l3.18 3.18C5.07 7.95 5 8.47 5 9c0 5.25 7 13 7 13" +
+                "s1.67-1.85 3.38-4.35L18.73 21 20 19.73l-3.63-3.63z",
+        )
+    }
+
     /** « visibility_off »: no position on the map while waiting. */
     val VisibilityOff: ImageVector by lazy {
         icon(

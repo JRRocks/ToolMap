@@ -4,12 +4,15 @@ import android.app.Application
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import fr.toolmap.core.record.Fix
+import fr.toolmap.data.hierarchy.Ending
 import fr.toolmap.data.hierarchy.OperationController
+import fr.toolmap.data.hierarchy.OperationPhase
 import fr.toolmap.data.hierarchy.OperationStorage
 import fr.toolmap.operation.demo.DemoKeyVault
 import fr.toolmap.record.LocationSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -17,9 +20,12 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * The notification of an operation (P39.14.5, L4 A, `tour8/img/07`; L4 bis a, `img/09`): its line while the position of
@@ -54,6 +60,60 @@ class OperationNotificationTest {
             "Position partagée · Exercice Vallon\nHors réseau : envoi dès son retour",
             OperationService.text(context, OperationNotice("Exercice Vallon", offline = true)),
         )
+    }
+
+    @Test
+    fun `the line of a departure that waits for a phone, with no button (M4 A)`() {
+        val zone = ZoneId.of("Europe/Paris")
+        val until = ZonedDateTime.of(2026, 11, 29, 9, 0, 0, 0, zone).toInstant().toEpochMilli()
+        assertEquals("dimanche 29 novembre", leavingDay(until, zone))
+        assertEquals(
+            "Départ de « Exercice Vallon » en cours\nEn attente d'un autre téléphone\nAu plus tard le " +
+                leavingDay(until),
+            OperationService.text(context, OperationNotice("Exercice Vallon", offline = false, leavingUntilMs = until)),
+        )
+    }
+
+    @Test
+    fun `leaving out of network waits on the screen and in the notification, then the departure is got (M4 A)`() {
+        val session = demoSession()
+        val world = assertNotNull(session.demo.value)
+        world.cutOff(16)
+        assertNull(runBlocking { session.demoSeat(16)?.leave() }, "Membre 16 leaves")
+        session.viewAs(16)
+        val seat = assertNotNull(session.demoSeat(16))
+        waitUntil { seat.view.value.phase == OperationPhase.LEAVING }
+        assertTrue(session.active.value, "its screen is the operation's, the card « En train de partir… »")
+        val until = assertNotNull(seat.view.value.leavingUntilMs)
+        assertEquals(OperationNotice("Exercice Vallon", offline = false, leavingUntilMs = until), session.notice.value)
+        assertNull(session.departureReceived.value)
+        world.reconnect(16)
+        waitUntil { session.departureReceived.value != null }
+        assertEquals("Exercice Vallon", session.departureReceived.value?.operation)
+        assertEquals(Ending.LEFT, seat.view.value.ending)
+        assertNull(session.notice.value, "the notification goes")
+        session.stopDemo()
+        idle()
+    }
+
+    private fun demoSession(): OperationSession {
+        val storage = OperationStorage(temp.newFolder("operations"), DemoKeyVault())
+        val session = OperationSession(context, OperationController(storage, null, { null }), storage, noGps)
+        idle()
+        session.startDemo()
+        waitUntil { session.demo.value != null }
+        return session
+    }
+
+    private fun waitUntil(condition: () -> Boolean) {
+        var waited = 0
+        while (!condition() && waited < DEMO_WAIT_MS) {
+            idle()
+            Thread.sleep(POLL_MS)
+            waited += POLL_MS.toInt()
+        }
+        idle()
+        assertTrue(condition(), "in time")
     }
 
     @Test

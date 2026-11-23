@@ -26,17 +26,32 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.inject.Inject
 
 /**
  * What the notification of an operation says while this phone's position goes to it (P39.14, L4 A, image 07):
  * « Position partagée · [operation] », and « Hors réseau : envoi dès son retour » under it while the network is
- * missing ([offline], L4 bis a, image 09).
+ * missing ([offline], L4 bis a, image 09). Once this phone left and waits for another one to get its departure
+ * ([leavingUntilMs], M4 A, image 14): « Départ de « [operation] » en cours », with no button.
  */
 data class OperationNotice(
     val operation: String,
     val offline: Boolean,
+    /** This phone left: when everything is wiped at the latest, even with no phone that got the departure. */
+    val leavingUntilMs: Long? = null,
 )
+
+private val LEAVING_DAY = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRENCH)
+
+/** « dimanche 29 novembre »: the day [ms] falls on, here. */
+fun leavingDay(
+    ms: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+): String = LEAVING_DAY.format(Instant.ofEpochMilli(ms).atZone(zone))
 
 /**
  * Keeps ToolMap in the foreground while this phone shares its position in an operation (P39.14, L4), the app open or
@@ -46,6 +61,9 @@ data class OperationNotice(
  * `null`: the sharing cut (the switch, or « Arrêter le partage », which leaves this phone in the operation), the
  * operation dissolved, this phone removed from it, or gone. A tap opens the screen of the sharing, the operation's.
  * It is sticky: killed by the system, it comes back with the operation stored on this phone.
+ *
+ * It stays too while this phone left and waits for another one to get its departure (M4 A): the departure goes again
+ * with the app closed. Its type is then `specialUse` (Android 14+): no position goes.
  */
 @AndroidEntryPoint
 class OperationService : Service() {
@@ -55,6 +73,7 @@ class OperationService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var observer: Job? = null
     private var foreground = false
+    private var foregroundLeaving = false
     private val wakeLock by lazy { ServiceWakeLock(this, "ToolMap:operation") }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -104,13 +123,29 @@ class OperationService : Service() {
     /** Puts the service in the foreground with [notice]'s line; `false` when Android refuses it. */
     private fun goForeground(notice: OperationNotice): Boolean =
         try {
+            val leaving = notice.leavingUntilMs != null
+            val type =
+                when {
+                    !leaving -> {
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                    }
+
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> {
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                    }
+
+                    else -> {
+                        0
+                    }
+                }
             ServiceCompat.startForeground(
                 this,
                 BackgroundNotification.NOTIFICATION_ID,
                 BackgroundNotification.put(this, BackgroundNotification.Part.OPERATION, line(notice)),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
+                type,
             )
             foreground = true
+            foregroundLeaving = leaving
             true
         } catch (e: SecurityException) {
             // Android 14+ refuses the type `location` without the permission « pendant l'utilisation ».
@@ -137,6 +172,11 @@ class OperationService : Service() {
                         return@collect
                     }
                     wakeLock.hold()
+                    // From the sharing to the wait of a departure (M4 A), or back: the type of the service changes.
+                    if ((notice.leavingUntilMs != null) != foregroundLeaving) {
+                        if (!goForeground(notice)) finish()
+                        return@collect
+                    }
                     BackgroundNotification.update(
                         this@OperationService,
                         BackgroundNotification.Part.OPERATION,
@@ -156,7 +196,10 @@ class OperationService : Service() {
         return START_NOT_STICKY
     }
 
-    /** The line of the operation (image 07 A, image 09), its button « Arrêter le partage », a tap that opens it. */
+    /**
+     * The line of the operation (image 07 A, image 09), its button « Arrêter le partage », a tap that opens it; no button
+     * while this phone waits for its departure to be got (image 14): nothing to stop.
+     */
     private fun line(notice: OperationNotice): BackgroundNotification.Line {
         val open =
             PendingIntent.getActivity(
@@ -174,6 +217,7 @@ class OperationService : Service() {
                 Intent(this, OperationService::class.java).setAction(ACTION_STOP),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
+        if (notice.leavingUntilMs != null) return BackgroundNotification.Line(text(this, notice), open = open)
         return BackgroundNotification.Line(
             text(this, notice),
             getString(R.string.background_stop_sharing),
@@ -195,11 +239,18 @@ class OperationService : Service() {
         private const val OPEN_REQUEST = 0x0e7a
         private const val RESTORE_MS = 30_000L
 
-        /** « Position partagée · Exercice Vallon », and « Hors réseau : envoi dès son retour » under it. */
+        /**
+         * « Position partagée · Exercice Vallon », and « Hors réseau : envoi dès son retour » under it; « Départ de
+         * « Exercice Vallon » en cours », « En attente d'un autre téléphone », « Au plus tard le dimanche 29 novembre »
+         * once this phone left.
+         */
         fun text(
             context: Context,
             notice: OperationNotice,
         ): String {
+            notice.leavingUntilMs?.let { until ->
+                return context.getString(R.string.op_notification_leaving, notice.operation, leavingDay(until))
+            }
             val shared = context.getString(R.string.background_sharing, notice.operation)
             return if (notice.offline) shared + "\n" + context.getString(R.string.op_notification_offline) else shared
         }

@@ -372,7 +372,7 @@ class OperationNodeTest {
         room.settle()
         assertTrue(b.n.issue(Change.RemoveMember(b.id)) is IssueResult.Issued)
         room.settle()
-        assertEquals(OperationEnding.OUT, b.ended)
+        assertEquals(OperationEnding.LEFT, b.ended, "its departure got by the others (M4 A)")
         for (p in listOf(a, c, d)) assertEquals(c.id, p.state.leaderOf(g), "$p")
         // C now alerts every leader, not its group: D (a plain member) does not get it, A (the creator) does.
         assertEquals(Channel.LEADERS, c.state.alertChannel(c.id))
@@ -463,7 +463,7 @@ class OperationNodeTest {
         a.must(Change.TransferCreator(b.id))
         a.must(Change.RemoveMember(a.id))
         room.settle()
-        assertEquals(OperationEnding.OUT, a.ended)
+        assertEquals(OperationEnding.LEFT, a.ended, "its departure got by the others (M4 A)")
         for (p in listOf(b, c)) assertEquals(b.id, p.state.creator, "$p")
         assertNotNull(b.n.invitation())
         assertNull(c.n.invitation(), "a plain member does not invite")
@@ -703,12 +703,15 @@ class OperationNodeTest {
         assertTrue(a.n.renewInvitation())
         assertEquals(listOf(renewing), seen, "the new key too, before its grant goes out")
         assertTrue(room.written.size > renewing)
-        // A change that ends the operation for this phone is not: nothing of it is kept.
+        // Its own departure too (M4 A): kept until another phone got it.
         val left = ArrayList<Int>()
         b.onBeforeSend = { left += room.written.size }
+        val departing = room.written.size
         b.must(Change.RemoveMember(b.id))
-        assertTrue(left.isEmpty(), "its own departure")
-        assertEquals(OperationEnding.OUT, b.ended)
+        assertEquals(listOf(departing), left, "its own departure, written down before it goes")
+        assertTrue(b.n.leaving)
+        room.settle()
+        assertEquals(OperationEnding.LEFT, b.ended)
     }
 
     @Test
@@ -786,7 +789,7 @@ class OperationNodeTest {
         room.goOffline(a)
         d.must(Change.RemoveMember(d.id))
         room.settle()
-        assertEquals(OperationEnding.OUT, d.ended)
+        assertEquals(OperationEnding.LEFT, d.ended, "got by B and C (M4 A)")
         for (p in listOf(b, c)) assertEquals(1, p.n.epoch, "$p: still the key D held")
         // Back, the creator learns the departure and renews it, once.
         room.comeBack(a)
@@ -1202,5 +1205,46 @@ class OperationNodeTest {
             )
         }
         kotlin.test.assertFailsWith<fr.toolmap.core.p2p.WireException> { JoinRequests.decodeRelayed(bytes + 0) }
+    }
+
+    @Test
+    fun `a phone that leaves out of network keeps its departure until another phone got it (M4 A)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val c = room.letIn(a, "Chloé")
+        val g = a.newGroup("Nord")
+        for (p in listOf(b, c)) a.must(Change.AssignMember(p.id, g))
+        room.settle()
+        room.goOffline(b)
+        b.must(Change.RemoveMember(b.id))
+        room.settle()
+        assertNull(b.ended, "nobody got the departure yet")
+        assertTrue(b.n.leaving)
+        assertNotNull(b.n.linkState().leftAtMs, "kept with the link, for a restart")
+        assertEquals(ShareOutcome.NOT_ALLOWED, b.n.sendPosition(PeerFix(45.0, 6.0, timeSec = 1)))
+        assertTrue(b.id in a.state.members && b.id in c.state.members, "for the others it is still there")
+        // Back in the room: the others get the departure, and say so.
+        room.comeBack(b)
+        room.settle()
+        assertEquals(OperationEnding.LEFT, b.ended)
+        for (p in listOf(a, c)) assertFalse(b.id in p.state.members, "$p")
+    }
+
+    @Test
+    fun `a week without any other phone, the departure is given up (M4 A)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        room.settle()
+        room.goOffline(b)
+        b.must(Change.RemoveMember(b.id))
+        room.now += OperationNode.LEAVING_MS - 1_000
+        b.n.tick()
+        assertNull(b.ended)
+        room.now += 1_000
+        b.n.tick()
+        assertEquals(OperationEnding.LEFT_UNHEARD, b.ended)
+        assertTrue(b.id in a.state.members, "the others never learnt it")
     }
 }

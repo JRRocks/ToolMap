@@ -805,6 +805,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+                        // « Départ non reçu » of the « Opération » mode (P39.14.5, M4 A), whatever screen ToolMap opens on.
+                        operation?.AppDialogs()
                         incomingFavorites?.let { incoming ->
                             ReceiveFavoritesSheet(
                                 incoming = incoming,

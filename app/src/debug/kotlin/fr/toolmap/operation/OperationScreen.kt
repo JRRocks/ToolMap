@@ -74,6 +74,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.toolmap.R
 import fr.toolmap.core.hierarchy.HierarchyState
 import fr.toolmap.data.hierarchy.OperationPhase
+import fr.toolmap.data.hierarchy.OperationView
 import fr.toolmap.draw.RouteIcons
 import fr.toolmap.share.QrImage
 import fr.toolmap.share.ShareIcons
@@ -167,6 +168,11 @@ fun OperationRoot(
         if (view.phase == OperationPhase.PLACED) {
             extras.notices.filterIsInstance<Notice.GroupDeleted>().forEach(session::consume)
         }
+    }
+    // It left and waits for another phone to get its departure (M4 A): that card alone, nothing to open from it.
+    if (view.phase == OperationPhase.LEAVING) {
+        LeavingPage(view, onBack)
+        return
     }
     when (val page = nav.page) {
         OpPage.Main -> {
@@ -841,6 +847,112 @@ private fun WaitLine(
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(28.dp))
         Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 18.dp))
+    }
+}
+
+/**
+ * This phone left and waits for another one to get its departure (P39.14.5, M4 A, `tour8/img/14`): the name of the
+ * operation and « En train de partir » at the top, no menu; one card: the wait, the day everything is wiped at the latest,
+ * nothing that goes or comes any more. Nothing to touch: the departure goes again by itself ([OperationService]).
+ */
+@Composable
+private fun LeavingPage(
+    view: OperationView,
+    onClose: () -> Unit,
+) {
+    val name = view.operationName.orEmpty()
+    Scaffold(
+        modifier = Modifier.windowInsetsPadding(screenInsets()),
+        topBar = {
+            ToolMapTopBar(title = name, subtitle = stringResource(R.string.op_subtitle_leaving), onBack = onClose)
+        },
+    ) { padding ->
+        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
+            GroupBlock(
+                rows =
+                    listOf(
+                        {
+                            Column(
+                                Modifier.fillMaxWidth().padding(
+                                    start = 24.dp,
+                                    end = 24.dp,
+                                    top = 22.dp,
+                                    bottom = 20.dp,
+                                ),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        OperationIcons.HourglassTop,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(32.dp),
+                                    )
+                                }
+                                Text(
+                                    stringResource(R.string.op_leaving_title),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    modifier = Modifier.padding(top = 15.dp),
+                                )
+                                Text(
+                                    stringResource(R.string.op_leaving_text, name),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        },
+                        {
+                            LeavingLine(
+                                OperationIcons.Event,
+                                stringResource(R.string.op_leaving_until, leavingDay(view.leavingUntilMs ?: 0L)),
+                                stringResource(R.string.op_leaving_until_sub),
+                            )
+                        },
+                        {
+                            LeavingLine(
+                                OperationIcons.LocationOff,
+                                stringResource(R.string.op_leaving_position),
+                                stringResource(R.string.op_leaving_position_sub),
+                            )
+                        },
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LeavingLine(
+    icon: ImageVector,
+    title: String,
+    detail: String,
+) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 61.dp).padding(start = 17.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp),
+        )
+        Column(Modifier.padding(start = 21.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

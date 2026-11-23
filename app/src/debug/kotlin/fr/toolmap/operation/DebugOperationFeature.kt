@@ -41,6 +41,9 @@ class DebugOperationFeature
         override fun ShareDialogs(setName: () -> String) = ShareWindows(session, setName)
 
         @Composable
+        override fun AppDialogs() = AppWindows(session)
+
+        @Composable
         override fun OperationScreen(onBack: () -> Unit) = OperationRoot(session, onBack)
 
         @Composable

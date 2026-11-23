@@ -64,6 +64,9 @@ enum class OperationPhase {
     /** In a group, or holding a post that gives the access without one. */
     PLACED,
 
+    /** It left by itself and waits for another phone to get its departure ([OperationView.leavingUntilMs], M4 A). */
+    LEAVING,
+
     /** Over for this phone ([OperationView.ending]): everything it held was wiped. */
     ENDED,
 }
@@ -211,6 +214,8 @@ data class OperationView(
     val endedByTrace: Boolean = false,
     /** Dissolved while this phone was a member: until when it keeps the trace that tells it to who was away (R1). */
     val traceKeptUntilMs: Long? = null,
+    /** Left by itself ([OperationPhase.LEAVING]): when everything is wiped if no phone got the departure by then. */
+    val leavingUntilMs: Long? = null,
 )
 
 /**
@@ -325,6 +330,9 @@ class OperationController(
         val nameRequestsSeen = HashMap<Long, Pair<HiddenName, Long>>()
         var saveDue = false
         var messagesDue = false
+
+        /** What it held of the others was forgotten once it left by itself (M4 A). */
+        var forgotten = false
         var ended: Ending? = null
         var ticker: ScheduledFuture<*>? = null
 
@@ -386,7 +394,13 @@ class OperationController(
         }
 
         override fun onEnded(ending: OperationEnding) {
-            ended = if (ending == OperationEnding.DISSOLVED) Ending.DISSOLVED else Ending.OUT
+            ended =
+                when (ending) {
+                    OperationEnding.DISSOLVED -> Ending.DISSOLVED
+                    OperationEnding.LEFT -> Ending.LEFT
+                    OperationEnding.LEFT_UNHEARD -> Ending.LEFT_UNHEARD
+                    OperationEnding.OUT -> Ending.OUT
+                }
             executor.execute { if (running === this) end() }
         }
 
@@ -1050,6 +1064,29 @@ class OperationController(
                     ending = ended,
                     endedByTrace = n.dissolvedByTrace,
                     traceKeptUntilMs = r.traceKeptUntil,
+                )
+            return
+        }
+        // Left by itself (M4 A): only what the card « En train de partir… » says; what it held of the others goes.
+        val since = n.leavingSinceMs
+        if (n.leaving && since != null) {
+            if (!r.forgotten) {
+                r.forgotten = true
+                r.positions.clear()
+                r.alerts.clear()
+                r.messages.clear()
+                r.saveMessages()
+            }
+            mutableView.value =
+                OperationView(
+                    OperationPhase.LEAVING,
+                    r.stored.id,
+                    n.ensembleId,
+                    self,
+                    n.operationName(),
+                    server = r.serverState,
+                    online = n.online,
+                    leavingUntilMs = since + OperationNode.LEAVING_MS,
                 )
             return
         }

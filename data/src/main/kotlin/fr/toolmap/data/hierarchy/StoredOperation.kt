@@ -50,11 +50,17 @@ class OperationContents(
 
 /** Why an operation is over for this phone: everything it held of it is then wiped. */
 enum class Ending {
-    /** It left, or was taken out of the operation by its creator. */
+    /** Taken out of the operation by its creator. */
     OUT,
 
     /** The operation is dissolved. */
     DISSOLVED,
+
+    /** It left by itself, and another phone got its departure (P39.14.5, M4 A). */
+    LEFT,
+
+    /** It left by itself, and no phone said it got the departure within a week (M4 A). */
+    LEFT_UNHEARD,
 
     /** The app wiped it ([StoredOperation.wipe]). */
     WIPED,
@@ -463,7 +469,10 @@ class StoredOperation internal constructor(
         val state = replica.state
         return when {
             state.dissolved -> Ending.DISSOLVED
-            replica.signingKeyOf(self) != null && self !in state.members -> Ending.OUT
+
+            // Left by itself, it waits for another phone to get its departure (P39.14.5, M4 A): the node says when it is over.
+            replica.signingKeyOf(self) != null && self !in state.members && replica.ownDeparture() == null -> Ending.OUT
+
             else -> null
         }
     }

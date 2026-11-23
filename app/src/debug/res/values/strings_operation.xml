@@ -379,4 +379,16 @@
   <string name="op_freq_changed">Fréquence d\'envoi : toutes les %1$s, pour toute l\'opération.</string>
   <string name="op_freq_changed_minute">Fréquence d\'envoi : toutes les minutes, pour toute l\'opération.</string>
   <string name="op_freq_fixed">Fixée à la création de l\'opération</string>
+  <!-- P39.14.5, M4 A (tour8/img/14 and 16), validated on 2026-11-23: this phone left and waits for another phone to get its departure. -->
+  <string name="op_subtitle_leaving">En train de partir</string>
+  <string name="op_leaving_title">En train de partir…</string>
+  <string name="op_leaving_text">Votre départ de « %1$s » n\'a encore été reçu par aucun autre téléphone. Il repart tout seul, même application fermée, jusqu\'à ce qu\'un téléphone de l\'opération le reçoive.</string>
+  <string name="op_leaving_until">Au plus tard %1$s</string>
+  <string name="op_leaving_until_sub">Ensuite, tout est effacé, même sans réponse</string>
+  <string name="op_leaving_position">Votre position ne part plus</string>
+  <string name="op_leaving_position_sub">Vous ne recevez plus rien de l\'opération</string>
+  <string name="op_notification_leaving">Départ de « %1$s » en cours\nEn attente d\'un autre téléphone\nAu plus tard le %2$s</string>
+  <string name="op_left_received">Votre départ de « %1$s » est reçu : tout est effacé de ce téléphone.</string>
+  <string name="op_left_unheard_title">Départ non reçu</string>
+  <string name="op_left_unheard_text">Pendant 7 jours, aucun téléphone de « %1$s » n\'a reçu votre départ. Tout est effacé de ce téléphone ; les autres vous voient peut-être encore dans l\'opération.</string>
 </resources>

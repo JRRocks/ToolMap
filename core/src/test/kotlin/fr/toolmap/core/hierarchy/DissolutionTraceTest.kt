@@ -312,7 +312,7 @@ class DissolutionTraceTest {
         a.must(Change.TransferCreator(b.id))
         a.must(Change.RemoveMember(a.id))
         room.settle()
-        assertEquals(OperationEnding.OUT, a.ended)
+        assertEquals(OperationEnding.LEFT, a.ended, "its departure got by B (M4 A)")
         assertNull(a.n.dissolution, "out before the dissolution: no trace")
         b.must(Change.Dissolve)
         room.settle()

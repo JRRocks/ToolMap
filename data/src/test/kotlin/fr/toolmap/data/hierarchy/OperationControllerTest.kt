@@ -289,7 +289,7 @@ class OperationControllerTest {
             // B leaves: its storage is wiped, A sees it gone.
             assertNull(b2.leave())
             settle(a2, b2)
-            assertEquals(Ending.OUT, b2.view.value.ending)
+            assertEquals(Ending.LEFT, b2.view.value.ending, "its departure got by A (M4 A)")
             assertTrue(b2.ids().isEmpty())
             assertTrue(vaultB.aliases(OperationStorage.ALIAS_PREFIX).isEmpty(), "no key of B left")
             assertFalse(after.members.none { it.id == bId })

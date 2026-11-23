@@ -3,6 +3,8 @@ package fr.toolmap.operation
 import android.util.Log
 import fr.toolmap.core.hierarchy.Change
 import fr.toolmap.core.hierarchy.Post
+import fr.toolmap.data.hierarchy.OperationPhase
+import fr.toolmap.operation.demo.DemoWorld
 import kotlinx.coroutines.delay
 import java.io.PrintWriter
 
@@ -385,6 +387,29 @@ object OperationScenes {
                 forgetNotices(7)
                 demoSeat(5)?.change(Change.SetPositionInterval(45))
                 waitFor { noticesOf(7).any { it is Notice.RhythmChanged } } && at(7)
+            },
+            // A week without a phone that got the departure (P39.14.5, M4 A, `tour8/img/16`): the window, over the screen
+            // of the sharing of this phone.
+            Scene("tour8-16-M4-depart-non-recu", changes = true) {
+                departureUnheard.value = DemoWorld.OPERATION
+                entry()
+            },
+            // Membre 16 leaves out of network (M4 A, `tour8/img/14`): it waits for a phone to get its departure, on its
+            // screen and in the notification; back in the room, its departure is got (`img/16`).
+            Scene("tour8-14-M4-A-en-train-de-partir", changes = true) {
+                departureUnheard.value = null
+                demo.value?.cutOff(16)
+                demoSeat(16)?.leave()
+                waitFor { demoSeat(16)?.view?.value?.phase == OperationPhase.LEAVING } && at(16)
+            },
+            Scene("tour8-14-M4-A-notification", changes = true) {
+                at(16) && waitFor { notice.value?.leavingUntilMs != null }
+            },
+            Scene("tour8-16-M4-depart-recu", changes = true) {
+                departureReceived.value = null
+                at(16)
+                demo.value?.reconnect(16)
+                waitFor { departureReceived.value != null }
             },
             Scene("tour2-08-dissolution-autres", changes = true) {
                 forgetNotices(7)

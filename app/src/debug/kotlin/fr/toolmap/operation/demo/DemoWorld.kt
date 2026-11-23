@@ -49,9 +49,20 @@ class DemoWorld private constructor(
     val seats: Map<Int, OperationController>,
     /** The member identifier of each number. */
     val ids: Map<Int, Long>,
+    private val relay: DemoRelay,
 ) {
     /** The number of [member], when it is one of the demonstration's. */
     fun numberOf(member: Long): Int? = ids.entries.firstOrNull { it.value == member }?.key
+
+    /** Membre [number]'s phone loses the network: the others no longer hear it, nor it them (P39.14.5, M4 A). */
+    fun cutOff(number: Int) {
+        ids[number]?.let(relay::cutOff)
+    }
+
+    /** Membre [number]'s phone is back in the room. */
+    fun reconnect(number: Int) {
+        ids[number]?.let(relay::reconnect)
+    }
 
     /** Closes every phone of the demonstration and deletes its folder. */
     suspend fun close() {
@@ -214,7 +225,7 @@ class DemoWorld private constructor(
             delay(POLL_MS)
             for ((n, c) in seats) if (n !in OFF) c.invitationLink()
             progress("ready")
-            return DemoWorld(root, seats, ids)
+            return DemoWorld(root, seats, ids, relay)
         }
 
         /** Waits for [condition], [report] told to [progress] every few seconds; `false` after [WAIT_MS]. */
@@ -251,25 +262,57 @@ class DemoWorld private constructor(
 class DemoRelay : RelayTransportFactory {
     private val rooms = HashMap<String, MutableList<Member>>()
 
+    /** The phones cut off from the others ([cutOff]). */
+    private val cut = HashSet<Long>()
+
+    private fun members(): List<Member> = synchronized(rooms) { rooms.values.flatten() }
+
+    private fun isCut(member: Long) = synchronized(rooms) { member in cut }
+
+    /** [member] loses the network: its links close, on both sides, and nothing goes through them. */
+    fun cutOff(member: Long) {
+        if (!synchronized(rooms) { cut.add(member) }) return
+        val all = members()
+        val phone = all.firstOrNull { it.id == member } ?: return
+        for (other in all) {
+            if (other === phone || other.closed) continue
+            other.listener.onLinkClosed(member)
+            phone.listener.onLinkClosed(other.id)
+        }
+    }
+
+    /** [member] is back: its links open again. */
+    fun reconnect(member: Long) {
+        if (!synchronized(rooms) { cut.remove(member) }) return
+        val all = members()
+        val phone = all.firstOrNull { it.id == member } ?: return
+        for (other in all) {
+            if (other === phone || other.closed) continue
+            other.listener.onLinkOpen(member, "", 0, other.linkTo(phone))
+            phone.listener.onLinkOpen(other.id, "", 0, phone.linkTo(other))
+        }
+    }
+
     inner class Member(
         private val room: String,
-        private val listener: LinkListener,
+        val listener: LinkListener,
     ) : RelayTransport {
         override var identity: TransportIdentity? = null
         override var onState: ((ServerState) -> Unit)? = null
         override var state: ServerState = ServerState.CONNECTING
 
         @Volatile
-        private var closed = false
+        var closed = false
+            private set
 
-        private val id: Long get() = identity?.memberId ?: 0L
+        val id: Long get() = identity?.memberId ?: 0L
 
         private fun others(): List<Member> =
             synchronized(rooms) {
                 rooms[room].orEmpty().filter { it !== this && !it.closed }
             }
 
-        private fun linkTo(peer: Member): MeshLink =
+        fun linkTo(peer: Member): MeshLink =
             object : MeshLink {
                 override val isBroadcastMedium get() = true
 
@@ -277,7 +320,7 @@ class DemoRelay : RelayTransportFactory {
                     frame: ByteArray,
                     onPositionChannel: Boolean,
                 ): Boolean {
-                    if (closed || peer.closed) return false
+                    if (closed || peer.closed || isCut(id) || isCut(peer.id)) return false
                     peer.listener.onFrame(id, frame)
                     return true
                 }

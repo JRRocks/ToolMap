@@ -10,11 +10,17 @@ import java.util.TreeMap
 
 /** Why an operation is over for this phone. */
 enum class OperationEnding {
-    /** It left, or was taken out by the creator. */
+    /** Taken out by the creator (a phone that left by itself ends [LEFT] or [LEFT_UNHEARD]). */
     OUT,
 
     /** The operation is dissolved. */
     DISSOLVED,
+
+    /** It left by itself, and another phone of the operation got its departure (P39.14.5, M4 A). */
+    LEFT,
+
+    /** It left by itself, and no phone said it got the departure within [OperationNode.LEAVING_MS] (M4 A). */
+    LEFT_UNHEARD,
 }
 
 /** A request to come in, as an administrator's phone holds it until someone lets the phone in. */
@@ -76,8 +82,8 @@ interface OperationListener {
      * A change this phone just wrote, or a new invitation key it just drew, is about to go out: write everything down
      * now, before returning (the user's answer M3 of 2026-11-16, spec § 21 case D). The one call that may block,
      * a few milliseconds: a change sent before it is on the disk, the app killed in between, came back after a restart
-     * as a second change under the same number, and one of the two was lost on every phone. Not called for a change
-     * that ends the operation for this phone (dissolution, its own departure): nothing of it is kept anyway.
+     * as a second change under the same number, and one of the two was lost on every phone. Not called for a
+     * dissolution: nothing of it is kept anyway. Its own departure is, until another phone got it (P39.14.5, M4 A).
      */
     fun beforeSend() {}
 }
@@ -198,6 +204,19 @@ class OperationNode(
         private set
 
     /**
+     * Since when this phone waits for another one to get its own departure (P39.14.5, M4 A, the user's answer of
+     * 2026-11-23): it keeps it and tells it to whoever is linked, reads nothing of the operation any more, and gives up
+     * after [LEAVING_MS] ([OperationEnding.LEFT_UNHEARD]).
+     */
+    @get:Synchronized
+    var leavingSinceMs: Long? = link.leftAtMs
+        private set
+
+    /** This phone left by itself and waits for another one to get its departure ([leavingSinceMs]). */
+    val leaving: Boolean
+        @Synchronized get() = ending == null && leavingSinceMs != null
+
+    /**
      * Once dissolved, the proof this phone keeps in its trace (ADR-131): `null` when it was not a member when the
      * operation was dissolved (taken out before, never let in), so keeps no trace, or when it is not dissolved.
      */
@@ -275,7 +294,7 @@ class OperationNode(
     /** What to keep beside the engine's parts ([OperationLinkState]). */
     @Synchronized
     fun linkState(): OperationLinkState =
-        OperationLinkState(ensembleId, room, server, epochs.values.toList(), inviteCard, ownCard)
+        OperationLinkState(ensembleId, room, server, epochs.values.toList(), inviteCard, ownCard, leavingSinceMs)
 
     /** Whether this phone may let someone in, so give an invitation and renew its key. */
     fun mayInvite(): Boolean {
@@ -313,7 +332,7 @@ class OperationNode(
         if (peer == self || ending != null) return
         links[peer] = link
         sendTo(link, FrameGenre.SUMMARY, ourSummary(to = peer).encode())
-        if (!isMember) sendJoin()
+        if (!isMember && !leaving) sendJoin()
         flushOutbox()
     }
 
@@ -327,6 +346,7 @@ class OperationNode(
     fun tick() {
         if (ending != null) return
         val now = clock()
+        if (leaving) return tickLeaving(now)
         val due = duties.entries.filter { it.value.dueAt <= now }.sortedBy { it.value.dueAt }
         for ((key, scheduled) in due) {
             duties.remove(key)
@@ -390,6 +410,7 @@ class OperationNode(
             if (frame.genre == FrameGenre.JOIN) return drop("join.old_key")
         }
         try {
+            if (leaving) return whileLeaving(frame, peer)
             when (frame.genre) {
                 FrameGenre.OPS -> onOps(frame)
                 FrameGenre.SUMMARY -> if (stray) heardFromStray(frame) else onSummary(frame, peer)
@@ -412,11 +433,15 @@ class OperationNode(
         var held = false
         var out = false
         var heldOut = false
+        var departure = false
         for (op in HierarchyWire.decodeOps(frame.body)) {
             val outing = takesThisPhoneOut(op)
             val result = replica.add(op)
             if (outing && result == AddResult.ADDED) out = true
             if (outing && result == AddResult.HELD) heldOut = true
+            if (result == AddResult.ADDED && op.author == frame.sender) {
+                departure = departure || (op.change as? Change.RemoveMember)?.member == frame.sender
+            }
             when (result) {
                 AddResult.ADDED, AddResult.CONFLICT_REPLACED -> {
                     changed = true
@@ -446,8 +471,86 @@ class OperationNode(
         if (out && !state.dissolved && self !in state.members && replica.signingKeyOf(self) == null) {
             return finish(OperationEnding.OUT)
         }
-        if (held) pull(frame.sender)
+        // A phone that just took itself out waits for a phone to say it got its departure (M4 A): this one says so at
+        // once, by its summary, which holds it now.
+        if (departure && self in state.members) {
+            pull(frame.sender, frame.epoch)
+        } else if (held) {
+            pull(frame.sender)
+        }
         if (changed) afterChange()
+    }
+
+    /**
+     * A frame heard while this phone waits for another one to get its departure (M4 A): a summary of another phone
+     * that holds it, or operations of another phone that carry it ([tellWhyOut]), end the wait; a summary that lacks
+     * it gets it. A dissolution still ends the operation. Nothing else is read: this phone is no longer in it.
+     */
+    private fun whileLeaving(
+        frame: OpenedFrame,
+        peer: Long,
+    ) {
+        val departure = replica.ownDeparture() ?: return finish(OperationEnding.OUT)
+        when (frame.genre) {
+            FrameGenre.SUMMARY -> {
+                val theirs = OperationSummary.decode(frame.body)
+                if (theirs.summary.ensembleId != ensembleId) return drop("summary.ensemble")
+                // Whoever it was meant for, the summary says what its phone holds.
+                if ((theirs.summary.counts[self] ?: 0) >= departure.seq) return finish(OperationEnding.LEFT)
+                val now = clock()
+                if (now - (summaryAnsweredAt[frame.sender] ?: Long.MIN_VALUE / 2) < ANSWER_LATEST_EVERY_MS) return
+                summaryAnsweredAt[frame.sender] = now
+                val to = links[peer] ?: links[frame.sender]
+                for (body in opsBodies(
+                    replica.missingFor(theirs.summary),
+                )) {
+                    sendTo(to, FrameGenre.OPS, body, frame.epoch)
+                }
+            }
+
+            FrameGenre.OPS -> {
+                if (HierarchyWire.decodeOps(frame.body).any { it == departure }) finish(OperationEnding.LEFT)
+            }
+
+            FrameGenre.DISSOLUTION -> {
+                onDissolution(frame)
+            }
+
+            else -> {
+                drop("leaving.${frame.genre.name.lowercase()}")
+            }
+        }
+    }
+
+    /** Every second while this phone waits for its departure to be got (M4 A): a week at most, its summary now and then. */
+    private fun tickLeaving(now: Long) {
+        val since = leavingSinceMs ?: return
+        if (now - since >= LEAVING_MS) return finish(OperationEnding.LEFT_UNHEARD)
+        if (links.isNotEmpty() && now - lastSummaryAt >= LEAVING_SUMMARY_EVERY_MS) {
+            lastSummaryAt = now
+            broadcast(FrameGenre.SUMMARY, ourSummary().encode())
+        }
+    }
+
+    /**
+     * This phone took itself out (M4 A): it keeps the operations, the name of the operation and its link, so that it can
+     * tell its departure to whoever is linked, and forgets everything else of the operation (keys, names, objects,
+     * requests, what waited to go). A week after it left, the operation is over for it all the same.
+     */
+    private fun waitForDeparture() {
+        val since = leavingSinceMs ?: clock().also { leavingSinceMs = it }
+        if (clock() - since >= LEAVING_MS) return finish(OperationEnding.LEFT_UNHEARD)
+        val card = names.ensembleCard(state)
+        ring.clear()
+        names.clear()
+        card?.let(names::learn)
+        objects.clear()
+        joins.clear()
+        duties.clear()
+        outbox.clear()
+        summaryLater.clear()
+        alert = null
+        listener.onChanged()
     }
 
     private fun onSummary(
@@ -550,6 +653,9 @@ class OperationNode(
         val again = now - (behindAnsweredAt[frame.sender] ?: Long.MIN_VALUE / 2) < BEHIND_AGAIN_MS
         behindAnsweredAt[frame.sender] = now
         if (behindAnsweredAt.size > MAX_JOINS) behindAnsweredAt.keys.retainAll(state.members.keys)
+        // It holds operations this phone lacks: they are asked for under its own key, which it may keep for good (its own
+        // departure, written while it was away, M4 A: a phone that left takes no key any more).
+        if (isBehind(replica.summary(), theirs.summary)) pull(frame.sender, frame.epoch)
         // The key of now first, alone: what the phone missed then comes under that key, it asks at once ([onGrant]).
         // Sent with the operations, these could reach it first: back as the creator (the role handed over while it was
         // away), it would renew from its old key, two keys of one epoch (long series, seed 0x50ac001c).
@@ -965,7 +1071,13 @@ class OperationNode(
         val result = replica.issue(change)
         if (result is IssueResult.Issued) {
             val after = state
-            if (!after.dissolved && self in after.members) listener.beforeSend()
+            // Its own departure is kept too (M4 A): written down before it goes, as any change it writes.
+            if (!after.dissolved && self !in after.members && leavingSinceMs == null &&
+                replica.ownDeparture() != null
+            ) {
+                leavingSinceMs = clock()
+            }
+            if (!after.dissolved && (self in after.members || leavingSinceMs != null)) listener.beforeSend()
             broadcast(FrameGenre.OPS, HierarchyWire.encodeOps(listOf(result.op)))
             afterChange()
         }
@@ -1157,6 +1269,8 @@ class OperationNode(
                 replica.signingKeyOf(self) != null && self !in state.members -> OperationEnding.OUT
                 else -> null
             }
+        // It took itself out: it waits for another phone to get its departure (M4 A).
+        if (over == OperationEnding.OUT && replica.ownDeparture() != null) return waitForDeparture()
         if (over != null) {
             if (over == OperationEnding.DISSOLVED) {
                 dissolvedAtMs = clock()
@@ -1528,7 +1642,7 @@ class OperationNode(
     private fun sendJoin() {
         val state = state
         val card = ownCard ?: return
-        if (isMember || links.isEmpty()) return
+        if (isMember || leaving || links.isEmpty()) return
         lastJoinAt = clock()
         val recipients = state.members.values.filter { it.id == state.creator || it.id in state.admins }
         val request = JoinRequests.make(keys, ensembleId, card, recipients, clock() / MS)
@@ -1742,6 +1856,12 @@ class OperationNode(
          * within five minutes at worst, at once when a link opens.
          */
         const val SUMMARY_EVERY_MS = 300_000L
+
+        /** How long a phone that left waits for another one to get its departure (M4 A): a week. */
+        const val LEAVING_MS = 7L * 24 * 3600 * 1000
+
+        /** Between two summaries of a phone that waits for its departure to be got. */
+        const val LEAVING_SUMMARY_EVERY_MS = 60_000L
         const val PULL_EVERY_MS = 2_000L
         const val ANSWER_EVERY_MS = 5_000L
 

@@ -306,7 +306,7 @@ object Notices {
             return when (after.ending) {
                 Ending.DISSOLVED -> listOf(Notice.Dissolved(name))
                 Ending.OUT -> listOf(Notice.Removed(name))
-                Ending.WIPED, null -> emptyList()
+                Ending.WIPED, Ending.LEFT, Ending.LEFT_UNHEARD, null -> emptyList()
             }
         }
         val now = after.hierarchy ?: return emptyList()

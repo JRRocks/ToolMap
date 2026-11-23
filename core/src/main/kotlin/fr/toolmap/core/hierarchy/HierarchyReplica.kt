@@ -196,6 +196,19 @@ class HierarchyReplica(
         return names
     }
 
+    /**
+     * This phone's own departure (P39.14.5, M4 A): the operation by which it took itself out, when that is what took it
+     * out (the last one applied that removes it, and its author is this phone); `null` otherwise. Such a phone waits
+     * for another one to get it before wiping the operation ([OperationNode.leaving]).
+     */
+    @Synchronized
+    fun ownDeparture(): Op? {
+        if (self in state.members) return null
+        val removal =
+            applied.lastOrNull { it.rejection == null && (it.op.change as? Change.RemoveMember)?.member == self }
+        return removal?.op?.takeIf { it.author == self }
+    }
+
     /** What this phone holds, to send to another one. */
     @Synchronized
     fun summary(): Summary = Summary(ensembleId, contiguous.toMap(), digest ?: computeDigest().also { digest = it })
