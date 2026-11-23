@@ -156,6 +156,12 @@ enum class FrameGenre(
      * still in it (P39.9, ADR-131). Versions before it do not know this genre and drop the frame.
      */
     DISSOLUTION(7),
+
+    /**
+     * The card of a join request wrapped again by a phone that could open it, for those it left out ([RelayedJoin],
+     * L2, P39.14). Versions before it do not know this genre and drop the frame.
+     */
+    JOIN_CARD(8),
     ;
 
     companion object {
@@ -369,10 +375,30 @@ class JoinRequest(
     fun encode(): ByteArray = body() + signature
 }
 
+/**
+ * The card of a join request, wrapped again by a phone that could open it (the creator or an administrator) to the
+ * ones that may let someone in and that the request left out: named after it was sent, while its phone no longer
+ * hears the operation (the user's answer L2 of 2026-11-16, spec § 19, case E of § 21). [request] is the request as
+ * its phone signed it; the card it carries is checked against it ([JoinRequests.openRelayed]).
+ */
+class RelayedJoin(
+    val request: JoinRequest,
+    val ephemeral: ByteArray,
+    val wraps: List<JoinRequest.Wrap>,
+) {
+    fun encode(): ByteArray {
+        val bytes = request.encode()
+        val w = ByteWriter().u16(bytes.size).bytes(bytes).bytes(ephemeral).u8(wraps.size)
+        for (wrap in wraps) w.u64(wrap.recipient).u8(wrap.sealed.size).bytes(wrap.sealed)
+        return w.toByteArray()
+    }
+}
+
 /** How join requests are made, read, checked and opened. */
 object JoinRequests {
     private val TAG = "toolmap-operation-join-v1".toByteArray(Charsets.US_ASCII)
     private val WRAP_INFO = "toolmap-operation-join-wrap-v1".toByteArray(Charsets.US_ASCII)
+    private val RELAY_INFO = "toolmap-operation-join-relay-v1".toByteArray(Charsets.US_ASCII)
     private val NONCE = ByteArray(Aead.NONCE_BYTES)
 
     /** The most recipients of the card: the creator and administrators an operation can have, and some margin. */
@@ -447,6 +473,65 @@ object JoinRequests {
             }
         return card.takeIf { it.valid && it.hidden == request.name }
     }
+
+    /** [card], the one [request] asks to come in with, wrapped again to [recipients] (L2). */
+    fun relay(
+        request: JoinRequest,
+        card: NameCard,
+        recipients: List<Member>,
+    ): RelayedJoin {
+        val pair = P256.generate()
+        val ephemeral = P256.encode(pair.public)
+        val plain = OperationWire.writeCard(ByteWriter(), card).toByteArray()
+        val wraps =
+            recipients.take(MAX_WRAPS).mapNotNull { r ->
+                val shared = P256.agree(pair.private, r.keys.agreement) ?: return@mapNotNull null
+                val context = context(request.ensembleId, request.member, r.id, ephemeral)
+                JoinRequest.Wrap(r.id, Aead.seal(relayKey(shared, context), NONCE, context, plain))
+            }
+        return RelayedJoin(request, ephemeral, wraps)
+    }
+
+    fun decodeRelayed(bytes: ByteArray): RelayedJoin {
+        val r = ByteReader(bytes)
+        val request = decode(r.bytes(r.u16()))
+        val ephemeral = r.bytes(P256.POINT_BYTES)
+        val n = r.u8()
+        if (n > MAX_WRAPS) throw WireException("too many recipients")
+        val wraps = List(n) { JoinRequest.Wrap(r.u64(), r.bytes(r.u8())) }
+        if (r.remaining != 0) throw WireException("trailing data")
+        if (!P256.isPoint(ephemeral)) throw WireException("bad key in a relayed card")
+        return RelayedJoin(request, ephemeral, wraps)
+    }
+
+    /**
+     * The card [relay] carries for the phone that holds [keys]: `null` when it is not for it, or when it is not the
+     * card of the name its request signed (whoever wrapped it again cannot change the name).
+     */
+    fun openRelayed(
+        relay: RelayedJoin,
+        keys: PhoneKeys,
+    ): NameCard? {
+        val request = relay.request
+        val self = keys.memberId
+        val wrap = relay.wraps.firstOrNull { it.recipient == self } ?: return null
+        val shared = keys.agree(relay.ephemeral) ?: return null
+        val context = context(request.ensembleId, request.member, self, relay.ephemeral)
+        val plain = Aead.open(relayKey(shared, context), NONCE, context, wrap.sealed) ?: return null
+        val card =
+            try {
+                OperationWire.readCard(ByteReader(plain))
+            } catch (e: WireException) {
+                Problems.expected("operation.join.relayed_card", e)
+                return null
+            }
+        return card.takeIf { it.valid && it.hidden == request.name }
+    }
+
+    private fun relayKey(
+        shared: ByteArray,
+        context: ByteArray,
+    ) = GroupCrypto.hkdfSha256(shared, ByteArray(0), RELAY_INFO + context, Aead.KEY_BYTES)
 
     private fun context(
         ensembleId: Long,

@@ -30,6 +30,7 @@ internal fun hierarchyTargets(): List<Target> =
         Target("HierarchyWire.decodeKeyBatch") { HierarchyWire.decodeKeyBatch(it) },
         Target("OperationSummary.decode") { OperationSummary.decode(it) },
         Target("JoinRequests.decode") { JoinRequests.decode(it) },
+        Target("JoinRequests.decodeRelayed") { JoinRequests.decodeRelayed(it) },
         Target("InviteKeys.decode") { InviteKeys.decode(it) },
         Target("OperationLinkState.decode") { OperationLinkState.decode(it) },
         Target("OperationPayloads.readPosition") { OperationPayloads.readPosition(it) },
@@ -155,6 +156,7 @@ internal fun fuzzCorpus(): List<ByteArray> {
     corpus += OperationSummary(replica.summary(), 7L, 1, mapOf(Channel.ENSEMBLE to 9L)).encode()
     corpus += OperationSummary(replica.summary(), 7L, 1, mapOf(Channel.ENSEMBLE to 9L), to = b.memberId).encode()
     corpus += request.encode()
+    corpus += JoinRequests.relay(request, Names.hide("B"), listOf(member)).encode()
     corpus += grant.encode()
     corpus += link.encode()
     corpus += OperationInviteCodec.encodeBytes(invite)

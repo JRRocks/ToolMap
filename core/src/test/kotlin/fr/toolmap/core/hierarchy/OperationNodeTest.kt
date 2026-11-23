@@ -896,7 +896,10 @@ class OperationNodeTest {
         assertEquals(b.id, c.state.creator, "C learnt the handing over, under the key it held")
         assertEquals(2, c.n.epoch, "then took the key B announced")
         assertTrue(b.n.inviteKey(2).contentEquals(c.n.inviteKey(2)))
-        assertTrue(problems.none { it.where == "operation.grant.refused" }, "never refused: $problems")
+        // The key alone first (ADR-142): C cannot take it yet, it does not know B as the creator. It asks again under
+        // its own key and gets the operations, then the key.
+        val refused = problems.count { it.where == "operation.grant.refused" }
+        assertTrue(refused <= 2, "refused once or twice, not more: $problems")
     }
 
     @Test
@@ -986,5 +989,180 @@ class OperationNodeTest {
         room.inject(b, frame)
         room.settle()
         assertEquals(3, a.n.epoch)
+    }
+
+    // ---- ADR-142: what the long series found in delivery 2 (seeds 0x50ac001c, 0x50ac0023) ----------------------
+
+    @Test
+    fun `back as the creator after a renewal it missed, a phone renews from the key of now (ADR-142)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val c = room.letIn(a, "Chloé")
+        val d = room.letIn(a, "Denis")
+        a.must(Change.AddAdmin(b.id))
+        room.settle()
+        room.goOffline(b)
+        // While B is away: D is taken out (A renews, epoch 2), then A hands the operation over to B and leaves.
+        a.must(Change.RemoveMember(d.id))
+        room.settle()
+        assertEquals(2, a.n.epoch)
+        a.must(Change.TransferCreator(b.id))
+        a.must(Change.RemoveMember(a.id))
+        room.settle()
+        assertEquals(2, c.n.epoch, "nobody renews while the creator is away")
+        room.comeBack(b)
+        room.settle()
+        assertEquals(b.id, b.state.creator)
+        assertEquals(3, b.n.epoch, "B took the key of epoch 2 first, then renewed from it")
+        assertEquals(3, c.n.epoch)
+        for (e in 2..3) assertTrue(b.n.inviteKey(e).contentEquals(c.n.inviteKey(e)), "one key for epoch $e")
+    }
+
+    @Test
+    fun `back after a renewal, a member gets the objects of its channels, the key handed by one who waits`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val w = room.letIn(a, "Wanda")
+        val m = room.letIn(a, "Marc")
+        val r = room.letIn(a, "Rémi")
+        val x = room.letIn(a, "Xavier")
+        val nord = a.newGroup("Nord")
+        for (p in listOf(m, r, x)) a.must(Change.AssignMember(p.id, nord))
+        room.settle()
+        val unit = Channel.unit(nord)
+        assertEquals(ShareOutcome.SENT, r.n.putObject(ShareKind.WAYPOINT, unit, 1L, byteArrayOf(1)))
+        room.settle()
+        assertTrue(a.state.isWaiting(w.id))
+        room.goOffline(m)
+        a.must(Change.RemoveMember(x.id))
+        room.settle()
+        assertEquals(ShareOutcome.SENT, r.n.putObject(ShareKind.WAYPOINT, unit, 2L, byteArrayOf(2)))
+        room.settle()
+        assertEquals(2, r.n.epoch)
+        // A is gone for good: M comes back to W, who waits (it hands the key first), and R.
+        room.goOffline(a)
+        room.comeBack(m)
+        room.settle()
+        assertEquals(2, m.n.epoch)
+        assertEquals(listOf(1L, 2L), m.n.objects.shown(unit).map { it.objectId }.sorted())
+    }
+
+    /**
+     * A known limit, verified so it is not forgotten (seed 0x50ac002c of the long series; spec § 27, P39.14.3): the
+     * creator, away, takes the role of administrator from B; B, not knowing it yet, puts a sketch down to its group.
+     * The phones that received it keep it, but none of them may share down to the group any more: the creator never
+     * gets it. Already so in deliveries 1 and 2; what should happen is the user's to decide.
+     */
+    @Test
+    fun `known limit - a sketch put down by an administrator demoted meanwhile stays with who got it`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val m = room.letIn(a, "Marc")
+        val nord = a.newGroup("Nord")
+        a.must(Change.AssignMember(b.id, nord))
+        a.must(Change.AssignMember(m.id, nord))
+        a.must(Change.AddAdmin(b.id))
+        room.settle()
+        room.goOffline(a)
+        a.must(Change.RemoveAdmin(b.id))
+        val down = Channel.down(nord)
+        assertEquals(ShareOutcome.SENT, b.n.putObject(ShareKind.SKETCH, down, 21L, byteArrayOf(1)))
+        room.settle()
+        room.comeBack(a)
+        room.settle()
+        room.now += 600_000
+        room.settle()
+        for (x in listOf(a, b, m)) assertTrue(down in x.state.channelsReadBy(x.id), "$x reads $down")
+        assertTrue(b.id !in a.state.admins, "B is no longer an administrator")
+        assertEquals(listOf(21L), m.n.objects.shown(down).map { it.objectId })
+        assertEquals(listOf(21L), b.n.objects.shown(down).map { it.objectId })
+        assertTrue(a.n.objects.shown(down).isEmpty(), "the creator never gets it")
+    }
+
+    // ---- P39.14.3: L2 (the user's answer of 2026-11-16, cases E and H of § 21) -----------------------------------
+
+    /** A phone that asks to come in with [creator]'s invitation; not let in. */
+    private fun Room.asks(
+        creator: Phone,
+        name: String,
+    ): Phone {
+        val invite =
+            assertNotNull(OperationInviteCodec.parseOrNull(OperationInviteCodec.toLink(creator.n.invitation()!!)))
+        val phone = joiner(name, invite)
+        settle()
+        assertTrue(creator.n.pendingJoins.any { it.member == phone.id && it.card != null }, "$name asks to come in")
+        return phone
+    }
+
+    @Test
+    fun `an administrator named after the phone of who waits is lost learns its name from the others (L2, case H)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val c = room.letIn(a, "Chloé")
+        a.must(Change.AssignMember(b.id, a.newGroup("Nord")))
+        a.must(Change.AssignMember(c.id, a.newGroup("Sud")))
+        val w = room.letIn(a, "Wanda")
+        room.settle()
+        assertTrue(a.state.isWaiting(w.id))
+        assertEquals("Wanda", a.nameOf(w.id))
+        assertNull(c.nameOf(w.id), "a plain member does not know the name of who waits")
+        // Its phone is lost for good; C is named administrator afterwards.
+        room.goOffline(w)
+        a.must(Change.AddAdmin(c.id))
+        room.settle()
+        assertEquals("Wanda", c.nameOf(w.id), "the creator told it in the lane of who waits")
+        assertNull(b.nameOf(w.id), "nobody else learns it")
+    }
+
+    @Test
+    fun `an administrator named after a request, its phone no longer hearing, learns it and its name (L2, case E)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        a.must(Change.AssignMember(b.id, a.newGroup("Nord")))
+        room.settle()
+        val r = room.asks(a, "Romain")
+        assertTrue(b.n.pendingJoins.isEmpty(), "a plain member holds no request")
+        // The phone that asks hears nothing any more; B is named administrator.
+        room.goOffline(r)
+        a.must(Change.AddAdmin(b.id))
+        room.settle()
+        val held = assertNotNull(b.n.pendingJoins.firstOrNull { it.member == r.id }, "B holds the request")
+        assertEquals("Romain", held.card?.name, "and its name")
+        // B lets it in; back, it learns it is in, with its name.
+        assertTrue(b.n.admit(r.id) is IssueResult.Issued)
+        room.settle()
+        room.comeBack(r)
+        room.settle()
+        assertTrue(r.id in r.state.members, "let in by B")
+        assertEquals("Romain", a.nameOf(r.id))
+    }
+
+    @Test
+    fun `a card wrapped again opens only for its recipient, and only as the name the request signed (L2)`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val r = room.asks(a, "Romain")
+        val pending = a.n.pendingJoins.single { it.member == r.id }
+        val bMember = a.state.members.getValue(b.id)
+        val relayed = JoinRequests.relay(pending.request, assertNotNull(pending.card), listOf(bMember))
+        val back = JoinRequests.decodeRelayed(relayed.encode())
+        assertEquals("Romain", JoinRequests.openRelayed(back, b.keys)?.name)
+        assertNull(JoinRequests.openRelayed(back, a.keys), "not wrapped to A")
+        // Another card wrapped in its place: not the name the request signed.
+        val other = JoinRequests.relay(pending.request, Names.hide("Robert"), listOf(bMember))
+        assertNull(JoinRequests.openRelayed(JoinRequests.decodeRelayed(other.encode()), b.keys))
+        // Cut or with a byte too many: refused.
+        val bytes = relayed.encode()
+        kotlin.test.assertFailsWith<fr.toolmap.core.p2p.WireException> {
+            JoinRequests.decodeRelayed(
+                bytes.copyOf(bytes.size - 1),
+            )
+        }
+        kotlin.test.assertFailsWith<fr.toolmap.core.p2p.WireException> { JoinRequests.decodeRelayed(bytes + 0) }
     }
 }

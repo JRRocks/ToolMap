@@ -41,6 +41,11 @@ class OperationSimulationTest {
     fun `eight phones on a network that keeps the order of each writer`() =
         runSeeds(ORDERED, SimSetup(phones = 8, steps = 120, faults = Faults.ORDERED_ROUGH))
 
+    /** A seed of the long series that showed two keys of one epoch after P39.14.2 (ADR-142), as it ran there. */
+    @Test
+    fun `eighteen phones, a creator back after a renewal it missed`() =
+        runSeeds(LONG_SERIES_FIXED, SimSetup(phones = 18, steps = 160, positions = false))
+
     @Test
     fun `thirty phones, the limit of an operation`() =
         runSeeds(LARGE, SimSetup(phones = 30, steps = 120, faults = Faults.ORDERED_ROUGH, positions = false))
@@ -204,6 +209,7 @@ class OperationSimulationTest {
         val MEDIUM = listOf(0xCL)
         val ORDERED = listOf(0x2AL)
         val LARGE = listOf(0x1FL)
+        val LONG_SERIES_FIXED = listOf(0x50AC_001CL)
         val SOAK_SETUPS =
             listOf(
                 SimSetup(phones = 5, steps = 80),

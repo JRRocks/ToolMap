@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P39 — Opération : aperçus, tour 8</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+:root{--pg-bg:#ffffff;--pg-on:#122027;--pg-on2:#506169;--pg-line:#D5DEE2;--petrol:#163A4A;--teal:#14918C}
+*{box-sizing:border-box}
+body{font-family:Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#DDE5E8;color:var(--pg-on);-webkit-font-smoothing:antialiased}
+#p39-root{width:660px;margin:0 auto}
+.intro,section.shot{width:660px;background:var(--pg-bg);padding:18px 14px 20px;margin:0 0 14px}
+.intro h1{font-size:22px;line-height:28px;font-weight:500;margin:0 0 8px;color:var(--petrol)}
+.intro p,.intro li{font-size:14.5px;line-height:21px;color:var(--pg-on2);margin:6px 0}
+.intro ul{margin:4px 0;padding-left:20px}
+.intro b{color:var(--pg-on);font-weight:500}
+section.shot>header{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+.num{flex:none;min-width:40px;height:40px;padding:0 6px;border-radius:20px;background:var(--petrol);color:#fff;font-size:19px;font-weight:500;display:flex;align-items:center;justify-content:center}
+section.shot h2{font-size:20px;line-height:26px;font-weight:500;margin:0;color:var(--petrol)}
+section.shot header p{font-size:14.5px;line-height:21px;color:var(--pg-on2);margin:4px 0 0}
+section.shot header p b,.txt b,.note b,figcaption b{color:var(--pg-on);font-weight:500}
+.duo{display:flex;gap:16px;align-items:flex-start;justify-content:center;margin-top:6px}
+.duo+.duo{margin-top:18px}
+.phc{margin:0;width:300px;flex:none}
+.tag{display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:13px;font-size:13.5px;font-weight:500;margin-bottom:8px;white-space:nowrap}
+.tag.cur{background:#E2ECEF;color:#163A4A}
+.tag.reco{background:#163A4A;color:#fff}
+.tag.new{background:#14918C;color:#fff}
+.ph{width:300px;height:667px;overflow:hidden;border-radius:22px;border:1px solid #9FB1B8;position:relative;background:#000}
+.scr{position:absolute;left:0;top:0;width:1080px;height:2400px;transform-origin:0 0;overflow:hidden;font-family:Roboto,sans-serif}
+.scr>*{position:absolute}
+.phc figcaption{font-size:13.5px;line-height:19px;color:var(--pg-on2);margin-top:8px}
+.kind{display:block;font-size:12px;line-height:16px;color:#5F6E74;margin-top:4px}
+.txt{flex:1;min-width:0;font-size:14.5px;line-height:21px;color:var(--pg-on2);padding-top:34px}
+.txt p{margin:0 0 10px}
+.note{margin-top:16px;padding:12px 14px;border-radius:14px;background:#F2F5F6;font-size:14.5px;line-height:21px;color:var(--pg-on2)}
+.note p{margin:0 0 6px}.note p:last-child{margin:0}
+.note.reco{background:#D3EEEC;color:#0B5B57}.note.reco b{color:#06302E}
+.fname{font-size:12px;line-height:16px;color:#5F6E74;margin-top:12px;text-align:right}
+body.one .intro,body.one section.shot{display:none}
+body.one section.shot.on{display:block;margin:0}
+body.one{background:#fff}
+@media (max-width:680px){#p39-root{zoom:calc(100vw / 660px)}}
+</style>
+</head>
+<body>
+<div id="p39-root">
+
+<div class="intro">
+  <h1>Opération&nbsp;: couleur des groupes, notification, «&nbsp;Scanner un code&nbsp;», départ gardé (tour 8)</h1>
+  <p>Vos réponses du 2026-11-16&nbsp;: <b>L1</b>, la couleur d'un groupe se choisit et part à tous les téléphones&nbsp;; <b>L4</b>, la position d'une opération part aussi écran éteint, avec une notification comme «&nbsp;Entre amis&nbsp;»&nbsp;; <b>M8</b>, le mode «&nbsp;Opération&nbsp;» suit le réseau comme «&nbsp;Entre amis&nbsp;»&nbsp;; <b>L5</b>, «&nbsp;Scanner un code&nbsp;» passe sur deux lignes quand il ne tient pas&nbsp;; <b>M4</b>, un départ est gardé jusqu'à ce qu'un autre téléphone l'ait reçu, une semaine au plus. Ces quatre points se voient&nbsp;: voici les aperçus, avant tout code.</p>
+  <ul>
+    <li>1 à 5 · L1, la couleur d'un groupe</li>
+    <li>6 à 9 · L4 et M8, la notification d'une opération</li>
+    <li>10 à 12 · L5, «&nbsp;Scanner un code&nbsp;» sur deux lignes</li>
+    <li>13 à 16 · M4, «&nbsp;En train de partir&nbsp;»</li>
+  </ul>
+  <p>«&nbsp;Capture&nbsp;»&nbsp;: copie d'écran de l'émulateur (opération inventée «&nbsp;Exercice Vallon&nbsp;», membres «&nbsp;Membre 1&nbsp;» à «&nbsp;Membre 22&nbsp;»). «&nbsp;Capture retouchée&nbsp;»&nbsp;: morceaux de ces captures assemblés, avec les textes et pastilles nouveaux dessinés par-dessus. Le téléphone d'essai est en anglais&nbsp;: «&nbsp;now&nbsp;», «&nbsp;Silent&nbsp;», «&nbsp;Clear all&nbsp;» viennent d'Android, pas de ToolMap.</p>
+</div>
+
+<section class="shot" id="01-L1-actuel">
+  <header><div class="num">1</div><div>
+    <h2>L1 aujourd'hui&nbsp;: un nom, pas de couleur</h2>
+    <p>«&nbsp;Nouveau groupe&nbsp;» et «&nbsp;Renommer le groupe&nbsp;» ne demandent que le nom. Chaque groupe prend la première couleur libre, dans l'ordre&nbsp;: bleu, orange, vert, violet, rose, brun, cyan, olive.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Actuel · Nouveau groupe</span><div class="ph" data-ph="cap:tour2-04-admin-groupes-nouveau"></div>
+      <figcaption>Ouvert depuis «&nbsp;Administrer&nbsp;». Nord, Sud, Est et Ouest existent&nbsp;: le 5e groupe sera rose, sans choix possible.<span class="kind">Capture de l'émulateur de la CI, APK de debug 0.4.276</span></figcaption></figure>
+    <figure class="phc"><span class="tag cur">Actuel · Renommer le groupe</span><div class="ph" data-ph="cap:tour2-04-admin-groupes-modifier"></div>
+      <figcaption>Depuis la page du groupe Ouest (violet). L'aide le dit&nbsp;: «&nbsp;Ses membres et sa couleur ne changent pas.&nbsp;»<span class="kind">Capture de l'émulateur de la CI, APK de debug 0.4.276</span></figcaption></figure>
+  </div>
+  <div class="fname">01-L1-actuel.png</div>
+</section>
+
+<section class="shot" id="02-L1-A">
+  <header><div class="num">2</div><div>
+    <h2>L1, proposé A&nbsp;: les couleurs dans la feuille, comme la maquette du tour 2</h2>
+    <p>Sous le nom, huit pastilles dans l'ordre de la palette. Celle que le groupe aurait aujourd'hui est cochée d'office&nbsp;: sans y toucher, rien ne change. Les couleurs des autres groupes sont pâles et ne se choisissent pas&nbsp;: deux groupes n'ont jamais la même.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag reco">Proposé A (conseillé) · Nouveau groupe</span><div class="ph" data-ph="nA"></div>
+      <figcaption>Le rose, première couleur libre, est coché. Toucher une autre pastille la choisit.<span class="kind">Capture retouchée&nbsp;: la feuille rehaussée, les pastilles dessinées</span></figcaption></figure>
+    <figure class="phc"><span class="tag reco">Proposé A · Modifier le groupe</span><div class="ph" data-ph="mA"></div>
+      <figcaption>La même feuille sert à renommer et à changer la couleur&nbsp;: elle s'appelle «&nbsp;Modifier le groupe&nbsp;». Ouest est violet&nbsp;: coché.<span class="kind">Capture retouchée&nbsp;: la feuille rehaussée, le titre, l'aide et les pastilles redessinés</span></figcaption></figure>
+  </div>
+  <div class="note">Sur un écran plus étroit que celui-ci (411 dp de large), les pastilles passent sur deux lignes de quatre plutôt que de rapetisser.</div>
+  <div class="fname">02-L1-A.png</div>
+</section>
+
+<section class="shot" id="03-L1-A-suite">
+  <header><div class="num">3</div><div>
+    <h2>L1, proposé A&nbsp;: la page du groupe et les groupes de départ</h2>
+    <p>Sur la page d'un groupe, «&nbsp;Renommer le groupe&nbsp;» devient «&nbsp;Modifier le groupe&nbsp;» et ouvre la feuille de l'image 2. Les mêmes pastilles servent pour les groupes de départ, dans «&nbsp;Nouvelle opération&nbsp;».</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag reco">Proposé A · page du groupe Nord</span><div class="ph" data-ph="gA"></div>
+      <figcaption>Seul le texte de la ligne change.<span class="kind">Capture retouchée&nbsp;: le texte de la ligne</span></figcaption></figure>
+    <figure class="phc"><span class="tag reco">Proposé A · Nouvelle opération</span><div class="ph" data-ph="crA"></div>
+      <figcaption>Le 4e groupe de départ&nbsp;: violet, première couleur libre, coché.<span class="kind">Capture retouchée&nbsp;: la feuille rehaussée, les pastilles dessinées</span></figcaption></figure>
+  </div>
+  <div class="fname">03-L1-A-suite.png</div>
+</section>
+
+<section class="shot" id="04-L1-B">
+  <header><div class="num">4</div><div>
+    <h2>L1, proposé B&nbsp;: une ligne «&nbsp;Couleur du groupe&nbsp;» et sa petite feuille</h2>
+    <p>La feuille du nom ne change pas. La page du groupe gagne une ligne qui montre la couleur&nbsp;; la toucher ouvre les huit pastilles. Toucher une pastille change la couleur tout de suite et ferme la feuille.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Proposé B · page du groupe Nord</span><div class="ph" data-ph="gB"></div>
+      <figcaption>Nouvelle ligne entre «&nbsp;Renommer le groupe&nbsp;» et «&nbsp;Supprimer le groupe&nbsp;».<span class="kind">Capture retouchée&nbsp;: une ligne ajoutée</span></figcaption></figure>
+    <figure class="phc"><span class="tag cur">Proposé B · la petite feuille</span><div class="ph" data-ph="gB2"></div>
+      <figcaption>Le bleu de Nord est coché&nbsp;; les couleurs des autres groupes sont pâles.<span class="kind">Capture retouchée&nbsp;: le haut et le bas de la feuille «&nbsp;Nouveau groupe&nbsp;», textes et pastilles redessinés</span></figcaption></figure>
+  </div>
+  <div class="note">Avec B, «&nbsp;Nouveau groupe&nbsp;» reste comme aujourd'hui (image 1)&nbsp;: le groupe prend la première couleur libre, à changer ensuite sur sa page.</div>
+  <div class="fname">04-L1-B.png</div>
+</section>
+
+<section class="shot" id="05-L1-autres">
+  <header><div class="num">5</div><div>
+    <h2>L1&nbsp;: ce que voient les autres</h2>
+    <p>Le créateur et les administrateurs changent la couleur, comme le nom. Elle part à tous les téléphones de l'opération&nbsp;: partout où le groupe se voit (jetons de la carte, page de l'opération, listes), il prend sa nouvelle couleur dès que le changement arrive.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Actuel · téléphone de Membre 7</span><div class="ph" data-ph="cap:tour6-02-q1-A-membre"></div>
+      <figcaption>Ouest est violet.<span class="kind">Capture de l'émulateur de la CI, APK de debug 0.4.276</span></figcaption></figure>
+    <figure class="phc"><span class="tag reco">Proposé · Ouest passe au rose</span><div class="ph" data-ph="op7c"></div>
+      <figcaption>Le jeton d'Ouest change de couleur, et un message le dit en bas de l'écran pendant quelques secondes.<span class="kind">Capture retouchée&nbsp;: le jeton recoloré, le message dessiné</span></figcaption></figure>
+  </div>
+  <div class="note">Le message sert à qui cherche encore le violet sur la carte. Sans lui, la couleur change sans prévenir (question L1 bis).</div>
+  <div class="fname">05-L1-autres.png</div>
+</section>
+
+<section class="shot" id="06-L4-actuel">
+  <header><div class="num">6</div><div>
+    <h2>L4 aujourd'hui&nbsp;: une notification pour «&nbsp;Entre amis&nbsp;», rien pour une opération</h2>
+    <p>Quand «&nbsp;Partager ma position&nbsp;» est actif dans «&nbsp;Entre amis&nbsp;», une notification reste dans le volet&nbsp;: la position part aussi écran éteint. En opération, il n'y en a pas&nbsp;: la position ne part que tant que l'application est ouverte.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Actuel · Entre amis</span><div class="ph" data-ph="cap:amis-notification"></div>
+      <figcaption>«&nbsp;ToolMap est actif en arrière-plan&nbsp;», la ligne du partage et «&nbsp;Arrêter le partage&nbsp;».<span class="kind">Capture de l'émulateur, 0.4.235 (la version publiée)</span></figcaption></figure>
+    <figure class="phc"><span class="tag cur">Actuel · Opération</span><div class="ph" data-ph="cap:tour6-02-q1-A-membre"></div>
+      <figcaption>«&nbsp;Partager ma position&nbsp;» est actif, mais rien dans le volet&nbsp;: écran éteint, la position s'arrête.<span class="kind">Capture de l'émulateur de la CI, APK de debug 0.4.276</span></figcaption></figure>
+  </div>
+  <div class="fname">06-L4-actuel.png</div>
+</section>
+
+<section class="shot" id="07-L4-A-B">
+  <header><div class="num">7</div><div>
+    <h2>L4, proposé A et B&nbsp;: la notification d'«&nbsp;Entre amis&nbsp;», avec le nom de l'opération</h2>
+    <p>Même titre, même bouton, même place. Seule la ligne du partage change.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag reco">Proposé A (conseillé)</span><div class="ph" data-ph="nA4"></div>
+      <figcaption>«&nbsp;Position partagée · Exercice Vallon&nbsp;».<span class="kind">Capture retouchée&nbsp;: la ligne du partage</span></figcaption></figure>
+    <figure class="phc"><span class="tag cur">Proposé B</span><div class="ph" data-ph="nB4"></div>
+      <figcaption>Une ligne de plus&nbsp;: votre groupe et le rythme d'envoi, ceux de la page de l'opération.<span class="kind">Capture retouchée&nbsp;: la ligne du partage, une ligne ajoutée</span></figcaption></figure>
+  </div>
+  <div class="note">
+    <p><b>Quand elle paraît</b>&nbsp;: dès que «&nbsp;Partager ma position&nbsp;» est actif dans l'opération, application ouverte ou non.</p>
+    <p><b>Quand elle part</b>&nbsp;: quand on coupe le partage (l'interrupteur, ou «&nbsp;Arrêter le partage&nbsp;»), quand l'opération est dissoute, quand on en est retiré, ou quand on la quitte (une fois le départ reçu&nbsp;: images 13 à 16).</p>
+    <p><b>Toucher la notification</b> ouvre la page de l'opération. <b>«&nbsp;Arrêter le partage&nbsp;»</b> coupe l'envoi de votre position&nbsp;; vous restez dans l'opération.</p>
+  </div>
+  <div class="fname">07-L4-A-B.png</div>
+</section>
+
+<section class="shot" id="08-L4-C">
+  <header><div class="num">8</div><div>
+    <h2>L4, proposé C&nbsp;: plus discrète</h2>
+    <p>Rien sur l'opération&nbsp;: la ligne dit seulement «&nbsp;Position partagée&nbsp;».</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Proposé C</span><div class="ph" data-ph="nC4"></div>
+      <figcaption>Ni le nom de l'opération, ni le groupe.<span class="kind">Capture retouchée&nbsp;: la ligne du partage</span></figcaption></figure>
+    <div class="txt">
+      <p>Sur l'écran verrouillé, celui qui voit le téléphone n'apprend pas que vous êtes dans «&nbsp;Exercice Vallon&nbsp;».</p>
+      <p>Android impose une notification tant que la position part écran éteint&nbsp;: on ne peut pas la cacher, seulement choisir ce qu'elle dit.</p>
+      <p>Quand elle paraît, quand elle part, ce que fait un toucher&nbsp;: comme A et B (image 7).</p>
+    </div>
+  </div>
+  <div class="fname">08-L4-C.png</div>
+</section>
+
+<section class="shot" id="09-L4-sans-reseau">
+  <header><div class="num">9</div><div>
+    <h2>M8&nbsp;: sans réseau</h2>
+    <p>Le mode «&nbsp;Opération&nbsp;» suivra le réseau comme «&nbsp;Entre amis&nbsp;»&nbsp;: dès que le réseau revient, la position repart, sans attendre. Dans «&nbsp;Entre amis&nbsp;», la notification ne dit rien de la coupure&nbsp;; seul l'écran du partage l'indique.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Actuel · Entre amis, mode avion</span><div class="ph" data-ph="cap:amis-notification-sans-reseau"></div>
+      <figcaption>La notification ne change pas.<span class="kind">Capture de l'émulateur, 0.4.235 (la version publiée)</span></figcaption></figure>
+    <figure class="phc"><span class="tag reco">Proposé (conseillé) · Opération, sans réseau</span><div class="ph" data-ph="nNet"></div>
+      <figcaption>Une ligne de plus tant que le réseau manque&nbsp;: «&nbsp;Hors réseau&nbsp;: envoi dès son retour&nbsp;». Elle s'efface dès que le réseau revient.<span class="kind">Capture retouchée&nbsp;: la ligne du partage (A), une ligne ajoutée</span></figcaption></figure>
+  </div>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Actuel · Entre amis, l'écran du partage</span><div class="ph" data-ph="cap:amis-partage-sans-reseau"></div>
+      <figcaption>«&nbsp;Serveur injoignable (réseau coupé&nbsp;?)&nbsp;»&nbsp;: c'est le seul endroit qui le dit aujourd'hui.<span class="kind">Capture de l'émulateur, 0.4.235 (la version publiée)</span></figcaption></figure>
+    <div class="txt">
+      <p>Avec B, la ligne «&nbsp;Hors réseau&nbsp;» remplace celle du groupe et du rythme le temps de la coupure.</p>
+      <p>Avec C, elle s'ajoute sous «&nbsp;Position partagée&nbsp;».</p>
+      <p>Autre choix&nbsp;: ne rien dire, comme «&nbsp;Entre amis&nbsp;» (question L4 bis).</p>
+    </div>
+  </div>
+  <div class="fname">09-L4-sans-reseau.png</div>
+</section>
+
+<section class="shot" id="10-L5-actuel">
+  <header><div class="num">10</div><div>
+    <h2>L5 aujourd'hui&nbsp;: «&nbsp;Scanner un code&nbsp;» coupé</h2>
+    <p>Le bouton d'«&nbsp;Entre amis&nbsp;» coupe son texte quand la place manque. Relevé sur l'émulateur&nbsp;: coupé jusqu'à 340 dp de large, entier dès 345 dp avec le texte normal&nbsp;; coupé aussi à 360 dp quand le texte d'Android est à 115 %&nbsp;; entier à 411 dp, même à 130 %.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Actuel · 320 dp</span><div class="ph" data-ph="cap:amis-320"></div>
+      <figcaption>«&nbsp;Scanner un&nbsp;»&nbsp;: la fin manque.<span class="kind">Capture de l'émulateur, 0.4.235 (la version publiée)</span></figcaption></figure>
+    <figure class="phc"><span class="tag cur">Actuel · 360 dp, texte 115 %</span><div class="ph" data-ph="cap:amis-360-texte-115"></div>
+      <figcaption>Même coupure.<span class="kind">Capture de l'émulateur, 0.4.235 (la version publiée)</span></figcaption></figure>
+  </div>
+  <div class="fname">10-L5-actuel.png</div>
+</section>
+
+<section class="shot" id="11-L5-A-B">
+  <header><div class="num">11</div><div>
+    <h2>L5, proposé A et B&nbsp;: le texte passe sur deux lignes</h2>
+    <p>Seulement quand il ne tient pas. Les deux boutons gardent la même hauteur. Reste à choisir où la ligne se coupe.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag reco">Proposé A (conseillé) · 320 dp</span><div class="ph" data-ph="aA"></div>
+      <figcaption>«&nbsp;Scanner / un code&nbsp;»&nbsp;: «&nbsp;un code&nbsp;» reste ensemble.<span class="kind">Capture retouchée&nbsp;: les boutons rehaussés, le texte redessiné</span></figcaption></figure>
+    <figure class="phc"><span class="tag cur">Proposé B · 320 dp</span><div class="ph" data-ph="aB"></div>
+      <figcaption>«&nbsp;Scanner un / code&nbsp;»&nbsp;: la coupure qu'Android ferait seul.<span class="kind">Capture retouchée&nbsp;: les boutons rehaussés, le texte redessiné</span></figcaption></figure>
+  </div>
+  <div class="fname">11-L5-A-B.png</div>
+</section>
+
+<section class="shot" id="12-L5-C-largeurs">
+  <header><div class="num">12</div><div>
+    <h2>L5, proposé C, et là où le texte tient</h2>
+    <p>C&nbsp;: seul «&nbsp;Scanner un code&nbsp;» grandit&nbsp;; «&nbsp;Coller un lien&nbsp;» garde sa hauteur. Partout où le texte tient sur une ligne, rien ne change, quel que soit le choix.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Proposé C · 320 dp</span><div class="ph" data-ph="aC"></div>
+      <figcaption>Le bouton de gauche est plus haut que celui de droite.<span class="kind">Capture retouchée&nbsp;: le bouton de gauche rehaussé, le texte redessiné</span></figcaption></figure>
+    <figure class="phc"><span class="tag cur">Inchangé · 345 dp</span><div class="ph" data-ph="cap:amis-345"></div>
+      <figcaption>Le texte tient&nbsp;: une ligne, comme aujourd'hui.<span class="kind">Capture de l'émulateur, 0.4.235 (la version publiée)</span></figcaption></figure>
+  </div>
+  <div class="fname">12-L5-C-largeurs.png</div>
+</section>
+
+<section class="shot" id="13-M4-actuel">
+  <header><div class="num">13</div><div>
+    <h2>M4 aujourd'hui&nbsp;: quitter efface tout, aussitôt</h2>
+    <p>On confirme, et le téléphone efface tout&nbsp;: l'écran du partage revient à «&nbsp;Aucun groupe&nbsp;». Si aucun autre téléphone n'a reçu le départ (pas de réseau à ce moment-là), les autres ne l'apprennent jamais&nbsp;: pour eux, vous êtes toujours dans l'opération. Et si vous étiez le créateur, plus personne ne peut retirer un membre, nommer un administrateur ni dissoudre.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Actuel · la confirmation</span><div class="ph" data-ph="cap:op-quitter"></div>
+      <figcaption>«&nbsp;Les autres sont prévenus…&nbsp;»&nbsp;: vrai seulement si le réseau passe.<span class="kind">Capture de l'émulateur, APK de debug 0.4.276</span></figcaption></figure>
+    <figure class="phc"><span class="tag cur">Actuel · juste après</span><div class="ph" data-ph="cap:op-apres-depart"></div>
+      <figcaption>Aucun message&nbsp;: on ne sait pas si le départ est arrivé.<span class="kind">Capture de l'émulateur, APK de debug 0.4.276</span></figcaption></figure>
+  </div>
+  <div class="fname">13-M4-actuel.png</div>
+</section>
+
+<section class="shot" id="14-M4-A">
+  <header><div class="num">14</div><div>
+    <h2>M4, proposé A&nbsp;: l'écran de l'opération laisse place à une seule carte</h2>
+    <p>Après «&nbsp;Quitter l'opération&nbsp;», tant qu'aucun autre téléphone n'a reçu le départ, l'opération s'ouvre sur cette carte, et rien d'autre&nbsp;: ni membres, ni messages, ni position des autres. Votre position ne part plus.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag reco">Proposé A (conseillé)</span><div class="ph" data-ph="opA"></div>
+      <figcaption>Le titre garde le nom de l'opération&nbsp;; le menu (les trois points) disparaît. Rien à toucher&nbsp;: le départ repart tout seul.<span class="kind">Capture retouchée&nbsp;: la barre du haut de l'écran de l'opération, la carte dessinée</span></figcaption></figure>
+    <figure class="phc"><span class="tag reco">A, B et C · la notification</span><div class="ph" data-ph="nW"></div>
+      <figcaption>Elle reste tant que le départ attend&nbsp;: il repart même application fermée. Pas de bouton&nbsp;; la toucher ouvre ToolMap.<span class="kind">Capture retouchée&nbsp;: les lignes de la notification d'«&nbsp;Entre amis&nbsp;» redessinées</span></figcaption></figure>
+  </div>
+  <div class="fname">14-M4-A.png</div>
+</section>
+
+<section class="shot" id="15-M4-B-C">
+  <header><div class="num">15</div><div>
+    <h2>M4, proposé B et C&nbsp;: l'opération est déjà fermée à l'écran</h2>
+    <p>Dès la confirmation, l'écran du partage revient à «&nbsp;Aucun groupe&nbsp;», comme aujourd'hui&nbsp;; le départ attend en coulisse, avec la notification de l'image 14.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Proposé B · la carte</span><div class="ph" data-ph="mapB"></div>
+      <figcaption>Une bande sous l'échelle, tant que le départ attend. Elle ne s'ouvre pas&nbsp;; elle part quand le départ est reçu.<span class="kind">Capture retouchée&nbsp;: la bande dessinée</span></figcaption></figure>
+    <figure class="phc"><span class="tag cur">Proposé C · l'écran du partage</span><div class="ph" data-ph="cap:op-apres-depart"></div>
+      <figcaption>L'application comme aujourd'hui&nbsp;: seule la notification montre l'attente.<span class="kind">Capture de l'émulateur, APK de debug 0.4.276</span></figcaption></figure>
+  </div>
+  <div class="fname">15-M4-B-C.png</div>
+</section>
+
+<section class="shot" id="16-M4-fin">
+  <header><div class="num">16</div><div>
+    <h2>M4&nbsp;: départ reçu, ou une semaine sans réponse</h2>
+    <p><b>Reçu</b>&nbsp;: dès qu'un autre téléphone de l'opération a reçu le départ, le téléphone efface tout&nbsp;; la carte (A) ou la bande (B) et la notification disparaissent, et un message le dit. <b>Au bout de 7 jours sans réponse</b>&nbsp;: le téléphone efface tout quand même, et le dit à la prochaine ouverture.</p>
+  </div></header>
+  <div class="duo">
+    <figure class="phc"><span class="tag reco">A, B et C · départ reçu</span><div class="ph" data-ph="recv"></div>
+      <figcaption>Le message reste quelques secondes. Application fermée, il ne paraît pas&nbsp;: seule la notification s'en va.<span class="kind">Capture retouchée&nbsp;: le message dessiné</span></figcaption></figure>
+    <figure class="phc"><span class="tag reco">A, B et C · 7 jours sans réponse</span><div class="ph" data-ph="week"></div>
+      <figcaption>Une fenêtre à la prochaine ouverture de ToolMap. «&nbsp;OK&nbsp;» la ferme.<span class="kind">Capture retouchée&nbsp;: la fenêtre dessinée</span></figcaption></figure>
+  </div>
+  <div class="duo">
+    <figure class="phc"><span class="tag cur">Actuel · le créateur part</span><div class="ph" data-ph="cap:tour3-05-successeur"></div>
+      <figcaption>«&nbsp;Transmettre à Membre 5 et quitter&nbsp;».<span class="kind">Capture de l'émulateur de la CI, APK de debug 0.4.276</span></figcaption></figure>
+    <div class="txt">
+      <p>Le créateur qui passe la main attend de la même façon&nbsp;: mêmes écrans, même notification.</p>
+      <p>Membre 5 ne devient créateur qu'une fois le départ reçu par un autre téléphone. D'ici là, rien ne change pour les autres.</p>
+      <p>Une fois reçu, ils voient le message d'aujourd'hui&nbsp;: «&nbsp;Membre 1 a quitté l'opération. Membre 5 en est maintenant le créateur.&nbsp;»</p>
+    </div>
+  </div>
+  <div class="fname">16-M4-fin.png</div>
+</section>
+
+</div>
+<script>
+(function () {
+  // Every phone is drawn on a 1080 × 2400 screen, scaled down: pieces of captures, then what is new drawn over them.
+  const ON = '#122027', ON2 = '#506169', PET = '#163A4A', PAGE = '#F2F5F6', SHEET = '#F7F9FA', NTXT = '#30323B';
+  const N = 'tour2-04-admin-groupes-nouveau', M = 'tour2-04-admin-groupes-modifier', G = 'tour2-04-admin-groupe',
+    CR = 'tour4-10-creation-A-nouveau-groupe', OP7 = 'tour6-02-q1-A-membre', NT = 'amis-notification',
+    NT0 = 'amis-notification-sans-reseau', A3 = 'amis-320', MAP = 'carte', AD = 'op-apres-depart';
+  // The palette of the groups, in its order (GROUP_COLORS).
+  const COL = ['#1976D2', '#E06C00', '#2E7D32', '#7B1FA2', '#C2185B', '#5D4037', '#00838F', '#AFB42B'];
+  const ICONS = {
+    check: 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z',
+    palette: 'M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z',
+    hourglass: 'M6 2l.01 6L10 12l-3.99 4.01L6 22h12v-6l-4-4 4-3.99V2H6zm10 14.5V20H8v-3.5l4-4 4 4z',
+    event: 'M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z',
+    locoff: 'M12 6.5c1.38 0 2.5 1.12 2.5 2.5 0 .74-.33 1.39-.83 1.85l3.63 3.63c.98-1.86 1.7-3.8 1.7-5.48 0-3.87-3.13-7-7-7-1.98 0-3.76.83-5.04 2.15l3.19 3.19c.46-.52 1.11-.84 1.85-.84zm4.37 9.6l-4.63-4.63-.11-.11L3.27 3 2 4.27l3.18 3.18C5.07 7.95 5 8.47 5 9c0 5.25 7 13 7 13s1.67-1.85 3.38-4.35L18.73 21 20 19.73l-3.63-3.63z',
+  };
+  const svg = (name, size, color) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" style="display:block"><path fill="${color}" d="${ICONS[name]}"/></svg>`;
+  const url = (f) => `url('captures/${f}.png')`;
+  // A piece of a capture: (sx, sy, w, h) of the file, drawn at (dx, dy), stretched to dw × dh if given.
+  function P(f, sx, sy, w, h, dx, dy, o = {}) {
+    const dw = o.dw || w, dh = o.dh || h, kx = dw / w, ky = dh / h;
+    return `<div style="left:${dx}px;top:${dy}px;width:${dw}px;height:${dh}px;background:${url(f)} no-repeat;background-size:${1080 * kx}px ${2400 * ky}px;background-position:${-sx * kx}px ${-sy * ky}px;${o.css || ''}"></div>`;
+  }
+  // Rows sy… of a capture at dy, with a few rows more underneath (covered by what follows): no seam once scaled down.
+  const L = (f, sy, h, dy, ov = 4) => P(f, 0, sy, 1080, h + ov, 0, dy);
+  const R = (x, y, w, h, c, css = '') => `<div style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${c};${css}"></div>`;
+  // A line of text whose baseline is at b (Roboto: ascent 0.9277, line 1.1719).
+  function T(x, b, s, txt, o = {}) {
+    const lh = 1.1719 * s, top = b - 0.9277 * s, wd = o.wd || 1000;
+    const pos = o.al === 'c' ? `left:${x - wd / 2}px;width:${wd}px;text-align:center` : o.al === 'r' ? `left:${x - wd}px;width:${wd}px;text-align:right` : `left:${x}px`;
+    return `<div style="${pos};top:${top}px;font:${o.w || 400} ${s}px/${lh}px Roboto,sans-serif;letter-spacing:${o.ls || 0}px;color:${o.c || ON};white-space:nowrap">${txt}</div>`;
+  }
+  const ICON = (name, cx, cy, size, color) => `<div style="left:${cx - size / 2}px;top:${cy - size / 2}px">${svg(name, size, color)}</div>`;
+  const DOT = (c, d) => `<span style="display:inline-block;width:${d}px;height:${d}px;border-radius:50%;background:${c};vertical-align:-5px;margin-right:16px"></span>`;
+  // The eight swatches, 36 dp each, across the width of the field (64 to 1016): sel is checked, taken are pale.
+  function SW(top, sel, taken, bg = SHEET) {
+    return COL.map((c, i) => {
+      const on = i === sel, pale = taken.includes(i) && !on;
+      return `<div style="left:${64 + i * 122.5}px;top:${top}px;width:94.5px;height:94.5px;border-radius:50%;background:${c};${pale ? 'opacity:.3;' : ''}${on ? `box-shadow:0 0 0 6px ${bg},0 0 0 13px ${ON};` : ''}display:flex;align-items:center;justify-content:center">${on ? svg('check', 56, '#fff') : ''}</div>`;
+    }).join('');
+  }
+  // A snackbar as the app draws it (tour2-08): bottom 96 px above the screen's bottom.
+  const SNK = (txt) => `<div style="left:32px;bottom:96px;width:1016px;padding:43px 43px 30px;background:#27353B;border-radius:28px;box-shadow:0 8px 16px rgba(0,0,0,.22);font:400 36.75px/52.5px Roboto,sans-serif;letter-spacing:.17px;color:#EEF3F5">${txt}</div>`;
+  // The line under the title of the notification, cleaned with a stretched empty row, then written again.
+  const NL2 = (f, txt) => [P(f, 42, 735, 996, 1, 42, 728, { dh: 72 }), T(231, 779, 36.75, txt, { c: NTXT })];
+  // The notification with one more line: 53 rows inserted under the line of the sharing, the bottom bar kept.
+  const NOTIF3 = (f, l2, l3) => [L(f, 0, 806, 0), P(f, 0, 806, 1080, 1, 0, 806, { dh: 57 }), L(f, 806, 1534, 859, 0),
+    L(f, 2340, 60, 2340, 0), ...NL2(f, l2), T(231, 831.5, 36.75, l3, { c: NTXT })];
+  // « Scanner un code » on two lines in the taller button (320 dp: the icon is a piece of the capture).
+  const SCAN = (txt) => `<div style="left:47px;top:1605px;width:472px;height:177px;display:flex;align-items:center;justify-content:center;gap:27px"><i style="flex:none;width:68px;height:68px;background:${url(A3)} -77px -1646px / 1080px 2400px no-repeat"></i><div style="font:500 47.25px/67.5px Roboto,sans-serif;letter-spacing:.34px;color:${ON2};text-align:center">${txt}</div></div>`;
+  // Both buttons 189 px high instead of 162 (two lines of 20 sp): an empty row stretched, the bottom moved down.
+  const TALL = [L(A3, 0, 1641, 0), P(A3, 0, 1641, 1080, 1, 0, 1641, { dh: 107 }), L(A3, 1716, 50, 1744),
+    L(A3, 1766, 506, 1794), L(A3, 2300, 100, 2300, 0), P(A3, 559, 1641, 470, 76, 559, 1655)];
+  const ROW = (icon, title, sub) => `<div style="display:flex;align-items:center;min-height:160px;padding:22px 40px 22px 0"><div style="flex:none;width:164px;padding-left:44.5px">${svg(icon, 63, ON2)}</div><div><div style="font-size:42px;line-height:56px;letter-spacing:1.31px;color:${ON}">${title}</div><div style="font-size:31.5px;line-height:44px;letter-spacing:.66px;color:${ON2}">${sub}</div></div></div>`;
+  const PH = {
+    // L1 A: the sheet raised by 220 px for a caption and the swatches between the field and the button.
+    nA: () => [L(N, 0, 1266, 0), L(N, 1486, 503, 1266), R(0, 1768, 1080, 225, SHEET), L(N, 1989, 411, 1989, 0),
+      T(64, 1849, 36.75, 'Couleur (celles déjà prises sont pâles)', { c: ON2, ls: .3 }), SW(1894, 4, [0, 1, 2, 3])],
+    mA: () => [L(M, 0, 1292, 0), L(M, 1512, 488, 1292), R(0, 1780, 1080, 224, SHEET), L(M, 2000, 400, 2000, 0),
+      R(40, 1418, 1000, 90, SHEET), T(64, 1484, 63, 'Modifier le groupe'),
+      R(100, 1725, 900, 44, SHEET), T(106, 1757, 31.5, 'Ses membres ne changent pas.', { c: ON2, ls: .7 }),
+      T(64, 1848, 36.75, 'Couleur (elle change sur tous les téléphones)', { c: ON2, ls: .3 }), SW(1888, 3, [0, 1, 2])],
+    gA: () => [L(G, 0, 2400, 0, 0), R(190, 1888, 640, 64, '#fff'), T(196, 1934, 42, 'Modifier le groupe', { ls: 1.31 })],
+    crA: () => [L(CR, 0, 1253, 0), L(CR, 1473, 506, 1253), R(0, 1759, 1080, 224, SHEET), L(CR, 1979, 421, 1979, 0),
+      T(64, 1839, 36.75, 'Couleur (celles déjà prises sont pâles)', { c: ON2, ls: .3 }), SW(1884, 3, [0, 1, 2])],
+    // L1 B: a row inserted between « Renommer » and « Supprimer », then the small sheet over it.
+    gB: () => [L(G, 0, 2006, 0), P(G, 0, 2040, 1080, 1, 0, 2006, { dh: 172 }), P(G, 0, 2003, 1080, 7, 0, 2174),
+      L(G, 2006, 168, 2177), L(G, 2345, 55, 2345, 0), ICON('palette', 108, 2090, 63, ON2),
+      T(196, 2105, 42, 'Couleur du groupe', { ls: 1.31 }), T(915, 2103, 36.75, `${DOT(COL[0], 34)}Bleu`, { al: 'r', wd: 400, c: ON2, ls: .66 }),
+      P(G, 930, 1870, 100, 100, 930, 2041)],
+    gB2: () => [...PH.gB(), R(0, 0, 1080, 2400, 'rgba(0,0,0,.32)'), L(N, 1486, 315, 1721), R(0, 2036, 1080, 158, SHEET),
+      L(N, 2190, 210, 2190, 0), R(40, 1848, 1000, 88, SHEET), T(64, 1914, 63, 'Couleur du groupe'),
+      R(40, 1955, 1000, 60, SHEET), T(64, 1997, 42, 'Nord · elle change sur tous les téléphones', { c: ON2, ls: 1.31 }),
+      SW(2056, 0, [1, 2, 3])],
+    op7c: () => [L(OP7, 0, 2400, 0, 0), P(OP7, 60, 1812, 140, 140, 60, 1812, { css: 'filter:hue-rotate(47deg)' }),
+      SNK('Le groupe Ouest a changé de couleur : rose.')],
+    // L4.
+    nA4: () => [L(NT, 0, 2400, 0, 0), ...NL2(NT, 'Position partagée · Exercice Vallon')],
+    nB4: () => NOTIF3(NT, 'Position partagée · Exercice Vallon', 'Groupe Nord · toutes les minutes'),
+    nC4: () => [L(NT, 0, 2400, 0, 0), ...NL2(NT, 'Position partagée')],
+    nNet: () => NOTIF3(NT0, 'Position partagée · Exercice Vallon', 'Hors réseau : envoi dès son retour'),
+    // L5.
+    aA: () => [...TALL, SCAN('Scanner<br>un code')],
+    aB: () => [...TALL, SCAN('Scanner un<br>code')],
+    aC: () => [...TALL, SCAN('Scanner<br>un code'), P(A3, 530, 1590, 550, 215, 530, 1590)],
+    // M4 A: the toolbar of the operation, then one card.
+    opA: () => [L(OP7, 0, 232, 0, 0), R(140, 158, 820, 60, PET), T(149, 194, 31.5, 'En train de partir', { c: '#C9D6DC', ls: .68 }),
+      R(950, 95, 110, 110, PET), R(0, 232, 1080, 2168, PAGE), P(OP7, 380, 2350, 320, 40, 380, 2350),
+      `<div style="left:32px;top:263px;width:1016px;background:#fff;border-radius:42px;overflow:hidden">
+        <div style="padding:57px 64px 52px;text-align:center"><div style="width:168px;height:168px;margin:0 auto;border-radius:50%;background:#E2ECEF;display:flex;align-items:center;justify-content:center">${svg('hourglass', 84, '#214453')}</div>
+        <div style="margin-top:40px;font-size:52.5px;line-height:68px;color:${ON}">En train de partir…</div>
+        <div style="margin-top:20px;font-size:36.75px;line-height:52.5px;letter-spacing:.33px;color:${ON2}">Votre départ de « Exercice Vallon » n'a encore été reçu par aucun autre téléphone. Il repart tout seul, même application fermée, jusqu'à ce qu'un téléphone de l'opération le reçoive.</div></div>
+        <div style="height:3px;background:#D5DEE2"></div>${ROW('event', 'Au plus tard dimanche 29 novembre', 'Ensuite, tout est effacé, même sans réponse')}
+        <div style="height:3px;background:#D5DEE2"></div>${ROW('locoff', 'Votre position ne part plus', "Vous ne recevez plus rien de l'opération")}</div>`],
+    nW: () => [L(NT, 0, 2400, 0, 0), ...NL2(NT, 'Départ de « Exercice Vallon » en cours'), P(NT, 42, 900, 996, 1, 42, 830, { dh: 96 }),
+      T(231, 831.5, 36.75, "En attente d'un autre téléphone", { c: NTXT }), T(231, 884, 36.75, 'Au plus tard le dimanche 29 novembre', { c: NTXT })],
+    mapB: () => [L(MAP, 0, 2400, 0, 0),
+      `<div style="left:32px;top:240px;width:1016px;padding:30px 36px 30px 30px;background:#fff;border-radius:42px;box-shadow:0 3px 10px rgba(0,0,0,.2);display:flex;align-items:center;gap:28px">
+        <div style="flex:none;width:105px;height:105px;border-radius:50%;background:#E2ECEF;display:flex;align-items:center;justify-content:center">${svg('hourglass', 58, '#214453')}</div>
+        <div><div style="font-size:42px;line-height:54px;letter-spacing:.3px;color:${ON}">Départ de « Exercice Vallon » en cours</div>
+        <div style="font-size:36.75px;line-height:50px;letter-spacing:.3px;color:${ON2}">En attente d'un autre téléphone,<br>au plus tard le dimanche 29 novembre</div></div></div>`],
+    recv: () => [L(AD, 0, 2400, 0, 0), SNK('Votre départ de « Exercice Vallon » est reçu : tout est effacé de ce téléphone.')],
+    week: () => [L(AD, 0, 2400, 0, 0), R(0, 0, 1080, 2400, 'rgba(0,0,0,.6)'),
+      `<div style="left:120px;top:1200px;transform:translateY(-50%);width:840px;padding:63px 63px 52px;background:#E8EFF2;border-radius:73.5px">
+        <div style="font-size:63px;line-height:84px;color:${ON}">Départ non reçu</div>
+        <div style="margin-top:42px;font-size:36.75px;line-height:53px;letter-spacing:.3px;color:${ON2}">Pendant 7 jours, aucun téléphone de « Exercice Vallon » n'a reçu votre départ. Tout est effacé de ce téléphone ; les autres vous voient peut-être encore dans l'opération.</div>
+        <div style="margin-top:63px;height:105px;line-height:105px;text-align:right;padding-right:32px;font-weight:500;font-size:36.75px;letter-spacing:.26px;color:${PET}">OK</div></div>`],
+  };
+  document.querySelectorAll('[data-ph]').forEach((ph) => {
+    const key = ph.dataset.ph;
+    const scr = document.createElement('div');
+    scr.className = 'scr';
+    scr.style.transform = 'scale(' + (300 / 1080) + ')';
+    // French quotes and « ; : ? ! » never leave their word alone at the end of a line.
+    scr.innerHTML = (key.startsWith('cap:') ? L(key.slice(4), 0, 2400, 0, 0) : PH[key]().join(''))
+      .replace(/« /g, '« ').replace(/ »/g, ' »').replace(/ ([;:?!])(?=\s|<|$)/g, ' $1');
+    ph.appendChild(scr);
+  });
+  // « #s=<id> » shows that band alone, for its image; « #h » writes the height of each band.
+  const m = /s=([\w-]+)/.exec(location.hash);
+  if (m) { document.body.classList.add('one'); document.getElementById(m[1]).classList.add('on'); }
+  if (/\bh\b/.test(location.hash)) {
+    const pre = document.createElement('pre');
+    pre.id = 'heights';
+    pre.textContent = [...document.querySelectorAll('section.shot')]
+      .map((s) => s.id + ' ' + Math.ceil(s.getBoundingClientRect().height)).join('\n');
+    document.body.appendChild(pre);
+  }
+})();
+</script>
+</body>
+</html>
