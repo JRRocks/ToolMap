@@ -254,6 +254,13 @@ class OperationSession
                     return@launch
                 }
                 val made = form.groups.map { name -> c.createGroup(name).first }
+                // L1 A (`tour8/img/03`): the colours picked for the groups of departure, the others are those of their place.
+                form.chosen.forEachIndexed { i, color ->
+                    val group = made.getOrNull(i) ?: return@forEachIndexed
+                    if (color == null) return@forEachIndexed
+                    trackerOf(c).ownColors[group] = color
+                    refusal("color", c.setGroupColor(group, OperationFacts.rgbOf(color)))
+                }
                 val mine = form.myGroup?.let { made.getOrNull(it) }
                 val self = c.view.value.self
                 if (mine != null && self != null) refusal("place", c.place(self, mine))
@@ -355,16 +362,37 @@ class OperationSession
 
         fun unassign(member: Long) = act("unassign") { unassign(member) }
 
-        fun createGroup(name: String) =
-            act("createGroup") {
-                if (Names.valid(name.trim())) createGroup(name.trim()).second else Rejection.MALFORMED
-            }
-
-        fun renameGroup(
-            group: Long,
+        /** « Créer le groupe … »; [color] (an index of [OperationFacts.GROUP_COLORS]) when one was picked (L1 A). */
+        fun createGroup(
             name: String,
-        ) = act("renameGroup") {
-            if (Names.valid(name.trim())) renameGroup(group, name.trim()) else Rejection.MALFORMED
+            color: Int? = null,
+        ) {
+            val c = controller
+            act("createGroup") {
+                if (!Names.valid(name.trim())) return@act Rejection.MALFORMED
+                val (group, rejection) = createGroup(name.trim())
+                if (group == null || color == null) return@act rejection
+                trackerOf(c).ownColors[group] = color
+                setGroupColor(group, OperationFacts.rgbOf(color))
+            }
+        }
+
+        /** « Modifier le groupe » (L1 A, `tour8/img/02`): its new [name], its new [color], or both. */
+        fun editGroup(
+            group: Long,
+            name: String?,
+            color: Int?,
+        ) {
+            val c = controller
+            act("editGroup") {
+                if (name != null) {
+                    if (!Names.valid(name.trim())) return@act Rejection.MALFORMED
+                    renameGroup(group, name.trim())?.let { return@act it }
+                }
+                if (color == null) return@act null
+                trackerOf(c).ownColors[group] = color
+                setGroupColor(group, OperationFacts.rgbOf(color))
+            }
         }
 
         fun deleteGroup(group: Long) {
@@ -631,6 +659,9 @@ class OperationSession
             /** The name this phone gave itself (creator, administrator): not told back as given by someone else. */
             @Volatile var ownName: String? = null
 
+            /** The colours this phone gave groups (L1 bis a): the message is for the others. */
+            val ownColors = java.util.concurrent.ConcurrentHashMap<Long, Int>()
+
             /**
              * The requests of a new name this phone answered (N6 A): when the answer of another administrator turns out
              * to come first in the common order (it was out of network), this phone is told « Déjà répondu ».
@@ -674,7 +705,8 @@ class OperationSession
                         val own = ownName
                         val found =
                             Notices.between(before, v, byItself).filterNot {
-                                it is Notice.RenamedByAdmin && it.name == own
+                                (it is Notice.RenamedByAdmin && it.name == own) ||
+                                    (it is Notice.GroupColorChanged && ownColors.remove(it.groupId, it.color))
                             }
                         if (own != null && v.members.firstOrNull { it.id == v.self }?.name == own) ownName = null
                         if (v.phase == OperationPhase.ENDED || v.phase == OperationPhase.NONE) byItself = false

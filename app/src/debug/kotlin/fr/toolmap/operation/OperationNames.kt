@@ -99,7 +99,8 @@ internal fun sameName(
 /**
  * A sheet that gives a new name (`tour5/02-membre`, `02-groupe-B`, `02-demande`, `02-operation`, `04-nom-pris`): the
  * title, the field (the current name already in it, a cross to empty it), what the change does, a box, the button
- * (grey while the name is not valid, not changed or already taken) and « Annuler ».
+ * (grey while the name is not valid, not changed or already taken) and « Annuler ». [more] goes under the field
+ * (the colours of « Modifier le groupe »); [moreChanged]: it changed, the button may save an unchanged name.
  */
 @Composable
 fun NameSheet(
@@ -111,6 +112,8 @@ fun NameSheet(
     button: String,
     taken: (String) -> Boolean,
     box: (@Composable (String) -> Unit)? = null,
+    more: (@Composable () -> Unit)? = null,
+    moreChanged: Boolean = false,
     onSave: (String) -> Unit,
 ) {
     val draft = session.nav.collectAsStateWithLifecycle().value.nameDraft
@@ -158,7 +161,8 @@ fun NameSheet(
     )
     // A name already taken: the error alone, without the box (`04-nom-pris`).
     if (box != null && !isTaken) Box(Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) { box(trimmed) }
-    SheetButton(button, enabled = Names.valid(trimmed) && changed && !isTaken) { onSave(trimmed) }
+    more?.invoke()
+    SheetButton(button, enabled = Names.valid(trimmed) && (changed || moreChanged) && !isTaken) { onSave(trimmed) }
     CancelLine(session)
 }
 
@@ -228,22 +232,39 @@ fun MyNameSheet(
     ) { if (direct) session.renameMember(self, it, own = true) else session.requestName(it) }
 }
 
-/** « Renommer le groupe » (`tour5/02-groupe-B`, N12 A): the name alone; its members and its colour stay. */
+/**
+ * « Modifier le groupe » (L1 A, `tour8/img/02`, from `tour5/02-groupe-B`): its name and its colour, ticked; the
+ * colours of the other groups are pale. Its members stay.
+ */
 @Composable
 fun RenameGroupSheet(
     session: OperationSession,
     facts: OperationFacts,
     group: Long,
 ) {
+    val current = facts.palette[group]
+    var picked by remember(group) { mutableStateOf<Int?>(null) }
+    val others = facts.palette.filterKeys { it != group }.values.toSet()
+    val color = picked?.takeIf { it !in others } ?: current
+    val name = facts.groupName(group)
     NameSheet(
         session,
-        title = stringResource(R.string.op_group_rename),
+        title = stringResource(R.string.op_group_edit_title),
         label = stringResource(R.string.op_group_name),
-        current = facts.groupName(group),
+        current = name,
         note = stringResource(R.string.op_group_rename_note),
         button = stringResource(R.string.op_group_save),
         taken = { facts.groupNameTaken(it, except = group) },
-    ) { session.renameGroup(group, it) }
+        more =
+            if (color == null) {
+                null
+            } else {
+                { GroupColorPicker(stringResource(R.string.op_group_color_edit), color, others) { picked = it } }
+            },
+        moreChanged = color != current,
+    ) { typed ->
+        session.editGroup(group, typed.takeIf { it != name?.trim() }, color.takeIf { it != current })
+    }
 }
 
 /** « Renommer l'opération » (`tour5/02-operation`, N10 A): the invitations already given stay valid. */

@@ -20,6 +20,22 @@
 
 ---
 
+## 2026-11-23 — Session 126 (suite) — [P39.14.5] Opération : la couleur d'un groupe se choisit dans « Nouveau groupe » et « Modifier le groupe »
+- **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.6]` 3bd4813.
+- **Objectif** : P39.14.5, livraison de L1 A et L1 bis a (aperçus `docs/previews/p39-groupes/tour8/img/02-L1-A.png`, `03-L1-A-suite.png`, `05-L1-autres.png`, validés le 2026-11-23) : huit pastilles de couleur sous le nom d'un groupe, et un message aux autres quand la couleur change.
+- **Réalisé** :
+  - Pastilles (`GroupColorPicker`) dans « Nouveau groupe » (Administrer, et groupes de départ de « Nouvelle opération ») et dans « Modifier le groupe », qui remplace « Renommer le groupe » (ligne de la page du groupe, titre, aide « Ses membres ne changent pas. ») ; la couleur actuelle ou celle d'un nouveau groupe cochée, celles des autres groupes pâles et hors d'atteinte ; deux lignes de quatre sur un écran plus étroit que celui de l'aperçu.
+  - Règle des couleurs (`OperationFacts.paletteOf`) : la couleur choisie, sinon celle de la place tant qu'aucun groupe ne l'a, sinon la première libre ; choisir la couleur d'un groupe ne change jamais celle d'un autre, et sans choix les couleurs sont celles d'avant.
+  - Message « Le groupe Ouest a changé de couleur : rose. » sur les autres téléphones de l'opération (`Notice.GroupColorChanged`).
+  - Spec § 27, « Livraison 6 » ; cinq scènes de capture `tour8-…`.
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `OperationModelsTest` : la règle des couleurs (sans choix, comme avant ; un choix ne déplace aucun autre groupe ; un même choix fait deux fois ; une couleur hors palette) ; Ouest passé au rose par un administrateur : seul Ouest change, un 5e groupe serait violet, le message va au créateur, à un membre, à un membre d'Ouest et à qui attend ; rien pour un autre changement.
+  - `./gradlew spotlessApply` puis `./gradlew check assembleDebug` : vert (0.4.284 ; un premier build 0.4.283 a fait échouer le contrôle sur émulateur : « the scene tour8-05-L1-bis-a-couleur-changee could not be shown », Ouest étant déjà supprimé par une scène d'avant ; la scène passe en tête des scènes qui changent la démonstration).
+  - Émulateur temporaire du poste : `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` → OK (95 écrans du mode « Opération »). Captures comparées aux aperçus validés : `tour8-02-L1-A-nouveau-groupe` et `…-modifier-le-groupe` (image 02 : titre « Modifier le groupe », aide, huit pastilles, la couleur du groupe cochée, celles des autres pâles), `tour8-03-L1-A-page-du-groupe` et `…-nouvelle-operation` (image 03), `tour8-05-L1-bis-a-couleur-changee` (image 05 : jeton d'Ouest rose, « Le groupe Ouest a changé de couleur : rose. » en bas de l'écran de Membre 7) : conformes.
+- **Problèmes / dette technique** : aucun.
+- **Prochaine étape recommandée** : P39.14.5, L4 et L4 bis / M8 (le service écran éteint de l'opération et sa notification) ; puis M4, qui s'appuie sur ce service pour renvoyer le départ application fermée.
+
 ## 2026-11-23 — Session 126 (suite) — [P39.14.6] Opération : le nom d'un groupe renommé par un administrateur retiré au même moment n'est plus perdu
 - **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.5]` 02ea80f (L5).
 - **Objectif** : réparer le défaut `names:missing` de la longue série (graine 0x50ac003e), classé comme défaut à la demande de la session principale ; sans effet visible.
@@ -35,6 +51,8 @@
   - Graine 0x50ac0040 rejouée comme dans la longue série (`…=0x50ac0040:18:160:rough:nopos`) : rouge avec la correction seule (« P0 lacks the names of [P14]; known to [] » ; trace instrumentée : « P0(creator) lets P14 in (card false) »), verte une fois le simulateur aligné sur l'application ; 0x50ac003e reste verte.
   - Longue série de 100 scénarios avec la correction, avant l'alignement du simulateur : `objects:diverge:DOWN` 1 (0x50ac002c, la règle S, P39.14.7) et `names:missing` 1 (0x50ac0040, ci-dessus) ; avant la correction (livraison 3) : `objects:diverge:DOWN` 1 et `names:missing` 2.
   - `./gradlew spotlessApply` puis `./gradlew check assembleDebug` : vert (0.4.282). Émulateur temporaire du poste : `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` → OK (90 écrans du mode « Opération »).
+  - Longue série de 100 scénarios rejouée avec la correction et le simulateur aligné : `objects:diverge:DOWN` 1 (0x50ac002c, la règle S, P39.14.7), plus aucun `names:missing`.
+  - Commit 3bd4813 poussé : CI n° 251 verte (contrôle sur émulateur compris), « Opération, bout en bout » n° 10 vert ; APK de debug de la CI copié dans « APK debug » du Drive : `ToolMap-debug-0.4.282.apk` (SHA-256 `a3ffd852…4b8bb4`, même certificat).
 - **Problèmes / dette technique** : aucun.
 - **Prochaine étape recommandée** : P39.14.5, L1 et L1 bis (pastilles de couleur, message aux autres).
 

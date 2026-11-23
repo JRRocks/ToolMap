@@ -423,7 +423,7 @@ fun GroupPage(
                     {
                         ActionLine(
                             OperationIcons.Edit,
-                            stringResource(R.string.op_group_rename),
+                            stringResource(R.string.op_group_edit_title),
                             null,
                             start = 16.dp,
                         ) { session.sheet(OpSheet.EditGroup(group)) }
@@ -1088,7 +1088,14 @@ private fun NewGroupSheet(
         supportingText = if (taken) ({ Text(stringResource(R.string.op_name_taken)) }) else null,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
     )
-    SheetButton(createLabel(name), enabled = valid && !taken) { session.createGroup(name) }
+    // L1 A (`tour8/img/02`): the colour it would have is ticked; untouched, nothing more is written.
+    var picked by remember { mutableStateOf<Int?>(null) }
+    val others = facts.palette.values.toSet()
+    val color = picked?.takeIf { it !in others } ?: facts.nextColor
+    GroupColorPicker(stringResource(R.string.op_group_color_new), color, others) { picked = it }
+    SheetButton(createLabel(name), enabled = valid && !taken) {
+        session.createGroup(name, color.takeIf { it != facts.nextColor })
+    }
     CancelLine(session)
 }
 

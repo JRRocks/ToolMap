@@ -378,6 +378,42 @@ class OperationModelsTest {
     }
 
     @Test
+    fun `the colours of the groups - the one chosen, else the one of its place, never another's`() {
+        // Without any choice: the colours of before (the first free one in the order), repeated past eight.
+        assertEquals((0..7).toList() + listOf(0, 1), OperationFacts.paletteOf(List(10) { null }))
+        // Nord takes rose: Sud, Est and Ouest keep theirs, the blue is free again.
+        assertEquals(listOf(4, 1, 2, 3), OperationFacts.paletteOf(listOf(4, null, null, null)))
+        // A group whose place is the colour another chose takes the first free one; the first to choose keeps it.
+        assertEquals(listOf(0, 1, 3, 2), OperationFacts.paletteOf(listOf(null, null, null, 2)))
+        assertEquals(listOf(5, 1, 2), OperationFacts.paletteOf(listOf(5, 5, null)))
+        // A colour the screens do not offer is no choice.
+        assertNull(OperationFacts.paletteIndexOf(0x123456))
+        assertEquals(4, OperationFacts.paletteIndexOf(OperationFacts.rgbOf(4)))
+    }
+
+    @Test
+    fun `a colour given to a group changes it alone, and is told to the others (L1 bis)`() {
+        val w = Vallon()
+        val ouest = w.groups.getValue("Ouest")
+        assertEquals(4, facts(w, 5).nextColor, "a fifth group would be rose (`tour8/img/02`)")
+        val before = (1..22).associateWith { w.view(it) }
+        val rose = w.by(5, Change.SetGroupColor(ouest, OperationFacts.rgbOf(4)))
+        val f = OperationFacts(w.view(7, rose), NOW)
+        assertEquals(listOf(0, 1, 2, 4), f.groupOrder.map { f.palette.getValue(it) }, "Ouest passes to rose alone")
+        assertEquals(3, f.nextColor, "a fifth group would now be violet, the first free one")
+        // `tour8/img/05`: « Le groupe Ouest a changé de couleur : rose. », to the placed and to who waits.
+        for (n in listOf(1, 7, 18, 21)) {
+            assertEquals(
+                listOf<Notice>(Notice.GroupColorChanged(ouest, "Ouest", 4)),
+                Notices.between(before.getValue(n), w.view(n, rose)),
+            )
+        }
+        // A change of nothing else: nothing is said.
+        val renamed = w.by(5, Change.RenameMember(w.id.getValue(11), w.hide("Éclaireur 11")))
+        assertEquals(emptyList(), Notices.between(w.view(7, rose), w.view(7, renamed)))
+    }
+
+    @Test
     fun `a new rhythm is told to every phone of the operation, its author and who waits included`() {
         val w = Vallon()
         // F4 B (`tour6/img/06-f4-changement` B): « Fréquence d'envoi : toutes les 45 s, pour toute l'opération. ».

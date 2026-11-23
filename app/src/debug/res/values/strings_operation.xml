@@ -313,8 +313,22 @@
   <string name="op_name_clear">Effacer le nom</string>
   <string name="op_rename_member_note">Le nouveau nom remplace l\'ancien sur tous les téléphones de l\'opération. %1$s en est prévenu.</string>
   <string name="op_renamed_you">Un administrateur vous a renommé « %1$s ».</string>
-  <string name="op_group_rename">Renommer le groupe</string>
-  <string name="op_group_rename_note">Ses membres et sa couleur ne changent pas.</string>
+  <!-- L1 A and L1 bis a (tour8/img/02, 03, 05), validated on 2026-11-23: the sheet « Modifier le groupe » gives the colour too. -->
+  <string name="op_group_rename_note">Ses membres ne changent pas.</string>
+  <string name="op_group_color_new">Couleur (celles déjà prises sont pâles)</string>
+  <string name="op_group_color_edit">Couleur (elle change sur tous les téléphones)</string>
+  <string name="op_group_color_changed">Le groupe %1$s a changé de couleur : %2$s.</string>
+  <!-- The colours of the groups, in the order of OperationFacts.GROUP_COLORS. -->
+  <string-array name="op_group_color_names">
+    <item>bleu</item>
+    <item>orange</item>
+    <item>vert</item>
+    <item>violet</item>
+    <item>rose</item>
+    <item>brun</item>
+    <item>cyan</item>
+    <item>olive</item>
+  </string-array>
   <string name="op_my_name_title">Changer mon nom</string>
   <string name="op_my_name_field">Nouveau nom</string>
   <string name="op_my_name_box">Un administrateur doit accepter. D\'ici là, tout le monde vous voit sous le nom **%1$s**.</string>

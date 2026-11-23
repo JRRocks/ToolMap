@@ -157,12 +157,23 @@ data class CreateForm(
     val name: String = "",
     /** The groups to make, by their names (« Nord », written alone: the answer N0 of 2026-11-16). */
     val groups: List<String> = emptyList(),
+    /**
+     * The colour picked for each of [groups], by index, an index of [OperationFacts.GROUP_COLORS] (L1 A,
+     * `tour8/img/03`); `null` or missing: the one of its place ([OperationFacts.paletteOf]).
+     */
+    val colors: List<Int?> = emptyList(),
     /** The index in [groups] of the creator's own group; `null`: « Aucun » (Q9). */
     val myGroup: Int? = null,
     /** The sheet « Nouveau groupe » is open (`-1`), or the one that renames the group of that index. */
     val editing: Int? = null,
     val busy: Boolean = false,
 ) {
+    /** The colours picked, one per group ([colors] filled up with `null`). */
+    val chosen: List<Int?> get() = groups.indices.map { colors.getOrNull(it) }
+
+    /** The colour of each group as it will be, an index of [OperationFacts.GROUP_COLORS]. */
+    val palette: List<Int> get() = OperationFacts.paletteOf(chosen)
+
     companion object {
         const val ADDING = -1
     }
@@ -263,6 +274,16 @@ sealed interface Notice {
     data class RhythmChanged(
         val seconds: Int,
     ) : Notice
+
+    /**
+     * A message at the bottom of the screen of the others (L1 bis a, `tour8/img/05`): « Le groupe Ouest a changé de
+     * couleur : rose. »; [color] is an index of [OperationFacts.GROUP_COLORS].
+     */
+    data class GroupColorChanged(
+        val groupId: Long,
+        val group: String,
+        val color: Int,
+    ) : Notice
 }
 
 /**
@@ -360,6 +381,16 @@ object Notices {
         val inNow = after.phase == OperationPhase.WAITING || after.phase == OperationPhase.PLACED
         if (inNow && now.positionIntervalS != was.positionIntervalS) {
             out += Notice.RhythmChanged(now.positionIntervalS)
+        }
+        // The colour an administrator gave a group (L1 bis a): only a colour chosen, not one moved by another change.
+        if (inNow) {
+            val colorsBefore = OperationFacts.paletteOf(was)
+            val colorsNow = OperationFacts.paletteOf(now)
+            for ((id, group) in now.groups) {
+                val color = colorsNow[id] ?: continue
+                if (group.rgb == was.groups[id]?.rgb || color == colorsBefore[id] || id !in was.groups) continue
+                out += Notice.GroupColorChanged(id, groupNamed(id), color)
+            }
         }
         return out
     }

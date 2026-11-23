@@ -191,6 +191,7 @@ fun CreatePage(
                     )
                 }
             }
+            val colors = form.palette
             Caption(stringResource(R.string.op_new_groups, form.groups.size, limit))
             GroupBlock(
                 rows =
@@ -200,7 +201,7 @@ fun CreatePage(
                                 Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                GroupDot(i, 24.dp)
+                                GroupDot(colors.getOrNull(i), 24.dp)
                                 Text(
                                     groupTitle(name),
                                     style = MaterialTheme.typography.bodyLarge,
@@ -257,7 +258,7 @@ fun CreatePage(
                             if (selected) {
                                 Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                             } else {
-                                GroupDot(i, 10.dp)
+                                GroupDot(colors.getOrNull(i), 10.dp)
                             }
                         },
                     )
@@ -286,17 +287,42 @@ fun CreatePage(
     }
     form.editing?.let { index ->
         val adding = index == CreateForm.ADDING
+        val chosen = form.chosen
+        // L1 A (`tour8/img/03`): the colour it has without a choice of its own; picking it again keeps no choice.
+        val unpicked =
+            if (adding) {
+                OperationFacts.paletteOf(chosen + null).last()
+            } else {
+                OperationFacts.paletteOf(
+                    chosen.mapIndexed { i, c ->
+                        if (i ==
+                            index
+                        ) {
+                            null
+                        } else {
+                            c
+                        }
+                    },
+                ).getOrElse(index) { 0 }
+            }
         GroupNameSheet(
             adding = adding,
             rank = form.groups.size + 1,
             limit = limit,
             initial = if (adding) "" else form.groups.getOrNull(index).orEmpty(),
-            onSave = { name ->
+            color = if (adding) unpicked else form.palette.getOrElse(index) { unpicked },
+            taken = form.palette.filterIndexed { i, _ -> adding || i != index }.toSet(),
+            onSave = { name, color ->
+                val pick = color.takeIf { it != unpicked }
                 session.editCreate { f ->
                     if (adding) {
-                        f.copy(groups = f.groups + name, editing = null)
+                        f.copy(groups = f.groups + name, colors = f.chosen + pick, editing = null)
                     } else {
-                        f.copy(groups = f.groups.mapIndexed { i, g -> if (i == index) name else g }, editing = null)
+                        f.copy(
+                            groups = f.groups.mapIndexed { i, g -> if (i == index) name else g },
+                            colors = f.chosen.mapIndexed { i, c -> if (i == index) pick else c },
+                            editing = null,
+                        )
                     }
                 }
             },
@@ -320,6 +346,7 @@ fun CreatePage(
                                         ->
                                         i != index
                                     },
+                                colors = f.chosen.filterIndexed { i, _ -> i != index },
                                 myGroup = mine,
                                 editing = null,
                             )
@@ -331,7 +358,10 @@ fun CreatePage(
     }
 }
 
-/** « Nouveau groupe » / « Modifier le groupe » (`tour2/04-admin-groupes`, without the colour: see the remontée). */
+/**
+ * « Nouveau groupe » / « Modifier le groupe » of « Nouvelle opération » (`tour2/04-admin-groupes`; L1 A,
+ * `tour8/img/03`): the name and the eight colours, [color] ticked, those of the other groups ([taken]) pale.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupNameSheet(
@@ -339,11 +369,15 @@ fun GroupNameSheet(
     rank: Int,
     limit: Int,
     initial: String,
-    onSave: (String) -> Unit,
+    color: Int,
+    taken: Set<Int>,
+    onSave: (String, Int) -> Unit,
     onDelete: (() -> Unit)?,
     onClose: () -> Unit,
 ) {
     var name by remember(initial) { mutableStateOf(initial) }
+    var picked by remember(initial) { mutableStateOf<Int?>(null) }
+    val shown = picked?.takeIf { it !in taken } ?: color
     val valid = Names.valid(name.trim())
     ModalBottomSheet(
         onDismissRequest = onClose,
@@ -365,8 +399,9 @@ fun GroupNameSheet(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
             )
+            GroupColorPicker(stringResource(R.string.op_group_color_new), shown, taken) { picked = it }
             Button(
-                onClick = { onSave(name.trim()) },
+                onClick = { onSave(name.trim(), shown) },
                 enabled = valid,
                 modifier =
                     Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 16.dp).heightIn(min = 52.dp),

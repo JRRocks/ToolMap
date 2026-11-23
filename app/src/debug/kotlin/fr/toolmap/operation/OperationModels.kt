@@ -93,16 +93,12 @@ class OperationFacts(
     /** The groups in the order they were made: the engine keeps that order, the same on every phone. */
     val groupOrder: List<Long> = state?.groups?.keys?.toList().orEmpty()
 
-    /** The colour of each group: the first of [GROUP_COLORS] that no older group has (no colour in the engine). */
-    val palette: Map<Long, Int> =
-        buildMap {
-            val taken = HashSet<Int>()
-            for (g in groupOrder) {
-                val free = GROUP_COLORS.indices.firstOrNull { it !in taken } ?: (size % GROUP_COLORS.size)
-                taken += free
-                put(g, free)
-            }
-        }
+    /** The colour of each group, an index of [GROUP_COLORS] ([paletteOf]). */
+    val palette: Map<Long, Int> = state?.let { paletteOf(it) }.orEmpty()
+
+    /** The colour a new group would have now: the one « Nouveau groupe » ticks (L1 A, `tour8/img/02`). */
+    val nextColor: Int
+        get() = paletteOf(groupOrder.map { g -> state?.groups?.get(g)?.rgb?.let { paletteIndexOf(it) } } + null).last()
 
     val operationName: String? get() = view.operationName
 
@@ -324,6 +320,44 @@ class OperationFacts(
         /** The eight colours of the groups (`tour2/04-admin-groupes`), in the order they are given. */
         val GROUP_COLORS: List<Long> =
             listOf(0xFF1976D2, 0xFFE06C00, 0xFF2E7D32, 0xFF7B1FA2, 0xFFC2185B, 0xFF5D4037, 0xFF00838F, 0xFFAFB42B)
+
+        /** The index in [GROUP_COLORS] of [rgb] (`0xRRGGBB`); `null` for a colour the screens do not offer. */
+        fun paletteIndexOf(rgb: Int): Int? =
+            GROUP_COLORS.indexOfFirst { (it and 0xFFFFFF).toInt() == rgb }.takeIf {
+                it >=
+                    0
+            }
+
+        /** The colour [index] of [GROUP_COLORS] as the engine carries it, `0xRRGGBB`. */
+        fun rgbOf(index: Int): Int = (GROUP_COLORS[index] and 0xFFFFFF).toInt()
+
+        /** The colour of each group of [state], an index of [GROUP_COLORS] ([paletteOf]). */
+        fun paletteOf(state: HierarchyState): Map<Long, Int> {
+            val order = state.groups.keys.toList()
+            return order.zip(paletteOf(order.map { state.groups.getValue(it).rgb?.let(::paletteIndexOf) })).toMap()
+        }
+
+        /**
+         * The colours of groups in their order (L1, P39.14.5), from the one chosen for each ([chosen], an index of
+         * [GROUP_COLORS]; `null`: none). A chosen colour is the group's, unless an older group chose it first; any
+         * other group keeps the colour of its place in the order while no group has it, else takes the first free
+         * one. So choosing the colour of one group never changes another's, and without any choice the colours are
+         * those of before (the first free one, in the order the groups were made); past eight groups they repeat.
+         */
+        fun paletteOf(chosen: List<Int?>): List<Int> {
+            val n = GROUP_COLORS.size
+            val claimed = arrayOfNulls<Int>(chosen.size)
+            val taken = HashSet<Int>()
+            chosen.forEachIndexed { i, c -> if (c != null && c in 0 until n && taken.add(c)) claimed[i] = c }
+            return chosen.indices.map { i ->
+                claimed[i] ?: run {
+                    val place = i % n
+                    val free = if (place !in taken) place else (0 until n).firstOrNull { it !in taken } ?: place
+                    taken += free
+                    free
+                }
+            }
+        }
 
         /** Grey of the members waiting for a group. */
         const val WAITING_COLOR: Long = 0xFF6B7B82

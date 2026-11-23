@@ -105,7 +105,8 @@ fun OperationRoot(
     val message =
         extras.notices.firstOrNull {
             it is Notice.NewCreator || it is Notice.NewGroupChief || it is Notice.NewOperationChief ||
-                it is Notice.RenamedByAdmin || it is Notice.NameAccepted || it is Notice.RhythmChanged
+                it is Notice.RenamedByAdmin || it is Notice.NameAccepted || it is Notice.RhythmChanged ||
+                it is Notice.GroupColorChanged
         }
     LaunchedEffect(message) {
         val shown = message ?: return@LaunchedEffect
@@ -142,6 +143,17 @@ fun OperationRoot(
                     } else {
                         resources.getString(R.string.op_freq_changed, durationText(shown.seconds))
                     }
+                }
+
+                is Notice.GroupColorChanged -> {
+                    val names = resources.getStringArray(R.array.op_group_color_names)
+                    resources.getString(
+                        R.string.op_group_color_changed,
+                        shown.group,
+                        names.getOrElse(shown.color) {
+                            ""
+                        },
+                    )
                 }
 
                 else -> {

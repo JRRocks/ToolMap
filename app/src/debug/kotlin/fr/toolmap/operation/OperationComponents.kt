@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,9 +16,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,9 +38,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -286,6 +294,80 @@ fun GroupDot(
 ) {
     Box(Modifier.size(size).clip(CircleShape).background(groupColor(palette)))
 }
+
+/**
+ * The eight colours of a group under its name (L1 A, `tour8/img/02`, `03`): [selected] ticked, the colours of the
+ * other groups ([taken]) pale and out of reach; on a screen too narrow for one line, two lines of four rather than
+ * smaller dots.
+ */
+@Composable
+fun GroupColorPicker(
+    label: String,
+    selected: Int,
+    taken: Set<Int>,
+    onPick: (Int) -> Unit,
+) {
+    val names = stringArrayResource(R.array.op_group_color_names)
+    val ground = MaterialTheme.colorScheme.surfaceContainerLow
+    val ring = MaterialTheme.colorScheme.onSurface
+    Text(
+        label,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp),
+    )
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
+        val all = OperationFacts.GROUP_COLORS.indices.toList()
+        val oneLine = maxWidth >= COLORS_ONE_LINE
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            for (line in if (oneLine) listOf(all) else all.chunked(all.size / 2)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (oneLine) Arrangement.SpaceBetween else Arrangement.spacedBy(16.dp),
+                ) {
+                    for (i in line) {
+                        val color = groupColor(i)
+                        val ticked = i == selected
+                        val free = i !in taken
+                        Box(
+                            Modifier
+                                .size(COLOR_DOT)
+                                .clip(CircleShape)
+                                .selectable(selected = ticked, enabled = free, role = Role.RadioButton) { onPick(i) }
+                                .semantics { contentDescription = names.getOrElse(i) { "" } }
+                                .then(if (ticked) Modifier.border(2.dp, ring, CircleShape).padding(4.dp) else Modifier)
+                                .clip(CircleShape)
+                                .background(
+                                    if (free ||
+                                        ticked
+                                    ) {
+                                        color
+                                    } else {
+                                        color.copy(alpha = 0.35f).compositeOver(ground)
+                                    },
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (ticked) {
+                                Icon(
+                                    Icons.Filled.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val COLOR_DOT = 36.dp
+
+/** The row of a screen 411 dp wide, as `tour8/img/02` draws it; on a narrower screen, two lines of four. */
+private val COLORS_ONE_LINE = 360.dp
 
 /** The title over a block: « Mon groupe · Groupe Nord » with its dot, « Toute l'opération », and what it counts. */
 @Composable

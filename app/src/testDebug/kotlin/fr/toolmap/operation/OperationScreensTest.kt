@@ -146,8 +146,9 @@ class OperationScreensTest {
         session.show(5, OperationNav().open(OpPage.GroupPage(groupOf(session, "Ouest"))))
         seen("Un groupe sans chef fonctionne")
         seen("Aucun chef nommé")
-        // Renaming (P39.13): written at the bottom of the page of a group (N12 A), at the top of a member's sheet (N14 A).
-        seen("Renommer le groupe")
+        // Renaming (P39.13): written at the bottom of the page of a group (N12 A, then « Modifier le groupe », L1 A), at
+        // the top of a member's sheet (N14 A).
+        seen("Modifier le groupe")
         seen("Supprimer le groupe")
         session.show(1, OperationNav().open(OpPage.Admins))
         seen("Vous seul")

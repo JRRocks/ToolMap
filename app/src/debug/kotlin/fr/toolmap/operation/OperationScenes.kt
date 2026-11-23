@@ -231,6 +231,29 @@ object OperationScenes {
             Scene("tour6-05-q2-B-modifie-3") {
                 at(1) { OperationNav(sheet = OpSheet.Frequency(draft = 20, typing = true)) }
             },
+            // The colour of a group (P39.14.5, L1 A, `tour8/img/02` and `03`).
+            Scene("tour8-02-L1-A-nouveau-groupe") { at(5) { page(OpPage.Admin).copy(sheet = OpSheet.NewGroup) } },
+            Scene("tour8-02-L1-A-modifier-le-groupe") {
+                at(5) { s ->
+                    val ouest = s.groupOf("Ouest") ?: 0L
+                    page(OpPage.Admin, OpPage.GroupPage(ouest)).copy(sheet = OpSheet.EditGroup(ouest))
+                }
+            },
+            Scene("tour8-03-L1-A-page-du-groupe") {
+                at(5) { s -> page(OpPage.Admin, OpPage.GroupPage(s.groupOf("Nord") ?: 0L)).copy(toEnd = true) }
+            },
+            Scene("tour8-03-L1-A-nouvelle-operation") {
+                viewReal()
+                createForm.value =
+                    CreateForm(
+                        name = "Exercice Vallon",
+                        groups = GROUP_ORDER.take(3),
+                        myGroup = 2,
+                        editing = CreateForm.ADDING,
+                    )
+                request(OperationRequest.CREATE)
+                true
+            },
             Scene("tour5-04-attente-nom") {
                 at(21) { OperationNav(sheet = OpSheet.MyName, nameDraft = "Prénom N.") }
             },
@@ -247,6 +270,14 @@ object OperationScenes {
             Scene("tour3-05-createur-A-au-bout") { at(1) { OperationNav(dialog = OpDialog.CreatorQuit, slide = 1f) } },
             Scene("tour3-05-successeur") { at(1) { OperationNav(sheet = OpSheet.Successor) } },
             // What changes the demonstration, in this order.
+            // Ouest passes to rose on the phone of Membre 5, an administrator: what Membre 7 sees (L1 bis a,
+            // `tour8/img/05`). First, while the four groups of the maquettes are there.
+            Scene("tour8-05-L1-bis-a-couleur-changee", changes = true) {
+                forgetNotices(5, 7)
+                val ouest = demoSeat(5)?.view?.value?.groups?.firstOrNull { it.name == "Ouest" }?.id
+                if (ouest != null) demoSeat(5)?.setGroupColor(ouest, OperationFacts.rgbOf(4))
+                waitFor { noticesOf(7).any { it is Notice.GroupColorChanged } } && at(7)
+            },
             Scene("tour3-06-supprimer-groupe-apres", changes = true) {
                 forgetNotices(5, 18)
                 val ouest = demoSeat(5)?.view?.value?.groups?.firstOrNull { it.name == "Ouest" }?.id
