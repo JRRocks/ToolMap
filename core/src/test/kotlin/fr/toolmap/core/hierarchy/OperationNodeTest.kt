@@ -1081,6 +1081,44 @@ class OperationNodeTest {
         assertTrue(a.n.objects.shown(down).isEmpty(), "the creator never gets it")
     }
 
+    /**
+     * A group renamed by an administrator taken out before its card reached anyone (seed 0x50ac003e of the long
+     * series, P39.14.6): the rename stands on every phone, so its name must too. A card proves itself (its commitment
+     * is in an operation signed by who could write it), so it is taken from who sealed it, even out since.
+     */
+    @Test
+    fun `a group renamed by an administrator taken out meanwhile keeps its name`() {
+        val room = Room()
+        val a = room.creator("Alice")
+        val b = room.letIn(a, "Bruno")
+        val m = room.letIn(a, "Marc")
+        val nord = a.newGroup("Nord")
+        a.must(Change.AssignMember(b.id, nord))
+        a.must(Change.AssignMember(m.id, nord))
+        a.must(Change.AddAdmin(b.id))
+        room.settle()
+        room.goOffline(m)
+        val card = Names.hide("Ouest")
+        b.must(Change.RenameGroup(nord, card.hidden))
+        // A gets the rename alone, then takes B out before the card that follows it: the rename comes first.
+        val (from, to, frame) = room.queue.removeFirst()
+        assertEquals(b to a, from to to)
+        a.n.receive(b.id, frame)
+        assertEquals(card.hidden, a.state.groups.getValue(nord).name)
+        b.n.learnAndShare(card)
+        a.must(Change.RemoveMember(b.id))
+        room.settle()
+        room.comeBack(m)
+        room.settle()
+        room.now += 600_000
+        room.settle()
+        assertTrue(b.id !in a.state.members, "B is out")
+        for (x in listOf(a, m)) {
+            assertEquals(card.hidden, x.state.groups.getValue(nord).name, "$x: the rename stands")
+            assertEquals("Ouest", x.n.names.nameOf(x.state.groups.getValue(nord).name), "$x knows the new name")
+        }
+    }
+
     // ---- P39.14.3: L2 (the user's answer of 2026-11-16, cases E and H of § 21) -----------------------------------
 
     /** A phone that asks to come in with [creator]'s invitation; not let in. */

@@ -673,7 +673,7 @@ class OperationNode(
     private fun onShare(frame: OpenedFrame) {
         val state = state
         val opened =
-            when (val result = ShareSeal.open(state, ring, frame.body)) {
+            when (val result = ShareSeal.open(state, ring, frame.body, replica::signingKeyOf)) {
                 is OpenResult.Opened -> {
                     result.share
                 }
@@ -746,10 +746,11 @@ class OperationNode(
 
             ShareKind.ROSTER -> {
                 // Another reader told the names of this waiting lane: this phone need not do it too.
-                if (opened.channel.lane == Lane.WAITING && opened.author != opened.channel.scope) {
+                if (opened.channel.lane == Lane.WAITING && opened.author != opened.channel.scope && !opened.late) {
                     namesSeenAt[opened.channel] = now
                 }
-                if (names.accept(opened) > 0) {
+                val learnt = if (opened.late) names.accept(opened, lateNames(opened.channel)) else names.accept(opened)
+                if (learnt > 0) {
                     // Who waits keeps the ensemble's name and its own ones, nothing else, whoever wrote in its lane.
                     if (state.isWaiting(self)) names.prune(state, self)
                     refreshOwnCard()
@@ -757,6 +758,32 @@ class OperationNode(
                 }
             }
         }
+    }
+
+    /**
+     * The names that names from someone who may no longer share in [channel] still give this phone ([Share.late],
+     * P39.14.6, ADR-143): only the ones it lacks, that the operations held carry, that an honest phone shares there
+     * (in the whole operation, every name but the ones of who waits; in a waiting lane, the ones its member may know)
+     * and that this phone may know. The operation that one wrote may stand on every phone: its name must too.
+     */
+    private fun lateNames(channel: Channel): Set<HiddenName> {
+        val state = state
+        val there =
+            when {
+                channel == Channel.ENSEMBLE -> {
+                    state.hiddenNames() - state.waiting().flatMapTo(HashSet()) { state.namesOf(it.id) }
+                }
+
+                channel.lane == Lane.WAITING -> {
+                    state.namesFor(channel.scope)
+                }
+
+                else -> {
+                    emptySet()
+                }
+            }
+        val mine = state.namesFor(self)
+        return there.filterTo(HashSet()) { it in mine && names.cardOf(it) == null }
     }
 
     private fun onJoin(frame: OpenedFrame) {

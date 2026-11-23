@@ -6,13 +6,15 @@ import java.security.SecureRandom
 
 /**
  * Something a member shares in a channel: a position, a sketch, a waypoint, a message, an alert, names. [payload] is
- * the caller's (for sketches and waypoints, a [SharedRecord]; for names, [NameBook.encode]).
+ * the caller's (for sketches and waypoints, a [SharedRecord]; for names, [NameBook.encode]). [late]: names from an
+ * author who may no longer share there ([ShareSeal.open]).
  */
 class Share(
     val kind: ShareKind,
     val channel: Channel,
     val author: Long,
     val payload: ByteArray,
+    val late: Boolean = false,
 )
 
 /** Why a share was not sealed, or not opened. */
@@ -122,11 +124,17 @@ object ShareSeal {
      * Opens [frame] on the phone of [ring]. Refused unless: this phone holds the key and reads the channel, the author
      * may share this kind there in [state], a signed kind carries the author's signature, and an unsigned kind is
      * sealed with the key of the readers of now (an older key is also held by whoever was put out since).
+     *
+     * One exception, when [pastSigner] is given (the signing keys of the members of before too): names
+     * ([ShareKind.ROSTER]) from an author who may no longer share there are opened, marked [Share.late]. A card proves
+     * itself, and the operation it opens may stand although its author lost its right since (P39.14.6, ADR-143): the
+     * caller takes from it only the names it lacks and may know.
      */
     fun open(
         state: HierarchyState,
         ring: KeyRing,
         frame: ByteArray,
+        pastSigner: ((Long) -> ByteArray?)? = null,
     ): OpenResult {
         fun no(reason: ShareRefusal) = OpenResult.Refused(reason)
         val header =
@@ -152,16 +160,23 @@ object ShareSeal {
             Aead.open(key.sealingKey(header.author), nonce, clear, frame.copyOfRange(sealedAt, frame.size))
                 ?: return no(ShareRefusal.UNDECIPHERABLE)
         // The rights are the ones of now: who was put out, or lost its post, no longer shares, even with a key it kept.
-        if (!state.mayShare(header.author, header.kind, header.channel)) return no(ShareRefusal.NOT_ALLOWED)
+        // Names alone may come late (see above).
+        val late = !state.mayShare(header.author, header.kind, header.channel)
+        if (late && (header.kind != ShareKind.ROSTER || pastSigner == null)) return no(ShareRefusal.NOT_ALLOWED)
         if (header.kind !in state.rules.signedShares) {
-            if (!key.isFor(state.readers(header.channel))) return no(ShareRefusal.STALE_KEY)
-            return OpenResult.Opened(Share(header.kind, header.channel, header.author, plain))
+            if (!late && !key.isFor(state.readers(header.channel))) return no(ShareRefusal.STALE_KEY)
+            return OpenResult.Opened(Share(header.kind, header.channel, header.author, plain, late))
         }
         if (plain.size < P256.SIGNATURE_BYTES) return no(ShareRefusal.FORGED)
         val payload = plain.copyOf(plain.size - P256.SIGNATURE_BYTES)
         val signature = plain.copyOfRange(payload.size, plain.size)
-        val signing = state.members.getValue(header.author).keys.signing
+        val signing =
+            if (late) {
+                pastSigner?.invoke(header.author) ?: return no(ShareRefusal.NOT_ALLOWED)
+            } else {
+                state.members.getValue(header.author).keys.signing
+            }
         if (!P256.verify(signing, SHARE_TAG + clear + nonce + payload, signature)) return no(ShareRefusal.FORGED)
-        return OpenResult.Opened(Share(header.kind, header.channel, header.author, payload))
+        return OpenResult.Opened(Share(header.kind, header.channel, header.author, payload, late))
     }
 }

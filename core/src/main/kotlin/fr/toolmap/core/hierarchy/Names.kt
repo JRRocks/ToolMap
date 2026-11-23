@@ -113,9 +113,15 @@ class NameBook {
         return true
     }
 
-    /** Takes in a [ShareKind.ROSTER] share once opened; how many of its cards are new. Anything else: 0. */
+    /**
+     * Takes in a [ShareKind.ROSTER] share once opened; how many of its cards are new. Anything else: 0. [only]: the
+     * hidden names to take from it, the others are left (`null`: all of them).
+     */
     @Synchronized
-    fun accept(share: Share): Int {
+    fun accept(
+        share: Share,
+        only: Set<HiddenName>? = null,
+    ): Int {
         if (share.kind != ShareKind.ROSTER) return 0
         val received =
             try {
@@ -124,7 +130,7 @@ class NameBook {
                 Problems.expected("hierarchy.names.decode", e)
                 return 0
             }
-        return received.count { it.hidden !in cards && learn(it) }
+        return received.count { it.hidden !in cards && (only == null || it.hidden in only) && learn(it) }
     }
 
     /**

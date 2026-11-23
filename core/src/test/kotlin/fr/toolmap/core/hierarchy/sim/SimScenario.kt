@@ -523,13 +523,20 @@ class Simulation(
     private fun admit(decline: Boolean) {
         val admin = pick(running().filter { it.n.pendingJoins.isNotEmpty() }) ?: return
         val pending = admin.n.pendingJoins
-        val who = pending[r.nextInt(pending.size)].member
+        val chosen = pending[r.nextInt(pending.size)]
+        val who = chosen.member
         if (decline) {
             admin.call { it.decline(who) }
             note("${label(admin.n.state, admin.id)} declines ${label(null, who)}")
             return
         }
         val before = admin.n.state
+        // As the application does (OperationSession: whoever asks comes in as soon as its name is read here), nobody
+        // lets in a request whose name it cannot read: a phone lost before its card reached anyone stays outside.
+        if (chosen.card == null) {
+            note("${label(before, admin.id)} cannot read the name of ${label(null, who)} yet: not let in")
+            return
+        }
         when (val result = admin.call { it.admit(who) }) {
             is IssueResult.Issued -> {
                 stats.opsIssued++

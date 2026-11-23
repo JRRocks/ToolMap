@@ -249,6 +249,28 @@ class ShareSealTest {
     }
 
     @Test
+    fun `names alone may come late - from who was put out since, opened and marked late when the caller asks`() {
+        val w = world()
+        val names = w[C].frame(ShareKind.ROSTER, Channel.ENSEMBLE, "cartes de C")
+        val message = w[C].frame(ShareKind.MESSAGE, G1, "message de C")
+        w[A].replica.must(Change.RemoveMember(C))
+        w.spread()
+        w.handOutMissing()
+        val d = w[D]
+        assertEquals(ShareRefusal.NOT_ALLOWED, d.refusal(names), "the rights of now, as before")
+        val late = assertIs<OpenResult.Opened>(ShareSeal.open(d.state, d.ring, names, d.replica::signingKeyOf)).share
+        assertTrue(late.late)
+        assertEquals("cartes de C", String(late.payload))
+        assertEquals(
+            ShareRefusal.NOT_ALLOWED,
+            assertIs<OpenResult.Refused>(ShareSeal.open(d.state, d.ring, message, d.replica::signingKeyOf)).reason,
+            "anything but names stays refused",
+        )
+        val forged = names.copyOf().also { it[it.size - 1] = (it[it.size - 1] + 1).toByte() }
+        assertIs<OpenResult.Refused>(ShareSeal.open(d.state, d.ring, forged, d.replica::signingKeyOf))
+    }
+
+    @Test
     fun `without the key of now nothing is sealed`() {
         val w = world()
         w[B].replica.must(Change.AssignMember(H, G1))

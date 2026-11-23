@@ -20,6 +20,24 @@
 
 ---
 
+## 2026-11-23 — Session 126 (suite) — [P39.14.6] Opération : le nom d'un groupe renommé par un administrateur retiré au même moment n'est plus perdu
+- **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.5]` 02ea80f (L5).
+- **Objectif** : réparer le défaut `names:missing` de la longue série (graine 0x50ac003e), classé comme défaut à la demande de la session principale ; sans effet visible.
+- **Réalisé** :
+  - `ShareSeal.open` : avec les clés de signature des membres d'avant (`HierarchyReplica.signingKeyOf`), un partage de noms d'un auteur qui n'a plus le droit d'en partager dans ce canal est ouvert quand même, marqué `Share.late` ; tout autre genre reste refusé.
+  - `OperationNode` : d'un tel partage, seuls les noms qui manquent, que les opérations portent, qu'un téléphone honnête partage dans ce canal et que ce téléphone peut connaître (`lateNames`) ; `NameBook.accept(share, only)`.
+  - ADR-143 ; spec § 27, « Livraison 5 ».
+  - **Le second cas `names:missing` de la longue série** (graine 0x50ac0040, 18 téléphones, sans positions) : ni défaut du moteur ni limite, **un écart du simulateur**. P14 demande à entrer, son téléphone est perdu 21 s après ; sa première demande n'a porté sa carte de nom pour personne (il ne connaissait encore ni le créateur ni les administrateurs) ; le simulateur l'a fait entrer quand même, sans nom lisible. L'application ne le fait jamais : elle ne fait entrer quelqu'un que dès que son nom est lu (`OperationSession`, « as soon as its name is read here »). Le simulateur suit désormais l'application (`SimScenario.admit` : « cannot read the name … not let in », même tirage au sort). Aucune règle à choisir.
+- **Décisions (ADR)** : ADR-143.
+- **Tests / vérifications** :
+  - `OperationNodeTest` « a group renamed by an administrator taken out meanwhile keeps its name » : rouge sans la correction (« Alice knows the new name expected:<Ouest> but was:<null> », build du dossier de travail avant la correction), vert avec ; `ShareSealTest` « names alone may come late… » (noms ouverts et marqués, un message du même auteur toujours refusé, une trame abîmée refusée).
+  - Graine 0x50ac003e rejouée (`-Ptoolmap.hierarchy.explore=0x50ac003e:12:160`) : rouge avant (`names:missing` sur six téléphones, « known to [] »), verte avec la correction (sondes jouées).
+  - Graine 0x50ac0040 rejouée comme dans la longue série (`…=0x50ac0040:18:160:rough:nopos`) : rouge avec la correction seule (« P0 lacks the names of [P14]; known to [] » ; trace instrumentée : « P0(creator) lets P14 in (card false) »), verte une fois le simulateur aligné sur l'application ; 0x50ac003e reste verte.
+  - Longue série de 100 scénarios avec la correction, avant l'alignement du simulateur : `objects:diverge:DOWN` 1 (0x50ac002c, la règle S, P39.14.7) et `names:missing` 1 (0x50ac0040, ci-dessus) ; avant la correction (livraison 3) : `objects:diverge:DOWN` 1 et `names:missing` 2.
+  - `./gradlew spotlessApply` puis `./gradlew check assembleDebug` : vert (0.4.282). Émulateur temporaire du poste : `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` → OK (90 écrans du mode « Opération »).
+- **Problèmes / dette technique** : aucun.
+- **Prochaine étape recommandée** : P39.14.5, L1 et L1 bis (pastilles de couleur, message aux autres).
+
 ## 2026-11-23 — Session 126 (suite) — [P39.14.4, P39.14.5] « Entre amis » : « Scanner un code » passe sur deux lignes quand il ne tient pas
 - **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.3]` 8c03c6f (journal). Copies : GitHub `origin/conception/groupes-hierarchiques` 8c03c6f (0.4.279), local 8c03c6f sans changement, Drive 0.4.279 (miroir de la livraison 3) ; référence : GitHub = local.
 - **Objectif** : P39.14.4, consigner la validation des aperçus du tour 8 ; P39.14.5, premier écran validé : L5, « Scanner / un code » dans « Entre amis ».
@@ -33,6 +51,7 @@
   - `ShareScreensTest` suit le texte (espace insécable, bouton trouvé par son texte d'une ligne).
   - `./gradlew spotlessApply` puis `./gradlew check assembleDebug` : vert (0.4.281 ; un premier build 0.4.280 a montré le texte centré dans toute la largeur du bouton, loin de l'icône, écart corrigé avant de pousser).
   - Émulateur du poste (émulateur temporaire de 8 Go, même image Android 16 que « Medium_Phone » : celui-ci n'avait plus la place d'installer l'APK) : `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` → OK (90 écrans du mode « Opération ») ; captures de « Partage de position » hors groupe à 320 dp (deux lignes, conforme à l'image 11 A), 345 dp (une ligne, comme l'image 12 « Inchangé »), 320 dp avec le texte × 1,3.
+  - Commit 02ea80f poussé : CI n° 250 verte (contrôle sur émulateur compris) ; APK de debug de la CI copié dans « APK debug » du Drive : `ToolMap-debug-0.4.281.apk` (SHA-256 `d533093c…98ed71`, même certificat que les précédents).
 - **Problèmes / dette technique** : vu en passant, hors de l'aperçu validé : à 320 dp avec le texte d'Android × 1,3, « Coller un lien » reste coupé (« Coller un »), comme avant ; à montrer en aperçu si l'utilisateur le veut.
 - **Prochaine étape recommandée** : P39.14.6 (correction du défaut des noms), puis P39.14.5, L1 et L1 bis (pastilles de couleur, message aux autres).
 
