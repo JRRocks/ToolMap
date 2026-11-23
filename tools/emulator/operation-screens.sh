@@ -25,6 +25,8 @@ fail() {
   echo "FAILED: $1" > "$dir/result.txt"
   adb logcat -d > "$dir/logcat.txt" 2>/dev/null || true
   adb exec-out screencap -p > "$dir/failed.png" 2>/dev/null || true
+  adb shell cmd statusbar collapse > /dev/null 2>&1 || true
+  adb shell cmd connectivity airplane-mode disable > /dev/null 2>&1 || true
   adb shell cmd uimode night no > /dev/null 2>&1 || true
   exit 1
 }
@@ -58,7 +60,13 @@ healthy() {
 # Shows the scene $1 and takes it as $2.png, with its texts in the log.
 captured=0
 capture() {
-  local scene="$1" file="$2" result=""
+  local scene="$1" file="$2" result="" shade=""
+  # The notification of the operation (P39.14.5, L4): pulled down for the capture; « hors réseau », the network cut
+  # (airplane mode) while it is shown, and given back right after.
+  [[ "$scene" == *notification* || "$scene" == *hors-reseau* ]] && shade=1
+  if [[ "$scene" == *hors-reseau* ]]; then
+    adb shell cmd connectivity airplane-mode enable > /dev/null 2>&1 || fail "the emulator does not go into airplane mode"
+  fi
   adb logcat -c || true
   ask show "$scene" > "$dir/ask.txt"
   grep "show $scene started" "$dir/ask.txt" > /dev/null || fail "the app does not know the scene $scene: $(cat "$dir/ask.txt")"
@@ -70,6 +78,10 @@ capture() {
   [ -n "$result" ] || fail "the scene $scene did not show in time"
   [[ "$result" == *shown* ]] || fail "the scene $scene could not be shown"
   sleep 1.5
+  if [ -n "$shade" ]; then
+    adb shell cmd statusbar expand-notifications > /dev/null 2>&1 || true
+    sleep 2
+  fi
   adb exec-out screencap -p > "$dir/$file.png" || fail "no screenshot of $scene"
   rm -f "$dir/ui.xml"
   adb shell uiautomator dump /sdcard/toolmap-op.xml > /dev/null 2>&1 && adb pull /sdcard/toolmap-op.xml "$dir/ui.xml" > /dev/null 2>&1 || true
@@ -77,6 +89,14 @@ capture() {
   if [ -s "$dir/ui.xml" ]; then
     grep -oE '(text|content-desc)="[^"]+"' "$dir/ui.xml" | sed -E 's/^[a-z-]+="//; s/"$//' | awk '!seen[$0]++' |
       head -n 60 | sed 's/^/  /' || true
+  fi
+  if [ -n "$shade" ]; then
+    adb shell cmd statusbar collapse > /dev/null 2>&1 || true
+    sleep 1
+  fi
+  if [[ "$scene" == *hors-reseau* ]]; then
+    adb shell cmd connectivity airplane-mode disable > /dev/null 2>&1 || true
+    sleep 3
   fi
   healthy "$scene"
   captured=$((captured + 1))

@@ -1,6 +1,7 @@
 package fr.toolmap.operation
 
 import android.content.Context
+import android.net.ConnectivityManager
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.toolmap.core.eventlog.EventLog
@@ -10,6 +11,7 @@ import fr.toolmap.core.hierarchy.Names
 import fr.toolmap.core.hierarchy.OperationInviteCodec
 import fr.toolmap.core.hierarchy.Post
 import fr.toolmap.core.hierarchy.Rejection
+import fr.toolmap.core.hierarchy.ShareOutcome
 import fr.toolmap.core.p2p.PairingCodec
 import fr.toolmap.core.p2p.PeerFix
 import fr.toolmap.core.problem.Problems
@@ -22,11 +24,14 @@ import fr.toolmap.data.hierarchy.StartResult
 import fr.toolmap.operation.demo.DemoWorld
 import fr.toolmap.record.LocationSource
 import fr.toolmap.record.isGpsRefusal
+import fr.toolmap.share.AndroidNetworkWatch
+import fr.toolmap.share.NetworkWatch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -35,6 +40,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -46,6 +52,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -74,7 +81,8 @@ enum class JoinProblem { BAD_CODE, EXPIRED, CLOCK_OFF, FAILED }
  * Its own doings, beside the screens: it opens again at start the operation stored on this phone; it lets in, on the
  * phone of the creator or of an administrator, whoever asks with the invitation (the maquettes draw no gesture for
  * that: « La personne donne son nom, puis arrive « en attente » »); it sends the position of this phone while
- * « Partager ma position » is on, or while it waits (T15), as long as the app runs (no service yet).
+ * « Partager ma position » is on, or while it waits (T15); while it is on, [OperationService] keeps the app in the
+ * foreground with its line in the notification (P39.14, L4).
  */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @Singleton
@@ -88,6 +96,10 @@ class OperationSession
     ) {
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        private val network: NetworkWatch = AndroidNetworkWatch(context)
+
+        /** The last position of each phone that found no phone to go to (out of network): it goes once one is linked. */
+        private val unsent = ConcurrentHashMap<OperationController, PeerFix>()
 
         // ---- which phone the screens show ---------------------------------------------------------------------
 
@@ -136,6 +148,21 @@ class OperationSession
         /** The operations whose reminder the creator closed with « Compris » (T10 B), by identifier. */
         val reminded = MutableStateFlow(prefs.getStringSet(KEY_REMINDED, emptySet()).orEmpty().toSet())
 
+        /** No network on this phone (none, or Android cuts the app off): « Hors réseau » (P39.14, L4 bis). */
+        val offline = MutableStateFlow(false)
+
+        /** The operation stored on this phone was opened again at start (or there was none to open). */
+        val restored = MutableStateFlow(false)
+
+        /**
+         * What the notification says while this phone's position goes to the operation (P39.14, L4 A, image 07; L4
+         * bis a, image 09); `null` while none goes. [OperationService] stays in the foreground as long as it is not.
+         */
+        val notice: StateFlow<OperationNotice?> =
+            combine(view, sharing, offline) { v, on, off ->
+                OperationNotice(v.operationName.orEmpty(), off).takeIf { v.phase == OperationPhase.PLACED && on }
+            }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, null)
+
         init {
             // The operation stored on this phone comes back with the app (the demonstration never is stored).
             scope.launch {
@@ -146,9 +173,12 @@ class OperationSession
                         EventLog.event("operation.open", "result" to result)
                     }
                 }
+                restored.value = true
             }
             sendPositions()
             watchFull()
+            watchNetwork()
+            keepInForeground()
         }
 
         // ---- entry -------------------------------------------------------------------------------------------------
@@ -600,23 +630,27 @@ class OperationSession
 
         /**
          * The position of this phone, to the operation, while « Partager ma position » is on or while it waits, at the
-         * rhythm of the operation (P39.15: a minute unless its chief changed it); a new rhythm applies at once.
+         * rhythm of the operation (P39.15: a minute unless its chief changed it); a new rhythm applies at once. Out of
+         * network, the last one is kept and goes as soon as a phone is linked again, without waiting for the next
+         * (P39.14, L4 bis, image 09: as « Entre amis »).
          */
         private fun sendPositions() {
-            scope.launch {
-                val every =
-                    view
-                        .map { it.hierarchy?.positionIntervalS ?: HierarchyState.DEFAULT_POSITION_INTERVAL_S }
-                        .distinctUntilChanged()
+            val every =
+                view
+                    .map { it.hierarchy?.positionIntervalS ?: HierarchyState.DEFAULT_POSITION_INTERVAL_S }
+                    .distinctUntilChanged()
+            val sending =
                 combine(seat, view.map { it.phase }.distinctUntilChanged(), sharing, every) { c, phase, on, seconds ->
                     c.takeIf { phase == OperationPhase.WAITING || (phase == OperationPhase.PLACED && on) }
                         ?.let { it to seconds }
-                }.distinctUntilChanged()
-                    .flatMapLatest { sending ->
-                        if (sending == null) {
+                }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, null)
+            scope.launch {
+                sending
+                    .flatMapLatest { going ->
+                        if (going == null) {
                             emptyFlow()
                         } else {
-                            val (c, seconds) = sending
+                            val (c, seconds) = going
                             location
                                 .fixes(seconds * SECOND_MS, 0f)
                                 .map { c to it }
@@ -624,7 +658,86 @@ class OperationSession
                                     if (e.isGpsRefusal()) Problems.expected("operation.position.gps", e) else throw e
                                 }
                         }
-                    }.collect { (c, fix) -> c.sendPosition(fix.toPeerFix()) }
+                    }.collect { (c, fix) -> send(c, fix.toPeerFix()) }
+            }
+            scope.launch {
+                sending
+                    .flatMapLatest { going ->
+                        val c = going?.first ?: return@flatMapLatest emptyFlow()
+                        c.view.map { it.online.isNotEmpty() }.distinctUntilChanged().map { linked -> c to linked }
+                    }.collect { (c, linked) -> if (linked) unsent.remove(c)?.let { send(c, it) } }
+            }
+        }
+
+        private suspend fun send(
+            c: OperationController,
+            fix: PeerFix,
+        ) {
+            if (c.sendPosition(fix) == ShareOutcome.SKIPPED) unsent[c] = fix else unsent.remove(c)
+        }
+
+        /**
+         * The phone's network, while an operation is open (P39.14, L4 bis): told to the server connection of the
+         * operation of this phone, as the sharing « Entre amis » does (a new network: try at once), and to
+         * [offline] for the line « Hors réseau » of the notification.
+         */
+        private fun watchNetwork() {
+            val events =
+                object : NetworkWatch.Listener {
+                    @Volatile private var lost = false
+
+                    @Volatile private var blocked = false
+
+                    override fun onNetwork(
+                        name: String,
+                        retry: Boolean,
+                    ) {
+                        lost = false
+                        offline.value = blocked
+                        real.onNetwork(name, retry)
+                    }
+
+                    override fun onBlocked(blocked: Boolean) {
+                        this.blocked = blocked
+                        offline.value = lost || blocked
+                        real.onBlocked(blocked)
+                    }
+
+                    override fun onOffline() {
+                        lost = true
+                        offline.value = true
+                        real.onOffline()
+                    }
+
+                    override fun onClockChanged() = real.onClockChanged()
+                }
+            scope.launch {
+                combine(active, real.view.map { it.phase in IN_OPERATION }) { shown, open -> shown || open }
+                    .distinctUntilChanged()
+                    .collectLatest { open ->
+                        if (!open) {
+                            offline.value = false
+                            return@collectLatest
+                        }
+                        // The callback says nothing when there is no network at all as it is registered.
+                        val connectivity = context.getSystemService(ConnectivityManager::class.java)
+                        offline.value = connectivity?.activeNetwork == null
+                        val handle = network.start(events)
+                        try {
+                            awaitCancellation()
+                        } finally {
+                            handle.close()
+                        }
+                    }
+            }
+        }
+
+        /** [OperationService] in the foreground as soon as this phone's position goes to the operation (L4). */
+        private fun keepInForeground() {
+            scope.launch {
+                notice.map { it != null }.distinctUntilChanged().collect { on ->
+                    if (on) OperationService.start(context)
+                }
             }
         }
 

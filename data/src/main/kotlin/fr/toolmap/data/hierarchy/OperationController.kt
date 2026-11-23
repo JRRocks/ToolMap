@@ -873,6 +873,35 @@ class OperationController(
     /** Ends the operation for everyone (the creator only). */
     suspend fun dissolve(): Rejection? = change(Change.Dissolve)
 
+    // ---- the phone's network -----------------------------------------------------------------------------------
+
+    /**
+     * The phone's default network is now [name], told to the server connection of the operation that runs, as the
+     * sharing « Entre amis » does (P39.14, L4 bis: P21.5 f); [retry]: a new network, or usable again, try at once.
+     */
+    fun onNetwork(
+        name: String,
+        retry: Boolean,
+    ) = onTransport { t ->
+        t.onNetwork(name)
+        if (retry) t.reconnectNow()
+    }
+
+    /** Android cuts the app off the network ([blocked]) or lets it back (P21.5 h). */
+    fun onBlocked(blocked: Boolean) = onTransport { it.onBlocked(blocked) }
+
+    /** The default network is gone and none took its place (P21.5 p). */
+    fun onOffline() = onTransport { it.onOffline() }
+
+    /** The phone's clock was set (P21.5 n). */
+    fun onClockChanged() = onTransport { it.onClockChanged() }
+
+    private fun onTransport(block: (RelayTransport) -> Unit) =
+        executor.execute {
+            val t = running?.transport ?: return@execute
+            catchReported("operation.transport.network") { block(t) }
+        }
+
     // ---- share -------------------------------------------------------------------------------------------------
 
     suspend fun sendPosition(fix: PeerFix): ShareOutcome = onNode(ShareOutcome.NOT_ALLOWED) { it.sendPosition(fix) }

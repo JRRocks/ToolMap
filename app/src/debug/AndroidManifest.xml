@@ -21,6 +21,11 @@
                 <data android:scheme="toolmap" android:host="operation" />
             </intent-filter>
         </activity>
+        <!-- The sharing of an operation, the app open or not (P39.14, L4): its line in ToolMap's notification. -->
+        <service
+            android:name="fr.toolmap.operation.OperationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
         <activity
             android:name="androidx.compose.ui.tooling.PreviewActivity"
             tools:node="remove" />

@@ -254,6 +254,16 @@ object OperationScenes {
                 request(OperationRequest.CREATE)
                 true
             },
+            // The notification while the position of Membre 7 goes (P39.14.5, L4 A, `tour8/img/07`; L4 bis a,
+            // `img/09`): operation-screens.sh pulls the notifications down, and cuts the network for the second.
+            Scene("tour8-07-L4-A-notification") {
+                sharing.value = true
+                at(7) && waitFor { notice.value?.offline == false }
+            },
+            Scene("tour8-09-L4-bis-a-hors-reseau") {
+                sharing.value = true
+                at(7) && waitFor { notice.value?.offline == true }
+            },
             Scene("tour5-04-attente-nom") {
                 at(21) { OperationNav(sheet = OpSheet.MyName, nameDraft = "Prénom N.") }
             },

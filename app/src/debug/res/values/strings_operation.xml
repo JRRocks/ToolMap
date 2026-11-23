@@ -318,6 +318,8 @@
   <string name="op_group_color_new">Couleur (celles déjà prises sont pâles)</string>
   <string name="op_group_color_edit">Couleur (elle change sur tous les téléphones)</string>
   <string name="op_group_color_changed">Le groupe %1$s a changé de couleur : %2$s.</string>
+  <!-- P39.14.5, L4 bis a (image 09): the line under « Position partagée · <opération> » while the network is missing. -->
+  <string name="op_notification_offline">Hors réseau : envoi dès son retour</string>
   <!-- The colours of the groups, in the order of OperationFacts.GROUP_COLORS. -->
   <string-array name="op_group_color_names">
     <item>bleu</item>

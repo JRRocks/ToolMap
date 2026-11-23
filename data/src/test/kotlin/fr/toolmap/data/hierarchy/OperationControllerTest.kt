@@ -131,6 +131,29 @@ class OperationControllerTest {
 
             override fun accept(answer: PairingPayload) = Unit
 
+            /** What the phone's network watch told this connection, in order (P39.14, L4 bis). */
+            val told = ArrayList<String>()
+
+            override fun onNetwork(network: String) {
+                synchronized(told) { told += "network $network" }
+            }
+
+            override fun reconnectNow() {
+                synchronized(told) { told += "reconnect" }
+            }
+
+            override fun onBlocked(blocked: Boolean) {
+                synchronized(told) { told += "blocked $blocked" }
+            }
+
+            override fun onOffline() {
+                synchronized(told) { told += "offline" }
+            }
+
+            override fun onClockChanged() {
+                synchronized(told) { told += "clock" }
+            }
+
             override fun drop(peer: Long) = Unit
         }
 
@@ -379,5 +402,35 @@ class OperationControllerTest {
             assertEquals(StartResult.BAD_NAME, a.create("", "Alice"))
             assertEquals(StartResult.BAD_INVITATION, a.join("toolmap://join?d=AAAA", "Bruno"))
             assertEquals(StartResult.NOT_FOUND, a.open("0000"))
+        }
+
+    @Test
+    fun `the phone's network is told to the server connection of the operation that runs (L4 bis)`() =
+        runBlocking {
+            val relay = MemoryServer()
+            val a = phone("a", relay)
+            // No operation yet: nothing to tell, nothing fails.
+            a.onOffline()
+            assertEquals(StartResult.STARTED, a.create("Exercice Vallon", "Alice"))
+            a.onOffline()
+            a.onBlocked(true)
+            a.onBlocked(false)
+            a.onNetwork("net 2", retry = true)
+            a.onNetwork("net 2", retry = false)
+            a.onClockChanged()
+            settle(a)
+            val member = synchronized(relay.rooms) { relay.rooms.values.single().single() }
+            assertEquals(
+                listOf(
+                    "offline",
+                    "blocked true",
+                    "blocked false",
+                    "network net 2",
+                    "reconnect",
+                    "network net 2",
+                    "clock",
+                ),
+                synchronized(member.told) { member.told.toList() },
+            )
         }
 }

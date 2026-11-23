@@ -20,6 +20,19 @@
 
 ---
 
+## 2026-11-23 — Session 126 (suite) — [P39.14.5] Opération : la position partagée se voit dans la notification, et part dès le retour du réseau
+- **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.5]` a432f56 (L1).
+- **Objectif** : P39.14.5, livraison de L4 A et L4 bis a (aperçus `docs/previews/p39-groupes/tour8/img/07-L4-A-B.png` et `09-L4-sans-reseau.png`, validés le 2026-11-23) : la ligne « Position partagée · Exercice Vallon » dans la notification de ToolMap tant que la position part, application ouverte ou non, et « Hors réseau : envoi dès son retour » sous elle quand le réseau manque.
+- **Réalisé** :
+  - `OperationService` (premier plan, type `location`, verrou de veille), lancé par `OperationSession` dès que la position d'un téléphone placé part (`notice`) ; sa ligne dans `BackgroundNotification` (nouvelle partie `OPERATION`) ; « Arrêter le partage » coupe l'interrupteur ; toucher ouvre l'écran de l'opération ; collant, il revient avec l'opération enregistrée.
+  - Réseau suivi par `OperationSession` (`AndroidNetworkWatch`, comme « Entre amis ») : la ligne « Hors réseau », et la connexion au serveur de l'opération prévenue (`OperationController.onNetwork` et suivantes : nouveau réseau, on retente tout de suite) ; la dernière position restée sans destinataire part dès qu'un téléphone est de nouveau relié.
+  - Spec § 27, « Livraison 7 » ; scènes de capture `tour8-07-L4-A-notification` et `tour8-09-L4-bis-a-hors-reseau` (`operation-screens.sh` ouvre le volet des notifications, et passe en mode avion pour la seconde).
+- **Décisions (ADR)** : aucune.
+- **Tests / vérifications** :
+  - `OperationNotificationTest` : le texte de la ligne, avec et sans « Hors réseau » ; la ligne suit l'interrupteur d'un téléphone placé et le réseau, et le service est demandé dès que la position part. `OperationControllerTest` : le réseau est dit, dans l'ordre, à la connexion au serveur de l'opération en cours, et rien n'échoue sans opération.
+- **Problèmes / dette technique** : aucun.
+- **Prochaine étape recommandée** : P39.14.5, M4 (le départ gardé jusqu'à sa réception, la carte « En train de partir… »), qui s'appuie sur ce service pour renvoyer le départ application fermée.
+
 ## 2026-11-23 — Session 126 (suite) — [P39.14.5] Opération : la couleur d'un groupe se choisit dans « Nouveau groupe » et « Modifier le groupe »
 - **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.6]` 3bd4813.
 - **Objectif** : P39.14.5, livraison de L1 A et L1 bis a (aperçus `docs/previews/p39-groupes/tour8/img/02-L1-A.png`, `03-L1-A-suite.png`, `05-L1-autres.png`, validés le 2026-11-23) : huit pastilles de couleur sous le nom d'un groupe, et un message aux autres quand la couleur change.

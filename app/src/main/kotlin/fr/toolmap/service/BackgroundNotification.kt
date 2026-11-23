@@ -24,8 +24,9 @@ internal object BackgroundNotification {
     /**
      * The services that share the notification, in the order of their lines and buttons; « Aller vers un point »
      * (P30.3) before the alerts. Android shows three buttons at most: with all four at work, the alerts' has none.
+     * [OPERATION]: the sharing of an operation (P39.14, L4), right after the one of « Entre amis ».
      */
-    enum class Part { SHARING, RECORDING, GOTO, ALERTS }
+    enum class Part { SHARING, OPERATION, RECORDING, GOTO, ALERTS }
 
     /**
      * What one service shows: its line, and its stop button (none for the listening to the group, P22.3); [open] is
