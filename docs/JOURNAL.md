@@ -30,7 +30,10 @@
 - **Décisions (ADR)** : aucune.
 - **Tests / vérifications** :
   - `OperationNotificationTest` : le texte de la ligne, avec et sans « Hors réseau » ; la ligne suit l'interrupteur d'un téléphone placé et le réseau, et le service est demandé dès que la position part. `OperationControllerTest` : le réseau est dit, dans l'ordre, à la connexion au serveur de l'opération en cours, et rien n'échoue sans opération.
-- **Problèmes / dette technique** : aucun.
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` : vert, 0.4.285.
+  - `bash tools/emulator/smoke.sh app/build/outputs/apk/debug` (émulateur API 37 du poste, démarré pour l'essai) : OK, 97 écrans du mode « Opération ». `tour8-07-L4-A-notification` et `tour8-09-L4-bis-a-hors-reseau` (mode avion) conformes aux aperçus 07 (A) et 09 (a), comparaison côte à côte remise à la session maîtresse.
+- **Non vérifié** : le renvoi de la dernière position au retour du réseau (la démonstration n'a pas de serveur ; couvert par les tests) ; écran éteint, réseau réel et batterie : sur un téléphone.
+- **Problèmes / dette technique** : un téléphone qui attend sa place envoie aussi sa position, sans ligne dans la notification (l'aperçu ne montre que le téléphone placé).
 - **Prochaine étape recommandée** : P39.14.5, M4 (le départ gardé jusqu'à sa réception, la carte « En train de partir… »), qui s'appuie sur ce service pour renvoyer le départ application fermée.
 
 ## 2026-11-23 — Session 126 (suite) — [P39.14.5] Opération : la couleur d'un groupe se choisit dans « Nouveau groupe » et « Modifier le groupe »
