@@ -20,6 +20,23 @@
 
 ---
 
+## 2026-11-24 — Session 126 (suite) — [P39.18] Nouvelle version publique : « Partager l'app » remplace « Quitter » dans le menu
+- **Branche / commit** : commit de `conception/groupes-hierarchiques` sans `.conception-privee`, poussé sur `main` en avance rapide (ADR-145), après 891a8ca.
+- **Objectif** : depuis la 0.4.235, « Partager l'app » remplace « Quitter » dans le menu : un QR code à faire scanner et un lien à envoyer, pour installer ToolMap sur un autre téléphone. Pour fermer ToolMap : Retour sur la carte. Dans « Partage de position », « Scanner un code » passe sur deux lignes s'il ne tient pas, et les valeurs sous le curseur de fréquence restent lisibles sur un petit écran.
+- **Réalisé** :
+  - Feu vert de l'utilisateur, transmis mot pour mot par la session principale : « Refait un check de se que tu peux check à ton niveau et publie la dernier version » ; « Je n'ai pas fait d'essaie terrain complet en mode opération mais le reste est actuellement correct et prêt pour publication, ce n'est pas grave si la partie opération reste en dev et publiée ». ADR-145 : la 0.4.291 publiée depuis `main`, sans le mode « Opération » (ADR-130 inchangé) ; la branche de conception reprend `.conception-privee` au commit suivant.
+  - `.conception-privee` retiré de ce commit ; P39.18 au plan ; `docs/specs/release.md` § 1 ; `docs/RECETTE.md` (version publique et téléphones d'essai, R10).
+  - « Nouveautés » de cette version : sous cette entrée, les quatre entrées d'avant du journal parlent du mode « Opération », que la release n'a pas, en mots de développeur ; publié ainsi en connaissance de cause (choix de la session principale du 2026-11-24, appuyé sur les mots de l'utilisateur ; capture `b8-release-nouveautes-avant-entree.png` des notes de la session principale).
+- **Décisions (ADR)** : ADR-145.
+- **Tests / vérifications** :
+  - Copies en début de travail : GitHub `conception/groupes-hierarchiques`, local et Drive à 0.4.290 (891a8ca ; référence : les trois, égales) ; `main` à 0.4.234 (6b6deac), ancêtre de la branche.
+  - Émulateur temporaire du poste (API 36, démarré pour l'essai, fermé ensuite) : la 0.4.235 publique (`ToolMap.0.4.235.apk` du Drive « APK release ») installée, puis une trace enregistrée (334 m), un waypoint, OpenTopoMap ajoutée, l'unité de cap en mils OTAN ; l'APK de debug 0.4.290 du run « CI » n° 259 par-dessus : pas de plantage ni d'ANR, trace, waypoint, cartes et réglage gardés, menu à « Partager l'app ».
+  - Type `release` compilé sur le poste (`./gradlew :app:assembleRelease`, sans le moteur natif ni le serveur de coordination, que la CI ajoute), signé avec la clé de debug publique pour l'émulateur seulement, installé à neuf : menu (« Partager l'app », QR code et lien fixe), « Partage de position » sans carte « Opération » et avec les textes d'avant, « Scanner un code », « Réglages d'envoi » et sa « Fréquence d'envoi », « Plus » sans les outils de debug, « Nouveautés », « Aide et à propos » ; un lien `toolmap://operation…` n'ouvre rien (aucune activité ne le prend) ; aucun plantage (journal `crash` vide).
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` : vert, 0.4.291 ; `CI=true ./gradlew help` : numéro conforme aux sources.
+- **Non vérifié** : sur un téléphone, la mise à jour proposée par une 0.4.235 réelle ; les essais R1 à R11 (`docs/RECETTE.md`).
+- **Problèmes / dette technique** : « Nouveautés » montre les cinq dernières entrées du journal, en mots de développeur, même dans une release.
+- **Prochaine étape recommandée** : la branche de conception reprend `.conception-privee` ; puis les essais sur le terrain de l'utilisateur (R1 à R11), avant P39.14.7 et P39.14.9.
+
 ## 2026-11-24 — Session 126 (suite) — [P39.14.7, P39.14.9] Règle S et notification d'attente décidées, reprises après les essais sur le terrain
 - **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.8]` d4db1f6 (journal de P39.14.8).
 - **Objectif** : consigner les deux réponses de l'utilisateur à la septième série (règle S : choix 1 ; notification d'un téléphone qui attend sa place : aperçu à préparer), et laisser le travail en ordre avant ses essais sur le terrain ; documents seulement, rien de visible ne change.
