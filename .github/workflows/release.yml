@@ -37,7 +37,7 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # The native compute engine (Rust, ADR-119) is built with the linker of the NDK, by the Rust and the Android
       # targets pinned in engine/src/main/rust/rust-toolchain.toml (rustup installs them on first use). Kept between
