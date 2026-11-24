@@ -36,6 +36,15 @@
 - **Non vérifié** : sur un téléphone, la mise à jour proposée par une 0.4.235 réelle ; les essais R1 à R11 (`docs/RECETTE.md`).
 - **Problèmes / dette technique** : « Nouveautés » montre les cinq dernières entrées du journal, en mots de développeur, même dans une release.
 - **Prochaine étape recommandée** : la branche de conception reprend `.conception-privee` ; puis les essais sur le terrain de l'utilisateur (R1 à R11), avant P39.14.7 et P39.14.9.
+- **Suite (même session, 2026-11-24)** :
+  - Publié : 2357b9b poussé sur `main` en avance rapide (6b6deac..2357b9b) ; run « CI » n° 260 (45372892932) vert, contrôle sur émulateur compris, étape « Publish the Android release » passée. Release `android-0.4.291` « Latest » (cible 2357b9b) : `ToolMap-release-0.4.291.apk` et `ToolMap.apk`, 82 674 838 octets chacun ; 0.4.234 retirée, 0.4.235 et la passerelle 0.4.231 gardées. Lien fixe `releases/latest/download/ToolMap.apk` : HTTP 200, APK 0.4.291 (versionCode 400291), certificat de publication `85334c0a…a6a0d3a4`, moteur natif présent.
+  - Émulateur temporaire (API 36, redémarré pour l'essai), APK publié téléchargé par le lien fixe :
+    - Par-dessus la 0.4.235 publique avec ses données (trace, waypoint, OpenTopoMap en calque, cap en mils OTAN) : pas de plantage ni d'ANR, données gardées, « Version 0.4.291 », « Mises à jour » : « 0.4.291 · à jour », rien de proposé ; « Partage de position » sans carte « Opération » ; « Nouveautés » tel que le public le lit (capture `c2-291-nouveautes-public.png`).
+    - Par-dessus l'APK de debug 0.4.289 (Drive « APK debug ») avec une opération créée en mode avion (placé, service au premier plan, notification) : pas de plantage ; plus de service ni de notification ; l'écran du partage est celui d'« Entre amis » (« Aucun groupe ») et rien de l'opération ne se voit. Puis l'APK de debug 0.4.291 du run n° 260 par-dessus : l'opération revient telle quelle (placé, partage actif, service au premier plan type `location`, notification). Les données de l'opération restent donc sur le téléphone sous la release, invisibles.
+    - En lisant « Mises à jour » dans la debug 0.4.291, le mode avion a été coupé 19 s : l'opération d'essai s'est reliée au serveur de coordination (trames chiffrées d'une salle jetable, que plus aucun téléphone ne lit). Application désinstallée, émulateur fermé, AVD temporaire supprimé.
+    - Captures : dossier de notes de la session principale, `publication-captures/` (a…, b…, c…, d…).
+  - APK de debug 0.4.291 du run n° 260 copié dans le dossier Drive « APK debug » (SHA-256 `7db57972…a803ee7ab4`, même certificat ; la 0.4.289 reste).
+  - `.conception-privee` remis sur la branche de conception, commit poussé après le run de `main` : ses pushs ne publient plus rien. P39.18 ✅.
 
 ## 2026-11-24 — Session 126 (suite) — [P39.14.7, P39.14.9] Règle S et notification d'attente décidées, reprises après les essais sur le terrain
 - **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.8]` d4db1f6 (journal de P39.14.8).
