@@ -20,6 +20,22 @@
 
 ---
 
+## 2026-11-24 — Session 126 (suite) — [P39.14.7, P39.14.9] Règle S et notification d'attente décidées, reprises après les essais sur le terrain
+- **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.8]` d4db1f6 (journal de P39.14.8).
+- **Objectif** : consigner les deux réponses de l'utilisateur à la septième série (règle S : choix 1 ; notification d'un téléphone qui attend sa place : aperçu à préparer), et laisser le travail en ordre avant ses essais sur le terrain ; documents seulement, rien de visible ne change.
+- **Réalisé** :
+  - Réponse de l'utilisateur, transmise mot pour mot par la session principale, à « Tu valides mes deux recommandations de la septième série ? » : « Oui, les deux et wrap up le travail nous allons faire des essaie terrain avece de coder plus ». Lecture de la session principale, dite à l'utilisateur : « avece » se lit « avant » ; rien ne se code ni ne se dessine avant ses essais.
+  - **S, choix 1** (remplace le choix a du 2026-11-23, par une ligne datée nouvelle) : un croquis ou un point dont l'auteur a perdu son droit de partager reste tant qu'un téléphone qui a encore ce droit le tient (le créateur, les administrateurs, le chef de l'opération et son adjoint), qui le redonne à tous ; sinon il disparaît des téléphones qui l'avaient. Spec § 27 : ligne datée sous S (« Réponses du tour 8 ») et « Réponses de la septième série » (textes affichés sur la page, mot pour mot). P39.14.7 passe de ⛔ à ⬜ : décidé, attend la reprise après les essais.
+  - **N, choix a** : « Oui, prépare l'aperçu : je choisirai sur les images. » Nouvelle tâche P39.14.9 (aperçus en variantes de la ligne de notification d'un téléphone qui attend sa place), ⬜, attend de même.
+  - Aucun code, aucun aperçu. Le numéro passe à 0.4.290 (le titre et l'objectif de cette entrée entrent dans l'APK) ; l'APK de debug du run reste un artefact de la CI : il n'est pas copié dans « APK debug », l'utilisateur garde la 0.4.289 pour ses essais (demande de la session principale).
+- **Décisions (ADR)** : aucune (S choix 1 et N choix a sont des choix de l'utilisateur, consignés dans la spec ; l'ADR de la règle S s'écrira avec son code).
+- **Tests / vérifications** :
+  - Copies en début de travail : GitHub `conception/groupes-hierarchiques` (d4db1f6), Drive et local à 0.4.289 ; local identique à GitHub (référence : les trois, égales).
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` : vert, 0.4.290 ; `CI=true ./gradlew help` : numéro conforme aux sources.
+- **Non vérifié** : rien de nouveau (les essais sur téléphone R1 à R11 restent à faire, `docs/RECETTE.md`).
+- **Problèmes / dette technique** : aucun.
+- **Prochaine étape recommandée** : les essais sur le terrain de l'utilisateur (`docs/RECETTE.md`, R1 à R11, tous les téléphones en 0.4.289, dans une nouvelle opération) ; ses « bon » et « défaut » notés dans la liste ; les défauts trouvés corrigés d'abord ; puis P39.14.7 (règle S, choix 1) et P39.14.9 (aperçus de N).
+
 ## 2026-11-24 — Session 126 (suite) — [P39.14.8] Opération : le service de la position est redemandé quand ToolMap revient à l'écran
 - **Branche / commit** : `conception/groupes-hierarchiques` (conception privée, ADR-124 : rien n'est publié), après le commit `[P39.14.7]` 58484cc (liste des essais sur téléphone).
 - **Objectif** : P39.14.8, correctif de L4 (livrée en 0.4.285), sans effet visible (demande de la session principale du 2026-11-24) : un membre placé pendant que ToolMap est en arrière-plan ou l'écran éteint voyait Android refuser le service de sa position, qui n'était plus redemandé ; il l'est désormais dès que ToolMap revient à l'écran, et la position continue de partir une fois l'application de nouveau en arrière-plan.
