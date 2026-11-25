@@ -21,10 +21,34 @@
 ---
 
 ## 2026-11-25 — Session 127 — [P39.19] Nouveau : le mode « Opération », pour une sortie à plusieurs groupes
-- **Branche / commit** : `conception/groupes-hierarchiques` (privée, `.conception-privee` présent), après ed5d0cc.
+- **Branche / commit** : `conception/groupes-hierarchiques` (privée, `.conception-privee` présent) : 676e78f, d979713, e9256b8, puis ce journal ; après ed5d0cc. Rien de publié.
 - **Objectif** : le mode « Opération » arrive dans ToolMap, pour une sortie à plusieurs groupes avec un chef et des administrateurs : dans « Partage de position », touchez « Créer une opération », puis invitez les autres par un code ou par un lien. Le partage « Entre amis » ne change pas. Après la mise à jour, vos traces, points, cartes et réglages sont gardés.
 - **Agent** : Claude (session de côté de la session principale « ToolMap (Master) »).
-- **Réalisé** : en cours.
+- **Réalisé** :
+  - Choix de l'utilisateur, transmis mot pour mot par la session principale, à la question « Le mode « Opération » doit-il aussi apparaître dans la version publique ? Non, il reste en dev (mon conseil), ou oui, ouvre-le. » : « Oui, ouvre-le ». ADR-146 : remplace ADR-130 pour l'emplacement du code et ADR-145 pour son point 2 (une ligne datée dans chacun) ; ce qui reste d'ADR-124 y est dit.
+  - Code (sans rien de visible de nouveau par rapport à l'APK de debug : aucun texte, écran ni choix ajouté, donc aucune question à la session principale) : le paquet `fr.toolmap.operation` (écrans, session, service, démonstration, scènes des captures), `strings_operation.xml`, le lien `toolmap://operation` et `OperationService` passent de `app/src/debug` à `app/src/main`. `DebugOperationFeature` devient `AppOperationFeature`, lié dans tous les types de build ; `BuildConfig.OPERATION_MODE` et le `@BindsOptionalOf` sont retirés, `MainActivity` reçoit la fonction directement. La démonstration (son entrée du menu ⋮ du partage, `startDemo`) et les commandes `dumpsys … operation-screens` ne s'atteignent que si `BuildConfig.DEV_TOOLS`. Le type `benchmark` a aussi le mode (choix de cette session : il mesure ce que reçoivent les téléphones).
+  - CI : `tools/emulator/operation-release.sh`, appelé par `smoke.sh` pour chaque APK, release comprise : lien `toolmap://operation` pris par ToolMap, service déclaré (`pm query-services -n` : un service sans filtre d'intention n'est pas dans `dumpsys package`), carte « Opération » sur « Partage de position » (ouvert par un lien d'appairage sans code valide, dont la fenêtre « Code refusé » se ferme par Retour), capture `operation-release.png` et textes de l'écran dans le journal du job.
+  - Test instable trouvé par le run n° 45662816767 et corrigé (cause trouvée) : `DrawViewModelTest` lisait l'éditeur fermé dès la trace écrite, alors que `finish()` vient après, sur le fil principal ; les deux tests concernés attendent la fermeture.
+  - Documents : plan (P39.19), `docs/specs/group-hierarchy.md` (paragraphe daté sous « Ce qui est codé »), `docs/specs/release.md` § 1, `docs/specs/ui-index.md` (OPERATION_NEW), `docs/RECETTE.md` (règle « Version publique et téléphones d'essai » revue, R10 récrit, R12 ajouté). Le `CLAUDE.md` du projet n'avait aucune ligne devenue fausse.
+- **Décisions (ADR)** : ADR-146.
+- **Tests / vérifications** :
+  - Copies en début de travail : GitHub `conception/groupes-hierarchiques` (ed5d0cc), `main` (2357b9b), Drive et local à 0.4.291 (référence : les quatre, égales ; local sans changement non poussé).
+  - `./gradlew spotlessApply`, puis `./gradlew check assembleDebug` : vert, 0.4.292 ; `CI=true ./gradlew help` : numéro conforme aux sources. `./gradlew :app:assembleBenchmark` (R8) : compilé, pas lancé.
+  - Runs « CI » : n° 270 (45658127242) rouge, le contrôle cherchait le service dans `dumpsys package` (corrigé : `pm query-services -n`, et fermeture de la fenêtre « Code refusé », vue sur le poste) ; n° 271 (45662816767) rouge, `DrawViewModelTest` (course, corrigée) ; n° 272 (45665151634) rouge, lien et service trouvés, mais le bouton « Créer une opération » sous le bas de l'écran de l'émulateur de la CI (API 34) : le contrôle lit le titre et le texte de la carte, que le journal du job montre. Run du commit de cette entrée : voir la suite.
+  - Émulateur temporaire du poste (API 36, mode avion, démarré pour l'essai puis fermé, AVD supprimé ; APK compilés sur le poste, signés avec la clé de debug publique, adresse de serveur factice) :
+    - Mise à jour 1 : release 0.4.291 avec une trace (364 m), un waypoint, OpenTopoMap (fond et calque), le cap en mils et un groupe « Entre amis » ; release 0.4.292 par-dessus : pas de plantage, « Version 0.4.292 », tout gardé.
+    - Mise à jour 2 : debug 0.4.291 avec l'opération « Exercice Vallon » (placé dans « Nord », service au premier plan) ; release 0.4.292 par-dessus : opération gardée et visible, service au premier plan, notification « Position partagée · Exercice Vallon », « Hors réseau : envoi dès son retour », « Arrêter le partage ».
+    - Release 0.4.292 à neuf : carte « Opération », création remplie comme l'aperçu, invitation (QR code, « Envoyer le lien par message » : feuille de partage ouverte, rien envoyé), écran de l'opération avec le rappel du créateur, notification, menu ⋮ sans la démonstration ; créateur seul : « Glisser pour dissoudre », service arrêté ; lien d'invitation ouvert (`am start`) puis collé par « Coller un lien » : « Rejoindre l'opération ? » ; rejoindre avec un nom : « En attente d'un groupe » ; « Quitter l'opération ? » puis retour immédiat.
+    - `tools/emulator/operation-release.sh` vert sur le poste.
+    - Captures à côté des aperçus validés : dossier de notes de la session principale, `p39-19-captures/` (01 à 11, `s1-…`, `s2-…`).
+  - Taille de la release compilée sur le poste : 81 963 591 octets contre 81 462 591 pour la 0.4.291 (+0,5 Mo).
+- **Non vérifié** :
+  - « En train de partir… » d'un membre : il faut un autre membre (un seul émulateur).
+  - La release de la CI (clé de publication, vrai serveur) parcourue à la main : la CI n'en contrôle que le lien, le service et la carte.
+  - Une 0.4.291 publique et la 0.4.292 dans un même groupe « Entre amis » : pas deux émulateurs ; le code d'« Entre amis » n'a pas changé depuis la 0.4.291 (`git diff ed5d0cc` sur `:p2p`, le partage de `:core`, de `:data` et de `app/…/share` : une ligne de commentaire).
+  - Scan du QR code à l'appareil photo ; les essais R1 à R12 (`docs/RECETTE.md`).
+- **Problèmes / dette technique** : le code de la démonstration est dans la release, sans aucun chemin pour l'atteindre (`BuildConfig.DEV_TOOLS` faux).
+- **Prochaine étape recommandée** : rien de publié ; la 0.4.292 part quand la session principale le dit (mécanisme d'ADR-145 : `main` en avance rapide sans `.conception-privee`, P39.19 ✅ dans ce commit-là), puis les essais sur le terrain (R1 à R12).
 
 ## 2026-11-24 — Session 126 (suite) — [P39.18] Nouvelle version publique : « Partager l'app » remplace « Quitter » dans le menu
 - **Branche / commit** : commit de `conception/groupes-hierarchiques` sans `.conception-privee`, poussé sur `main` en avance rapide (ADR-145), après 891a8ca.

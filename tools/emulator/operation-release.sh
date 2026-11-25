@@ -5,7 +5,7 @@
 #
 # ToolMap installed and started. Checks that an invitation link `toolmap://operation?d=…` is taken by ToolMap, that
 # the service of an operation is declared, and that the screen « Partage de position », out of a group, shows the card
-# « Opération » and its button « Créer une opération ». The screen is opened by a pairing link that carries no valid
+# « Opération » (its title and its text). The screen is opened by a pairing link that carries no valid
 # code (it opens the screen of the sharing, joins nothing, and its window « Code refusé » is closed by Back). Leaves
 # operation-release.png and its window dump in the output folder, and the texts of the screen in the log. Fails on any
 # of these, or when the app crashes (Java or native), freezes (ANR) or leaves the front. Called by smoke.sh for every
@@ -42,8 +42,9 @@ for _ in $(seq 1 20); do
   sleep 1
   adb shell uiautomator dump /sdcard/toolmap-opr.xml > /dev/null 2>&1 || continue
   adb pull /sdcard/toolmap-opr.xml "$out/operation-release.xml" > /dev/null 2>&1 || continue
-  if grep -q 'text="Créer une opération"' "$out/operation-release.xml" &&
-    grep -q 'text="Opération"' "$out/operation-release.xml"; then
+  # The title and the text of the card: its button may sit below the fold of a small screen (CI, API 34).
+  if grep -q 'text="Opération"' "$out/operation-release.xml" &&
+    grep -q 'Plusieurs groupes, des chefs' "$out/operation-release.xml"; then
     found="yes"
     break
   fi
