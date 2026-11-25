@@ -50,6 +50,10 @@
 - **Problèmes / dette technique** : le code de la démonstration est dans la release, sans aucun chemin pour l'atteindre (`BuildConfig.DEV_TOOLS` faux).
 - **Prochaine étape recommandée** : rien de publié ; la 0.4.292 part quand la session principale le dit (mécanisme d'ADR-145 : `main` en avance rapide sans `.conception-privee`, P39.19 ✅ dans ce commit-là), puis les essais sur le terrain (R1 à R12).
 - **Suite (même session, 2026-11-25)** : 477676c poussé ; run « CI » n° 273 (45668299026) vert : style, lint, tests, APK de debug et de release, contrôle sur émulateur des deux APK (« The « Opération » mode is in this APK: link, service and card. » deux fois), publication sautée (`.conception-privee`) ; « Opération, bout en bout » (45668299122) vert. Aucune release créée (dernière : `android-0.4.291`).
+- **Suite (même session, 2026-11-25), publication** :
+  - d0a4ca4 poussé ; run « CI » n° 274 (45672131683) vert, contrôle sur émulateur des deux APK compris, publication sautée. Son APK de debug 0.4.292 (certificat de publication `85334c0a…a6a0d3a4`) copié dans le dossier Drive « APK debug » ; miroir Drive fait (0.4.292 ; le script a archivé au passage `ToolMap.0.4.231.apk`, la passerelle, qui manquait dans « APK release »).
+  - Contrôle de la session principale (2026-11-25) : le diff ed5d0cc..d0a4ca4 lu (rien de visible hors de ce que montrait l'APK de debug ; démonstration derrière `BuildConfig.DEV_TOOLS`), identité `noreply` et rien de privé, journal du run n° 274, captures à côté des aperçus validés, Drive. Puis son ordre de publier la 0.4.292 par le mécanisme d'ADR-145, sur le feu vert de l'utilisateur du 2026-11-25 (« Oui, ouvre-le »).
+  - Ce commit, sans `.conception-privee`, poussé sur `main` en avance rapide ; P39.19 ✅ ; `docs/specs/ui-index.md` : OPERATION_NEW ✅.
 
 ## 2026-11-24 — Session 126 (suite) — [P39.18] Nouvelle version publique : « Partager l'app » remplace « Quitter » dans le menu
 - **Branche / commit** : commit de `conception/groupes-hierarchiques` sans `.conception-privee`, poussé sur `main` en avance rapide (ADR-145), après 891a8ca.
