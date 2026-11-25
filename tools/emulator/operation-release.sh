@@ -6,9 +6,10 @@
 # ToolMap installed and started. Checks that an invitation link `toolmap://operation?d=…` is taken by ToolMap, that
 # the service of an operation is declared, and that the screen « Partage de position », out of a group, shows the card
 # « Opération » and its button « Créer une opération ». The screen is opened by a pairing link that carries no valid
-# code (it opens the screen of the sharing and joins nothing). Leaves operation-release.png and its window dump in the
-# output folder, and the texts of the screen in the log. Fails on any of these, or when the app crashes (Java or
-# native), freezes (ANR) or leaves the front. Called by smoke.sh for every APK.
+# code (it opens the screen of the sharing, joins nothing, and its window « Code refusé » is closed by Back). Leaves
+# operation-release.png and its window dump in the output folder, and the texts of the screen in the log. Fails on any
+# of these, or when the app crashes (Java or native), freezes (ANR) or leaves the front. Called by smoke.sh for every
+# APK.
 set -euo pipefail
 
 out="${1:-emulator-check}"
@@ -28,8 +29,9 @@ resolved="$(adb shell pm resolve-activity --brief -a android.intent.action.VIEW 
 echo "toolmap://operation is taken by: $resolved"
 [[ "$resolved" == "$pkg/"*MainActivity ]] || fail "the link toolmap://operation is not taken by ToolMap ($resolved)"
 
-adb shell dumpsys package "$pkg" | tr -d '\r' | grep "$pkg/.operation.OperationService" > /dev/null ||
-  fail "the service of an operation is not declared in the APK"
+# A service without an intent filter is not in `dumpsys package`: asked by its name instead.
+adb shell pm query-services -n "$pkg/.operation.OperationService" | tr -d '\r' |
+  grep "name=$pkg.operation.OperationService" > /dev/null || fail "the service of an operation is not declared in the APK"
 echo "The service of an operation is declared."
 
 adb logcat -c || true
@@ -45,6 +47,8 @@ for _ in $(seq 1 20); do
     found="yes"
     break
   fi
+  # The pairing link carries no valid code: its window « Code refusé » goes away with Back, over the screen.
+  if grep -q 'text="Code refusé"' "$out/operation-release.xml"; then adb shell input keyevent KEYCODE_BACK; fi
 done
 adb exec-out screencap -p > "$out/operation-release.png" || true
 echo "Texts on the screen of the sharing:"
