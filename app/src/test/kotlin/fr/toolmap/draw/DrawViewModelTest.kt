@@ -166,8 +166,8 @@ class DrawViewModelTest {
         assertEquals("Boucle du lac", track.name)
         assertNull(track.folderId)
         assertEquals(2, track.pointCount)
-        assertFalse(vm.ui.value.active)
-        assertNull(vm.overlay.value)
+        // The editor closes after the track is written (finish() comes last): waited for, not read at once.
+        waitFor("editor closed") { !vm.ui.value.active && vm.overlay.value == null }
         assertTrue(messages.any { it.resId == R.string.draw_saved })
     }
 
@@ -261,7 +261,8 @@ class DrawViewModelTest {
         assertEquals(listOf("Grande", "Grande (2)"), tracks.map { it.name.orEmpty() }.sorted())
         // The cut vertex belongs to both halves: 4 + 3 points.
         assertEquals(listOf(4, 3), listOf("Grande", "Grande (2)").map { n -> tracks.first { it.name == n }.pointCount })
-        assertFalse(vm.ui.value.active)
+        // The editor closes after the second track is written (finish() comes last): waited for, not read at once.
+        waitFor("editor closed") { !vm.ui.value.active }
     }
 
     @Test
