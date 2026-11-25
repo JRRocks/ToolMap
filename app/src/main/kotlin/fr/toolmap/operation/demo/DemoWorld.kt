@@ -32,7 +32,7 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * The « opération de démonstration » of the debug build type (P39.8, ADR-130): the facts of the maquettes
+ * The « opération de démonstration », a testing tool (P39.8, ADR-130, ADR-146): the facts of the maquettes
  * (`docs/previews/p39-groupes/tour3/REMONTEE.md`, « Les mêmes faits sur toutes les images ») played by 22 phones simulated
  * in this app. Each is a real [OperationController], with its own storage under [root] and a key store in memory, in a
  * room of a coordination server simulated in memory, as in `OperationControllerTest`: nothing goes to the server, nothing

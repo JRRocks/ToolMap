@@ -4,7 +4,7 @@
 #
 #   bash tools/emulator/operation-screens.sh [output folder]
 #
-# Asks the running app (`dumpsys activity … operation-screens`, debug build type only) to build its demonstration
+# Asks the running app (`dumpsys activity … operation-screens`, testing tools only: debug) to build its demonstration
 # (« Exercice Vallon », 22 phones simulated in the app, in a room in memory: nothing goes to the server), then shows
 # each scene in turn and takes it: one PNG per scene in <output folder>/operation/, named after the maquette it is to be
 # compared with (tour4-10-creation-A.png ↔ docs/previews/p39-groupes/tour4/img/10-creation.png, variant A), by day,

@@ -135,7 +135,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileDescriptor
 import java.io.PrintWriter
-import java.util.Optional
 import javax.inject.Inject
 
 /** The app's screens; swapped in place over the map, kept in a back stack (no navigation library, RS1). */
@@ -159,7 +158,7 @@ private enum class Screen {
     /** « Partager l'app » (P40.1). */
     SHARE_APP,
 
-    /** « Nouvelle opération » (P39.8): debug build type only ([BuildConfig.OPERATION_MODE]). */
+    /** « Nouvelle opération » (P39.8). */
     OPERATION_NEW,
 }
 
@@ -187,12 +186,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var updateController: UpdateController
 
-    // The « Opération » mode (P39.8, ADR-130): bound in the debug build type only, empty in a release.
+    // The « Opération » mode (P39.8, ADR-146), in every build type.
     @Inject
-    lateinit var operationFeature: Optional<OperationFeature>
-
-    private val operation: OperationFeature?
-        get() = if (BuildConfig.OPERATION_MODE) operationFeature.orElse(null) else null
+    lateinit var operation: OperationFeature
 
     private val viewModel: MapViewModel by viewModels()
     private val downloadViewModel: DownloadViewModel by viewModels()
@@ -358,8 +354,8 @@ class MainActivity : ComponentActivity() {
                             shareViewModel.openRequests.collect { open(Screen.SHARE) }
                         }
                         LaunchedEffect(Unit) {
-                            // An invitation to an operation, the demonstration, a capture (debug build type only).
-                            operation?.requests?.collect { request ->
+                            // An invitation to an operation, the demonstration or a capture (testing tools only).
+                            operation.requests.collect { request ->
                                 when (request) {
                                     OperationRequest.SHARE -> {
                                         stack = BackStack.open(listOf(Screen.MAP), Screen.SHARE, Screen.MAP)
@@ -694,10 +690,9 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         Screen.SHARE -> {
-                                            val op = operation
-                                            val inOperation = op?.active?.collectAsStateWithLifecycle()?.value == true
-                                            if (op != null && inOperation) {
-                                                op.OperationScreen(onBack = ::back)
+                                            val inOperation by operation.active.collectAsStateWithLifecycle()
+                                            if (inOperation) {
+                                                operation.OperationScreen(onBack = ::back)
                                             } else {
                                                 ShareScreen(
                                                     vm = shareViewModel,
@@ -745,23 +740,20 @@ class MainActivity : ComponentActivity() {
                                                         }
                                                     },
                                                     operationEntry =
-                                                        op?.shareEntry(onCreate = { open(Screen.OPERATION_NEW) }),
+                                                        operation.shareEntry(onCreate = { open(Screen.OPERATION_NEW) }),
                                                 )
-                                                op?.ShareDialogs(setName = { shareViewModel.ui.value.settings.name })
+                                                operation.ShareDialogs(
+                                                    setName = { shareViewModel.ui.value.settings.name },
+                                                )
                                             }
                                         }
 
                                         Screen.OPERATION_NEW -> {
-                                            val op = operation
-                                            if (op == null) {
-                                                LaunchedEffect(Unit) { back() }
-                                            } else {
-                                                op.CreateScreen(
-                                                    defaultName = { shareViewModel.ui.value.myName },
-                                                    onClose = ::back,
-                                                    onCreated = ::back,
-                                                )
-                                            }
+                                            operation.CreateScreen(
+                                                defaultName = { shareViewModel.ui.value.myName },
+                                                onClose = ::back,
+                                                onCreated = ::back,
+                                            )
                                         }
 
                                         Screen.AVAILABLE -> {
@@ -806,7 +798,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         // « Départ non reçu » of the « Opération » mode (P39.14.5, M4 A), whatever screen ToolMap opens on.
-                        operation?.AppDialogs()
+                        operation.AppDialogs()
                         incomingFavorites?.let { incoming ->
                             ReceiveFavoritesSheet(
                                 incoming = incoming,
@@ -896,14 +888,14 @@ class MainActivity : ComponentActivity() {
             )
         }
         // `… operation-screens …`: the demonstration and the screens of the « Opération » mode, for the captures of
-        // the CI (P39.8, tools/emulator/operation-screens.sh); debug build type only.
-        if (BuildConfig.DEV_TOOLS && args != null) operation?.dump(args, writer)
+        // the CI (P39.8, tools/emulator/operation-screens.sh); testing tools only (ADR-146).
+        if (BuildConfig.DEV_TOOLS && args != null) operation.dump(args, writer)
     }
 
     override fun onStart() {
         super.onStart()
         // Back on screen: what Android refused out of sight is asked again (the service of an operation, P39.14.8).
-        operation?.onAppShown()
+        operation.onAppShown()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -928,9 +920,9 @@ class MainActivity : ComponentActivity() {
         }
         val data = intent?.data
         EventLog.event("app.intent", "action" to intent?.action, "scheme" to data?.scheme)
-        // An invitation to an operation (`toolmap://operation?d=…`, P39.8): debug build type only.
+        // An invitation to an operation (`toolmap://operation?d=…`, P39.8).
         if (intent?.action == Intent.ACTION_VIEW && data?.scheme == PAIR_SCHEME &&
-            operation?.onLink(data.toString()) == true
+            operation.onLink(data.toString())
         ) {
             return
         }

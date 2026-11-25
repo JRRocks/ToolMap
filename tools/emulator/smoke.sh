@@ -15,8 +15,10 @@
 # Last, the keys of the « Opération » mode in the Keystore, made, read back after a restart of the process, and wiped
 # (hierarchy-keys.sh, P39.6, ADR-128), then the « Opération » controller on this device alone, created with messages,
 # read back and dissolved, its trace read back then wiped (hierarchy-operation.sh, P39.7, ADR-129; P39.9, ADR-131):
-# only an APK with the testing tools answers (debug), a release is skipped. For the debug APK last, the screens of
-# the « Opération » mode, one capture each (operation-screens.sh, P39.8).
+# only an APK with the testing tools answers (debug), a release is skipped. Then, for every APK, the « Opération »
+# mode itself: its link, its service and its card on the screen of the sharing (operation-release.sh, P39.19,
+# ADR-146). For the debug APK last, the screens of the « Opération » mode, one capture each (operation-screens.sh,
+# P39.8).
 # The APK is not debuggable since P36.7 (ADR-120): nothing here needs `run-as`.
 set -euo pipefail
 
@@ -128,6 +130,8 @@ bash "$(dirname "$0")/hierarchy-keys.sh" "$out" || fail "the check of the keys o
 # The « Opération » controller on this one device, no server (P39.7, P39.9): created, read back after a restart,
 # dissolved, only its trace left, the trace read back after another restart then wiped.
 bash "$(dirname "$0")/hierarchy-operation.sh" "$out" || fail "the check of the « Opération » controller failed"
+# The « Opération » mode in this APK, a release included (P39.19, ADR-146): its link, its service, its card.
+bash "$(dirname "$0")/operation-release.sh" "$out" || fail "the « Opération » mode is not in this APK"
 # The screens of the « Opération » mode (P39.8): the debug APK only, one capture per screen in operation/.
 if [[ "$(basename "$apk")" == *debug* ]]; then
   bash "$(dirname "$0")/operation-screens.sh" "$out" || fail "the captures of the « Opération » screens failed"

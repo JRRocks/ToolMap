@@ -6,6 +6,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import fr.toolmap.BuildConfig
 import fr.toolmap.R
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,9 +14,12 @@ import java.io.PrintWriter
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** The « Opération » mode of the debug build type (P39.8, ADR-130): its screens over [OperationSession]. */
+/**
+ * The « Opération » mode of every build type (P39.8, ADR-146): its screens over [OperationSession]. The demonstration
+ * and the scenes of the captures are testing tools, reached only where [BuildConfig.DEV_TOOLS] is true (debug).
+ */
 @Singleton
-class DebugOperationFeature
+class AppOperationFeature
     @Inject
     constructor(
         private val session: OperationSession,
@@ -33,7 +37,7 @@ class DebugOperationFeature
                 createLabel = stringResource(R.string.op_entry_create_friends),
                 joinTitle = stringResource(R.string.op_entry_join_title),
                 card = { OperationCard(onCreate) },
-                menuItems = { close -> DemoMenuItem(session, close) },
+                menuItems = { close -> if (BuildConfig.DEV_TOOLS) DemoMenuItem(session, close) },
                 onCode = session::onCode,
             )
 
@@ -58,13 +62,13 @@ class DebugOperationFeature
         override fun dump(
             args: Array<out String>,
             writer: PrintWriter,
-        ): Boolean = OperationScenes.dump(session, args, writer)
+        ): Boolean = BuildConfig.DEV_TOOLS && OperationScenes.dump(session, args, writer)
     }
 
-/** Binds the « Opération » mode in the debug build type: the `Optional` of [OperationFeatureModule] is filled here only. */
+/** Binds the « Opération » mode in every build type (ADR-146). */
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class OperationDebugModule {
+abstract class OperationFeatureModule {
     @Binds
-    abstract fun operationFeature(feature: DebugOperationFeature): OperationFeature
+    abstract fun operationFeature(feature: AppOperationFeature): OperationFeature
 }

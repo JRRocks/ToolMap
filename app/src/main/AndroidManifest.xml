@@ -81,6 +81,14 @@
                 <data android:scheme="toolmap" android:host="join" />
             </intent-filter>
 
+            <!-- An invitation to an operation: toolmap://operation?d=... (P39.8, ADR-146) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="toolmap" android:host="operation" />
+            </intent-filter>
+
             <!-- "Open with" for .aqx map definitions and .toolmap favorites (P25.3; no registered MIME type: match on
                  the file name). -->
             <intent-filter>
@@ -225,6 +233,17 @@
             android:name=".navigate.GoToService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- The sharing of an operation, the app open or not (P39.14, L4): its line in ToolMap's notification; and the
+             departure of this phone, sent again until another phone got it (M4 A: type specialUse, no location). -->
+        <service
+            android:name=".operation.OperationService"
+            android:exported="false"
+            android:foregroundServiceType="location|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Sends again, screen off, the departure of the user from a private group of hikers until another phone of the group got it (a week at most); no location." />
+        </service>
 
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"

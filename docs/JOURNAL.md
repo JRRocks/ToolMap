@@ -20,6 +20,12 @@
 
 ---
 
+## 2026-11-25 — Session 127 — [P39.19] Nouveau : le mode « Opération », pour une sortie à plusieurs groupes
+- **Branche / commit** : `conception/groupes-hierarchiques` (privée, `.conception-privee` présent), après ed5d0cc.
+- **Objectif** : le mode « Opération » arrive dans ToolMap, pour une sortie à plusieurs groupes avec un chef et des administrateurs : dans « Partage de position », touchez « Créer une opération », puis invitez les autres par un code ou par un lien. Le partage « Entre amis » ne change pas. Après la mise à jour, vos traces, points, cartes et réglages sont gardés.
+- **Agent** : Claude (session de côté de la session principale « ToolMap (Master) »).
+- **Réalisé** : en cours.
+
 ## 2026-11-24 — Session 126 (suite) — [P39.18] Nouvelle version publique : « Partager l'app » remplace « Quitter » dans le menu
 - **Branche / commit** : commit de `conception/groupes-hierarchiques` sans `.conception-privee`, poussé sur `main` en avance rapide (ADR-145), après 891a8ca.
 - **Objectif** : depuis la 0.4.235, « Partager l'app » remplace « Quitter » dans le menu : un QR code à faire scanner et un lien à envoyer, pour installer ToolMap sur un autre téléphone. Pour fermer ToolMap : Retour sur la carte. Dans « Partage de position », « Scanner un code » passe sur deux lignes s'il ne tient pas, et les valeurs sous le curseur de fréquence restent lisibles sur un petit écran.

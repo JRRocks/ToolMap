@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import fr.toolmap.BuildConfig
 import fr.toolmap.core.eventlog.EventLog
 import fr.toolmap.core.hierarchy.Change
 import fr.toolmap.core.hierarchy.HierarchyState
@@ -551,11 +552,11 @@ class OperationSession
             if (c === real && id != null) withContext(Dispatchers.IO) { storage.wipe(id) }
         }
 
-        // ---- the demonstration (debug build type) ------------------------------------------------------------------
+        // ---- the demonstration (testing tools only, ADR-146) -------------------------------------------------------
 
-        /** Builds the demonstration and shows it from the phone of Membre 1, the creator. */
+        /** Builds the demonstration and shows it from the phone of Membre 1, the creator (testing tools only). */
         fun startDemo() {
-            if (mutableDemoBusy.value) return
+            if (!BuildConfig.DEV_TOOLS || mutableDemoBusy.value) return
             mutableDemoBusy.value = true
             scope.launch {
                 mutableDemo.value?.close()

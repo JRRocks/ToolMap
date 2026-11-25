@@ -13,8 +13,8 @@ import java.io.PrintWriter
 
 /**
  * The screens of the « Opération » mode for the captures of the CI (P39.8, `tools/emulator/operation-screens.sh`),
- * asked by `adb shell dumpsys activity fr.toolmap/.MainActivity operation-screens <command>` (debug build type only;
- * only `adb` and the system may make an activity dump):
+ * asked by `adb shell dumpsys activity fr.toolmap/.MainActivity operation-screens <command>` (testing tools only,
+ * ADR-146; only `adb` and the system may make an activity dump):
  *
  * - `demo`: builds the demonstration; « operation-screens demo ready » in logcat when done;
  * - `list`: the names of the scenes, in the order to take them (the last ones change the demonstration);

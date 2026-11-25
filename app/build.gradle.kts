@@ -194,9 +194,6 @@ android {
             buildConfigField("boolean", "PERF_INTENT", "false")
             // The native compute engine (Rust, ADR-119) is in charge in the debug APK, the one tried on the emulator.
             buildConfigField("boolean", "NATIVE_ENGINE", "true")
-            // The « Opération » mode (P39.8, ADR-130): its screens live in src/debug and show in this build type only,
-            // never in a release nor a benchmark build, while it is designed (ADR-124).
-            buildConfigField("boolean", "OPERATION_MODE", "true")
         }
         release {
             // Off unless asked (-Ptoolmap.minify=true): R8 has never run the app on a phone yet (ADR-027).
@@ -212,8 +209,6 @@ android {
             // The native engine is in charge in a release too since 2026-11-10 (P38.6): tried on the emulator with
             // the debug APK (P38.5), then asked for by the user (ADR-119).
             buildConfigField("boolean", "NATIVE_ENGINE", "true")
-            // The « Opération » mode is not in a release (P39.8, ADR-130); the benchmark build inherits this.
-            buildConfigField("boolean", "OPERATION_MODE", "false")
         }
         // What the measures of P15 run on (ADR-057): a release with R8, still installable over the debug APK.
         create("benchmark") {

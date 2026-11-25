@@ -123,7 +123,7 @@ fun OperationCard(onCreate: () -> Unit) {
     }
 }
 
-/** The entry of the ⋮ menu of the screen of the sharing that starts the demonstration (debug build type only). */
+/** The entry of the ⋮ menu of the screen of the sharing that starts the demonstration (testing tools only, ADR-146). */
 @Composable
 fun DemoMenuItem(
     session: OperationSession,

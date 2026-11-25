@@ -1,19 +1,13 @@
 package fr.toolmap.operation
 
 import androidx.compose.runtime.Composable
-import dagger.BindsOptionalOf
-import dagger.Module
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.PrintWriter
 
 /**
- * The « Opération » mode as the rest of the app sees it (P39.8, ADR-130): a few hooks into the screen of the sharing
- * and into [fr.toolmap.MainActivity]. Its screens, texts and demonstration live in the sources of the debug build type
- * (`app/src/debug`), bound by Hilt there: a release or a benchmark build has none of it, and gets no implementation
- * (an empty `Optional`). The callers also check `BuildConfig.OPERATION_MODE`, true for the debug build type only.
+ * The « Opération » mode as the rest of the app sees it (P39.8, ADR-146): a few hooks into the screen of the sharing
+ * and into [fr.toolmap.MainActivity], implemented by [AppOperationFeature] in every build type.
  */
 interface OperationFeature {
     /** An operation is open on this phone (or the demonstration runs): the screen of the sharing is the operation's. */
@@ -87,16 +81,8 @@ class ShareOperationEntry(
     val joinTitle: String,
     /** The card « Opération » and its button. */
     val card: @Composable () -> Unit,
-    /** Entries of the ⋮ menu (the demonstration, debug only); `close` closes the menu. */
+    /** Entries of the ⋮ menu (the demonstration, testing tools only); `close` closes the menu. */
     val menuItems: @Composable (close: () -> Unit) -> Unit,
     /** A scanned or pasted code; `true` when it was an invitation to an operation (it is then handled here). */
     val onCode: (String) -> Boolean,
 )
-
-/** No implementation outside the debug build type: Hilt gives an empty `Optional<OperationFeature>` there. */
-@Module
-@InstallIn(SingletonComponent::class)
-abstract class OperationFeatureModule {
-    @BindsOptionalOf
-    abstract fun operationFeature(): OperationFeature
-}

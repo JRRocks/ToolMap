@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    The « Opération » mode (P39.8, ADR-130): its texts exist in the debug build type only while it is designed
-    (ADR-124). Words of the validated maquettes (docs/previews/p39-groupes/tour2 to tour4, docs/specs/group-hierarchy.md
+    The « Opération » mode (P39.8, ADR-146), in every build type; the demonstration only where the testing tools are.
+    Words of the validated maquettes (docs/previews/p39-groupes/tour2 to tour4, docs/specs/group-hierarchy.md
     § 10 bis to 10 septies); the newest drawing of a screen wins. **…** marks the words the maquettes write in bold.
 -->
 <resources>

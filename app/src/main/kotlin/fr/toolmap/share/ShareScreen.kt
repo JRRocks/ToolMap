@@ -175,7 +175,7 @@ fun ShareScreen(
     onNewGroupSketch: () -> Unit = {},
     onShareFavorites: () -> Unit = {},
     onAddFavorites: (GroupPoint) -> Unit = {},
-    // The « Opération » mode out of a group (P39.8, ADR-130): debug build type only, `null` everywhere else.
+    // The « Opération » mode out of a group (P39.8, ADR-146); `null` gives the screen without it (tests).
     operationEntry: ShareOperationEntry? = null,
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
